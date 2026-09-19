@@ -1,8 +1,4 @@
-*
-!index.html
-!manifest.json
-!sw.js
-!icon-192.png
-!icon-512.png
-!icon.ico
-!.gitignore
+node_modules/
+src-tauri/target/
+lint-report/
+.backup/
