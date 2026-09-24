@@ -24,6 +24,7 @@ const DIST = path.join(ROOT, "dist");
 const DIST_PWA = path.join(ROOT, "dist-pwa");
 const DIST_TAURI = path.join(ROOT, "dist-tauri");
 const DIST_MARKET = path.join(ROOT, "dist-market");
+const DIST_ITRED = path.join(ROOT, "dist-itred");
 
 // Applied to dist-pwa/ and dist-tauri/ only, as a final pass after each
 // target's own HTML is fully assembled — never to dist/ (the single-file
@@ -284,8 +285,26 @@ function buildMarket() {
   console.log("Built dist-market/market.html (" + html.length + " bytes) from " + MARKET_SCRIPTS.length + " src file(s).");
 }
 
-const mode = process.argv.includes("--market") ? "market" : process.argv.includes("--tauri") ? "tauri" : process.argv.includes("--pwa") ? "pwa" : "single";
+// The public iTred Market Place site — a separate website for customers,
+// not a package of the shop app. It shares no code, styles or shell with
+// the app (its own navy/gold branding, fonts, hash router), so it lives in
+// its own tree, src/itred/, next to src/market/ and src/desktop/. For now
+// that tree is the one self-contained index.html it was written as, and
+// the build copies it through unchanged (byte for byte, not obfuscated).
+// When the site gains code of its own (Supabase auth, listings, the PO
+// cart), split it inside src/itred/ the way buildMarket assembles
+// src/market/, rather than changing this into a copy step for more files.
+const ITRED_SRC = path.join(SRC, "itred", "index.html");
+function buildItred() {
+  const html = fs.readFileSync(ITRED_SRC);
+  fs.mkdirSync(DIST_ITRED, { recursive: true });
+  fs.writeFileSync(path.join(DIST_ITRED, "index.html"), html);
+  console.log("Built dist-itred/index.html (" + html.length + " bytes) from src/itred/index.html.");
+}
+
+const mode = process.argv.includes("--itred") ? "itred" : process.argv.includes("--market") ? "market" : process.argv.includes("--tauri") ? "tauri" : process.argv.includes("--pwa") ? "pwa" : "single";
 if (mode === "pwa") buildPWA();
 else if (mode === "tauri") buildTauri();
 else if (mode === "market") buildMarket();
+else if (mode === "itred") buildItred();
 else buildSingleFile();

@@ -22,7 +22,13 @@ packaging differs.
 node build.js         # dist/       — single-file build
 node build.js --pwa   # dist-pwa/   — installable PWA build
 node build.js --market  # dist-market/market.html — Marketing tab add-on
+node build.js --itred   # dist-itred/index.html  — public iTred Market Place site
 ```
+
+`dist-itred/` is the public iTred Market Place website for customers, a
+separate site from the shop app. Its source is `src/itred/index.html`,
+which is one self-contained file for now; the build copies it through
+unchanged. `test/itred-site-e2e.test.js` covers its 8 routes.
 
 Both read the same `src/` files and produce the same app. Run either or
 both any time; neither depends on the other having been built first.

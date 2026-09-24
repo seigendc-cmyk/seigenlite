@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iTred Market Place</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#12243F;
+    --navy-light:#1C3A63;
+    --navy-soft:#3A5378;
+    --white:#FFFFFF;
+    --offwhite:#F7F4EE;
+    --gold:#C89A4B;
+    --gold-dark:#A87F38;
+    --text:#232A35;
+    --text-soft:#5B6472;
+    --border:rgba(18,36,63,0.14);
+    --radius:2px;
+  }
+  :root:not([data-theme="light"]){
+    /* keep light identity regardless of system dark mode — brand palette is fixed */
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--offwhite);
+    color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces',Georgia,serif;
+    color:var(--navy);
+    font-weight:600;
+    line-height:1.12;
+    margin:0 0 0.5em 0;
+    letter-spacing:-0.01em;
+  }
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+  .narrow{max-width:680px;}
+
+  /* ---------- Header ---------- */
+  header{
+    background:var(--white);
+    border-bottom:1px solid var(--border);
+    position:sticky;top:0;z-index:50;
+  }
+  .headerbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 24px;max-width:1080px;margin:0 auto;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-logo{width:32px;height:32px;flex-shrink:0;border-radius:3px;}
+  .brand .mark{
+    font-family:'Fraunces',serif;font-weight:700;font-size:22px;color:var(--navy);
+  }
+  .brand .sub{font-size:11px;color:var(--gold-dark);letter-spacing:0.04em;font-weight:600;}
+  nav.mainnav{display:flex;gap:2px;align-items:center;}
+  nav.mainnav a{
+    font-size:14px;font-weight:600;color:var(--navy);
+    padding:10px 14px;border-bottom:2px solid transparent;
+  }
+  nav.mainnav a.active{border-bottom:2px solid var(--gold);color:var(--gold-dark);}
+  nav.mainnav a:hover{color:var(--gold-dark);}
+  .navtoggle{display:none;background:none;border:none;cursor:pointer;padding:8px;}
+  .navtoggle span{display:block;width:22px;height:2px;background:var(--navy);margin:5px 0;}
+
+  @media (max-width:760px){
+    nav.mainnav{
+      display:none;position:absolute;top:100%;left:0;right:0;
+      background:var(--white);border-bottom:1px solid var(--border);
+      flex-direction:column;padding:8px 0;
+    }
+    nav.mainnav.open{display:flex;}
+    nav.mainnav a{padding:14px 24px;border-bottom:1px solid var(--border);}
+    .navtoggle{display:block;}
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:13px 26px;font-weight:600;font-size:14.5px;
+    border-radius:var(--radius);cursor:pointer;border:1px solid transparent;
+  }
+  .btn-gold{background:var(--gold);color:var(--navy);}
+  .btn-gold:hover{background:var(--gold-dark);}
+  .btn-navy{background:var(--navy);color:var(--white);}
+  .btn-navy:hover{background:var(--navy-light);}
+  .btn-outline{background:transparent;color:var(--navy);border:1px solid var(--navy);}
+  .btn-outline:hover{background:var(--navy);color:var(--white);}
+
+  /* ---------- Sections ---------- */
+  .page{display:none;}
+  .page.active{display:block;}
+  section{padding:64px 0;}
+  .hero{padding:76px 0 60px 0;border-bottom:1px solid var(--border);}
+  .hero h1{font-size:44px;max-width:720px;}
+  .hero p.lede{font-size:18px;color:var(--text-soft);max-width:560px;margin-bottom:28px;}
+  .stat-row{display:flex;gap:48px;margin-top:48px;flex-wrap:wrap;}
+  .stat{border-left:2px solid var(--gold);padding-left:16px;}
+  .stat .num{font-family:'Fraunces',serif;font-size:32px;color:var(--navy);font-weight:700;}
+  .stat .label{font-size:13px;color:var(--text-soft);}
+
+  .section-title{font-size:28px;margin-bottom:8px;}
+  .section-kicker{color:var(--gold-dark);font-weight:600;font-size:13px;margin-bottom:6px;}
+  .section-intro{color:var(--text-soft);max-width:560px;margin-bottom:36px;}
+
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
+  .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:28px;}
+  @media (max-width:760px){.grid-3,.grid-2{grid-template-columns:1fr;}.hero h1{font-size:32px;}}
+
+  .card{border:1px solid var(--border);padding:28px;background:var(--white);}
+  .card h3{font-size:19px;margin-bottom:10px;}
+  .card p{color:var(--text-soft);font-size:14.5px;margin:0 0 14px 0;}
+
+  .divider{height:1px;background:var(--border);margin:56px 0;}
+
+  footer{
+    background:var(--navy);color:var(--white);padding:44px 0 28px 0;margin-top:40px;
+  }
+  footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px;}
+  footer a{color:#C9D2E0;font-size:14px;}
+  footer a:hover{color:var(--gold);}
+  footer .flinks{display:flex;gap:22px;flex-wrap:wrap;}
+  footer .fmeta{font-size:12.5px;color:#8A97AC;margin-top:24px;}
+
+  /* ---------- Forms ---------- */
+  .field{margin-bottom:20px;}
+  .field label{display:block;font-size:13.5px;font-weight:600;color:var(--navy);margin-bottom:6px;}
+  .field .hint{font-size:12.5px;color:var(--text-soft);margin-top:5px;}
+  input[type=text],input[type=email],input[type=tel],input[type=number],select,textarea{
+    width:100%;padding:12px 14px;border:1px solid var(--border);background:var(--white);
+    font-family:'Inter',sans-serif;font-size:14.5px;color:var(--text);border-radius:var(--radius);
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  textarea{min-height:110px;resize:vertical;}
+  .checkgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  @media (max-width:600px){.checkgrid{grid-template-columns:repeat(2,1fr);}}
+  .checkitem{display:flex;align-items:center;gap:8px;font-size:14px;}
+  .checkitem input{width:auto;}
+  .filedrop{
+    border:1px dashed var(--navy-soft);padding:20px;text-align:center;font-size:13.5px;color:var(--text-soft);
+  }
+  .badge{
+    display:inline-block;font-size:11.5px;font-weight:600;padding:4px 10px;
+    border-radius:var(--radius);letter-spacing:0.02em;
+  }
+  .badge-live{background:#E3F0E6;color:#2A6B3B;}
+  .badge-soon{background:#F1ECE0;color:var(--gold-dark);}
+
+  .callout{
+    background:var(--white);border:1px solid var(--border);border-left:3px solid var(--gold);
+    padding:24px 28px;
+  }
+  .empty-state{
+    text-align:center;padding:64px 24px;border:1px dashed var(--border);background:var(--white);
+  }
+  .empty-state h3{margin-bottom:10px;}
+  .empty-state p{color:var(--text-soft);max-width:420px;margin:0 auto 22px auto;}
+
+  .product-card{border:1px solid var(--border);background:var(--white);overflow:hidden;}
+  .product-card .thumb{width:100%;aspect-ratio:1/1;background:var(--offwhite);object-fit:cover;}
+  .product-card .pbody{padding:16px;}
+  .product-card h4{font-size:15px;margin:0 0 4px 0;color:var(--navy);font-weight:700;}
+  .product-card .vendor{font-size:12.5px;color:var(--gold-dark);font-weight:600;}
+  .product-card .price{font-size:14px;color:var(--text-soft);margin-top:8px;}
+  .product-meta{font-size:12.5px;color:var(--text-soft);margin-top:6px;line-height:1.5;}
+  .product-meta span{display:block;}
+  .product-card .btn,.product-list-item .btn{margin-top:12px;font-size:13px;padding:9px 16px;width:100%;justify-content:center;}
+
+  .product-list-item{
+    display:flex;gap:18px;align-items:center;border:1px solid var(--border);background:var(--white);
+    padding:14px;margin-bottom:12px;
+  }
+  .product-list-item .thumb{width:80px;height:80px;flex-shrink:0;background:var(--offwhite);object-fit:cover;}
+  .product-list-item .pbody{flex:1;min-width:0;}
+  .product-list-item h4{font-size:15px;margin:0 0 4px 0;color:var(--navy);font-weight:700;}
+  .product-list-item .btn{width:auto;margin-top:0;flex-shrink:0;}
+
+  .view-toggle{display:flex;gap:0;border:1px solid var(--navy);width:fit-content;}
+  .view-toggle button{
+    background:var(--white);border:none;padding:9px 18px;font-size:13px;font-weight:600;
+    color:var(--navy);cursor:pointer;
+  }
+  .view-toggle button.active{background:var(--navy);color:var(--white);}
+
+  .icon-btn{
+    width:42px;height:42px;flex-shrink:0;background:var(--white);color:var(--navy);
+    border:1.5px solid var(--navy);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .icon-btn:hover{background:var(--offwhite);}
+  .icon-btn.active{background:var(--navy);color:var(--white);}
+  .icon-toggle{display:flex;}
+  .icon-toggle .icon-btn:first-child{border-right:none;}
+
+  .team-member-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+  .team-member-row input{flex:1;}
+  .team-member-row button{
+    flex-shrink:0;background:none;border:1px solid var(--border);color:var(--text-soft);
+    width:38px;height:38px;cursor:pointer;font-size:16px;
+  }
+
+  .faq-item{border-bottom:1px solid var(--border);padding:16px 0;}
+  .faq-item summary{
+    font-weight:600;color:var(--navy);cursor:pointer;font-size:15px;list-style:none;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .faq-item summary::-webkit-details-marker{display:none;}
+  .faq-item summary::after{content:'+';font-family:'Fraunces',serif;font-size:20px;color:var(--gold-dark);}
+  .faq-item[open] summary::after{content:'\2212';}
+  .faq-item p{color:var(--text-soft);font-size:14.5px;margin:12px 0 0 0;}
+
+  #feedbackWidget{position:fixed;bottom:22px;right:22px;z-index:60;}
+  #feedbackToggle{
+    width:38px;height:38px;border-radius:50%;background:var(--white);color:var(--navy);
+    border:1.5px solid var(--navy);cursor:pointer;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 8px rgba(18,36,63,0.16);
+  }
+  #feedbackToggle:hover{background:var(--offwhite);}
+  #feedbackPanel{
+    display:none;position:absolute;bottom:50px;right:0;width:280px;
+    background:var(--white);border:1px solid var(--border);padding:18px;
+    box-shadow:0 4px 18px rgba(18,36,63,0.18);
+  }
+  #feedbackPanel.open{display:block;}
+  #feedbackPanel h4{font-family:'Fraunces',serif;color:var(--navy);font-size:16px;margin:0 0 10px 0;}
+  #feedbackPanel textarea{min-height:90px;margin-bottom:10px;}
+  @media (max-width:480px){#feedbackPanel{width:calc(100vw - 44px);}}
+
+  ol.steps{padding-left:0;list-style:none;counter-reset:step;}
+  ol.steps li{
+    counter-increment:step;padding:18px 0 18px 44px;position:relative;
+    border-bottom:1px solid var(--border);
+  }
+  ol.steps li:last-child{border-bottom:none;}
+  ol.steps li::before{
+    content:counter(step);position:absolute;left:0;top:16px;
+    width:26px;height:26px;border:1px solid var(--gold);color:var(--gold-dark);
+    font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;
+    font-family:'Fraunces',serif;
+  }
+  ol.steps h4{margin:0 0 4px 0;font-size:15.5px;color:var(--navy);font-weight:700;}
+  ol.steps p{margin:0;color:var(--text-soft);font-size:14px;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="headerbar">
+    <a href="#/" class="brand">
+      <img src="data:image/png;base64,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" alt="iTred" class="brand-logo">
+      <span class="mark">iTred Market Place</span>
+    </a>
+    <button class="navtoggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+    <nav class="mainnav" id="mainNav">
+      <a href="#/" data-route="/">Home</a>
+      <a href="#/market-space" data-route="/market-space">Market Space</a>
+      <a href="#/products" data-route="/products">Products</a>
+      <a href="#/rpn" data-route="/rpn">Become an RPN</a>
+      <a href="#/help" data-route="/help">Help</a>
+      <a href="#/contact" data-route="/contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- HOME -->
+  <div class="page" id="page-/">
+    <section class="hero">
+      <div class="wrap">
+        <div class="section-kicker">iTred Market Place</div>
+        <h1>Find your products, and your vendors, near you.</h1>
+        <p class="lede">iTred connects buyers with real vendors trading in their area — and gives every vendor using seiGEN Commerce Lite a place to be seen, discovered, and messaged directly.</p>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <a href="#/market-space" class="btn btn-gold">Browse Market Space</a>
+          <a href="#/rpn" class="btn btn-outline">Become an RPN Partner</a>
+        </div>
+        <div class="stat-row">
+          <div class="stat"><div class="num">200</div><div class="label">Products a vendor can showcase</div></div>
+          <div class="stat"><div class="num">Always fresh</div><div class="label">Listings refresh every 7 days — real, current stock</div></div>
+          <div class="stat"><div class="num">Curated</div><div class="label">Every listing checked before it goes live</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-kicker">Market Highlights</div>
+        <h2 class="section-title">What's happening on iTred</h2>
+        <div id="highlightsResults" class="grid-3"></div>
+        <div id="highlightsEmpty" class="empty-state">
+          <h3>Highlights coming soon</h3>
+          <p>Our team is choosing the first set of market highlights to feature here.</p>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="wrap">
+        <div class="section-kicker">Vendor Showcase</div>
+        <h2 class="section-title">The businesses behind iTred</h2>
+        <p class="section-intro">A look inside the shops and stalls already trading through the marketplace.</p>
+        <div id="showcaseResults" class="grid-3"></div>
+        <div id="showcaseEmpty" class="empty-state">
+          <h3>Vendor photos coming soon</h3>
+          <p>As vendors join, we'll feature their shops here.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-kicker">For Vendors</div>
+        <h2 class="section-title">Build visibility. Build growth.</h2>
+        <p class="section-intro">Running your shop on seiGEN Commerce Lite already means your products are ready to sell online. Getting discovered is the next step.</p>
+        <ol class="steps">
+          <li>
+            <h4>List straight from your shop</h4>
+            <p>Choose up to 200 products you want buyers to see — no separate catalogue, no extra work.</p>
+          </li>
+          <li>
+            <h4>Send it over WhatsApp</h4>
+            <p>Share your product photos with our team using the WhatsApp you already have — nothing new to install or learn.</p>
+          </li>
+          <li>
+            <h4>We check every listing</h4>
+            <p>Our team reviews everything for quality before it goes public, so buyers trust what they see.</p>
+          </li>
+          <li>
+            <h4>Get found by buyers near you</h4>
+            <p>Approved products appear in Market Space, where nearby buyers can find you and message you directly on WhatsApp.</p>
+          </li>
+          <li>
+            <h4>Stay visible</h4>
+            <p>Listings stay live for 7 days, keeping stock current and buyers confident. Send a quick update anytime to stay active.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="wrap">
+        <div class="section-kicker">Grown With You</div>
+        <h2 class="section-title">More than a till. A way to run your shop.</h2>
+        <p class="section-intro">seiGEN Commerce Lite has grown alongside the vendors using it — from ringing up sales to running a real business.</p>
+        <div class="grid-3">
+          <div class="card">
+            <h3>Set up in minutes</h3>
+            <p>Install straight from your browser — no technician, no server, no setup hassle. Your phone or PC does the rest.</p>
+          </div>
+          <div class="card">
+            <h3>Multiple branches, one view</h3>
+            <p>Send stock between branches and see it merge in cleanly — nothing updates silently, so you always know what's actually on the shelf.</p>
+          </div>
+          <div class="card">
+            <h3>Know your numbers</h3>
+            <p>Track what you paid for stock and watch your starting investment come back sale by sale, with reports you can actually read.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="wrap">
+        <div class="callout">
+          <h3 style="margin-bottom:8px;">Already selling? Get seen.</h3>
+          <p style="color:var(--text-soft);margin-bottom:16px;">Try seiGEN Commerce Lite free for 30 days. Once you're on it, listing with iTred is the fastest way to put your products in front of new buyers nearby.</p>
+          <a href="#/products" class="btn btn-navy">Get seiGEN Commerce Lite</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-kicker">Recruitment Drive</div>
+        <h2 class="section-title">Become a Revenue Partner (RPN)</h2>
+        <p class="section-intro">We're building a network of RPNs — individuals or groups — across every city to bring more vendors into iTred and support them once they're listed.</p>
+        <div class="grid-3">
+          <div class="card">
+            <h3>Earn from onboarding</h3>
+            <p>Work independently on a commission basis — be recognised and rewarded for every vendor you bring in and support.</p>
+          </div>
+          <div class="card">
+            <h3>Be part of the growth</h3>
+            <p>Join a fast-growing marketplace network across Zimbabwe, with the backing and training to do it well.</p>
+          </div>
+          <div class="card">
+            <h3>Work your own region</h3>
+            <p>Operate in the areas you know best, supporting the vendors and communities you already have relationships with.</p>
+          </div>
+        </div>
+        <div style="margin-top:32px;">
+          <a href="#/rpn" class="btn btn-gold">Apply to become an RPN</a>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="wrap">
+        <div class="callout">
+          <h3 style="margin-bottom:8px;">Looking to buy?</h3>
+          <p style="color:var(--text-soft);margin-bottom:16px;">iTred is where you find your products, and your vendors, near you. Search Market Space and message any vendor directly on WhatsApp.</p>
+          <a href="#/market-space" class="btn btn-navy">Browse Market Space</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- MARKET SPACE -->
+  <div class="page" id="page-/market-space">
+    <section style="padding-top:36px;padding-bottom:0;">
+      <div class="wrap">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="marketSearch" placeholder="Search products, vendors, categories" style="flex:1;min-width:180px;padding:12px 14px;border:1px solid var(--border);background:var(--white);font-family:'Inter',sans-serif;font-size:14.5px;">
+          <button type="button" id="nearMeBtn" class="icon-btn" aria-label="Show vendors near me" title="Show vendors near me">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-7.5 7-12a7 7 0 10-14 0c0 4.5 7 12 7 12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+          <div class="icon-toggle">
+            <button type="button" id="viewCardBtn" class="icon-btn active" aria-label="Grid view" title="Grid view">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+            <button type="button" id="viewListBtn" class="icon-btn" aria-label="List view" title="List view">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2"/><line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"/><line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2"/><circle cx="4" cy="6" r="1.4" fill="currentColor"/><circle cx="4" cy="12" r="1.4" fill="currentColor"/><circle cx="4" cy="18" r="1.4" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+        <span id="nearMeStatus" class="hint" style="display:block;margin-top:8px;"></span>
+      </div>
+    </section>
+    <section style="padding-top:24px;">
+      <div class="wrap">
+        <div id="marketResults" class="grid-3"></div>
+        <div id="marketEmpty" class="empty-state">
+          <h3>Vendors are being onboarded</h3>
+          <p>We're reviewing the first batch of vendor marketing files. Listings will appear here as they're approved — check back soon, or apply below to help us onboard vendors in your area.</p>
+          <a href="#/rpn" class="btn btn-gold">Apply as an RPN</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div class="page" id="page-/products">
+    <section class="hero" style="padding-bottom:40px;">
+      <div class="wrap">
+        <div class="section-kicker">Digital Commerce Products</div>
+        <h1 style="font-size:36px;">Software built for how African vendors actually trade.</h1>
+        <p class="lede">Each product is built and maintained by seiGEN — offline-first, low-data, and made for the shop floor.</p>
+      </div>
+    </section>
+    <section style="padding-top:0;">
+      <div class="wrap">
+        <div class="grid-3" id="productsGrid">
+          <div class="card">
+            <span class="badge badge-live">Available now</span>
+            <h3 style="margin-top:12px;">seiGEN Commerce Lite</h3>
+            <p>A fully offline point-of-sale app for small shops — install straight from your browser, run multiple branches, track stock and staff, and list your products to iTred straight from it.</p>
+            <a href="https://desktoppos.seigendc.workers.dev/" target="_blank" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;" id="commerceLiteDownload">Download</a>
+          </div>
+          <div class="card">
+            <span class="badge badge-soon">Coming soon</span>
+            <h3 style="margin-top:12px;">seiGEN Commerce POS</h3>
+            <p>Multi-tenant, multi-branch point-of-sale for growing vendors — online-first with offline fallback, staff roles, and real-time reporting across branches.</p>
+            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
+          </div>
+          <div class="card">
+            <span class="badge badge-soon">Coming soon</span>
+            <h3 style="margin-top:12px;">seiGEN Ledger</h3>
+            <p>Stock, cutting-list costing and invoicing for workshops and material yards — track consumables and job costs in one offline app.</p>
+            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
+          </div>
+          <div class="card">
+            <span class="badge badge-soon">Coming soon</span>
+            <h3 style="margin-top:12px;">farmPLAN</h3>
+            <p>Farm management made simple — plan seasons, track inputs, and keep records for your farming operation.</p>
+            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
+          </div>
+          <div class="card">
+            <span class="badge badge-soon">Coming soon</span>
+            <h3 style="margin-top:12px;">Livestock Manager Lite</h3>
+            <p>A mobile-first companion to farmPLAN for managing goats and sheep — track herds, health, and breeding on the go.</p>
+            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
+          </div>
+          <div class="card">
+            <span class="badge badge-soon">Coming soon</span>
+            <h3 style="margin-top:12px;">PressCRAFT</h3>
+            <p>A book-authoring tool for writers and publishers — including eClass, a companion tool for building and sharing educational content.</p>
+            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- RPN APPLICATION -->
+  <div class="page" id="page-/rpn">
+    <section class="hero" style="padding-bottom:40px;">
+      <div class="wrap">
+        <div class="section-kicker">Revenue Partner (RPN) Recruitment</div>
+        <h1 style="font-size:34px;">Earn by bringing vendors into iTred.</h1>
+        <p class="lede">RPNs — individuals or groups — onboard and support vendors in one city, and are recognised for every vendor they bring in. Apply below, or see who's already verified.</p>
+      </div>
+    </section>
+    <section style="padding-top:0;">
+      <div class="wrap narrow">
+        <div class="view-toggle" style="margin-bottom:32px;">
+          <button type="button" id="rpnTabApply" class="active">Apply</button>
+          <button type="button" id="rpnTabVerified">Verified Partners</button>
+        </div>
+
+        <div id="rpnApplyTab">
+        <p class="hint" style="margin-bottom:20px;">Applying doesn't make you an RPN yet — every applicant is verified by our team first. Once approved, you'll appear on the Verified Partners tab.</p>
+        <form id="rpnForm">
+          <div class="field">
+            <label>Applying as</label>
+            <div class="view-toggle">
+              <button type="button" id="typeIndividualBtn" class="active">Individual</button>
+              <button type="button" id="typeGroupBtn">Group</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="agencyName" id="agencyNameLabel">Full name</label>
+            <input type="text" id="agencyName" required>
+          </div>
+
+          <div class="grid-2" id="contactPersonRow" style="display:none;">
+            <div class="field">
+              <label for="contactPerson">Primary contact person</label>
+              <input type="text" id="contactPerson">
+            </div>
+            <div class="field">
+              <label for="role">Their role in the group</label>
+              <input type="text" id="role" placeholder="e.g. Director, Operations Lead">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="phone">Phone / WhatsApp</label>
+              <input type="tel" id="phone" required>
+            </div>
+            <div class="field">
+              <label for="email">Email</label>
+              <input type="email" id="email" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="cityServiced">City you want to service</label>
+            <input type="text" id="cityServiced" placeholder="e.g. Bulawayo" required>
+            <div class="hint">Choose one city — your work as an RPN is limited to this area.</div>
+          </div>
+
+          <div class="field" id="teamMembersField" style="display:none;">
+            <label>Team members</label>
+            <div id="teamMembersList"></div>
+            <button type="button" id="addTeamMemberBtn" class="btn btn-outline" style="font-size:13px;padding:9px 16px;margin-top:6px;">+ Add team member</button>
+          </div>
+
+          <div class="grid-2">
+            <div class="field" id="teamSizeField">
+              <label for="teamSize">Team size</label>
+              <select id="teamSize">
+                <option>2–5</option>
+                <option>6–15</option>
+                <option>16–50</option>
+                <option>50+</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="yearsExp">Years of experience</label>
+              <select id="yearsExp">
+                <option>Less than 1 year</option>
+                <option>1–3 years</option>
+                <option>3–5 years</option>
+                <option>5+ years</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="experience">Relevant experience</label>
+            <textarea id="experience" placeholder="Tell us about vendor onboarding, field support, sales or distribution work you or your team have done." required></textarea>
+          </div>
+
+          <div class="field">
+            <label>Supporting documents</label>
+            <div class="filedrop">
+              <div class="hint">Have your ID or registration certificate, portfolio, and references ready. There's no upload here — you'll attach them directly in WhatsApp once it opens below.</div>
+            </div>
+          </div>
+
+          <a href="#" id="rpnSendBtn" target="_blank" rel="noopener" class="btn btn-gold" style="width:100%;justify-content:center;">Send application via WhatsApp</a>
+          <p class="hint" style="text-align:center;margin-top:12px;">This opens WhatsApp with your details pre-filled. Attach your documents there before sending.</p>
+        </form>
+        </div>
+
+        <div id="rpnVerifiedTab" style="display:none;">
+          <div id="rpnVerifiedList"></div>
+          <div id="rpnVerifiedEmpty" class="empty-state">
+            <h3>Partners coming soon</h3>
+            <p>We're verifying our first group of RPN applicants. Once approved, they'll be listed here by city.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- HELP -->
+  <div class="page" id="page-/help">
+    <section class="hero" style="padding-bottom:40px;">
+      <div class="wrap">
+        <div class="section-kicker">Help</div>
+        <h1 style="font-size:34px;">Common questions, answered.</h1>
+        <p class="lede">Can't find what you need? <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">Message us</a> directly.</p>
+      </div>
+    </section>
+
+    <section style="padding-top:0;">
+      <div class="wrap narrow">
+        <h3 style="font-size:16px;color:var(--gold-dark);margin-bottom:14px;">Buying on iTred</h3>
+        <details class="faq-item">
+          <summary>How do I find vendors near me?</summary>
+          <p>Go to Market Space and tap "Show vendors near me" — it uses your device's location to show the closest listings first. You can also search by product, vendor, or category.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How do I contact a vendor?</summary>
+          <p>Every product card has a "Contact on WhatsApp" button. It opens a chat directly with that vendor, with your interest already noted.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Why do some listings disappear?</summary>
+          <p>Listings stay live for 7 days to keep stock information current. If a vendor's listing has expired, ask them (via their last WhatsApp chat) whether it's still available, or check back after they refresh it.</p>
+        </details>
+
+        <h3 style="font-size:16px;color:var(--gold-dark);margin:36px 0 14px 0;">For vendors</h3>
+        <details class="faq-item">
+          <summary>How do I get my products listed?</summary>
+          <p>List your products in seiGEN Commerce Lite, then send your product photos to us over WhatsApp. Our team reviews everything before it goes live.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How many products can I list?</summary>
+          <p>Up to 200 products at a time.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How do I keep my listing active?</summary>
+          <p>Send us an updated set of photos before the 7-day window ends. There's no limit on how often you can refresh.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Does it cost anything?</summary>
+          <p>seiGEN Commerce Lite is free to try for your first 30 days. After that, there's a fee for implementation — things like stocktake (if needed), app setup, and getting your shop running on it. <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">Contact us</a> for pricing.</p>
+        </details>
+
+        <h3 style="font-size:16px;color:var(--gold-dark);margin:36px 0 14px 0;">Becoming an RPN</h3>
+        <details class="faq-item">
+          <summary>What is an RPN?</summary>
+          <p>A Revenue Partner — an individual or a group we work with to onboard and support vendors, working within one chosen city, as part of the Revenue Partner Network.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Am I an RPN once I apply?</summary>
+          <p>Not yet. Every application is reviewed and verified by our team first. Once approved, you'll appear on the <a href="#/rpn" style="color:var(--gold-dark);text-decoration:underline;">Verified Partners list</a>.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How long does verification take?</summary>
+          <p>We review applications as they come in — if you haven't heard back and want an update, <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">message us</a>.</p>
+        </details>
+      </div>
+    </section>
+  </div>
+
+  <!-- CONTACT -->
+  <div class="page" id="page-/contact">
+    <section class="hero" style="padding-bottom:40px;">
+      <div class="wrap">
+        <div class="section-kicker">Contact Us</div>
+        <h1 style="font-size:36px;">Talk to the iTred team.</h1>
+        <p class="lede">Whether you're a vendor, a buyer, or an agency — reach us directly.</p>
+      </div>
+    </section>
+    <section style="padding-top:0;">
+      <div class="wrap narrow">
+        <div class="card" style="margin-bottom:24px;">
+          <h3>WhatsApp</h3>
+          <p>The fastest way to reach us — including sending your product photos to get listed.</p>
+          <a href="https://wa.me/263774479121?text=Hi%2C%20I%27m%20reaching%20out%20from%20the%20iTred%20Market%20Place%20website." target="_blank" class="btn btn-gold">Message +263 77 447 9121</a>
+        </div>
+        <div class="card" style="margin-bottom:24px;">
+          <h3>Our address</h3>
+          <p style="margin:0;">49 Brechin Est, Commerce Valley, Beatrice, Zimbabwe</p>
+        </div>
+        <form id="contactForm">
+          <div class="field">
+            <label for="cName">Name</label>
+            <input type="text" id="cName" required>
+          </div>
+          <div class="field">
+            <label for="cEmail">Email</label>
+            <input type="email" id="cEmail" required>
+          </div>
+          <div class="field">
+            <label for="cMessage">Message</label>
+            <textarea id="cMessage" required></textarea>
+          </div>
+          <a href="#" id="contactSendBtn" target="_blank" rel="noopener" class="btn btn-navy" style="width:100%;justify-content:center;">Send message</a>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <!-- PRIVACY -->
+  <div class="page" id="page-/privacy">
+    <section class="hero" style="padding-bottom:40px;">
+      <div class="wrap">
+        <div class="section-kicker">Legal</div>
+        <h1 style="font-size:34px;">Privacy Policy</h1>
+      </div>
+    </section>
+    <section style="padding-top:0;">
+      <div class="wrap narrow" style="color:var(--text-soft);font-size:14.5px;">
+        <p><strong style="color:var(--navy);">Last updated:</strong> 18 September 2026</p>
+        <h3 style="font-size:18px;margin-top:28px;">About this site</h3>
+        <p>iTred Market Place is operated by Digital Commerce, a distribution channel for seiGEN Commerce Infrastructure products, operating under license. seiGEN Commerce Lite, seiGEN Commerce POS, seiGEN Ledger, farmPLAN, Livestock Manager Lite and PressCRAFT are seiGEN Commerce Infrastructure products.</p>
+        <h3 style="font-size:18px;margin-top:28px;">What we collect</h3>
+        <p>We collect the information you give us directly — through the Contact form, the RPN application, and product images and details vendors send us via WhatsApp for listing on Market Space.</p>
+        <h3 style="font-size:18px;margin-top:28px;">Vendor marketing files</h3>
+        <p>Product photos and details are sent to us voluntarily by vendors over WhatsApp. We review every image and product before anything is published publicly, and vendors may ask us to remove a listing at any time.</p>
+        <h3 style="font-size:18px;margin-top:28px;">How we use it</h3>
+        <p>We use the information you provide to operate Market Space, evaluate RPN applications, respond to enquiries, and improve the products listed on this site. We do not sell personal information to third parties.</p>
+        <h3 style="font-size:18px;margin-top:28px;">Contact</h3>
+        <p>Questions about this policy can be sent to us via the <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">Contact page</a> or WhatsApp.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- TERMS -->
+  <div class="page" id="page-/terms">
+    <section class="hero" style="padding-bottom:40px;">
+      <div class="wrap">
+        <div class="section-kicker">Legal</div>
+        <h1 style="font-size:34px;">Terms of Business</h1>
+      </div>
+    </section>
+    <section style="padding-top:0;">
+      <div class="wrap narrow" style="color:var(--text-soft);font-size:14.5px;">
+        <p><strong style="color:var(--navy);">Last updated:</strong> 18 September 2026</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">1. What you can submit to Market Space</h3>
+        <p>Vendors may submit up to 200 real products they currently stock and can fulfil. Each product must have a clear, accurate photo, a true product name, correct pricing, quantity available, and (where relevant) a minimum order quantity. Submissions must represent goods the vendor is legally entitled to sell.</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">2. Prohibited content</h3>
+        <p>The following is never permitted in any image, product name, description, or search keyword submitted to iTred:</p>
+        <p>&bull; Nudity, sexual content, or sexually suggestive imagery<br>
+        &bull; Offensive, discriminatory, or hateful wording<br>
+        &bull; Counterfeit, stolen, illegal, or unsafe goods<br>
+        &bull; Misleading claims, false pricing, or doctored images<br>
+        &bull; Content that infringes someone else's copyright, trademark, or likeness</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">3. Fair competition</h3>
+        <p>Vendors must not use iTred to disparage, impersonate, undercut through misleading pricing, copy another vendor's listings or photos, or otherwise engage in unfair competition against other vendors on the platform. Listings found to breach this may be removed without notice.</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">4. Review and removal</h3>
+        <p>Every submission is reviewed by our team before publishing, and nothing is published automatically. We may reject, edit for compliance, or remove any listing at any time, including listings that were previously approved, if they're later found to breach these terms.</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">5. Listing duration</h3>
+        <p>Approved listings stay visible and searchable for 7 days from the date submitted. Vendors must resubmit to keep a listing active.</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">6. Vendor responsibility</h3>
+        <p>Vendors are responsible for the accuracy of what they list, for honouring the price and availability shown, and for complying with all applicable laws in how they trade. iTred is a discovery platform connecting buyers and vendors — the sale itself happens directly between them, and iTred is not a party to that transaction.</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">7. Using our software products</h3>
+        <p>These terms also cover your use of seiGEN Commerce Lite, seiGEN Commerce POS, seiGEN Ledger, farmPLAN, Livestock Manager Lite, and PressCRAFT (including eClass) — collectively, the seiGEN Commerce Infrastructure products, distributed by Digital Commerce under license.</p>
+        <p>&bull; <strong style="color:var(--navy);">License:</strong> we grant you a non-exclusive license to install and use these products for your own business or personal operations. You may not resell, redistribute, reverse-engineer, or rebrand the software.<br>
+        &bull; <strong style="color:var(--navy);">Your data:</strong> these apps are built offline-first and store your business data on your own device. You are responsible for backing it up — we don't hold a copy and can't recover data lost from your device.<br>
+        &bull; <strong style="color:var(--navy);">No warranty:</strong> products are provided "as is". We work to keep them reliable but don't guarantee uninterrupted or error-free operation.<br>
+        &bull; <strong style="color:var(--navy);">Updates &amp; availability:</strong> features may change as products are updated, and products marked "coming soon" are still in development — their final features may differ from what's described here.<br>
+        &bull; <strong style="color:var(--navy);">Fees:</strong> seiGEN Commerce Lite is free for your first 30 days. After that, implementation is chargeable — including stocktake (if needed), app setup, and related onboarding activities. Any other product or feature that carries a fee will be clearly stated before you're charged.<br>
+        &bull; <strong style="color:var(--navy);">Trial &amp; implementation:</strong> the 30-day trial gives you time to evaluate the app before committing. Implementation fees cover the work needed to get your shop running on it, and are quoted before work begins.<br>
+        &bull; <strong style="color:var(--navy);">Listing on iTred:</strong> using a product's export or listing feature to publish to Market Space is additionally governed by sections 1–5 above.</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">8. RPN conduct</h3>
+        <p>Revenue Partners (RPNs) must represent iTred honestly when onboarding vendors, submit only accurate vendor and applicant information, and operate solely within the city they were verified for. RPNs are independent partners engaged on a freelance/commission basis, not employees of Digital Commerce.</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">9. Changes to these terms</h3>
+        <p>We may update these terms from time to time. Continued use of iTred after changes are posted means you accept the updated terms.</p>
+
+        <h3 style="font-size:18px;margin-top:28px;">Contact</h3>
+        <p>Questions about these terms can be sent via the <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">Contact page</a> or WhatsApp.</p>
+      </div>
+    </section>
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="margin-bottom:10px;"><img src="data:image/png;base64,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" alt="iTred" class="brand-logo"><span class="mark" style="color:var(--white);">iTred Market Place</span></div>
+      <div class="flinks">
+        <a href="#/">Home</a>
+        <a href="#/market-space">Market Space</a>
+        <a href="#/products">Products</a>
+        <a href="#/rpn">Become an RPN</a>
+        <a href="#/help">Help</a>
+        <a href="#/contact">Contact</a>
+        <a href="#/privacy">Privacy Policy</a>
+        <a href="#/terms">Terms of Business</a>
+      </div>
+      <div class="fmeta">seiGEN · iTred Market Place · 49 Brechin Est, Commerce Valley, Beatrice, Zimbabwe · +263 77 447 9121</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ---- Backend config ----
+  // Fill these in once your Supabase project exists (see /backend/README.md).
+  // Until then they're left blank on purpose and every section below falls
+  // back to its empty state instead of throwing errors.
+  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+  const backendConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
+  const supabaseClient = backendConfigured
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+  // ---- Public data loading ----
+  // Each function replaces the matching hard-coded empty array/markup with
+  // live rows from Supabase. If the backend isn't configured yet, or a
+  // fetch fails, everything just falls back to its existing empty state —
+  // nothing breaks.
+
+  async function loadListings(){
+    if(!supabaseClient) return;
+    const { data, error } = await supabaseClient.from('listings').select('*');
+    if(error || !data) return;
+    marketProducts = data.map(row => ({
+      name: row.name, vendor: row.vendor, vendorWhatsApp: row.vendor_whatsapp,
+      category: row.category, searchKeywords: row.search_keywords,
+      price: row.price, quantityAvailable: row.quantity_available, moq: row.moq,
+      dateLastUpdated: row.date_last_updated, image: row.image_url,
+      location: { area: row.location_area, lat: row.location_lat, lng: row.location_lng }
+    }));
+    if(currentRoute() === '/market-space') renderMarketSpace();
+  }
+
+  async function loadVerifiedPartners(){
+    if(!supabaseClient) return;
+    const { data, error } = await supabaseClient.from('verified_partners').select('*');
+    if(error || !data) return;
+    verifiedRPNs = data.map(row => ({ name: row.name, city: row.city }));
+    renderVerifiedRPNs();
+  }
+
+  async function loadHighlights(){
+    if(!supabaseClient) return;
+    const { data, error } = await supabaseClient.from('market_highlights').select('*').order('sort_order');
+    if(error || !data) return;
+    marketHighlights = data.map(row => ({ title: row.title, blurb: row.blurb, image: row.image_url }));
+    if(currentRoute() === '/') renderHighlights();
+  }
+
+  async function loadShowcase(){
+    if(!supabaseClient) return;
+    const { data, error } = await supabaseClient.from('vendor_showcase').select('*').order('sort_order');
+    if(error || !data) return;
+    vendorShowcase = data.map(row => ({ vendorName: row.vendor_name, area: row.area, image: row.image_url }));
+    if(currentRoute() === '/') renderShowcase();
+  }
+
+  async function loadSiteProducts(){
+    if(!supabaseClient) return;
+    const { data, error } = await supabaseClient.from('site_products').select('*').order('sort_order');
+    if(error || !data || data.length === 0) return; // keep the static fallback cards
+    const grid = document.getElementById('productsGrid');
+    if(!grid) return;
+    grid.innerHTML = data.map(p => `
+      <div class="card">
+        <span class="badge ${p.badge === 'available' ? 'badge-live' : 'badge-soon'}">${p.badge === 'available' ? 'Available now' : 'Coming soon'}</span>
+        <h3 style="margin-top:12px;">${p.name}</h3>
+        <p>${p.description}</p>
+        ${p.download_url
+          ? `<a href="${p.download_url}" target="_blank" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Download</a>`
+          : `<a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>`}
+      </div>
+    `).join('');
+  }
+
+  async function submitRpnApplication(payload){
+    if(!supabaseClient) return { ok: false, reason: 'not_configured' };
+    const { error } = await supabaseClient.from('rpn_applications').insert(payload);
+    return { ok: !error };
+  }
+
+  async function submitFeedback(page, comment){
+    if(!supabaseClient) return;
+    await supabaseClient.from('feedback').insert({ page, comment });
+  }
+
+  function loadAllPublicData(){
+    loadListings(); loadVerifiedPartners(); loadHighlights(); loadShowcase(); loadSiteProducts();
+  }
+
+  const routes = ['/','/market-space','/products','/rpn','/help','/contact','/privacy','/terms'];
+  const titles = {
+    '/':'iTred Market Place',
+    '/market-space':'Market Space — iTred',
+    '/products':'Products — iTred',
+    '/rpn':'RPN Application — iTred',
+    '/help':'Help — iTred',
+    '/contact':'Contact Us — iTred',
+    '/privacy':'Privacy Policy — iTred',
+    '/terms':'Terms of Business — iTred'
+  };
+
+  function currentRoute(){
+    const h = location.hash.replace('#','') || '/';
+    return routes.includes(h) ? h : '/';
+  }
+
+  function render(){
+    const r = currentRoute();
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    const el = document.getElementById('page-'+r);
+    if(el) el.classList.add('active');
+    document.querySelectorAll('nav.mainnav a').forEach(a=>{
+      a.classList.toggle('active', a.getAttribute('data-route')===r);
+    });
+    document.title = titles[r] || 'iTred';
+    document.getElementById('mainNav').classList.remove('open');
+    window.scrollTo(0,0);
+    if(r === '/market-space') renderMarketSpace();
+    if(r === '/') { renderHighlights(); renderShowcase(); }
+  }
+
+  window.addEventListener('hashchange', render);
+  window.addEventListener('DOMContentLoaded', render);
+  window.addEventListener('DOMContentLoaded', loadAllPublicData);
+
+  // seiGEN Commerce Lite: phones get the mobile build, everything else gets the desktop/PWA build
+  (function(){
+    const isMobile = /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent) && !/iPad/i.test(navigator.userAgent);
+    const link = document.getElementById('commerceLiteDownload');
+    if(link) link.href = isMobile ? 'https://mobilepos.seigendc.workers.dev/' : 'https://desktoppos.seigendc.workers.dev/';
+  })();
+
+  document.getElementById('navToggle').addEventListener('click', ()=>{
+    document.getElementById('mainNav').classList.toggle('open');
+  });
+
+  // Market Space — search & render
+  // marketProducts will be populated from the backend once vendor listings are approved.
+  // Each product: {
+  //   name, vendor, vendorWhatsApp, category, searchKeywords (hidden, not displayed),
+  //   price, quantityAvailable, moq, dateLastUpdated (ISO date string), image,
+  //   location: { area, lat, lng }
+  // }
+  // A product is only searchable/visible for 7 days from dateLastUpdated — after that
+  // the vendor needs to re-upload it via a fresh listing.
+  let marketProducts = [];
+  let marketView = 'card'; // 'card' | 'list'
+  let buyerLocation = null; // { lat, lng } once the buyer shares their location
+
+  function distanceKm(a, b){
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLng = (b.lng - a.lng) * Math.PI / 180;
+    const lat1 = a.lat * Math.PI / 180, lat2 = b.lat * Math.PI / 180;
+    const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function isWithinVisibilityWindow(product){
+    const updated = new Date(product.dateLastUpdated);
+    const ageMs = Date.now() - updated.getTime();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    return ageMs <= sevenDaysMs;
+  }
+
+  function matchesQuery(product, query){
+    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if(words.length === 0) return true;
+    const area = (product.location && product.location.area) ? product.location.area : '';
+    const haystack = [product.name, product.vendor, product.category, product.searchKeywords || '', area].join(' ').toLowerCase();
+    // word-order-agnostic: every typed word must appear somewhere in the product's searchable text
+    return words.every(w => haystack.includes(w));
+  }
+
+  function whatsappLeadLink(product){
+    const msg = encodeURIComponent('Hi, I saw "' + product.name + '" on iTred Market Place and I\'m interested.');
+    return 'https://wa.me/' + product.vendorWhatsApp.replace(/\D/g,'') + '?text=' + msg;
+  }
+
+  function formatDate(iso){
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'});
+  }
+
+  function renderMarketSpace(){
+    const resultsEl = document.getElementById('marketResults');
+    const emptyEl = document.getElementById('marketEmpty');
+    if(!resultsEl) return; // not on this page yet
+    const query = document.getElementById('marketSearch').value;
+    const visible = marketProducts.filter(isWithinVisibilityWindow);
+    let matches = visible.filter(p => matchesQuery(p, query));
+
+    if(buyerLocation){
+      matches = matches
+        .map(p => ({ ...p, _distanceKm: (p.location && p.location.lat != null) ? distanceKm(buyerLocation, p.location) : null }))
+        .sort((a,b) => {
+          if(a._distanceKm == null) return 1;
+          if(b._distanceKm == null) return -1;
+          return a._distanceKm - b._distanceKm;
+        });
+    }
+
+    resultsEl.className = marketView === 'card' ? 'grid-3' : '';
+
+    if(matches.length === 0){
+      resultsEl.innerHTML = '';
+      emptyEl.style.display = 'block';
+      if(marketProducts.length > 0 && visible.length === 0){
+        emptyEl.querySelector('h3').textContent = 'Listings have expired';
+        emptyEl.querySelector('p').textContent = 'Products stay listed for 7 days after upload. Ask the vendor to send a fresh update to relist.';
+      } else if(visible.length > 0){
+        emptyEl.querySelector('h3').textContent = 'No matches';
+        emptyEl.querySelector('p').textContent = 'Try a different word, or check the spelling of the product or vendor name.';
+      }
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    if(marketView === 'card'){
+      resultsEl.innerHTML = matches.map(p => `
+        <div class="product-card">
+          <img class="thumb" src="${p.image}" alt="${p.name}">
+          <div class="pbody">
+            <h4>${p.name}</h4>
+            <div class="vendor">${p.vendor}</div>
+            <div class="product-meta">
+              ${p.location && p.location.area ? `<span>Location: ${p.location.area}${p._distanceKm != null ? ' &middot; ' + p._distanceKm.toFixed(1) + ' km away' : ''}</span>` : ''}
+              ${p.price ? `<span>Price: ${p.price}</span>` : ''}
+              ${p.quantityAvailable != null ? `<span>Available: ${p.quantityAvailable}</span>` : ''}
+              ${p.moq ? `<span>MOQ: ${p.moq}</span>` : ''}
+              <span>Updated: ${formatDate(p.dateLastUpdated)}</span>
+            </div>
+            <a href="${whatsappLeadLink(p)}" target="_blank" class="btn btn-gold">Contact on WhatsApp</a>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      resultsEl.innerHTML = matches.map(p => `
+        <div class="product-list-item">
+          <img class="thumb" src="${p.image}" alt="${p.name}">
+          <div class="pbody">
+            <h4>${p.name}</h4>
+            <div class="vendor">${p.vendor}</div>
+            <div class="product-meta">
+              ${p.location && p.location.area ? `<span>Location: ${p.location.area}${p._distanceKm != null ? ' &middot; ' + p._distanceKm.toFixed(1) + ' km away' : ''}</span>` : ''}
+              ${p.price ? `<span>Price: ${p.price}</span>` : ''}
+              ${p.quantityAvailable != null ? `<span>Available: ${p.quantityAvailable} &middot; MOQ: ${p.moq || '—'}</span>` : ''}
+              <span>Updated: ${formatDate(p.dateLastUpdated)}</span>
+            </div>
+          </div>
+          <a href="${whatsappLeadLink(p)}" target="_blank" class="btn btn-gold">Contact on WhatsApp</a>
+        </div>
+      `).join('');
+    }
+  }
+
+  document.addEventListener('input', function(e){
+    if(e.target && e.target.id === 'marketSearch') renderMarketSpace();
+  });
+
+  document.addEventListener('click', function(e){
+    if(e.target && e.target.id === 'nearMeBtn'){
+      const statusEl = document.getElementById('nearMeStatus');
+      if(!navigator.geolocation){
+        statusEl.textContent = 'Location isn\'t available on this device.';
+        return;
+      }
+      statusEl.textContent = 'Getting your location…';
+      navigator.geolocation.getCurrentPosition(
+        function(pos){
+          buyerLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          statusEl.textContent = 'Showing nearest vendors first.';
+          renderMarketSpace();
+        },
+        function(){
+          statusEl.textContent = 'Couldn\'t get your location — try typing your city in the search bar instead.';
+        }
+      );
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const cardBtn = document.getElementById('viewCardBtn');
+    const listBtn = document.getElementById('viewListBtn');
+    if(cardBtn && listBtn){
+      cardBtn.addEventListener('click', ()=>{
+        marketView = 'card'; cardBtn.classList.add('active'); listBtn.classList.remove('active'); renderMarketSpace();
+      });
+      listBtn.addEventListener('click', ()=>{
+        marketView = 'list'; listBtn.classList.add('active'); cardBtn.classList.remove('active'); renderMarketSpace();
+      });
+    }
+
+    const applyTabBtn = document.getElementById('rpnTabApply');
+    const verifiedTabBtn = document.getElementById('rpnTabVerified');
+    const applyTab = document.getElementById('rpnApplyTab');
+    const verifiedTab = document.getElementById('rpnVerifiedTab');
+    if(applyTabBtn && verifiedTabBtn){
+      applyTabBtn.addEventListener('click', ()=>{
+        applyTabBtn.classList.add('active'); verifiedTabBtn.classList.remove('active');
+        applyTab.style.display = 'block'; verifiedTab.style.display = 'none';
+      });
+      verifiedTabBtn.addEventListener('click', ()=>{
+        verifiedTabBtn.classList.add('active'); applyTabBtn.classList.remove('active');
+        applyTab.style.display = 'none'; verifiedTab.style.display = 'block';
+        renderVerifiedRPNs();
+      });
+    }
+
+    // Applicant type: Individual vs Group
+    const typeIndividualBtn = document.getElementById('typeIndividualBtn');
+    const typeGroupBtn = document.getElementById('typeGroupBtn');
+    const agencyNameLabel = document.getElementById('agencyNameLabel');
+    const contactPersonRow = document.getElementById('contactPersonRow');
+    const teamMembersField = document.getElementById('teamMembersField');
+    const teamSizeField = document.getElementById('teamSizeField');
+    const teamMembersList = document.getElementById('teamMembersList');
+
+    function addTeamMemberRow(){
+      const row = document.createElement('div');
+      row.className = 'team-member-row';
+      row.innerHTML = `
+        <input type="text" placeholder="Name" class="tm-name">
+        <input type="text" placeholder="Role" class="tm-role">
+        <button type="button" aria-label="Remove">&times;</button>
+      `;
+      row.querySelector('button').addEventListener('click', ()=> row.remove());
+      teamMembersList.appendChild(row);
+    }
+
+    if(typeIndividualBtn && typeGroupBtn){
+      typeIndividualBtn.addEventListener('click', ()=>{
+        applicantType = 'individual';
+        typeIndividualBtn.classList.add('active'); typeGroupBtn.classList.remove('active');
+        agencyNameLabel.textContent = 'Full name';
+        contactPersonRow.style.display = 'none';
+        teamMembersField.style.display = 'none';
+        teamSizeField.style.display = 'none';
+      });
+      typeGroupBtn.addEventListener('click', ()=>{
+        applicantType = 'group';
+        typeGroupBtn.classList.add('active'); typeIndividualBtn.classList.remove('active');
+        agencyNameLabel.textContent = 'Agency / group name';
+        contactPersonRow.style.display = 'grid';
+        teamMembersField.style.display = 'block';
+        teamSizeField.style.display = 'block';
+        if(teamMembersList.children.length === 0){ addTeamMemberRow(); addTeamMemberRow(); }
+      });
+    }
+    if(document.getElementById('addTeamMemberBtn')){
+      document.getElementById('addTeamMemberBtn').addEventListener('click', addTeamMemberRow);
+    }
+  });
+
+  let applicantType = 'individual';
+
+  // Verified RPNs — populated from the backend once applicants are verified by the admin team.
+  // Each entry: { name, applicantType, city, since }
+  let verifiedRPNs = [];
+
+  function renderVerifiedRPNs(){
+    const listEl = document.getElementById('rpnVerifiedList');
+    const emptyEl = document.getElementById('rpnVerifiedEmpty');
+    if(!listEl) return;
+    if(verifiedRPNs.length === 0){
+      listEl.innerHTML = '';
+      emptyEl.style.display = 'block';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    listEl.innerHTML = verifiedRPNs.map(r => `
+      <div class="product-list-item">
+        <div class="pbody">
+          <h4>${r.name}</h4>
+          <div class="product-meta"><span>Servicing: ${r.city}</span></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Market Highlights — curated by the admin team, shown on the public landing page.
+  // Each entry: { title, blurb, image }
+  let marketHighlights = [];
+
+  function renderHighlights(){
+    const resultsEl = document.getElementById('highlightsResults');
+    const emptyEl = document.getElementById('highlightsEmpty');
+    if(!resultsEl) return;
+    if(marketHighlights.length === 0){
+      resultsEl.innerHTML = ''; emptyEl.style.display = 'block'; return;
+    }
+    emptyEl.style.display = 'none';
+    resultsEl.innerHTML = marketHighlights.map(h => `
+      <div class="card" style="padding:0;overflow:hidden;">
+        <img class="thumb" src="${h.image}" alt="${h.title}" style="aspect-ratio:16/10;">
+        <div style="padding:20px;">
+          <h3 style="font-size:16px;">${h.title}</h3>
+          <p style="margin:0;">${h.blurb}</p>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Vendor Showcase — business photos supplied by vendors, selected by the admin team.
+  // Each entry: { vendorName, image, area }
+  let vendorShowcase = [];
+
+  function renderShowcase(){
+    const resultsEl = document.getElementById('showcaseResults');
+    const emptyEl = document.getElementById('showcaseEmpty');
+    if(!resultsEl) return;
+    if(vendorShowcase.length === 0){
+      resultsEl.innerHTML = ''; emptyEl.style.display = 'block'; return;
+    }
+    emptyEl.style.display = 'none';
+    resultsEl.innerHTML = vendorShowcase.map(v => `
+      <div class="card" style="padding:0;overflow:hidden;">
+        <img class="thumb" src="${v.image}" alt="${v.vendorName}" style="aspect-ratio:4/3;">
+        <div style="padding:16px;">
+          <h3 style="font-size:15px;margin-bottom:2px;">${v.vendorName}</h3>
+          ${v.area ? `<div class="vendor">${v.area}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('rpnSendBtn').addEventListener('click', function(e){
+    const form = document.getElementById('rpnForm');
+    if(!form.reportValidity()){ e.preventDefault(); return; }
+    const lines = [
+      'RPN Application — iTred Market Place',
+      'Applying as: ' + (applicantType === 'group' ? 'Group' : 'Individual'),
+      (applicantType === 'group' ? 'Agency / group name: ' : 'Full name: ') + document.getElementById('agencyName').value,
+    ];
+    if(applicantType === 'group'){
+      lines.push('Primary contact: ' + document.getElementById('contactPerson').value + ' (' + document.getElementById('role').value + ')');
+    }
+    lines.push('Phone: ' + document.getElementById('phone').value);
+    lines.push('Email: ' + document.getElementById('email').value);
+    lines.push('City to service: ' + document.getElementById('cityServiced').value);
+    if(applicantType === 'group'){
+      const members = Array.from(document.querySelectorAll('#teamMembersList .team-member-row')).map(row => {
+        const name = row.querySelector('.tm-name').value.trim();
+        const role = row.querySelector('.tm-role').value.trim();
+        return name ? (name + (role ? ' (' + role + ')' : '')) : null;
+      }).filter(Boolean);
+      lines.push('Team members: ' + (members.length ? members.join(', ') : 'Not specified'));
+      lines.push('Team size: ' + document.getElementById('teamSize').value);
+    }
+    lines.push('Years of experience: ' + document.getElementById('yearsExp').value);
+    lines.push('Experience: ' + document.getElementById('experience').value);
+    const text = encodeURIComponent(lines.join('\n'));
+    this.href = 'https://wa.me/263789487287?text=' + text;
+
+    // Also record it in the console's review queue, if the backend is configured.
+    const members = applicantType === 'group'
+      ? Array.from(document.querySelectorAll('#teamMembersList .team-member-row')).map(row => ({
+          name: row.querySelector('.tm-name').value.trim(),
+          role: row.querySelector('.tm-role').value.trim()
+        })).filter(m => m.name)
+      : null;
+    submitRpnApplication({
+      applicant_type: applicantType,
+      name: document.getElementById('agencyName').value,
+      contact_person: applicantType === 'group' ? document.getElementById('contactPerson').value : null,
+      contact_role: applicantType === 'group' ? document.getElementById('role').value : null,
+      phone: document.getElementById('phone').value,
+      email: document.getElementById('email').value,
+      city: document.getElementById('cityServiced').value,
+      team_members: members,
+      team_size: applicantType === 'group' ? document.getElementById('teamSize').value : null,
+      years_experience: document.getElementById('yearsExp').value,
+      experience_text: document.getElementById('experience').value
+    });
+  });
+
+  // Contact form -> WhatsApp handoff
+  document.getElementById('contactSendBtn').addEventListener('click', function(e){
+    const form = document.getElementById('contactForm');
+    if(!form.reportValidity()){ e.preventDefault(); return; }
+    const lines = [
+      'Contact — iTred Market Place',
+      'Name: ' + document.getElementById('cName').value,
+      'Email: ' + document.getElementById('cEmail').value,
+      'Message: ' + document.getElementById('cMessage').value
+    ];
+    const text = encodeURIComponent(lines.join('\n'));
+    this.href = 'https://wa.me/263774479121?text=' + text;
+  });
+</script>
+
+<div id="feedbackWidget">
+  <button id="feedbackToggle" aria-label="Leave feedback">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v12H7l-3 3V4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+  </button>
+  <div id="feedbackPanel">
+    <h4>Tell us what you think</h4>
+    <textarea id="feedbackText" placeholder="Share a comment about the site…"></textarea>
+    <a href="#" id="feedbackSend" target="_blank" rel="noopener" class="btn btn-gold" style="width:100%;justify-content:center;">Send feedback</a>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    const toggle = document.getElementById('feedbackToggle');
+    const panel = document.getElementById('feedbackPanel');
+    const sendBtn = document.getElementById('feedbackSend');
+    toggle.addEventListener('click', ()=> panel.classList.toggle('open'));
+    sendBtn.addEventListener('click', function(e){
+      const text = document.getElementById('feedbackText').value.trim();
+      if(!text){ e.preventDefault(); return; }
+      const page = titles[currentRoute()] || 'iTred';
+      const lines = ['Site feedback — iTred Market Place', 'Page: ' + page, 'Comment: ' + text];
+      this.href = 'https://wa.me/263774479121?text=' + encodeURIComponent(lines.join('\n'));
+      submitFeedback(page, text);
+      document.getElementById('feedbackText').value = '';
+      panel.classList.remove('open');
+    });
+  });
+</script>
+
+</body>
+</html>
