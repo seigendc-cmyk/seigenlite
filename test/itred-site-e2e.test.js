@@ -1,16 +1,17 @@
 // Run: node --no-warnings test/itred-site-e2e.test.js
 // (build first: node build.js --itred)
-// The public iTred Market Place site (src/itred/index.html -> dist-itred/),
-// as brought into the repo: a baseline for the Supabase phase, not a test of
-// new behaviour. Checks that
-//   * the build is a byte-for-byte copy of the source (nothing changed yet)
-//   * each of the 8 hash routes shows exactly its own page, sets its title
+// The public iTred Market Place site (src/itred/index.html -> dist-itred/):
+// its page structure. Checks that
+//   * the build is a byte-for-byte copy of the source
+//   * each of the 9 hash routes shows exactly its own page, sets its title
 //     and highlights its nav link; an unknown route falls back to Home
 //   * the nav links really navigate, and the mobile menu toggle opens
-//   * the page throws no errors and makes NO request to any *.supabase.co
-//     host — the site's Supabase client is still unconfigured placeholders
+//   * the page throws no errors, and the only Supabase calls are the live
+//     ones (listings, auth) — the static sections never query it
 // Runs against a real browser (Playwright/Chromium), like the other *-e2e
-// suites, loading the built file from disk.
+// suites, loading the built file from disk. Supabase is the in-test fake
+// (test/itred-fake-supabase.js); the Supabase features themselves are
+// covered in test/itred-supabase-e2e.test.js.
 "use strict";
 const assert = require("assert");
 const fs = require("fs");
@@ -24,6 +25,7 @@ catch(e){
   process.exit(0);
 }
 
+const { createFakeSupabase } = require("./itred-fake-supabase");
 const ROOT = path.join(__dirname, "..");
 const SRC = path.join(ROOT, "src", "itred", "index.html");
 const DIST = path.join(ROOT, "dist-itred", "index.html");
@@ -43,17 +45,23 @@ const ROUTES = [
   ["/rpn",          "RPN Application — iTred",   "Become an RPN"],
   ["/help",         "Help — iTred",              "Help"],
   ["/contact",      "Contact Us — iTred",        "Contact"],
+  ["/account",      "Your account — iTred",      "Sign in"],
   ["/privacy",      "Privacy Policy — iTred",    null], // footer-only pages: no top-nav link
   ["/terms",        "Terms of Business — iTred", null],
 ];
 
-async function openSite(browser, hash){
-  const page = await browser.newPage();
-  const errors = [], supabaseRequests = [];
+// supabaseRequests() lists Supabase calls OTHER than the live listings/auth ones.
+async function openSite(browser, hash, viewport){
+  const page = await browser.newPage(viewport? { viewport } : {});
+  const errors = [];
   page.on("pageerror", err => errors.push(err.message));
-  page.on("request", req => { if(/\.supabase\.co/i.test(req.url())) supabaseRequests.push(req.url()); });
+  const fake = createFakeSupabase();
+  await fake.install(page);
   await page.goto(URL_BASE + (hash||""));
   await page.waitForSelector(".page.active");
+  const supabaseRequests = ()=> fake.log
+    .filter(r=> r.path!=="/rest/v1/vendor_listings" && !r.path.startsWith("/auth/v1/"))
+    .map(r=> r.method+" "+r.path);
   return { page, errors, supabaseRequests };
 }
 async function routeState(page){
@@ -71,7 +79,7 @@ async function routeState(page){
 
   const browser = await chromium.launch();
 
-  await t("the site has exactly the 8 expected pages", async ()=>{
+  await t("the site has exactly the 9 expected pages", async ()=>{
     const { page } = await openSite(browser);
     const ids = await page.$$eval(".page", els=> els.map(e=>e.id));
     assert.deepStrictEqual(ids, ROUTES.map(r=>"page-"+r[0]));
@@ -88,7 +96,7 @@ async function routeState(page){
       const text = await page.textContent('[id="page-'+route+'"]'); // ids contain "/", so no #id selector
       assert.ok(text.trim().length > 50, "page "+route+" looks empty");
       assert.deepStrictEqual(errors, []);
-      assert.deepStrictEqual(supabaseRequests, []);
+      assert.deepStrictEqual(supabaseRequests(), []);
       await page.close();
     });
   }
@@ -111,14 +119,12 @@ async function routeState(page){
     }
     assert.strictEqual(await page.evaluate(()=>window.__sameDocument), true);
     assert.deepStrictEqual(errors, []);
-    assert.deepStrictEqual(supabaseRequests, []);
+    assert.deepStrictEqual(supabaseRequests(), []);
     await page.close();
   });
 
   await t("on a phone-width screen the menu toggle opens the nav, and navigating closes it", async ()=>{
-    const page = await browser.newPage({ viewport:{ width:390, height:844 } });
-    await page.goto(URL_BASE);
-    await page.waitForSelector(".page.active");
+    const { page } = await openSite(browser, "", { width:390, height:844 });
     await page.click("#navToggle");
     assert.strictEqual(await page.$eval("#mainNav", n=>n.classList.contains("open")), true);
     await page.click('nav.mainnav a[data-route="/help"]');

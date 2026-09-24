@@ -136,7 +136,7 @@
   .field{margin-bottom:20px;}
   .field label{display:block;font-size:13.5px;font-weight:600;color:var(--navy);margin-bottom:6px;}
   .field .hint{font-size:12.5px;color:var(--text-soft);margin-top:5px;}
-  input[type=text],input[type=email],input[type=tel],input[type=number],select,textarea{
+  input[type=text],input[type=email],input[type=tel],input[type=number],input[type=password],select,textarea{
     width:100%;padding:12px 14px;border:1px solid var(--border);background:var(--white);
     font-family:'Inter',sans-serif;font-size:14.5px;color:var(--text);border-radius:var(--radius);
   }
@@ -249,8 +249,20 @@
   }
   ol.steps h4{margin:0 0 4px 0;font-size:15.5px;color:var(--navy);font-weight:700;}
   ol.steps p{margin:0;color:var(--text-soft);font-size:14px;}
+
+  /* ---------- Account (#/account) ---------- */
+  .auth-card{background:var(--white);border:1px solid var(--border);padding:28px;max-width:460px;}
+  .auth-card .view-toggle{margin-bottom:22px;}
+  .auth-msg{font-size:14px;padding:12px 14px;margin-bottom:18px;border-left:3px solid var(--gold);background:var(--offwhite);}
+  .auth-msg.error{border-left-color:#B3261E;background:#FBEDEC;color:#8C1D18;}
+  .auth-msg.ok{border-left-color:#2A6B3B;background:#E3F0E6;color:#1F4F2C;}
+  .auth-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .linkish{background:none;border:none;padding:0;color:var(--gold-dark);font-weight:600;font-size:13.5px;cursor:pointer;text-decoration:underline;}
+  .thumb-empty{display:flex;align-items:center;justify-content:center;color:var(--text-soft);font-size:12px;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Pinned (not @2) so a supabase-js release can't change the site's
+     behaviour underneath it; bump deliberately. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -268,6 +280,7 @@
       <a href="#/rpn" data-route="/rpn">Become an RPN</a>
       <a href="#/help" data-route="/help">Help</a>
       <a href="#/contact" data-route="/contact">Contact</a>
+      <a href="#/account" data-route="/account" id="accountNavLink">Sign in</a>
     </nav>
   </div>
 </header>
@@ -717,6 +730,24 @@
     </section>
   </div>
 
+  <!-- ACCOUNT -->
+  <!-- Customer sign-up / sign-in (Supabase Auth, email + password) and the
+       signed-in profile. Filled in by renderAccount() below. -->
+  <div class="page" id="page-/account">
+    <section class="hero" style="padding-bottom:40px;">
+      <div class="wrap">
+        <div class="section-kicker">Customer account</div>
+        <h1 style="font-size:36px;">Your iTred account</h1>
+        <p class="lede">Sign in to keep your details in one place. Ordering from vendors through iTred is coming next.</p>
+      </div>
+    </section>
+    <section style="padding-top:36px;">
+      <div class="wrap">
+        <div id="accountRoot"></div>
+      </div>
+    </section>
+  </div>
+
   <!-- PRIVACY -->
   <div class="page" id="page-/privacy">
     <section class="hero" style="padding-bottom:40px;">
@@ -822,38 +853,69 @@
 
 <script>
   // ---- Backend config ----
-  // Fill these in once your Supabase project exists (see /backend/README.md).
-  // Until then they're left blank on purpose and every section below falls
-  // back to its empty state instead of throwing errors.
-  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-  const backendConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
+  // Digital Commerce's Supabase project — the same one Commerce Lite's device
+  // check-in talks to (src/devicecheckin.js keeps the same URL + key the same
+  // way). The anon key is public by design: what it can read or write is set
+  // by the row-level security in
+  // supabase/migrations/20260924120000_itred_marketplace_schema.sql
+  // (published, unexpired listings for everyone; a customer's own profile
+  // only once signed in), not by keeping this key secret.
+  const SUPABASE_URL = 'https://urbopdsubwawtybwrxjd.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyYm9wZHN1Yndhd3R5YndyeGpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMTYzNzEsImV4cCI6MjEwNTY5MjM3MX0.pCGkNETrB4ISse2ES_6goALKJz3g_22osjLfIgFG4k4';
+  const backendConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20 && !!window.supabase;
+  // PKCE: the email-confirmation link comes back as ?code=… (query string),
+  // which the hash router below never sees, instead of #access_token=…,
+  // which it would mistake for a page name.
   const supabaseClient = backendConfigured
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true } })
     : null;
 
-  // ---- Public data loading ----
-  // Each function replaces the matching hard-coded empty array/markup with
-  // live rows from Supabase. If the backend isn't configured yet, or a
-  // fetch fails, everything just falls back to its existing empty state —
-  // nothing breaks.
+  // Sections that expect tables the schema doesn't have yet (verified
+  // partners, highlights, showcase, site products, RPN applications,
+  // feedback) stay static on purpose this phase: they check this instead
+  // of supabaseClient, so they never query a table that isn't there.
+  const placeholderBackend = null;
 
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---- Public data loading ----
+  // Market Space reads the live schema: vendor_listings joined to vendors.
+  // Everything else keeps its existing empty/static state (see above).
+
+  // Mirrors the RLS policy anonymous visitors get ("published and
+  // expires_at > now"), so the page asks for exactly what it may see.
+  const LISTING_SELECT = 'id, product_name, price, currency, category, stock_quantity, image_url, published_at, expires_at, vendors(business_name, whatsapp_number, city)';
   async function loadListings(){
     if(!supabaseClient) return;
-    const { data, error } = await supabaseClient.from('listings').select('*');
+    const { data, error } = await supabaseClient.from('vendor_listings')
+      .select(LISTING_SELECT)
+      .eq('status', 'published')
+      .gt('expires_at', new Date().toISOString())
+      .order('published_at', { ascending: false });
     if(error || !data) return;
-    marketProducts = data.map(row => ({
-      name: row.name, vendor: row.vendor, vendorWhatsApp: row.vendor_whatsapp,
-      category: row.category, searchKeywords: row.search_keywords,
-      price: row.price, quantityAvailable: row.quantity_available, moq: row.moq,
-      dateLastUpdated: row.date_last_updated, image: row.image_url,
-      location: { area: row.location_area, lat: row.location_lat, lng: row.location_lng }
-    }));
+    marketProducts = data.map(listingToProduct);
     if(currentRoute() === '/market-space') renderMarketSpace();
+  }
+  // vendor_listings + vendors -> the product shape the Market Space
+  // renderer already used. Not in the schema, so gone: moq, search keywords
+  // and coordinates (location is the vendor's city only).
+  function listingToProduct(row){
+    const v = row.vendors || {};
+    const price = row.price == null ? '' : (row.currency ? row.currency + ' ' : '') + Number(row.price).toFixed(2);
+    return {
+      name: row.product_name, vendor: v.business_name || '', vendorWhatsApp: v.whatsapp_number || '',
+      category: row.category || '', searchKeywords: '',
+      price, quantityAvailable: row.stock_quantity, moq: null,
+      dateLastUpdated: row.published_at, expiresAt: row.expires_at,
+      image: /^https?:\/\//i.test(row.image_url || '') ? row.image_url : '',
+      location: { area: v.city || '', lat: null, lng: null }
+    };
   }
 
   async function loadVerifiedPartners(){
-    if(!supabaseClient) return;
+    if(!placeholderBackend) return;
     const { data, error } = await supabaseClient.from('verified_partners').select('*');
     if(error || !data) return;
     verifiedRPNs = data.map(row => ({ name: row.name, city: row.city }));
@@ -861,7 +923,7 @@
   }
 
   async function loadHighlights(){
-    if(!supabaseClient) return;
+    if(!placeholderBackend) return;
     const { data, error } = await supabaseClient.from('market_highlights').select('*').order('sort_order');
     if(error || !data) return;
     marketHighlights = data.map(row => ({ title: row.title, blurb: row.blurb, image: row.image_url }));
@@ -869,7 +931,7 @@
   }
 
   async function loadShowcase(){
-    if(!supabaseClient) return;
+    if(!placeholderBackend) return;
     const { data, error } = await supabaseClient.from('vendor_showcase').select('*').order('sort_order');
     if(error || !data) return;
     vendorShowcase = data.map(row => ({ vendorName: row.vendor_name, area: row.area, image: row.image_url }));
@@ -877,7 +939,7 @@
   }
 
   async function loadSiteProducts(){
-    if(!supabaseClient) return;
+    if(!placeholderBackend) return;
     const { data, error } = await supabaseClient.from('site_products').select('*').order('sort_order');
     if(error || !data || data.length === 0) return; // keep the static fallback cards
     const grid = document.getElementById('productsGrid');
@@ -895,13 +957,13 @@
   }
 
   async function submitRpnApplication(payload){
-    if(!supabaseClient) return { ok: false, reason: 'not_configured' };
+    if(!placeholderBackend) return { ok: false, reason: 'not_configured' };
     const { error } = await supabaseClient.from('rpn_applications').insert(payload);
     return { ok: !error };
   }
 
   async function submitFeedback(page, comment){
-    if(!supabaseClient) return;
+    if(!placeholderBackend) return;
     await supabaseClient.from('feedback').insert({ page, comment });
   }
 
@@ -909,7 +971,7 @@
     loadListings(); loadVerifiedPartners(); loadHighlights(); loadShowcase(); loadSiteProducts();
   }
 
-  const routes = ['/','/market-space','/products','/rpn','/help','/contact','/privacy','/terms'];
+  const routes = ['/','/market-space','/products','/rpn','/help','/contact','/account','/privacy','/terms'];
   const titles = {
     '/':'iTred Market Place',
     '/market-space':'Market Space — iTred',
@@ -917,6 +979,7 @@
     '/rpn':'RPN Application — iTred',
     '/help':'Help — iTred',
     '/contact':'Contact Us — iTred',
+    '/account':'Your account — iTred',
     '/privacy':'Privacy Policy — iTred',
     '/terms':'Terms of Business — iTred'
   };
@@ -939,6 +1002,7 @@
     window.scrollTo(0,0);
     if(r === '/market-space') renderMarketSpace();
     if(r === '/') { renderHighlights(); renderShowcase(); }
+    if(r === '/account') renderAccount();
   }
 
   window.addEventListener('hashchange', render);
@@ -979,6 +1043,9 @@
   }
 
   function isWithinVisibilityWindow(product){
+    // Live listings carry the schema's own expiry (published_at + 7 days,
+    // set by the database), so use it rather than re-deriving it here.
+    if(product.expiresAt) return new Date(product.expiresAt).getTime() > Date.now();
     const updated = new Date(product.dateLastUpdated);
     const ageMs = Date.now() - updated.getTime();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
@@ -994,9 +1061,29 @@
     return words.every(w => haystack.includes(w));
   }
 
+  // Vendors' numbers come from Commerce Lite's contact number, usually typed
+  // the local way (0771…); wa.me needs the international form, so a leading
+  // 0 becomes 263 — the same rule the shop app's own WhatsApp links use.
+  function waDigits(phone){
+    let d = String(phone || '').replace(/\D/g,'');
+    if(d.startsWith('0')) d = '263' + d.slice(1);
+    return d;
+  }
   function whatsappLeadLink(product){
     const msg = encodeURIComponent('Hi, I saw "' + product.name + '" on iTred Market Place and I\'m interested.');
-    return 'https://wa.me/' + product.vendorWhatsApp.replace(/\D/g,'') + '?text=' + msg;
+    return 'https://wa.me/' + waDigits(product.vendorWhatsApp) + '?text=' + msg;
+  }
+  // Live data is typed by shops, so everything below is escaped before it
+  // goes into the page.
+  function productThumb(p){
+    return p.image
+      ? `<img class="thumb" src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">`
+      : `<div class="thumb thumb-empty">No photo</div>`;
+  }
+  function productWhatsAppButton(p){
+    return waDigits(p.vendorWhatsApp)
+      ? `<a href="${escapeHtml(whatsappLeadLink(p))}" target="_blank" rel="noopener" class="btn btn-gold">Contact on WhatsApp</a>`
+      : '';
   }
 
   function formatDate(iso){
@@ -1041,36 +1128,36 @@
     if(marketView === 'card'){
       resultsEl.innerHTML = matches.map(p => `
         <div class="product-card">
-          <img class="thumb" src="${p.image}" alt="${p.name}">
+          ${productThumb(p)}
           <div class="pbody">
-            <h4>${p.name}</h4>
-            <div class="vendor">${p.vendor}</div>
+            <h4>${escapeHtml(p.name)}</h4>
+            <div class="vendor">${escapeHtml(p.vendor)}</div>
             <div class="product-meta">
-              ${p.location && p.location.area ? `<span>Location: ${p.location.area}${p._distanceKm != null ? ' &middot; ' + p._distanceKm.toFixed(1) + ' km away' : ''}</span>` : ''}
-              ${p.price ? `<span>Price: ${p.price}</span>` : ''}
-              ${p.quantityAvailable != null ? `<span>Available: ${p.quantityAvailable}</span>` : ''}
-              ${p.moq ? `<span>MOQ: ${p.moq}</span>` : ''}
+              ${p.location && p.location.area ? `<span>Location: ${escapeHtml(p.location.area)}${p._distanceKm != null ? ' &middot; ' + p._distanceKm.toFixed(1) + ' km away' : ''}</span>` : ''}
+              ${p.price ? `<span>Price: ${escapeHtml(p.price)}</span>` : ''}
+              ${p.quantityAvailable != null ? `<span>Available: ${escapeHtml(p.quantityAvailable)}</span>` : ''}
+              ${p.moq ? `<span>MOQ: ${escapeHtml(p.moq)}</span>` : ''}
               <span>Updated: ${formatDate(p.dateLastUpdated)}</span>
             </div>
-            <a href="${whatsappLeadLink(p)}" target="_blank" class="btn btn-gold">Contact on WhatsApp</a>
+            ${productWhatsAppButton(p)}
           </div>
         </div>
       `).join('');
     } else {
       resultsEl.innerHTML = matches.map(p => `
         <div class="product-list-item">
-          <img class="thumb" src="${p.image}" alt="${p.name}">
+          ${productThumb(p)}
           <div class="pbody">
-            <h4>${p.name}</h4>
-            <div class="vendor">${p.vendor}</div>
+            <h4>${escapeHtml(p.name)}</h4>
+            <div class="vendor">${escapeHtml(p.vendor)}</div>
             <div class="product-meta">
-              ${p.location && p.location.area ? `<span>Location: ${p.location.area}${p._distanceKm != null ? ' &middot; ' + p._distanceKm.toFixed(1) + ' km away' : ''}</span>` : ''}
-              ${p.price ? `<span>Price: ${p.price}</span>` : ''}
-              ${p.quantityAvailable != null ? `<span>Available: ${p.quantityAvailable} &middot; MOQ: ${p.moq || '—'}</span>` : ''}
+              ${p.location && p.location.area ? `<span>Location: ${escapeHtml(p.location.area)}${p._distanceKm != null ? ' &middot; ' + p._distanceKm.toFixed(1) + ' km away' : ''}</span>` : ''}
+              ${p.price ? `<span>Price: ${escapeHtml(p.price)}</span>` : ''}
+              ${p.quantityAvailable != null ? `<span>Available: ${escapeHtml(p.quantityAvailable)}${p.moq ? ' &middot; MOQ: ' + escapeHtml(p.moq) : ''}</span>` : ''}
               <span>Updated: ${formatDate(p.dateLastUpdated)}</span>
             </div>
           </div>
-          <a href="${whatsappLeadLink(p)}" target="_blank" class="btn btn-gold">Contact on WhatsApp</a>
+          ${productWhatsAppButton(p)}
         </div>
       `).join('');
     }
@@ -1081,8 +1168,15 @@
   });
 
   document.addEventListener('click', function(e){
-    if(e.target && e.target.id === 'nearMeBtn'){
+    if(e.target && e.target.closest && e.target.closest('#nearMeBtn')){
       const statusEl = document.getElementById('nearMeStatus');
+      // Listings only know the vendor's city — no coordinates — so there is
+      // nothing to measure distance to. Say so instead of asking for the
+      // buyer's location and then claiming to sort by it.
+      if(!marketProducts.some(p => p.location && p.location.lat != null && p.location.lng != null)){
+        statusEl.textContent = 'Nearest-first isn\'t available yet — vendors don\'t share map locations. Type your city or town in the search box to see vendors there.';
+        return;
+      }
       if(!navigator.geolocation){
         statusEl.textContent = 'Location isn\'t available on this device.';
         return;
@@ -1245,6 +1339,247 @@
       </div>
     `).join('');
   }
+
+  // ---- Customer accounts (#/account) ----
+  // Supabase Auth, email + password. This project requires email
+  // confirmation, so signing up gives no session: the customers row (the
+  // profile the schema keys 1:1 to auth.users, with no database trigger) is
+  // created the first time the customer is actually signed in, from the
+  // name/phone they gave at sign-up (kept in their auth user_metadata, so it
+  // survives confirming on another device).
+  let authReady = false;       // first getSession() finished
+  let authSession = null;      // current Supabase session, or null
+  let customerProfile = null;  // their public.customers row, once loaded
+  let accountTab = 'signin';   // 'signin' | 'signup'
+  let accountNotice = null;    // { kind: 'ok' | 'error' | 'info', text }
+  let accountResendEmail = ''; // set when sign-in failed on an unconfirmed email
+  let accountBusy = false;
+  const PROFILE_COLUMNS = 'id, email, full_name, phone';
+
+  function accountRedirectUrl(){
+    return location.href.split('#')[0].split('?')[0] + '#/account';
+  }
+  function updateAccountNav(){
+    const link = document.getElementById('accountNavLink');
+    if(link) link.textContent = authSession ? 'My account' : 'Sign in';
+  }
+  function setAccountNotice(kind, text){ accountNotice = text ? { kind, text } : null; }
+
+  async function ensureCustomerProfile(user){
+    const found = await supabaseClient.from('customers').select(PROFILE_COLUMNS).eq('id', user.id).maybeSingle();
+    if(found.error) throw found.error;
+    if(found.data) return found.data;
+    const meta = user.user_metadata || {};
+    const row = { id: user.id, email: user.email, full_name: meta.full_name || null, phone: meta.phone || null };
+    const ins = await supabaseClient.from('customers').insert(row).select(PROFILE_COLUMNS).single();
+    if(ins.error && ins.error.code === '23505'){ // created meanwhile (e.g. another tab): just read it
+      const again = await supabaseClient.from('customers').select(PROFILE_COLUMNS).eq('id', user.id).single();
+      if(again.error) throw again.error;
+      return again.data;
+    }
+    if(ins.error) throw ins.error;
+    return ins.data;
+  }
+  async function loadCustomerProfile(){
+    customerProfile = null;
+    if(!authSession) return;
+    try{ customerProfile = await ensureCustomerProfile(authSession.user); }
+    catch(err){ setAccountNotice('error', 'Signed in, but your profile couldn\'t be loaded. Please try again. (' + (err.message || err) + ')'); }
+  }
+
+  function friendlyAuthError(err){
+    const code = err && err.code, msg = (err && err.message) || String(err);
+    if(code === 'invalid_credentials' || /invalid login credentials/i.test(msg)) return 'Wrong email or password.';
+    if(code === 'email_not_confirmed' || /not confirmed/i.test(msg)) return 'Please confirm your email first — open the link we emailed you.';
+    if(code === 'weak_password' || /password should be/i.test(msg)) return 'Choose a longer password (at least 6 characters).';
+    if(code === 'over_email_send_rate_limit' || /rate limit/i.test(msg)) return 'Too many emails sent just now. Please wait a few minutes and try again.';
+    return msg;
+  }
+
+  function renderAccount(){
+    const root = document.getElementById('accountRoot');
+    if(!root) return;
+    const notice = accountNotice ? `<div class="auth-msg ${accountNotice.kind}" id="accountNotice">${escapeHtml(accountNotice.text)}</div>` : '';
+    if(!supabaseClient){
+      root.innerHTML = `<div class="auth-card"><div class="auth-msg error">Accounts are unavailable right now. Please try again later.</div></div>`;
+      return;
+    }
+    if(!authReady){
+      root.innerHTML = `<div class="auth-card"><p class="hint">Checking your account…</p></div>`;
+      return;
+    }
+    if(authSession){
+      const p = customerProfile || {};
+      root.innerHTML = `
+        <div class="auth-card">
+          ${notice}
+          <p style="margin-top:0;">Signed in as <b id="accountEmail">${escapeHtml(authSession.user.email)}</b></p>
+          <form id="profileForm">
+            <div class="field"><label for="profileName">Full name</label>
+              <input type="text" id="profileName" autocomplete="name" value="${escapeHtml(p.full_name || '')}">
+              <div class="hint">Printed on your orders.</div></div>
+            <div class="field"><label for="profilePhone">Phone</label>
+              <input type="tel" id="profilePhone" autocomplete="tel" value="${escapeHtml(p.phone || '')}"></div>
+            <div class="auth-actions">
+              <button type="submit" class="btn btn-navy" id="profileSave" ${customerProfile ? '' : 'disabled'}>Save</button>
+              <button type="button" class="btn btn-outline" id="signOutBtn">Sign out</button>
+            </div>
+          </form>
+        </div>`;
+      document.getElementById('profileForm').addEventListener('submit', saveProfile);
+      document.getElementById('signOutBtn').addEventListener('click', signOut);
+      return;
+    }
+    const signin = accountTab === 'signin';
+    root.innerHTML = `
+      <div class="auth-card">
+        <div class="view-toggle" role="tablist">
+          <button type="button" id="tabSignIn" class="${signin ? 'active' : ''}">Sign in</button>
+          <button type="button" id="tabSignUp" class="${signin ? '' : 'active'}">Create account</button>
+        </div>
+        ${notice}
+        ${signin ? `
+        <form id="signInForm">
+          <div class="field"><label for="authEmail">Email</label>
+            <input type="email" id="authEmail" autocomplete="email" required value="${escapeHtml(accountResendEmail)}"></div>
+          <div class="field"><label for="authPassword">Password</label>
+            <input type="password" id="authPassword" autocomplete="current-password" required></div>
+          <div class="auth-actions">
+            <button type="submit" class="btn btn-navy" id="signInBtn">Sign in</button>
+            ${accountResendEmail ? `<button type="button" class="linkish" id="resendBtn">Resend confirmation email</button>` : ''}
+          </div>
+        </form>` : `
+        <form id="signUpForm">
+          <div class="field"><label for="signupName">Full name <span class="hint">(optional)</span></label>
+            <input type="text" id="signupName" autocomplete="name"></div>
+          <div class="field"><label for="signupPhone">Phone <span class="hint">(optional)</span></label>
+            <input type="tel" id="signupPhone" autocomplete="tel"></div>
+          <div class="field"><label for="authEmail">Email</label>
+            <input type="email" id="authEmail" autocomplete="email" required></div>
+          <div class="field"><label for="authPassword">Password</label>
+            <input type="password" id="authPassword" autocomplete="new-password" required minlength="6">
+            <div class="hint">At least 6 characters.</div></div>
+          <button type="submit" class="btn btn-navy" id="signUpBtn">Create account</button>
+        </form>`}
+      </div>`;
+    document.getElementById('tabSignIn').addEventListener('click', ()=>{ accountTab = 'signin'; setAccountNotice(); renderAccount(); });
+    document.getElementById('tabSignUp').addEventListener('click', ()=>{ accountTab = 'signup'; setAccountNotice(); accountResendEmail = ''; renderAccount(); });
+    if(signin){
+      document.getElementById('signInForm').addEventListener('submit', signIn);
+      const resend = document.getElementById('resendBtn');
+      if(resend) resend.addEventListener('click', resendConfirmation);
+    } else {
+      document.getElementById('signUpForm').addEventListener('submit', signUp);
+    }
+  }
+
+  async function withBusy(buttonId, fn){
+    if(accountBusy) return;
+    accountBusy = true;
+    const btn = document.getElementById(buttonId);
+    if(btn) btn.disabled = true;
+    try{ await fn(); }
+    finally{ accountBusy = false; const b = document.getElementById(buttonId); if(b) b.disabled = false; }
+  }
+  function signIn(e){
+    e.preventDefault();
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    return withBusy('signInBtn', async ()=>{
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if(error){
+        const unconfirmed = error.code === 'email_not_confirmed' || /not confirmed/i.test(error.message || '');
+        accountResendEmail = unconfirmed ? email : '';
+        setAccountNotice('error', friendlyAuthError(error));
+        renderAccount();
+        return;
+      }
+      accountResendEmail = ''; setAccountNotice(); // onAuthStateChange takes over from here
+    });
+  }
+  function signUp(e){
+    e.preventDefault();
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const full_name = document.getElementById('signupName').value.trim();
+    const phone = document.getElementById('signupPhone').value.trim();
+    return withBusy('signUpBtn', async ()=>{
+      const { data, error } = await supabaseClient.auth.signUp({
+        email, password,
+        options: { emailRedirectTo: accountRedirectUrl(), data: { full_name: full_name || null, phone: phone || null } }
+      });
+      if(error){ setAccountNotice('error', friendlyAuthError(error)); renderAccount(); return; }
+      if(data && data.session) return; // no confirmation needed: onAuthStateChange takes over
+      // Same message whether or not the email was already registered —
+      // Supabase deliberately doesn't say, so neither do we.
+      accountTab = 'signin';
+      accountResendEmail = email;
+      setAccountNotice('ok', 'Check your inbox at ' + email + ' and open the link to confirm your account. Then sign in here.');
+      renderAccount();
+    });
+  }
+  function resendConfirmation(){
+    const email = accountResendEmail;
+    return withBusy('resendBtn', async ()=>{
+      const { error } = await supabaseClient.auth.resend({ type: 'signup', email, options: { emailRedirectTo: accountRedirectUrl() } });
+      setAccountNotice(error ? 'error' : 'ok', error ? friendlyAuthError(error) : 'Sent. Check your inbox at ' + email + '.');
+      renderAccount();
+    });
+  }
+  function saveProfile(e){
+    e.preventDefault();
+    const full_name = document.getElementById('profileName').value.trim() || null;
+    const phone = document.getElementById('profilePhone').value.trim() || null;
+    return withBusy('profileSave', async ()=>{
+      const { data, error } = await supabaseClient.from('customers')
+        .update({ full_name, phone }).eq('id', authSession.user.id).select(PROFILE_COLUMNS).single();
+      if(error){ setAccountNotice('error', 'Couldn\'t save: ' + (error.message || error)); }
+      else { customerProfile = data; setAccountNotice('ok', 'Saved.'); }
+      renderAccount();
+    });
+  }
+  function signOut(){
+    return withBusy('signOutBtn', async ()=>{
+      await supabaseClient.auth.signOut();
+      setAccountNotice('info', 'You\'re signed out.');
+    });
+  }
+
+  async function onSessionChanged(session){
+    authSession = session || null;
+    updateAccountNav();
+    // A token refresh for the same customer doesn't need the profile again.
+    const sameCustomer = authSession && customerProfile && customerProfile.id === authSession.user.id;
+    if(!sameCustomer) await loadCustomerProfile();
+    if(currentRoute() === '/account') renderAccount();
+  }
+
+  (async function startAccounts(){
+    updateAccountNav();
+    if(!supabaseClient){ authReady = true; return; }
+    // Back from the confirmation email: ?code=… (PKCE) or ?error=… in the
+    // query string. getSession() waits for supabase-js to finish exchanging
+    // the code, then the query is cleaned off and the visitor lands on
+    // #/account with a message.
+    const params = new URLSearchParams(location.search);
+    const fromEmail = params.has('code') || params.has('error') || params.has('error_description');
+    const { data } = await supabaseClient.auth.getSession();
+    authReady = true;
+    if(fromEmail){
+      if(data && data.session) setAccountNotice('ok', 'Your email is confirmed and you\'re signed in.');
+      else if(params.get('error_description')) setAccountNotice('error', params.get('error_description'));
+      else setAccountNotice('info', 'Your email is confirmed. Sign in below to continue.');
+      history.replaceState(null, '', location.pathname + '#/account');
+    }
+    await onSessionChanged(data && data.session);
+    if(fromEmail) render();
+    supabaseClient.auth.onAuthStateChange((event, session)=>{
+      if(event === 'INITIAL_SESSION') return; // handled above
+      // Deferred: supabase-js asks callers not to await other Supabase
+      // calls inside this callback.
+      setTimeout(()=> onSessionChanged(session), 0);
+    });
+  })();
 
   document.getElementById('rpnSendBtn').addEventListener('click', function(e){
     const form = document.getElementById('rpnForm');

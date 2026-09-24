@@ -28,7 +28,22 @@ node build.js --itred   # dist-itred/index.html  — public iTred Market Place s
 `dist-itred/` is the public iTred Market Place website for customers, a
 separate site from the shop app. Its source is `src/itred/index.html`,
 which is one self-contained file for now; the build copies it through
-unchanged. `test/itred-site-e2e.test.js` covers its 8 routes.
+unchanged. It talks to the same Supabase project as the shop app's device
+check-in, using the same URL and anon key:
+- Market Space reads published, unexpired `vendor_listings` joined to
+  `vendors`.
+- `#/account` handles customer sign-up and sign-in (email + password,
+  confirmation required) and the customer's own `customers` row.
+
+The other sections are still static. Tests:
+- `test/itred-site-e2e.test.js`: the 9 routes.
+- `test/itred-supabase-e2e.test.js`: listings and accounts, against the
+  fake in `test/itred-fake-supabase.js`, plus a read-only check against
+  the live project.
+
+Before the site goes live, add its hosted URL to the Supabase project's
+Auth → URL Configuration (Site URL / Redirect URLs); otherwise the
+confirmation email links back to the wrong place.
 
 Both read the same `src/` files and produce the same app. Run either or
 both any time; neither depends on the other having been built first.
