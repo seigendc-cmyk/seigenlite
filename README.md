@@ -24,6 +24,9 @@ node build.js --pwa   # dist-pwa/   — installable PWA build
 node build.js --market  # dist-market/market.html — Marketing tab add-on
 ```
 
+Both read the same `src/` files and produce the same app. Run either or
+both any time; neither depends on the other having been built first.
+
 `dist-market/market.html` is not another package of the app. It's the
 optional layer behind the Marketing tab (`src/marketing.js`), and the tab
 loads it from `market.html` in the same folder as the app's `index.html`.
@@ -31,20 +34,19 @@ If the file isn't there, the tab shows a "not installed" card.
 
 ### Marketing tab: follow-ups
 
-Open items for the Marketing export phase. It isn't fully shipped until
-both are closed.
+Items tracked for the Marketing export phase. Only the native Tauri
+package is still open, and that's part of the later Tauri packaging phase.
 
-1. **Offline Marketing in the hosted app: open, a known gap.** When the
-   hosted app (`dist-pwa/`, and `dist-tauri/` hosted in a browser) is
-   offline, the Marketing tab shows "not installed" even where
-   `market.html` is deployed. `sw-pwa.js` already precaches
-   `./market.html`, but the tab loads it in a sandboxed iframe, and that
-   load doesn't go through the service worker, so the cached copy is
-   never used. Likely fix: have `src/marketing.js` fetch `./market.html`
-   itself (that fetch does go through the service worker) and hand the
-   text to the same sandboxed iframe with `srcdoc`, which keeps the
-   iframe isolated. `test/marketing-hosted-e2e.test.js` reports this as
-   `gap`. Once it's fixed, change that check to a normal assertion.
+1. **Offline Marketing in the hosted app: closed.** A sandboxed iframe's
+   own load doesn't go through the service worker, so loading
+   `market.html` by `src` never used the copy `sw-pwa.js` precaches. Over
+   http(s), `src/marketing.js` now fetches `./market.html` itself (that
+   fetch does go through the service worker) and hands the text to the
+   same sandboxed iframe as `srcdoc`, so the add-on is exactly as
+   isolated as before. On `file://`, where browsers block `fetch`, it
+   still loads by `src`. `test/marketing-hosted-e2e.test.js` takes the
+   installed PWA offline and checks that the picker and export screen
+   still work.
 2. **Hosted and Tauri builds: rebuilt and checked in a browser. Native
    Tauri package not yet verified.** `dist-pwa/` and `dist-tauri/` are
    built with the Marketing tab. `test/marketing-hosted-e2e.test.js`
@@ -54,9 +56,6 @@ both are closed.
    packaging phase happens: bundle `market.html` next to `index.html`,
    then check the tab and the save-to-folder + WhatsApp handoff in the
    real desktop app.
-
-Both read the same `src/` files and produce the same app. Run either or
-both any time; neither depends on the other having been built first.
 
 ### `dist/index.html` — the single-file build
 

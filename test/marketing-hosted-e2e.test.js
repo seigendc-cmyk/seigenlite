@@ -3,9 +3,11 @@
 // The Marketing tab in the two HOSTED builds, served over real http from a
 // local server with market.html deployed next to index.html:
 //   * dist-pwa: the picker loads online and the service worker precaches
-//     market.html; then the device goes offline and the tab is opened
-//     again. Offline Marketing is a KNOWN GAP (README → Marketing tab:
-//     follow-ups): that part is reported, not failed, until it's closed.
+//     market.html; then the device goes offline and the tab still works,
+//     because src/marketing.js fetches the add-on (through the worker) and
+//     hands it to the sandboxed frame as srcdoc
+//   * dist-pwa with NO market.html deployed: the 404 shows the
+//     not-installed card straight away (no handshake wait)
 //   * dist-tauri (opened in a browser, the way it's also installed as a
 //     PWA): Marketing is in the hamburger drawer and the picker loads.
 // test/marketing-picker-e2e.test.js covers the tab itself on dist/.
@@ -37,10 +39,10 @@ async function t(name, fn){
 }
 
 // A copy of a build folder plus market.html, served as static files.
-function deploy(buildDir){
+function deploy(buildDir, withMarket=true){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-hosted-"));
   for(const f of fs.readdirSync(path.join(ROOT, buildDir))) fs.copyFileSync(path.join(ROOT, buildDir, f), path.join(dir, f));
-  fs.copyFileSync(MARKET, path.join(dir, "market.html"));
+  if(withMarket) fs.copyFileSync(MARKET, path.join(dir, "market.html"));
   const types = { ".html":"text/html", ".js":"text/javascript", ".json":"application/json", ".png":"image/png", ".ico":"image/x-icon" };
   const server = http.createServer((req, res)=>{
     const rel = decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html";
@@ -96,7 +98,7 @@ async function gotoRoute(page, route, desktop){
 (async()=>{
   const browser = await chromium.launch();
 
-  await t("dist-pwa: picker loads online; market.html is precached; offline status reported (known gap)", async ()=>{
+  await t("dist-pwa: picker loads online, and OFFLINE from the service worker cache", async ()=>{
     const { server, base } = await deploy("dist-pwa");
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -131,14 +133,35 @@ async function gotoRoute(page, route, desktop){
         frame.locator(".mk-row").first().waitFor({ timeout: 12000 }).then(()=>"picker"),
         page.waitForSelector("#marketRecheck", { timeout: 12000 }).then(()=>"not-installed"),
       ]);
+      assert.strictEqual(outcome, "picker", "offline, the Marketing tab showed: "+outcome);
+      assert.deepStrictEqual(await frame.locator(".mk-row .pname").allTextContents(), ["Sugar 2kg"]);
+      // The offline add-on still works end to end, not just renders.
+      await frame.locator(".mk-row .mk-check").first().check();
+      await frame.locator("#mkContinue").click();
+      await frame.locator("#mkPrepare").waitFor();
       assert.deepStrictEqual(pageErrors, []);
-      // KNOWN GAP (README → Marketing tab: follow-ups): market.html IS in the
-      // service worker's cache (checked above), but the sandboxed iframe's
-      // load doesn't go through the service worker, so offline the tab reads
-      // "not installed". Reported, not failed, until that follow-up lands —
-      // then this becomes a plain assertion.
-      if(outcome==="picker") console.log("  note offline Marketing now works — the known gap is closed; turn this into a normal assertion");
-      else console.log("  gap  offline, the Marketing tab shows \"not installed\" (known follow-up, not a regression)");
+    } finally {
+      await context.close(); server.close();
+    }
+  });
+
+  await t("dist-pwa with no market.html deployed: not-installed card, without waiting out the handshake", async ()=>{
+    const { server, base } = await deploy("dist-pwa", false);
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const pageErrors = [];
+    page.on("pageerror", err => pageErrors.push(err.message));
+    try{
+      await openControlled(page, base);
+      await finishSetup(page);
+      await page.waitForSelector("[data-route]");
+      const t0 = Date.now();
+      await gotoRoute(page, "marketing");
+      await page.waitForSelector("#marketRecheck", { timeout: 10000 });
+      const ms = Date.now() - t0;
+      assert.ok(ms < 3000, "took "+ms+"ms (the handshake cap is 6000ms)");
+      assert.strictEqual(await page.$("#marketFrame"), null);
+      assert.deepStrictEqual(pageErrors, []);
     } finally {
       await context.close(); server.close();
     }

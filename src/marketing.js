@@ -10,7 +10,10 @@
   //   * a sandboxed iframe (allow-scripts only), so market.html runs in an
   //     opaque origin: no access to this app's IndexedDB/SQLite, cookies or
   //     DOM, even when both are served from the same host. Everything it
-  //     gets comes through the bridge below.
+  //     gets comes through the bridge below. Over http(s) its text is
+  //     fetched here and set as srcdoc, so it works offline from the
+  //     service worker cache; on file:// the frame loads it by src (see
+  //     loadMarketText).
   //   * postMessage, checked by SOURCE WINDOW (not origin — file:// and
   //     sandboxed frames both report "null"), on one channel name.
   //   * "present" means market.html answered a hello within the handshake
@@ -74,13 +77,42 @@
       if(route==="marketing") render();
     };
     const hardTimer = setTimeout(giveUp, MARKET_HANDSHAKE_MS);
-    frame.addEventListener("load", ()=> setTimeout(giveUp, MARKET_AFTER_LOAD_MS));
     frame._marketReady = ()=>{
       answered = true; clearTimeout(hardTimer);
       marketLayerState = "ready";
       status.innerHTML = "";
     };
-    frame.src = MARKET_FILE;
+    // Listen for load only once the real content is set: the empty frame's
+    // own about:blank load would otherwise start the grace timer early.
+    const load = (how)=>{
+      if(marketFrame!==frame || !frame.isConnected) return;
+      frame.addEventListener("load", ()=> setTimeout(giveUp, MARKET_AFTER_LOAD_MS));
+      how();
+    };
+    loadMarketText().then(
+      (text)=>{
+        if(text===null){ clearTimeout(hardTimer); giveUp(); } // definitely not deployed (404): no need to wait
+        else load(()=>{ frame.srcdoc = text; });
+      },
+      ()=> load(()=>{ frame.src = MARKET_FILE; })
+    );
+  }
+  // Served over http(s) (hosted PWA, Tauri's local server), the add-on is
+  // fetched here and handed to the sandboxed frame as srcdoc. This fetch
+  // goes through the service worker, so an installed app finds
+  // market.html in its offline cache; a sandboxed frame's own src load
+  // doesn't go through the worker, which is why it isn't used here. srcdoc
+  // keeps the same sandbox, so the add-on is exactly as isolated either way.
+  // Resolves to the text, or null for a definite 404. Rejects when fetch
+  // can't be used (file://, where browsers block it, or no network and no
+  // cached copy) — the caller then falls back to a plain src load, which
+  // is how the forwarded single file always works.
+  async function loadMarketText(){
+    if(location.protocol==="file:" || typeof fetch!=="function") throw new Error("no fetch here");
+    const res = await fetch(MARKET_FILE, { cache:"no-cache" });
+    if(res.status===404) return null;
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    return await res.text();
   }
 
   // ---- the bridge: the ONLY things market.html can ask this app for ----
