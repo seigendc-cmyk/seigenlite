@@ -1350,14 +1350,20 @@
   let authReady = false;       // first getSession() finished
   let authSession = null;      // current Supabase session, or null
   let customerProfile = null;  // their public.customers row, once loaded
-  let accountTab = 'signin';   // 'signin' | 'signup'
+  let accountTab = 'signin';   // 'signin' | 'signup' | 'forgot'
   let accountNotice = null;    // { kind: 'ok' | 'error' | 'info', text }
   let accountResendEmail = ''; // set when sign-in failed on an unconfirmed email
+  let accountEmailPrefill = ''; // email to pre-fill on the sign-in / forgot forms
+  let accountSignupDraft = {};  // what was typed on Create account, kept across an error re-render
+  let accountSettingPassword = false; // back from a reset link: ask for the new password
   let accountBusy = false;
   const PROFILE_COLUMNS = 'id, email, full_name, phone';
 
-  function accountRedirectUrl(){
-    return location.href.split('#')[0].split('?')[0] + '#/account';
+  // Where Supabase's emails send the customer back to. A reset link carries
+  // ?reset=1 so startAccounts() can tell it from a sign-up confirmation;
+  // both come back as ?code=… (PKCE) on #/account.
+  function accountRedirectUrl(purpose){
+    return location.href.split('#')[0].split('?')[0] + (purpose === 'reset' ? '?reset=1' : '') + '#/account';
   }
   function updateAccountNav(){
     const link = document.getElementById('accountNavLink');
@@ -1391,7 +1397,10 @@
     const code = err && err.code, msg = (err && err.message) || String(err);
     if(code === 'invalid_credentials' || /invalid login credentials/i.test(msg)) return 'Wrong email or password.';
     if(code === 'email_not_confirmed' || /not confirmed/i.test(msg)) return 'Please confirm your email first — open the link we emailed you.';
-    if(code === 'weak_password' || /password should be/i.test(msg)) return 'Choose a longer password (at least 6 characters).';
+    // same_password first: its message ("New password should be different…")
+    // would otherwise read as a too-short password.
+    if(code === 'same_password' || /different from the old password/i.test(msg)) return 'Choose a password different from your old one.';
+    if(code === 'weak_password' || /password should be at least/i.test(msg)) return 'Choose a longer password (at least 6 characters).';
     if(code === 'over_email_send_rate_limit' || /rate limit/i.test(msg)) return 'Too many emails sent just now. Please wait a few minutes and try again.';
     return msg;
   }
@@ -1406,6 +1415,23 @@
     }
     if(!authReady){
       root.innerHTML = `<div class="auth-card"><p class="hint">Checking your account…</p></div>`;
+      return;
+    }
+    if(authSession && accountSettingPassword){
+      root.innerHTML = `
+        <div class="auth-card">
+          ${notice}
+          <p style="margin-top:0;">Choose a new password for <b id="resetEmail">${escapeHtml(authSession.user.email)}</b>.</p>
+          <form id="newPasswordForm">
+            <div class="field"><label for="newPassword">New password</label>
+              <input type="password" id="newPassword" autocomplete="new-password" required minlength="6">
+              <div class="hint">At least 6 characters.</div></div>
+            <div class="field"><label for="newPassword2">New password again</label>
+              <input type="password" id="newPassword2" autocomplete="new-password" required minlength="6"></div>
+            <button type="submit" class="btn btn-navy" id="newPasswordBtn">Save new password</button>
+          </form>
+        </div>`;
+      document.getElementById('newPasswordForm').addEventListener('submit', setNewPassword);
       return;
     }
     if(authSession){
@@ -1430,32 +1456,43 @@
       document.getElementById('signOutBtn').addEventListener('click', signOut);
       return;
     }
-    const signin = accountTab === 'signin';
+    const signin = accountTab === 'signin', forgot = accountTab === 'forgot';
+    const prefill = accountEmailPrefill || accountResendEmail;
     root.innerHTML = `
       <div class="auth-card">
         <div class="view-toggle" role="tablist">
-          <button type="button" id="tabSignIn" class="${signin ? 'active' : ''}">Sign in</button>
-          <button type="button" id="tabSignUp" class="${signin ? '' : 'active'}">Create account</button>
+          <button type="button" id="tabSignIn" class="${signin || forgot ? 'active' : ''}">Sign in</button>
+          <button type="button" id="tabSignUp" class="${signin || forgot ? '' : 'active'}">Create account</button>
         </div>
         ${notice}
-        ${signin ? `
+        ${forgot ? `
+        <form id="forgotForm">
+          <p class="hint" style="margin-top:0;">Enter the email you signed up with and we'll send you a link to choose a new password.</p>
+          <div class="field"><label for="authEmail">Email</label>
+            <input type="email" id="authEmail" autocomplete="email" required value="${escapeHtml(prefill)}"></div>
+          <div class="auth-actions">
+            <button type="submit" class="btn btn-navy" id="forgotBtn">Send reset link</button>
+            <button type="button" class="linkish" id="forgotBackBtn">Back to sign in</button>
+          </div>
+        </form>` : signin ? `
         <form id="signInForm">
           <div class="field"><label for="authEmail">Email</label>
-            <input type="email" id="authEmail" autocomplete="email" required value="${escapeHtml(accountResendEmail)}"></div>
+            <input type="email" id="authEmail" autocomplete="email" required value="${escapeHtml(prefill)}"></div>
           <div class="field"><label for="authPassword">Password</label>
             <input type="password" id="authPassword" autocomplete="current-password" required></div>
           <div class="auth-actions">
             <button type="submit" class="btn btn-navy" id="signInBtn">Sign in</button>
             ${accountResendEmail ? `<button type="button" class="linkish" id="resendBtn">Resend confirmation email</button>` : ''}
+            <button type="button" class="linkish" id="forgotLink">Forgot password?</button>
           </div>
         </form>` : `
         <form id="signUpForm">
           <div class="field"><label for="signupName">Full name <span class="hint">(optional)</span></label>
-            <input type="text" id="signupName" autocomplete="name"></div>
+            <input type="text" id="signupName" autocomplete="name" value="${escapeHtml(accountSignupDraft.full_name || '')}"></div>
           <div class="field"><label for="signupPhone">Phone <span class="hint">(optional)</span></label>
-            <input type="tel" id="signupPhone" autocomplete="tel"></div>
+            <input type="tel" id="signupPhone" autocomplete="tel" value="${escapeHtml(accountSignupDraft.phone || '')}"></div>
           <div class="field"><label for="authEmail">Email</label>
-            <input type="email" id="authEmail" autocomplete="email" required></div>
+            <input type="email" id="authEmail" autocomplete="email" required value="${escapeHtml(accountSignupDraft.email || '')}"></div>
           <div class="field"><label for="authPassword">Password</label>
             <input type="password" id="authPassword" autocomplete="new-password" required minlength="6">
             <div class="hint">At least 6 characters.</div></div>
@@ -1464,10 +1501,20 @@
       </div>`;
     document.getElementById('tabSignIn').addEventListener('click', ()=>{ accountTab = 'signin'; setAccountNotice(); renderAccount(); });
     document.getElementById('tabSignUp').addEventListener('click', ()=>{ accountTab = 'signup'; setAccountNotice(); accountResendEmail = ''; renderAccount(); });
-    if(signin){
+    if(forgot){
+      document.getElementById('forgotForm').addEventListener('submit', requestPasswordReset);
+      document.getElementById('forgotBackBtn').addEventListener('click', ()=>{
+        accountEmailPrefill = document.getElementById('authEmail').value.trim();
+        accountTab = 'signin'; setAccountNotice(); renderAccount();
+      });
+    } else if(signin){
       document.getElementById('signInForm').addEventListener('submit', signIn);
       const resend = document.getElementById('resendBtn');
       if(resend) resend.addEventListener('click', resendConfirmation);
+      document.getElementById('forgotLink').addEventListener('click', ()=>{
+        accountEmailPrefill = document.getElementById('authEmail').value.trim();
+        accountTab = 'forgot'; accountResendEmail = ''; setAccountNotice(); renderAccount();
+      });
     } else {
       document.getElementById('signUpForm').addEventListener('submit', signUp);
     }
@@ -1490,6 +1537,7 @@
       if(error){
         const unconfirmed = error.code === 'email_not_confirmed' || /not confirmed/i.test(error.message || '');
         accountResendEmail = unconfirmed ? email : '';
+        accountEmailPrefill = email; // keep what they typed for the next try
         setAccountNotice('error', friendlyAuthError(error));
         renderAccount();
         return;
@@ -1508,7 +1556,11 @@
         email, password,
         options: { emailRedirectTo: accountRedirectUrl(), data: { full_name: full_name || null, phone: phone || null } }
       });
-      if(error){ setAccountNotice('error', friendlyAuthError(error)); renderAccount(); return; }
+      if(error){
+        accountSignupDraft = { full_name, phone, email }; // keep what they typed for the next try
+        setAccountNotice('error', friendlyAuthError(error)); renderAccount(); return;
+      }
+      accountSignupDraft = {};
       if(data && data.session) return; // no confirmation needed: onAuthStateChange takes over
       // Same message whether or not the email was already registered —
       // Supabase deliberately doesn't say, so neither do we.
@@ -1523,6 +1575,36 @@
     return withBusy('resendBtn', async ()=>{
       const { error } = await supabaseClient.auth.resend({ type: 'signup', email, options: { emailRedirectTo: accountRedirectUrl() } });
       setAccountNotice(error ? 'error' : 'ok', error ? friendlyAuthError(error) : 'Sent. Check your inbox at ' + email + '.');
+      renderAccount();
+    });
+  }
+  function requestPasswordReset(e){
+    e.preventDefault();
+    const email = document.getElementById('authEmail').value.trim();
+    return withBusy('forgotBtn', async ()=>{
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: accountRedirectUrl('reset') });
+      if(error){ accountEmailPrefill = email; setAccountNotice('error', friendlyAuthError(error)); renderAccount(); return; }
+      // Same message whether or not the email has an account — Supabase
+      // deliberately doesn't say, so neither do we.
+      accountTab = 'signin';
+      accountEmailPrefill = email;
+      setAccountNotice('ok', 'If there\'s an account for ' + email + ', we\'ve emailed it a link to choose a new password. Open the link in this browser.');
+      renderAccount();
+    });
+  }
+  function setNewPassword(e){
+    e.preventDefault();
+    const password = document.getElementById('newPassword').value;
+    if(password !== document.getElementById('newPassword2').value){
+      setAccountNotice('error', 'The two passwords don\'t match.');
+      renderAccount();
+      return;
+    }
+    return withBusy('newPasswordBtn', async ()=>{
+      const { error } = await supabaseClient.auth.updateUser({ password });
+      if(error){ setAccountNotice('error', friendlyAuthError(error)); renderAccount(); return; }
+      accountSettingPassword = false;
+      setAccountNotice('ok', 'Your password has been changed. You\'re signed in.');
       renderAccount();
     });
   }
@@ -1545,33 +1627,48 @@
     });
   }
 
-  async function onSessionChanged(session){
+  // opts.skipRender: the caller redraws the page itself right after.
+  async function onSessionChanged(session, opts){
     authSession = session || null;
+    if(!authSession) accountSettingPassword = false;
     updateAccountNav();
-    // A token refresh for the same customer doesn't need the profile again.
+    // A token refresh for the same customer changes nothing on screen:
+    // don't reload the profile, and don't redraw (that would wipe anything
+    // being typed into the account forms).
     const sameCustomer = authSession && customerProfile && customerProfile.id === authSession.user.id;
-    if(!sameCustomer) await loadCustomerProfile();
-    if(currentRoute() === '/account') renderAccount();
+    if(sameCustomer) return;
+    await loadCustomerProfile();
+    if(!(opts && opts.skipRender) && currentRoute() === '/account') renderAccount();
   }
 
   (async function startAccounts(){
     updateAccountNav();
     if(!supabaseClient){ authReady = true; return; }
-    // Back from the confirmation email: ?code=… (PKCE) or ?error=… in the
-    // query string. getSession() waits for supabase-js to finish exchanging
-    // the code, then the query is cleaned off and the visitor lands on
-    // #/account with a message.
+    // Back from an email link — sign-up confirmation, or password reset
+    // (?reset=1): ?code=… (PKCE) or ?error=… in the query string.
+    // getSession() waits for supabase-js to finish exchanging the code, then
+    // the query is cleaned off and the visitor lands on #/account with a
+    // message (or, for a reset, the new-password form).
     const params = new URLSearchParams(location.search);
-    const fromEmail = params.has('code') || params.has('error') || params.has('error_description');
+    const fromEmail = params.has('code') || params.has('error') || params.has('error_description') || params.has('reset');
+    const fromReset = params.has('reset');
     const { data } = await supabaseClient.auth.getSession();
+    const session = data && data.session;
     authReady = true;
     if(fromEmail){
-      if(data && data.session) setAccountNotice('ok', 'Your email is confirmed and you\'re signed in.');
-      else if(params.get('error_description')) setAccountNotice('error', params.get('error_description'));
+      if(params.get('error_description')){
+        if(fromReset) accountTab = 'forgot';
+        setAccountNotice('error', params.get('error_description'));
+      } else if(fromReset){
+        if(session){ accountSettingPassword = true; setAccountNotice('info', 'Choose a new password to finish resetting it.'); }
+        else { accountTab = 'forgot'; setAccountNotice('error', 'This reset link couldn\'t be used here. Open it in the same browser you asked for it from, or request a new one below.'); }
+      }
+      else if(session) setAccountNotice('ok', 'Your email is confirmed and you\'re signed in.');
       else setAccountNotice('info', 'Your email is confirmed. Sign in below to continue.');
       history.replaceState(null, '', location.pathname + '#/account');
     }
-    await onSessionChanged(data && data.session);
+    // Drawn once: render() both switches to #/account and draws it.
+    await onSessionChanged(session, { skipRender: fromEmail });
     if(fromEmail) render();
     supabaseClient.auth.onAuthStateChange((event, session)=>{
       if(event === 'INITIAL_SESSION') return; // handled above

@@ -1,6 +1,7 @@
 // A stand-in for the iTred Supabase project, for the browser tests of
 // src/itred/index.html. It answers the real supabase-js requests the site
-// makes (Auth: signup / password + pkce token / user / logout / resend;
+// makes (Auth: signup / password + pkce token / user (get, update) /
+// logout / resend / recover;
 // REST: vendor_listings, customers) at the network level via Playwright's
 // page.route, so the site runs unmodified against it. It mirrors the rules
 // that matter to the site — email confirmation required, customers rows
@@ -66,6 +67,7 @@ function createFakeSupabase(opts){
     if(url.pathname==="/auth/v1/signup" && method==="POST"){
       const email = String(body.email||"").toLowerCase();
       entry.redirectTo = q.get("redirect_to");
+      if(state.failNextSignup){ const f = state.failNextSignup; state.failNextSignup = null; return authErr(f.status, f.code, f.msg); }
       if(String(body.password||"").length < 6) return authErr(422, "weak_password", "Password should be at least 6 characters.");
       let u = state.users.get(email);
       if(!u) u = state.addUser(email, body.password, { user_metadata: body.data||{}, confirmed: !state.requireConfirmation });
@@ -98,6 +100,23 @@ function createFakeSupabase(opts){
     if(url.pathname==="/auth/v1/resend" && method==="POST"){
       entry.redirectTo = q.get("redirect_to");
       return send(200, {});
+    }
+    // Password reset email. Like the real one, answers the same whether or
+    // not the email has an account.
+    if(url.pathname==="/auth/v1/recover" && method==="POST"){
+      entry.redirectTo = q.get("redirect_to");
+      return send(200, {});
+    }
+    // Set a new password (signed in, e.g. via the reset link's session).
+    if(url.pathname==="/auth/v1/user" && method==="PUT"){
+      if(!userId) return authErr(401, "bad_jwt", "invalid JWT");
+      const u = userById(userId);
+      if(body.password!==undefined){
+        if(String(body.password).length < 6) return authErr(422, "weak_password", "Password should be at least 6 characters.");
+        if(body.password===u.password) return authErr(422, "same_password", "New password should be different from the old password.");
+        u.password = body.password;
+      }
+      return send(200, publicUser(u));
     }
 
     // ---------------- REST ----------------

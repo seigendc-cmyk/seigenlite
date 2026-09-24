@@ -9,7 +9,9 @@
 //   * #/account: sign up (email confirmation required) -> sign in blocked
 //     until confirmed, with resend -> sign in creates the customers row
 //     from the sign-up name/phone -> edit profile -> survives a reload ->
-//     sign out; wrong password; coming back from the email link (?code=)
+//     sign out; wrong password; coming back from the email link (?code=);
+//     forgotten password: request a reset link -> back via the link to a
+//     new-password form -> signed in; expired link; link opened elsewhere
 //   * the static sections (RPN, feedback, highlights, showcase, partners,
 //     site products) still never touch Supabase
 // Supabase itself is the in-test fake from test/itred-fake-supabase.js
@@ -264,6 +266,28 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
     assert.strictEqual(await accountNotice(page), "Wrong email or password.");
     assert.strictEqual(await page.$("#resendBtn"), null);
     assert.strictEqual(fake.requests("/rest/v1/customers").length, 0);
+    // the email they typed is still there for the next try, and the next try works
+    assert.strictEqual(await page.inputValue("#authEmail"), "a@example.com");
+    await page.fill("#authPassword", "right-one");
+    await page.click("#signInBtn");
+    await page.waitForSelector("#accountEmail");
+    await context.close();
+  });
+
+  await t("a failed sign-up keeps what was typed (except the password)", async ()=>{
+    const fake = createFakeSupabase();
+    fake.failNextSignup = { status:429, code:"over_email_send_rate_limit", msg:"email rate limit exceeded" };
+    const { context, page } = await open(browser, fake, "#/account");
+    await page.click("#tabSignUp");
+    await page.fill("#signupName", "Tendai Moyo");
+    await page.fill("#signupPhone", "0771234567");
+    await page.fill("#authEmail", "tendai@example.com");
+    await page.fill("#authPassword", "secret123");
+    await page.click("#signUpBtn");
+    await page.waitForSelector("#accountNotice");
+    assert.match(await accountNotice(page), /Too many emails sent just now/);
+    assert.deepStrictEqual([await page.inputValue("#signupName"), await page.inputValue("#signupPhone"), await page.inputValue("#authEmail"), await page.inputValue("#authPassword")],
+      ["Tendai Moyo", "0771234567", "tendai@example.com", ""]);
     await context.close();
   });
 
@@ -293,6 +317,105 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
     await page.goto(SITE.replace(/index\.html$/, "index.html?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired") + "#/");
     await page.waitForFunction(()=> location.hash==="#/account" && !!document.getElementById("accountNotice"));
     assert.match(await accountNotice(page), /Email link is invalid or has expired/);
+    await context.close();
+  });
+
+  // ================= Password reset =================
+  await t("'Forgot password?' asks for the email (pre-filled) and sends a reset link that returns to #/account", async ()=>{
+    const fake = createFakeSupabase();
+    const { context, page, errors } = await open(browser, fake, "#/account");
+    await page.fill("#authEmail", "tendai@example.com");
+    await page.click("#forgotLink");
+    await page.waitForSelector("#forgotForm");
+    assert.strictEqual(await page.inputValue("#authEmail"), "tendai@example.com");
+    // Back to sign in and forward again keeps the email.
+    await page.click("#forgotBackBtn");
+    await page.waitForSelector("#signInForm");
+    assert.strictEqual(await page.inputValue("#authEmail"), "tendai@example.com");
+    await page.click("#forgotLink");
+    await page.click("#forgotBtn");
+    await page.waitForSelector("#signInForm #accountNotice, #accountNotice");
+    assert.match(await accountNotice(page), /If there's an account for tendai@example\.com, we've emailed it a link/);
+    assert.strictEqual(await page.inputValue("#authEmail"), "tendai@example.com", "back on Sign in with the email filled in");
+    const rec = fake.requests("/auth/v1/recover")[0];
+    assert.strictEqual(rec.body.email, "tendai@example.com");
+    assert.ok(rec.body.code_challenge, "PKCE flow, like the confirmation link");
+    assert.match(rec.redirectTo, /index\.html\?reset=1#\/account$/);
+    assert.strictEqual(fake.requests("/rest/v1/customers").length, 0);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("the reset link returns to a new-password form; after saving, the customer is signed in on the normal account view", async ()=>{
+    const fake = createFakeSupabase();
+    const u = fake.addUser("tendai@example.com", "old-secret", { confirmed:true, user_metadata:{ full_name:"Tendai Moyo" } });
+    const { context, page, errors } = await open(browser, fake, "#/account");
+    await page.fill("#authEmail", "tendai@example.com");
+    await page.click("#forgotLink");
+    await page.click("#forgotBtn");
+    await page.waitForSelector("#accountNotice");
+    const code = fake.issueCode("tendai@example.com");
+    await page.goto(SITE.replace(/index\.html$/, "index.html?reset=1&code="+code) + "#/account");
+    await page.waitForSelector("#newPasswordForm");
+    assert.match(await accountNotice(page), /Choose a new password/);
+    assert.strictEqual(await page.textContent("#resetEmail"), "tendai@example.com");
+    assert.strictEqual(new URL(page.url()).search, "", "the ?reset=1&code= is cleaned off the address");
+    assert.match(page.url(), /#\/account$/);
+    // mismatch -> checked on the page, nothing sent
+    await page.fill("#newPassword", "new-secret");
+    await page.fill("#newPassword2", "new-secreX");
+    await page.click("#newPasswordBtn");
+    await page.waitForFunction(()=> /don't match/.test((document.getElementById("accountNotice")||{}).textContent||""));
+    assert.strictEqual(fake.requests("/auth/v1/user", "PUT").length, 0);
+    // same as the old one -> Supabase's refusal, in the site's words
+    await page.fill("#newPassword", "old-secret");
+    await page.fill("#newPassword2", "old-secret");
+    await page.click("#newPasswordBtn");
+    await page.waitForFunction(()=> /different from your old one/.test((document.getElementById("accountNotice")||{}).textContent||""));
+    // a good one
+    await page.fill("#newPassword", "new-secret");
+    await page.fill("#newPassword2", "new-secret");
+    await page.click("#newPasswordBtn");
+    await page.waitForSelector("#accountEmail");
+    assert.match(await accountNotice(page), /Your password has been changed\. You're signed in\./);
+    assert.strictEqual(await page.textContent("#accountNavLink"), "My account");
+    assert.strictEqual(await page.inputValue("#profileName"), "Tendai Moyo");
+    assert.ok(fake.customers.get(u.id), "profile row created as for any first sign-in");
+    assert.strictEqual(u.password, "new-secret");
+    // the new password works, the old one doesn't
+    await page.click("#signOutBtn");
+    await page.waitForSelector("#signInForm");
+    await page.fill("#authEmail", "tendai@example.com");
+    await page.fill("#authPassword", "old-secret");
+    await page.click("#signInBtn");
+    await page.waitForFunction(()=> /Wrong email or password/.test((document.getElementById("accountNotice")||{}).textContent||""));
+    await page.fill("#authPassword", "new-secret");
+    await page.click("#signInBtn");
+    await page.waitForSelector("#accountEmail");
+    assert.deepStrictEqual(errors, []);
+    assertNoStaticTableRequests(fake);
+    await context.close();
+  });
+
+  await t("an expired or invalid reset link shows Supabase's reason, on the reset form so a new link can be requested", async ()=>{
+    const fake = createFakeSupabase();
+    const { context, page } = await open(browser, fake, "");
+    await page.goto(SITE.replace(/index\.html$/, "index.html?reset=1&error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired") + "#/account");
+    await page.waitForSelector("#forgotForm");
+    assert.match(await accountNotice(page), /Email link is invalid or has expired/);
+    assert.strictEqual(new URL(page.url()).search, "");
+    await context.close();
+  });
+
+  await t("a reset link opened in a different browser explains why and offers a new link", async ()=>{
+    const fake = createFakeSupabase();
+    fake.addUser("tendai@example.com", "old-secret", { confirmed:true });
+    const code = fake.issueCode("tendai@example.com");
+    const { context, page } = await open(browser, fake, ""); // fresh browser: no PKCE verifier stored
+    await page.goto(SITE.replace(/index\.html$/, "index.html?reset=1&code="+code) + "#/account");
+    await page.waitForSelector("#forgotForm");
+    assert.match(await accountNotice(page), /Open it in the same browser you asked for it from/);
+    assert.strictEqual(await page.$("#newPasswordForm"), null);
     await context.close();
   });
 
