@@ -21,7 +21,39 @@ packaging differs.
 ```
 node build.js         # dist/       — single-file build
 node build.js --pwa   # dist-pwa/   — installable PWA build
+node build.js --market  # dist-market/market.html — Marketing tab add-on
 ```
+
+`dist-market/market.html` is not another package of the app. It's the
+optional layer behind the Marketing tab (`src/marketing.js`), and the tab
+loads it from `market.html` in the same folder as the app's `index.html`.
+If the file isn't there, the tab shows a "not installed" card.
+
+### Marketing tab: follow-ups
+
+Open items for the Marketing export phase. It isn't fully shipped until
+both are closed.
+
+1. **Offline Marketing in the hosted app: open, a known gap.** When the
+   hosted app (`dist-pwa/`, and `dist-tauri/` hosted in a browser) is
+   offline, the Marketing tab shows "not installed" even where
+   `market.html` is deployed. `sw-pwa.js` already precaches
+   `./market.html`, but the tab loads it in a sandboxed iframe, and that
+   load doesn't go through the service worker, so the cached copy is
+   never used. Likely fix: have `src/marketing.js` fetch `./market.html`
+   itself (that fetch does go through the service worker) and hand the
+   text to the same sandboxed iframe with `srcdoc`, which keeps the
+   iframe isolated. `test/marketing-hosted-e2e.test.js` reports this as
+   `gap`. Once it's fixed, change that check to a normal assertion.
+2. **Hosted and Tauri builds: rebuilt and checked in a browser. Native
+   Tauri package not yet verified.** `dist-pwa/` and `dist-tauri/` are
+   built with the Marketing tab. `test/marketing-hosted-e2e.test.js`
+   serves each over http with `market.html` alongside and checks that the
+   picker loads (from the bottom bar in `dist-pwa/`, from the hamburger
+   drawer in `dist-tauri/`). Still to do when the native `tauri build`
+   packaging phase happens: bundle `market.html` next to `index.html`,
+   then check the tab and the save-to-folder + WhatsApp handoff in the
+   real desktop app.
 
 Both read the same `src/` files and produce the same app. Run either or
 both any time; neither depends on the other having been built first.

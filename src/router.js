@@ -13,6 +13,7 @@
     { id:"products", icon:ICON_NAV_PRODUCTS, label:"Products" },
     { id:"credit", icon:ICON_NAV_CREDIT, label:"Credit" },
     { id:"reports", icon:ICON_NAV_REPORTS, label:"Reports" },
+    { id:"marketing", icon:ICON_NAV_MARKETING, label:"Marketing" },
     { id:"more", icon:ICON_NAV_MORE, label:"More" },
   ];
 
@@ -87,6 +88,7 @@
     else if(route==="products") renderProducts(main);
     else if(route==="credit") renderCredit(main);
     else if(route==="reports") renderReports(main);
+    else if(route==="marketing") renderMarketing(main);
     else if(route==="more") renderMore(main);
   }
   function navBtn(r,ic,label){

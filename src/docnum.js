@@ -10,7 +10,7 @@
 
   // DN files are self-contained JSON (see dnfile.js). GRV files (Phase 3) share it.
   const DOC_FILE_EXT = ".json";
-  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM"];
+  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT"];
   const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
   // 4-digit zero-padded; past 9999 the number simply grows (DN10000) rather

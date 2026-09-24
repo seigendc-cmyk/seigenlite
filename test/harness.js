@@ -59,7 +59,7 @@ function makeApp(settings){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","rpn.js","currencies.js","eod.js","stocktake.js","import.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","rpn.js","currencies.js","eod.js","stocktake.js","import.js","marketing.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -89,7 +89,9 @@ function makeApp(settings){
         rankProductsBySearch, matchesAnyOrder, searchTokens,
         renderStocktake, renderStocktakeCounting, renderStocktakeCountingListOnly, computeStocktakeVariance,
         setStocktakeQuery:(q)=>{ stocktakeQuery=q; }, getStocktakeQuery:()=>stocktakeQuery,
-        parseImportRows, findImportMatch, classifyImportRows, runImport, IMPORT_COLUMN_MAP };`;
+        parseImportRows, findImportMatch, classifyImportRows, runImport, IMPORT_COLUMN_MAP,
+        marketProductRows, marketCleanSelection, MARKET_OPS, MARKET_MAX_PRODUCTS,
+        marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   vm.runInContext(code + "\npersist = async function(){ persistCount++; };", ctx, { filename:"app-sources" });
   const api = ctx.api;
   db.run(api.SCHEMA); api.migrate(db);

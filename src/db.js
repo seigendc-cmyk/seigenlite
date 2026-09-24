@@ -206,6 +206,23 @@
     -- headed to Supabase, has no tenant_id, and is never merged between
     -- branches (see mergeDatabase in backup.js, which doesn't touch this
     -- table). See src/printing.js for enqueuePrintJob/retryPrintQueueJob.
+    -- Marketing (src/marketing.js): one row per iTred marketplace export
+    -- file this device built. Status is exported -> sent (the shop confirms
+    -- the WhatsApp send). The file itself is kept in IndexedDB, not here.
+    -- Local-only: never merged between branches, never synced.
+    CREATE TABLE IF NOT EXISTS market_exports(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      branch TEXT NOT NULL DEFAULT '',
+      export_no TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      product_count INTEGER NOT NULL DEFAULT 0,
+      image_count INTEGER NOT NULL DEFAULT 0,
+      bytes INTEGER NOT NULL DEFAULT 0,
+      checksum TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'exported',
+      exported_ts TEXT NOT NULL,
+      sent_ts TEXT DEFAULT ''
+    );
     CREATE TABLE IF NOT EXISTS print_queue(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT DEFAULT '',

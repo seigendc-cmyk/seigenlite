@@ -279,7 +279,7 @@ async function addProduct(page, name, price, stock){
     await page.click("#hamburgerBtn");
     await page.waitForSelector("#navDrawer.show");
     const items = await page.$$eval("#navDrawer [data-route]", els => els.map(e=>e.dataset.route));
-    assert.deepStrictEqual(items, ["pos","products","credit","reports","more"], "same nav items, same order, driven from the shared list");
+    assert.deepStrictEqual(items, ["pos","products","credit","reports","marketing","more"], "same nav items, same order, driven from the shared list");
 
     await page.click('#navDrawer [data-route="products"]');
     await page.waitForSelector("#openAddProduct"); // Products screen actually loaded
@@ -294,7 +294,7 @@ async function addProduct(page, name, price, stock){
     await page.waitForSelector(".navbar");
     assert.strictEqual(await page.$("#hamburgerBtn"), null, "no hamburger on the phone/branch build, regardless of window width");
     const labels = await page.$$eval(".navbar [data-route]", els => els.map(e=>e.dataset.route));
-    assert.deepStrictEqual(labels, ["pos","products","credit","reports","more"], "same shared nav list, rendered as the familiar bottom bar");
+    assert.deepStrictEqual(labels, ["pos","products","credit","reports","marketing","more"], "same shared nav list, rendered as the familiar bottom bar");
     assert.deepStrictEqual(pageErrors, []);
     await page.close();
   });

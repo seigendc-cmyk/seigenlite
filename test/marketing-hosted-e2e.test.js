@@ -1,0 +1,176 @@
+// Run: node --no-warnings test/marketing-hosted-e2e.test.js
+// (build first: node build.js --pwa && node build.js --tauri && node build.js --market)
+// The Marketing tab in the two HOSTED builds, served over real http from a
+// local server with market.html deployed next to index.html:
+//   * dist-pwa: the picker loads online and the service worker precaches
+//     market.html; then the device goes offline and the tab is opened
+//     again. Offline Marketing is a KNOWN GAP (README → Marketing tab:
+//     follow-ups): that part is reported, not failed, until it's closed.
+//   * dist-tauri (opened in a browser, the way it's also installed as a
+//     PWA): Marketing is in the hamburger drawer and the picker loads.
+// test/marketing-picker-e2e.test.js covers the tab itself on dist/.
+"use strict";
+const assert = require("assert");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const http = require("http");
+
+let chromium;
+try{ ({ chromium } = require("playwright")); }
+catch(e){
+  console.log("Playwright is not installed (npm install --save-dev playwright) — skipping.");
+  console.log("0 passed, 0 failed (skipped)");
+  process.exit(0);
+}
+
+const ROOT = path.join(__dirname, "..");
+const MARKET = path.join(ROOT, "dist-market", "market.html");
+for(const f of [path.join(ROOT,"dist-pwa","index.html"), path.join(ROOT,"dist-tauri","index.html"), MARKET]){
+  if(!fs.existsSync(f)){ console.log("Missing "+path.relative(ROOT,f)+" — run: node build.js --pwa && node build.js --tauri && node build.js --market"); process.exit(1); }
+}
+
+let passed=0, failed=0;
+async function t(name, fn){
+  try{ await fn(); passed++; console.log("  ok   "+name); }
+  catch(e){ failed++; console.log("  FAIL "+name+"\n       "+(e.stack||e.message).split("\n").slice(0,8).join("\n       ")); }
+}
+
+// A copy of a build folder plus market.html, served as static files.
+function deploy(buildDir){
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-hosted-"));
+  for(const f of fs.readdirSync(path.join(ROOT, buildDir))) fs.copyFileSync(path.join(ROOT, buildDir, f), path.join(dir, f));
+  fs.copyFileSync(MARKET, path.join(dir, "market.html"));
+  const types = { ".html":"text/html", ".js":"text/javascript", ".json":"application/json", ".png":"image/png", ".ico":"image/x-icon" };
+  const server = http.createServer((req, res)=>{
+    const rel = decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html";
+    const file = path.join(dir, rel);
+    if(!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()){ res.writeHead(404); res.end("not found"); return; }
+    res.writeHead(200, { "Content-Type": types[path.extname(file)] || "application/octet-stream" });
+    fs.createReadStream(file).pipe(res);
+  });
+  return new Promise(r=> server.listen(0, "127.0.0.1", ()=> r({ server, base:"http://127.0.0.1:"+server.address().port+"/" })));
+}
+// On a first visit the service worker claims the page and pwa-extras.js
+// reloads it on controllerchange, which would race the setup clicks. The
+// test WANTS the real worker (that's what it's checking), so let that
+// happen first and start from a page it already controls.
+async function openControlled(page, base){
+  await page.goto(base);
+  // Done when the CURRENT document was already controlled when it loaded,
+  // i.e. the app's own reload has happened. Evaluating across that reload
+  // can throw "execution context was destroyed" — just ask again.
+  const deadline = Date.now() + 30000;
+  for(;;){
+    try{
+      const ok = await page.evaluate(()=> !!navigator.serviceWorker.controller
+        && performance.getEntriesByType("navigation")[0].type==="reload" && document.readyState==="complete");
+      if(ok) return;
+    }catch(e){ /* mid-reload */ }
+    if(Date.now() > deadline) throw new Error("service worker never took control of the page");
+    await page.waitForTimeout(200);
+  }
+}
+async function finishSetup(page){
+  await page.waitForSelector("#setShop", { timeout: 20000 });
+  await page.fill("#setShop", "Test Shop");
+  await page.click("#setupNext");
+  await page.click("#setupNext2");
+  await page.click("#setupNext3");
+  await page.click("#setupFinish");
+}
+async function addProduct(page, name, price, stock){
+  await page.click("#openAddProduct");
+  await page.waitForSelector("#pName");
+  await page.fill("#pName", name);
+  await page.fill("#pPrice", String(price));
+  await page.fill("#pStock", String(stock));
+  await page.click("#pConfirm");
+  await page.waitForSelector(".modalOverlay", { state: "detached" });
+}
+async function gotoRoute(page, route, desktop){
+  if(desktop){ await page.click("#hamburgerBtn"); await page.click('#navDrawer [data-route="'+route+'"]'); }
+  else await page.click('.navbar [data-route="'+route+'"]');
+}
+
+(async()=>{
+  const browser = await chromium.launch();
+
+  await t("dist-pwa: picker loads online; market.html is precached; offline status reported (known gap)", async ()=>{
+    const { server, base } = await deploy("dist-pwa");
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const pageErrors = [];
+    page.on("pageerror", err => pageErrors.push(err.message));
+    try{
+      await openControlled(page, base);
+      await finishSetup(page);
+      await page.waitForSelector("[data-route]");
+      await gotoRoute(page, "products");
+      await addProduct(page, "Sugar 2kg", 3.5, 12);
+      await gotoRoute(page, "marketing");
+      let frame = page.frameLocator("#marketFrame");
+      await frame.locator(".mk-row").first().waitFor({ timeout: 10000 });
+
+      // Wait until the service worker is installed and its precache holds market.html.
+      await page.evaluate(()=> navigator.serviceWorker.ready);
+      await page.waitForFunction(async ()=> !!(await caches.match("./market.html")), null, { timeout: 20000 });
+
+      await context.setOffline(true);
+      await page.reload();
+      // A new session starts at "Who's working today?".
+      await page.waitForSelector("#whoContinue", { timeout: 20000 }).catch(async ()=>{
+        throw new Error("after the offline reload the app showed: "+JSON.stringify((await page.textContent("#app")).replace(/\s+/g," ").slice(0,400)));
+      });
+      if(await page.$("#whoName")) await page.fill("#whoName", "Tester");
+      await page.click("#whoContinue");
+      await page.waitForSelector("[data-route]", { timeout: 20000 });
+      await gotoRoute(page, "marketing");
+      frame = page.frameLocator("#marketFrame");
+      const outcome = await Promise.race([
+        frame.locator(".mk-row").first().waitFor({ timeout: 12000 }).then(()=>"picker"),
+        page.waitForSelector("#marketRecheck", { timeout: 12000 }).then(()=>"not-installed"),
+      ]);
+      assert.deepStrictEqual(pageErrors, []);
+      // KNOWN GAP (README → Marketing tab: follow-ups): market.html IS in the
+      // service worker's cache (checked above), but the sandboxed iframe's
+      // load doesn't go through the service worker, so offline the tab reads
+      // "not installed". Reported, not failed, until that follow-up lands —
+      // then this becomes a plain assertion.
+      if(outcome==="picker") console.log("  note offline Marketing now works — the known gap is closed; turn this into a normal assertion");
+      else console.log("  gap  offline, the Marketing tab shows \"not installed\" (known follow-up, not a regression)");
+    } finally {
+      await context.close(); server.close();
+    }
+  });
+
+  await t("dist-tauri in a browser: Marketing is in the hamburger drawer and the picker loads", async ()=>{
+    const { server, base } = await deploy("dist-tauri");
+    const context = await browser.newContext({ viewport:{ width:1280, height:800 } });
+    const page = await context.newPage();
+    const pageErrors = [];
+    page.on("pageerror", err => pageErrors.push(err.message));
+    try{
+      await openControlled(page, base);
+      await finishSetup(page);
+      await page.waitForSelector("#hamburgerBtn");
+      assert.strictEqual(await page.$(".navbar"), null, "desktop build has no bottom bar");
+      await gotoRoute(page, "products", true);
+      await addProduct(page, "Rice 5kg", 6, 4);
+      await gotoRoute(page, "marketing", true);
+      const frame = page.frameLocator("#marketFrame");
+      await frame.locator(".mk-row").first().waitFor({ timeout: 10000 });
+      assert.deepStrictEqual(await frame.locator(".mk-row .pname").allTextContents(), ["Rice 5kg"]);
+      await frame.locator(".mk-row .mk-check").first().check();
+      await frame.locator("#mkContinue").click();
+      await frame.locator("#mkPrepare").waitFor();
+      assert.deepStrictEqual(pageErrors, []);
+    } finally {
+      await context.close(); server.close();
+    }
+  });
+
+  await browser.close();
+  console.log(`\n${passed} passed, ${failed} failed`);
+  process.exit(failed?1:0);
+})();

@@ -1,0 +1,29 @@
+  /* Marketing layer only — layered on top of src/styles.css, which is
+     inlined first so the picker looks like the rest of the app. */
+  html,body{height:auto;background:transparent;}
+  #market{padding:0 0 4px;}
+  .mk-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .mk-row{cursor:pointer;justify-content:flex-start;}
+  .mk-row.mk-on{background:var(--orange-light);}
+  .mk-row.mk-disabled{opacity:.5;cursor:not-allowed;}
+  .mk-check{width:20px;height:20px;flex:none;accent-color:var(--orange);margin:0 2px;}
+  .mk-price{font-weight:700;font-size:14px;flex:none;white-space:nowrap;}
+  .mk-pill-muted{background:var(--surface);color:var(--ink-soft);border:1px solid var(--border);}
+  .mk-cap{display:none;margin-bottom:10px;background:var(--warn-bg);color:var(--warn);}
+  .mk-count-top{margin-left:auto;align-self:center;font-size:13px;}
+  .mk-footer{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--paper);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;
+  }
+  .mk-status-line{margin:0 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .mk-status .muted{margin:0 0 8px;}
+  .mk-expiring{border-color:var(--warn);background:var(--warn-bg);}
+  .mk-expiring .mk-status-line{color:var(--warn);}
+  .mk-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .mk-share-note{margin:10px 0 0 !important;}
+  .mk-warn{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 10px;font-size:13px;margin:10px 0;}
+  .mk-idtable td{padding:5px 4px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:top;}
+  .mk-idtable td:first-child{width:42%;}
+  .mk-link{background:none;border:none;padding:0 0 0 6px;color:var(--orange);font-weight:600;font-size:12.5px;text-decoration:underline;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .mk-footnote{margin:6px 2px 0;font-size:12px;}

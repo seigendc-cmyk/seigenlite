@@ -27,6 +27,10 @@ const PRECACHE_URLS = [
   "./icon-192.png",
   "./icon-512.png",
   "./icon.ico",
+  // Marketing add-on (build.js --market). Optional: only there if it was
+  // deployed next to index.html; if not, the best-effort add below just
+  // skips it and the Marketing tab shows "not installed" as it should.
+  "./market.html",
   "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js",
   "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.wasm",
   "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",

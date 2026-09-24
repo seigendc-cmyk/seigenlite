@@ -23,6 +23,7 @@ const SHELL = path.join(ROOT, "shell");
 const DIST = path.join(ROOT, "dist");
 const DIST_PWA = path.join(ROOT, "dist-pwa");
 const DIST_TAURI = path.join(ROOT, "dist-tauri");
+const DIST_MARKET = path.join(ROOT, "dist-market");
 
 // Applied to dist-pwa/ and dist-tauri/ only, as a final pass after each
 // target's own HTML is fully assembled — never to dist/ (the single-file
@@ -100,6 +101,7 @@ const SCRIPT_ORDER = [
   "sync.js",
   "devicecheckin.js",
   "rpn.js",
+  "marketing.js",
   "staff.js",
   "scanner.js",
   "drawer.js",
@@ -252,7 +254,38 @@ function buildTauri() {
   logObfuscationSize(jsBytesBefore, jsBytesAfter);
 }
 
-const mode = process.argv.includes("--tauri") ? "tauri" : process.argv.includes("--pwa") ? "pwa" : "single";
+// The Marketing add-on — NOT another package of the core app. One
+// standalone HTML file (dist-market/market.html) that the core app's
+// Marketing tab (src/marketing.js) loads in a sandboxed iframe from
+// "market.html" next to its own index.html. Present = the tab works;
+// absent = the tab shows a "not installed" card. Same no-bundler approach
+// as buildHTML: the app's styles.css + the layer's own CSS inlined, then
+// its one script. It shares no JS with the core app (it can't — it runs in
+// a separate document), so it has its own small shell instead of
+// head-top/head-mid, which pull in the manifest and sql.js it doesn't need.
+// Not obfuscated, same as dist/: it's loaded into every build, including
+// the forward-as-is single file.
+const MARKET_SCRIPTS = ["market/market.js"];
+const MARKET_CSS = ["market/market.css"];
+function buildMarket() {
+  const head = fs.readFileSync(path.join(SHELL, "market-head.html"), "utf8");
+  const css = [fs.readFileSync(path.join(SRC, "styles.css"), "utf8")]
+    .concat(MARKET_CSS.map((name) => fs.readFileSync(path.join(SRC, name), "utf8")))
+    .join("\n");
+  const js = "const APP_VERSION = " + JSON.stringify(readVersion()) + ";\n" +
+    MARKET_SCRIPTS.map((name) => fs.readFileSync(path.join(SRC, name), "utf8")).join("\n");
+  const html =
+    head +
+    "<style>\n" + css + "</style>\n" +
+    "</head>\n<body>\n<div id=\"market\"></div>\n<script>\n" + js + "</script>\n</body>\n</html>\n";
+
+  fs.mkdirSync(DIST_MARKET, { recursive: true });
+  fs.writeFileSync(path.join(DIST_MARKET, "market.html"), html);
+  console.log("Built dist-market/market.html (" + html.length + " bytes) from " + MARKET_SCRIPTS.length + " src file(s).");
+}
+
+const mode = process.argv.includes("--market") ? "market" : process.argv.includes("--tauri") ? "tauri" : process.argv.includes("--pwa") ? "pwa" : "single";
 if (mode === "pwa") buildPWA();
 else if (mode === "tauri") buildTauri();
+else if (mode === "market") buildMarket();
 else buildSingleFile();
