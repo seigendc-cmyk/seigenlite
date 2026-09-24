@@ -174,8 +174,28 @@
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
       const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
+      // Payment-method breakdown (item 6): sourced from sale_payments via
+      // paymentMethodTotals (pos.js) so a split sale's Cash/EcoCash/Credit
+      // lines are isolated the same way EOD reconciliation isolates them,
+      // rather than bucketing the whole sale under one method.
+      const breakdown = paymentMethodTotals(b, fromTs, toTs);
+      const breakdownHtml = breakdown.length? `
+        <h3 class="section">By Payment Method</h3>
+        <table><tr><th>Method</th><th>Total</th></tr>
+        ${breakdown.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
+        </table>` : "";
+      // Item 6: an additional currency-level table, only shown when tender
+      // actually happened in more than the base currency — a base-only
+      // shop's Sales Report is otherwise identical to before this feature.
+      const currencyRows = paymentMethodCurrencyTotals(b, fromTs, toTs);
+      const currencyHtml = currencyRows.some(r=>r.currency!==BASE_CURRENCY_CODE)? `
+        <h3 class="section">By Payment Method &amp; Currency</h3>
+        <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>${currency} Equivalent</th></tr>
+        ${currencyRows.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
+        </table>` : "";
       printReport("Sales Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
-        ["Date/Time","Branch","Method","Subtotal","Discount","Total"], rows, `<p><b>Grand Total: ${currency}${grand.toFixed(2)}</b></p>`);
+        ["Date/Time","Branch","Method","Subtotal","Discount","Total"], rows,
+        `<p><b>Grand Total: ${currency}${grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
     };
     document.getElementById("waSales").onclick=()=>{
       const {fromTs,toTs} = dateRangeSQL("salesFrom","salesTo");
@@ -223,8 +243,11 @@
       const rows = [];
       let totalDebt=0, totalPaid=0;
       customers.forEach(c=>{
-        const debt = b? one("SELECT COALESCE(SUM(total),0) as t FROM sales WHERE customer_id=? AND method='Credit' AND branch=? AND ts>=? AND ts<=?",[c.id,b,fromTs,toTs]).t
-                       : one("SELECT COALESCE(SUM(total),0) as t FROM sales WHERE customer_id=? AND method='Credit' AND ts>=? AND ts<=?",[c.id,fromTs,toTs]).t;
+        // Credit portion only (sale_payments), not the whole sale total —
+        // a Cash+Credit split sale must only count what was actually put
+        // on account, same fix as customerBalance() in pos.js.
+        const debt = b? one("SELECT COALESCE(SUM(sp.amount),0) as t FROM sale_payments sp JOIN sales s ON s.id=sp.sale_id WHERE s.customer_id=? AND sp.method='Credit' AND s.branch=? AND s.ts>=? AND s.ts<=?",[c.id,b,fromTs,toTs]).t
+                       : one("SELECT COALESCE(SUM(sp.amount),0) as t FROM sale_payments sp JOIN sales s ON s.id=sp.sale_id WHERE s.customer_id=? AND sp.method='Credit' AND s.ts>=? AND s.ts<=?",[c.id,fromTs,toTs]).t;
         const paid = b? one("SELECT COALESCE(SUM(amount),0) as t FROM credit_payments WHERE customer_id=? AND branch=? AND ts>=? AND ts<=?",[c.id,b,fromTs,toTs]).t
                        : one("SELECT COALESCE(SUM(amount),0) as t FROM credit_payments WHERE customer_id=? AND ts>=? AND ts<=?",[c.id,fromTs,toTs]).t;
         const balance = customerBalance(c.id);
@@ -332,7 +355,11 @@
       const {fromTs,toTs} = dateRangeSQL("brFrom","brTo");
       const stock = all("SELECT * FROM products WHERE branch=? ORDER BY name",[b]);
       const sales = all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs]);
-      const credits = all("SELECT * FROM sales WHERE branch=? AND method='Credit' AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs]);
+      // Credit portion only (sale_payments), same reasoning as genCredit's
+      // debt query above — a split sale's non-credit lines don't belong here.
+      const credits = all(`SELECT s.id, s.ts, sp.amount as credit_amount FROM sale_payments sp
+                            JOIN sales s ON s.id=sp.sale_id
+                            WHERE s.branch=? AND sp.method='Credit' AND s.ts>=? AND s.ts<=? ORDER BY s.ts`,[b,fromTs,toTs]);
       const eods = all("SELECT * FROM eod_sessions WHERE branch=? AND date>=? AND date<=? ORDER BY date",[b,fromTs.slice(0,10),toTs.slice(0,10)]);
       const discSales = sales.filter(s=>s.discount>0);
       const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs]);
@@ -371,7 +398,7 @@
 
           <h3 class="section">Credit Sales</h3>
           <table><tr><th>Date/Time</th><th>Total</th></tr>
-          ${credits.map(s=>`<tr><td>${new Date(s.ts).toLocaleString()}</td><td>${currency}${s.total.toFixed(2)}</td></tr>`).join("")}
+          ${credits.map(s=>`<tr><td>${new Date(s.ts).toLocaleString()}</td><td>${currency}${s.credit_amount.toFixed(2)}</td></tr>`).join("")}
           </table>
 
           <h3 class="section">Discounts Allowed to Customers</h3>

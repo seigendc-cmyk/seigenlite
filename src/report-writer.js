@@ -46,8 +46,8 @@
         const customers = all("SELECT * FROM customers ORDER BY name");
         const rows = []; let totalDebt=0, totalPaid=0;
         customers.forEach(c=>{
-          const debt = b? one("SELECT COALESCE(SUM(total),0) as t FROM sales WHERE customer_id=? AND method='Credit' AND branch=? AND ts>=? AND ts<=?",[c.id,b,fromTs,toTs]).t
-                         : one("SELECT COALESCE(SUM(total),0) as t FROM sales WHERE customer_id=? AND method='Credit' AND ts>=? AND ts<=?",[c.id,fromTs,toTs]).t;
+          const debt = b? one("SELECT COALESCE(SUM(sp.amount),0) as t FROM sale_payments sp JOIN sales s ON s.id=sp.sale_id WHERE s.customer_id=? AND sp.method='Credit' AND s.branch=? AND s.ts>=? AND s.ts<=?",[c.id,b,fromTs,toTs]).t
+                         : one("SELECT COALESCE(SUM(sp.amount),0) as t FROM sale_payments sp JOIN sales s ON s.id=sp.sale_id WHERE s.customer_id=? AND sp.method='Credit' AND s.ts>=? AND s.ts<=?",[c.id,fromTs,toTs]).t;
           const paid = b? one("SELECT COALESCE(SUM(amount),0) as t FROM credit_payments WHERE customer_id=? AND branch=? AND ts>=? AND ts<=?",[c.id,b,fromTs,toTs]).t
                          : one("SELECT COALESCE(SUM(amount),0) as t FROM credit_payments WHERE customer_id=? AND ts>=? AND ts<=?",[c.id,fromTs,toTs]).t;
           const balance = customerBalance(c.id);

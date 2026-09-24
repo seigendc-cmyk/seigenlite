@@ -1,12 +1,13 @@
   // ================== SETUP FLOW ==================
   let setupStep = 1;
-  let setupData = {shop_name:"",branch_name:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:""};
+  let setupData = {shop_name:"",branch_name:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:"",
+    rpn:{rpn_name:"",rpn_code:"",rpn_whatsapp:"",city_area:""}};
 
   function renderSetup(){
     $app.innerHTML = `
       <div class="center-screen">
         <div class="setup-card">
-          <div class="step-dots">${[1,2,3].map(n=>`<span class="${n<=setupStep?'on':''}"></span>`).join("")}</div>
+          <div class="step-dots">${[1,2,3,4].map(n=>`<span class="${n<=setupStep?'on':''}"></span>`).join("")}</div>
           ${setupStep===1? `
             <h2>Welcome</h2>
             <p class="muted">Let's set up seiGEN Commerce Lite for your shop.</p>
@@ -41,6 +42,14 @@
               <button class="btn btn-outline" id="setupBack">Back</button>
               <button class="btn btn-primary" id="setupNext2">Continue</button>
             </div>
+          ` : setupStep===3? `
+            <h2>RPN (Reseller Partner Network)</h2>
+            <p class="muted">Optional — link the RPN who set you up, for Support later. No lookup happens here; it's stored as entered and you can change it any time from Settings.</p>
+            ${rpnFieldsHtml("setRpn", setupData.rpn)}
+            <div class="row" style="margin-top:16px">
+              <button class="btn btn-outline" id="setupBack3">Back</button>
+              <button class="btn btn-primary" id="setupNext3">Continue</button>
+            </div>
           ` : `
             <h2>Confirm</h2>
             ${setupData.banner_image? `<img class="banner-img" src="${setupData.banner_image}">`:""}
@@ -51,6 +60,7 @@
               ${setupData.branch_type==='remote'? `<tr><td class="muted">Admin passcode</td><td>Set</td></tr>` : ""}
               <tr><td class="muted">Contact</td><td>${escapeHtml(setupData.contact_phone)||"—"}</td></tr>
               <tr><td class="muted">Currency</td><td>${escapeHtml(setupData.currency)}</td></tr>
+              ${(setupData.rpn.rpn_name||setupData.rpn.rpn_code||setupData.rpn.rpn_whatsapp||setupData.rpn.city_area)? `<tr><td class="muted">RPN</td><td>${escapeHtml(setupData.rpn.rpn_name)||"—"}${setupData.rpn.rpn_code? " ("+escapeHtml(setupData.rpn.rpn_code)+")":""}</td></tr>` : ""}
             </table>
             <p class="muted">You get 30 days free use from today. After that, this screen will ask for an activation code — call or WhatsApp +263774479121.</p>
             <div class="row" style="margin-top:10px">
@@ -93,8 +103,14 @@
         }
         setupStep=3; renderSetup();
       };
+    } else if(setupStep===3){
+      document.getElementById("setupBack3").onclick=()=>{ setupData.rpn = rpnFieldsFromInputs("setRpn"); setupStep=2; renderSetup(); };
+      document.getElementById("setupNext3").onclick=()=>{
+        setupData.rpn = rpnFieldsFromInputs("setRpn");
+        setupStep=4; renderSetup();
+      };
     } else {
-      document.getElementById("setupBack2").onclick=()=>{setupStep=2;renderSetup();};
+      document.getElementById("setupBack2").onclick=()=>{setupStep=3;renderSetup();};
       document.getElementById("setupFinish").onclick=async ()=>{
         setSetting("shop_name", setupData.shop_name);
         setSetting("branch_name", setupData.branch_name);
@@ -105,7 +121,11 @@
         setSetting("paper_width","80");
         setSetting("install_id", uid4());
         resetBranchId();                       // a new branch always gets a fresh identity
-        const now = new Date();
+        // trustedNow() (eod.js), not a raw new Date(): seeds the trial from
+        // the same watermark-clamped clock every other licensing decision
+        // uses, so a clock rolled back before setup can't backdate the
+        // trial's start either.
+        const now = trustedNow();
         setSetting("install_date", now.toISOString());
         const until = new Date(now.getTime()+30*86400000);
         setSetting("activated_until", until.toISOString());
@@ -114,6 +134,12 @@
         backfillBranch(db, currentBranch());
         if(setupData.branch_type==='remote') createDeviceAdmin(setupData.admin_pass, setupData.admin_pass2);
         setupData.admin_pass = setupData.admin_pass2 = "";
+        // Foundation data only, and optional at onboarding (Part A.1/A.3):
+        // if the RPN step was left untouched, skip it entirely rather than
+        // queuing an empty sync record for every install. Any deliberate
+        // Save from Settings afterward always enqueues (saveRpnLink).
+        const rpn = setupData.rpn;
+        if(rpn.rpn_name || rpn.rpn_code || rpn.rpn_whatsapp || rpn.city_area) saveRpnLink(rpn);
         await persist();
         route="pos"; render();
       };

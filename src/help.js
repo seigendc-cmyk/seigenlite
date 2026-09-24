@@ -20,6 +20,7 @@
 
   function renderHelp(main){
     main.innerHTML = `
+        ${supportSectionHtml()}
         <div class="search-wrap">
           <span class="ic">🔎</span>
           <input class="field" id="helpSearch" placeholder="Search help topics…" value="${escapeHtml(helpQuery)}">
@@ -74,5 +75,6 @@
     }
     input.oninput = (e)=>{ helpQuery = e.target.value; applyHelpFilter(); };
     applyHelpFilter();
+    wireSupportSection();
   }
 

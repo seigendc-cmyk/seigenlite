@@ -1,5 +1,14 @@
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
+  // Whitespace-split, lower-cased, empty-entry-free token list — the one
+  // tokenization rule every any-order search in this app shares. Extracted
+  // out of matchesAnyOrder() below (Stocktake Multi-Token Search Engine
+  // task) so rankProductsBySearch() can reuse the exact same rule rather
+  // than a second, potentially-drifting copy of it.
+  function searchTokens(query){
+    return (query||"").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  }
+
   // Shared "any-order" search match: every whitespace-separated token in
   // the query must appear somewhere in the combined searchable text,
   // regardless of what order they were typed in — so "small metal" and
@@ -8,10 +17,47 @@
   // the app (product search, and the five list-filter search boxes) shares
   // exactly one implementation of this rule instead of each reimplementing it.
   function matchesAnyOrder(query, searchableText){
-    const q = (query||"").trim().toLowerCase();
-    if(!q) return true;
+    const tokens = searchTokens(query);
+    if(!tokens.length) return true;
     const hay = (searchableText||"").toLowerCase();
-    return q.split(/\s+/).every(t=> hay.includes(t));
+    return tokens.every(t=> hay.includes(t));
+  }
+
+  // Ranked any-order product search (Stocktake Multi-Token Search Engine
+  // task): unlike matchesAnyOrder above (a plain include/exclude filter,
+  // still used unchanged by pos.js/products.js/credit.js/help.js/reports.js
+  // — not touched here), this INCLUDES a product as soon as it matches at
+  // least one token rather than requiring every token, and sorts by how
+  // many tokens matched (descending) so "Toyota Hilux 2015" and "2015 Hilux
+  // Toyota" rank the same best match first regardless of typed order, while
+  // a product matching only some of the typed tokens still surfaces, just
+  // lower. Ties (equal token-match count) are broken by preferring matches
+  // found in name/SKU over description-only matches — the "more important
+  // fields" distinction the schema actually supports. A final index-based
+  // tiebreak keeps the sort stable (same relative order as the input list,
+  // e.g. alphabetical by name) for any remaining exact ties.
+  // Only reads fields off each product — never mutates the product objects,
+  // the array, or (needless to say) the database, so it's safe to call on
+  // every keystroke against the live product list.
+  function rankProductsBySearch(products, query, fields){
+    const tokens = searchTokens(query);
+    if(!tokens.length) return products.slice();
+    fields = fields || { primary:["name","sku"], secondary:["description"] };
+    const scored = [];
+    for(let idx=0; idx<products.length; idx++){
+      const p = products[idx];
+      const primaryText = fields.primary.map(f=>String(p[f]||"")).join(" ").toLowerCase();
+      const secondaryText = fields.secondary.map(f=>String(p[f]||"")).join(" ").toLowerCase();
+      let matched = 0, primary = 0;
+      for(const tok of tokens){
+        const inPrimary = primaryText.includes(tok);
+        const inSecondary = secondaryText.includes(tok);
+        if(inPrimary || inSecondary){ matched++; if(inPrimary) primary++; }
+      }
+      if(matched>0) scored.push({ p, matched, primary, idx });
+    }
+    scored.sort((a,b)=> b.matched-a.matched || b.primary-a.primary || a.idx-b.idx);
+    return scored.map(s=>s.p);
   }
 
   // Small outline SVG icons (stroke="currentColor" so they pick up the
@@ -43,7 +89,7 @@
   const ICON_NAV_PRODUCTS = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>`;
   const ICON_NAV_CREDIT = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 12 8 9a2 2 0 0 0-3 3l4 4"/><path d="M9.5 15.5 7 18a1.5 1.5 0 0 1-2.5-1.7"/><path d="m13 12 3-3a2 2 0 0 1 3 3l-4 4"/><path d="m14.5 15.5 2.5 2.5a1.5 1.5 0 0 0 2.5-1.7"/><path d="m11 12 2 2"/></svg>`;
   const ICON_NAV_REPORTS = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="15"/><line x1="12" y1="20" x2="12" y2="9"/><line x1="18" y1="20" x2="18" y2="4"/></svg>`;
-  const ICON_NAV_MORE = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>`;
+  const ICON_NAV_MORE =`<svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>`;
 
   function skuNameCell(sku,name){
     return `<div style="font-weight:800;color:#E8590C;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px">${escapeHtml(sku||"—")}</div>`
@@ -135,13 +181,18 @@
   }
 
   // ---------------- modal ----------------
-  function openModal(title, bodyHtml){
+  // onClose is optional (every existing caller omits it, unaffected) — a
+  // callback fired when the user dismisses via ✕ or an outside click, so a
+  // caller that tracks its own "is this showing" state (e.g. the Sync
+  // Reminder Modal in sync.js) can hear about it without polling the DOM.
+  function openModal(title, bodyHtml, onClose){
     const wrap = document.createElement("div");
     wrap.className="modalOverlay";
     wrap.innerHTML = `<div class="modal-card"><div class="modal-head"><h3 style="margin:0">${escapeHtml(title)}</h3><button class="close-x" data-modal-close>✕</button></div><div class="modal-body">${bodyHtml}</div></div>`;
     document.body.appendChild(wrap);
-    wrap.querySelector("[data-modal-close]").onclick=()=>wrap.remove();
-    wrap.addEventListener("click",(e)=>{ if(e.target===wrap) wrap.remove(); });
+    const close = ()=>{ wrap.remove(); if(onClose) onClose(); };
+    wrap.querySelector("[data-modal-close]").onclick=close;
+    wrap.addEventListener("click",(e)=>{ if(e.target===wrap) close(); });
     return wrap;
   }
 

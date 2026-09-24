@@ -41,6 +41,8 @@
         <div class="hr"></div>
         <p class="muted">Or Replace — wipes current data and loads the imported file instead. A backup downloads first.</p>
         <input type="file" id="replaceDb" accept=".sqlite,.db">
+        <div class="hr"></div>
+        <p class="muted">Updating your product list from a spreadsheet instead of another device's file? Use Products → ⋮ → Import from Excel ("Update Existing / Add New") — it matches by SKU/name, updates matches in place, adds anything new, and never touches customers, sales, or other branches' data.</p>
       </div>`;
   }
   function wireBackupMergeSection(){
@@ -360,6 +362,20 @@
       run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost) VALUES(?,?,?,?,?,?)",
         [saleMap[it.sale_id], newProdId, it.name, it.price, it.qty, it.cost||0]);
     });
+    // Same additive rule as sale_items above: a merged-in split-tender sale
+    // must bring its per-method payment lines along, or the receiving
+    // branch's EOD cash figure and credit balances would silently lose the
+    // split-tender breakdown for every sale merged in from another device.
+    // impDb already had SCHEMA+migrate() applied above, so even a file from
+    // before Multi-Currency Support arrives here with currency/rate/
+    // tendered_amount already backfilled (to BASE/1/amount) — never NULL —
+    // so a foreign-currency line's real rate/tendered figure always
+    // survives the merge, not just its base-currency amount.
+    allX(impDb,"SELECT * FROM sale_payments").forEach(p=>{
+      if(!newSaleImpIds.has(p.sale_id)) return;
+      run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
+        [saleMap[p.sale_id], p.method, p.amount||0, p.currency||"BASE", p.rate||1, p.tendered_amount==null? (p.amount||0) : p.tendered_amount]);
+    });
 
     allX(impDb,"SELECT * FROM payouts").forEach(p=>{
       const dup = one("SELECT id FROM payouts WHERE branch=? AND ts=?",[p.branch,p.ts]);
@@ -406,10 +422,24 @@
     });
 
     allX(impDb,"SELECT * FROM eod_sessions").forEach(e=>{
-      const dup = one("SELECT id FROM eod_sessions WHERE branch=? AND date=? AND expected_cash=? AND counted_cash=?",[e.branch,e.date,e.expected_cash,e.counted_cash]);
+      // Shift/EOD rows (see eod.js) are matched on started_ts, which is
+      // always set and unique per shift — the old expected/counted match
+      // below is kept only as a fallback for rows from before shifts
+      // existed (no started_ts), where it's still the best available key.
+      // The old match alone would miss an OPEN shift's duplicate on a
+      // repeat merge, since expected_cash/counted_cash are still NULL then
+      // and SQL NULL=NULL never matches.
+      const dup = one(
+        `SELECT id FROM eod_sessions WHERE branch=? AND date=? AND (
+           (started_ts<>'' AND started_ts=?) OR (expected_cash=? AND counted_cash=?)
+         )`,
+        [e.branch,e.date,e.started_ts||"",e.expected_cash,e.counted_cash]);
       if(dup) return;
-      run("INSERT INTO eod_sessions(date,expected_cash,counted_cash,variance,notes,branch,ts) VALUES(?,?,?,?,?,?,?)",
-        [e.date,e.expected_cash,e.counted_cash,e.variance,e.notes||"",e.branch,e.ts||""]);
+      run(`INSERT INTO eod_sessions(date,expected_cash,counted_cash,variance,notes,branch,ts,status,opening_float,started_ts,started_by,started_staff_id,closed_ts,closed_by,closed_staff_id,printed_ts)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [e.date,e.expected_cash,e.counted_cash,e.variance,e.notes||"",e.branch,e.ts||"",
+         e.status||"closed",e.opening_float||0,e.started_ts||"",e.started_by||"",e.started_staff_id==null?null:e.started_staff_id,
+         e.closed_ts||"",e.closed_by||"",e.closed_staff_id==null?null:e.closed_staff_id,e.printed_ts||""]);
     });
 
     allX(impDb,"SELECT * FROM audit_log").forEach(a=>{

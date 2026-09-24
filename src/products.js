@@ -62,6 +62,13 @@
   function productModal(existing){
     const isEdit = !!existing;
     if(isRemote()){ alert("This is a remote branch — items are managed by your main branch."); return; }
+    // Digital Commerce device check-in: only the ADD path is gated — an
+    // already-locked shop can still edit/delete/re-price what it already
+    // has, just not grow its catalogue. See devicecheckin.js.
+    if(!isEdit){
+      const dcReason = dcLockAddProductReason();
+      if(dcReason){ alert(dcReason); return; }
+    }
     const wrap = openModal(isEdit? "Edit Product" : "Add Product", `
       <div id="pImgPreview" style="width:80px;height:80px;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:8px;background:var(--surface)">
         ${existing&&existing.image? `<img src="${existing.image}" style="width:100%;height:100%;object-fit:cover">` : ""}

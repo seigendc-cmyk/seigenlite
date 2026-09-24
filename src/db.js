@@ -68,6 +68,29 @@
       id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER,
       product_id INTEGER, name TEXT, price REAL, qty INTEGER
     );
+    -- One row per tender line on a sale. A plain single-method sale still
+    -- gets exactly one row here (mirroring sales.method/total) so every
+    -- reader (EOD cash reconciliation, credit balances, payment-method
+    -- reports) can treat this table as the one source of truth for "how was
+    -- this sale actually paid" without special-casing split vs non-split.
+    CREATE TABLE IF NOT EXISTS sale_payments(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER,
+      method TEXT, amount REAL
+    );
+    CREATE INDEX IF NOT EXISTS ix_sale_payments_sale ON sale_payments(sale_id);
+    -- Multi-Currency Support: the accepted non-base tender currencies for
+    -- THIS device/branch, each with a manually-set exchange rate (foreign
+    -- units per 1 base-currency unit — see currencies.js). Device-wide like
+    -- settings, not merged between branches (see mergeDatabase in
+    -- backup.js): the base currency itself is still just the existing
+    -- currency setting/symbol and is never a row in this table. Rows are
+    -- deactivated (active=0), never deleted, so a historical sale_payments
+    -- line naming a since-removed currency code still resolves for display.
+    CREATE TABLE IF NOT EXISTS currencies(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT NOT NULL, name TEXT DEFAULT '', symbol TEXT DEFAULT '',
+      rate REAL NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1
+    );
     CREATE TABLE IF NOT EXISTS eod_sessions(
       id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT,
       expected_cash REAL, counted_cash REAL, variance REAL, notes TEXT
@@ -153,6 +176,46 @@
       dest_branch_name TEXT NOT NULL COLLATE NOCASE, code TEXT NOT NULL COLLATE NOCASE, price REAL NOT NULL, updated_ts TEXT,
       PRIMARY KEY(dest_branch_name, code)
     );
+    -- Supabase Foundation (see sync.js): one generic outbox for every feature
+    -- that will eventually push something to Supabase (RPN linkage, support
+    -- tasks, market intelligence, VPD publishing, backups, ...). A brand-new
+    -- table rather than reusing an existing one — nothing else in this schema
+    -- is a queue of arbitrary typed, retryable, remote-bound records, so
+    -- there was nothing to repurpose. record_type is a free-text key a
+    -- feature picks for itself (registerSyncType); this table never needs to
+    -- change shape when a new feature starts using it.
+    CREATE TABLE IF NOT EXISTS sync_queue(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      record_type TEXT NOT NULL,
+      record_key TEXT DEFAULT '',
+      tenant_id TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_ts TEXT DEFAULT '',
+      created_ts TEXT NOT NULL,
+      updated_ts TEXT NOT NULL,
+      synced_ts TEXT DEFAULT '',
+      last_error TEXT DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS ix_sync_queue_due ON sync_queue(status, next_attempt_ts);
+    -- Device Setup: queued direct (USB/Bluetooth ESC/POS) print jobs that
+    -- failed to send immediately — a deliberately SEPARATE table from
+    -- sync_queue above, not a shape it's repurposed into: a print job is
+    -- local-device state (bytes to replay to a peripheral), never a record
+    -- headed to Supabase, has no tenant_id, and is never merged between
+    -- branches (see mergeDatabase in backup.js, which doesn't touch this
+    -- table). See src/printing.js for enqueuePrintJob/retryPrintQueueJob.
+    CREATE TABLE IF NOT EXISTS print_queue(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      label TEXT DEFAULT '',
+      bytes_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT DEFAULT '',
+      created_ts TEXT NOT NULL,
+      updated_ts TEXT NOT NULL
+    );
   `;
   function migrate(t){
     const alters = [
@@ -169,6 +232,17 @@
       "ALTER TABLE sales ADD COLUMN payment_ref TEXT DEFAULT ''",
       "ALTER TABLE sales ADD COLUMN user TEXT DEFAULT ''",
       "ALTER TABLE sale_items ADD COLUMN cost REAL DEFAULT 0",
+      // Line-Item Discount: additive column on the existing sale_items row,
+      // not a parallel table (same rule sale_payments/tendered_amount
+      // already followed above). Defaults to 0, so every pre-existing row
+      // reads as "no line discount" automatically — correct as-is, since
+      // historical discounts were recorded once per sale (sales.discount),
+      // never per line. sales.discount/discount_reason/discount_approved_by/
+      // discount_status are unchanged and still written on every new sale
+      // too, now as the sum of these per-line amounts rather than a single
+      // typed figure — so every existing reader of sales.discount (EOD,
+      // Discount Report, Sales Report, merge) keeps working with no changes.
+      "ALTER TABLE sale_items ADD COLUMN discount REAL DEFAULT 0",
       "ALTER TABLE products ADD COLUMN sku TEXT DEFAULT ''",
       "ALTER TABLE products ADD COLUMN image TEXT DEFAULT ''",
       "ALTER TABLE products ADD COLUMN branch TEXT DEFAULT ''",
@@ -220,7 +294,42 @@
       "ALTER TABLE dispatch_docs ADD COLUMN replaced_by INTEGER",
       "ALTER TABLE dispatch_docs ADD COLUMN cancel_kind TEXT DEFAULT ''",
       "ALTER TABLE dispatch_docs ADD COLUMN stock_posted INTEGER DEFAULT 1",
-      "ALTER TABLE dispatch_docs ADD COLUMN cancel_nonce TEXT DEFAULT ''"
+      "ALTER TABLE dispatch_docs ADD COLUMN cancel_nonce TEXT DEFAULT ''",
+      // Staff Access List + PIN Login: a sign-in PIN is separate from the existing
+      // Admin `passcode` column (which stays exactly as-is, for Settings/price/
+      // cancel-reissue unlocks). pin_hash/pin_salt hold a salted SHA-256 of the
+      // PIN, never the PIN itself. pin_fail_count/pin_locked_until throttle
+      // repeated wrong guesses per staff member. See staff.js.
+      "ALTER TABLE staff ADD COLUMN pin_hash TEXT DEFAULT ''",
+      "ALTER TABLE staff ADD COLUMN pin_salt TEXT DEFAULT ''",
+      "ALTER TABLE staff ADD COLUMN pin_fail_count INTEGER DEFAULT 0",
+      "ALTER TABLE staff ADD COLUMN pin_locked_until TEXT DEFAULT ''",
+      // Shift / EOD control (see eod.js): eod_sessions already existed as a
+      // one-row-per-count log; these columns turn it into a shift with a
+      // lifecycle (open -> closed) without touching its existing columns.
+      // status defaults to 'closed' so every pre-existing row (recorded
+      // before shifts existed) is correctly treated as already resolved,
+      // never as a stray "open" shift blocking sales after the upgrade.
+      "ALTER TABLE eod_sessions ADD COLUMN status TEXT DEFAULT 'closed'",
+      "ALTER TABLE eod_sessions ADD COLUMN opening_float REAL DEFAULT 0",
+      "ALTER TABLE eod_sessions ADD COLUMN started_ts TEXT DEFAULT ''",
+      "ALTER TABLE eod_sessions ADD COLUMN started_by TEXT DEFAULT ''",
+      "ALTER TABLE eod_sessions ADD COLUMN started_staff_id INTEGER",
+      "ALTER TABLE eod_sessions ADD COLUMN closed_ts TEXT DEFAULT ''",
+      "ALTER TABLE eod_sessions ADD COLUMN closed_by TEXT DEFAULT ''",
+      "ALTER TABLE eod_sessions ADD COLUMN closed_staff_id INTEGER",
+      "ALTER TABLE eod_sessions ADD COLUMN printed_ts TEXT DEFAULT ''",
+      // Multi-Currency Support: additive columns on the existing
+      // sale_payments line, not a parallel table. 'currency' defaults to
+      // the reserved 'BASE' sentinel (never a real currencies.code) so
+      // every pre-existing row — and every base-currency line from now on
+      // — reads as "tendered in the base currency" with no behavior change.
+      // rate/tendered_amount are only meaningful for currency<>'BASE' lines;
+      // 'amount' keeps its original, unchanged meaning (base-currency
+      // equivalent) that EOD/credit/report queries already rely on.
+      "ALTER TABLE sale_payments ADD COLUMN currency TEXT DEFAULT 'BASE'",
+      "ALTER TABLE sale_payments ADD COLUMN rate REAL DEFAULT 1",
+      "ALTER TABLE sale_payments ADD COLUMN tendered_amount REAL"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -239,6 +348,26 @@
     // When the FIRST catalogue was generated for a destination (locks its name). Existing rows only
     // know their latest build, which is the best available stand-in.
     try{ t.run("UPDATE branch_register SET catalogue_first_ts=catalogue_ts WHERE (catalogue_first_ts IS NULL OR catalogue_first_ts='') AND catalogue_ts IS NOT NULL AND catalogue_ts<>''"); }catch(e){}
+    try{ t.run("CREATE INDEX IF NOT EXISTS ix_eod_sessions_branch_date_status ON eod_sessions(branch,date,status)"); }catch(e){}
+    // Split-Tender: sale_payments didn't exist before this feature, so every
+    // historical sale has zero rows in it. EOD cash reconciliation, credit
+    // balances and the payment-method report now read sale_payments instead
+    // of sales.method/total directly (so a split sale is counted correctly),
+    // which would silently zero out every pre-upgrade sale unless it's
+    // backfilled here. LEFT JOIN...WHERE sp.id IS NULL means only sales that
+    // still have no payment row get one, so this is safe to run every boot.
+    try{ t.run(`INSERT INTO sale_payments(sale_id,method,amount)
+      SELECT s.id, s.method, s.total FROM sales s
+      LEFT JOIN sale_payments sp ON sp.sale_id=s.id
+      WHERE sp.id IS NULL AND s.method IS NOT NULL AND s.method<>''`); }catch(e){}
+    // Multi-Currency Support: tendered_amount didn't exist before this
+    // feature, so both genuinely old rows and the rows the backfill above
+    // just inserted have it NULL. For every base-currency line "tendered"
+    // and "base-equivalent" are the same number by definition, so this is
+    // exactly correct, not a guess — and only NULL rows are touched, so
+    // re-running this never overwrites a real foreign-currency line's
+    // recorded tendered amount.
+    try{ t.run("UPDATE sale_payments SET tendered_amount=amount WHERE tendered_amount IS NULL"); }catch(e){}
   }
   // Phase 4: DN lines learn which branch id issued them (so a status can be joined
   // on (branch id, dn_no) instead of a name), and dn_events is filled in for

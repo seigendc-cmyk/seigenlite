@@ -1,5 +1,7 @@
 {
   "devDependencies": {
-    "javascript-obfuscator": "^5.7.0"
+    "javascript-obfuscator": "^5.7.0",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.63.0"
   }
 }

@@ -68,24 +68,16 @@
         <button class="btn btn-outline" id="printTestLine" style="margin-bottom:12px">🖨️ Print test line</button>
         <button class="btn btn-primary" id="saveSettings" style="margin-top:12px">Save</button>
       </div>
+      ${rpnSectionHtml()}
+      ${currenciesSectionHtml()}
       <div class="card">
         <h3>Activation secret phrase</h3>
         <input class="field" id="sSecret" value="${escapeHtml(getSetting("secret_phrase",""))}">
         <button class="btn btn-outline" id="saveSecret" style="margin-top:10px">Save phrase</button>
       </div>
-      <div class="card">
-        <h3>USB thermal printer</h3>
-        ${hasUSBPrint()
-          ? `<p class="muted">Available in this browser. Connect a printer via USB (or OTG cable on Android) and the 🔌 button next to Print will use it directly — no printer driver needed.</p>
-             <button class="btn btn-outline" id="connectUsbBtn">🔌 Connect / test USB printer</button>`
-          : `<p class="muted">Not available here — USB printing needs Chrome, and the app served via a local server (not opened as a plain file). A printer already installed as a normal Windows printer still works fine through the regular Print / PDF button.</p>`}
-        ${hasBTPrint()? `
-          <div class="hr"></div>
-          <p class="muted">Connect a Bluetooth (BLE) thermal printer and the 🔵 button next to Print will use it directly. Not every printer's Bluetooth mode is compatible — Connect / Test will tell you honestly if it isn't. Since this shows every nearby Bluetooth device, not just printers, check the name below after connecting.</p>
-          <button class="btn btn-outline" id="connectBtBtn">🔵 Connect / test Bluetooth printer</button>
-          <div id="btStatus" class="muted" style="margin-top:6px"></div>
-        ` : ""}
-      </div>
+      ${printerSectionHtml()}
+      ${barcodeReaderSectionHtml()}
+      ${cashDrawerSectionHtml()}
       ${isRemote()? "" : `
       <div class="card">
         <h3>Frequent Customer Vouchers</h3>
@@ -101,6 +93,7 @@
       ${isRemote()? "" : staffSectionHtml()}
       ${isRemote()? "" : branchRegisterCardHtml()}
       ${backupMergeSectionHtml()}
+      ${cloudSyncSectionHtml()}
     `;
     document.getElementById("printTestLine").onclick=()=>printTestLine();
     document.getElementById("saveSettings").onclick=()=>{
@@ -135,21 +128,13 @@
       setSetting("secret_phrase", document.getElementById("sSecret").value.trim());
       persist(); alert("Secret phrase saved.");
     };
-    const connectUsbBtn = document.getElementById("connectUsbBtn");
-    if(connectUsbBtn) connectUsbBtn.onclick=async ()=>{
-      const ok = await connectUSBPrinter();
-      if(ok) alert("Connected. The 🔌 button next to Print will now use this printer.");
-    };
-    const connectBtBtn = document.getElementById("connectBtBtn");
-    if(connectBtBtn) connectBtBtn.onclick=async ()=>{
-      const ok = await connectBTPrinter();
-      const statusEl = document.getElementById("btStatus");
-      if(ok && statusEl){
-        const name = window._btPrinter.device.name || "an unnamed device";
-        statusEl.textContent = `Connected to "${name}". The 🔵 button next to Print will now use this printer.`;
-      }
-    };
+    wirePrinterSection();
+    wireBarcodeReaderSection();
+    wireCashDrawerSection();
+    wireRpnSection();
+    wireCurrenciesSection();
     if(!isRemote()) wireStaffSection();
     if(!isRemote()) wireBranchRegisterCard();
     wireBackupMergeSection();
+    wireCloudSyncSection();
   }

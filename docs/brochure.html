@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>seiGEN Commerce Lite — What it does for your shop</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root{
+    --orange:#E8590C; --orange-d:#B8430A; --orange-l:#FFF1E6;
+    --ink:#241C15; --soft:#6B5D4F;
+    --teal:#0F9D8A; --teal-l:#E3F7F3;
+    --blue:#2F6FEB; --blue-l:#E8F0FE;
+    --purple:#7B3FE4; --purple-l:#F1E9FD;
+    --pink:#E23E7B; --pink-l:#FDE8F0;
+    --green:#2E9E44; --green-l:#E7F6EA;
+    --gold:#E0A100; --gold-l:#FFF6DB;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; font-family:"Segoe UI", Arial, sans-serif; color:var(--ink); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page{ width:210mm; height:297mm; position:relative; overflow:hidden; page-break-after:always; background:#fff; }
+  .page:last-child{ page-break-after:auto; }
+  .pad{ padding:12mm 15mm 16mm; }
+  h1,h2,h3{ margin:0; }
+  p{ margin:0; line-height:1.5; }
+
+  /* ---------- cover ---------- */
+  .cover{ background:linear-gradient(145deg,#FF7A1A 0%, #E8590C 45%, #B8430A 100%); color:#fff; }
+  .blob{ position:absolute; border-radius:50%; opacity:.9; }
+  .cover .b1{ width:150mm; height:150mm; right:-55mm; top:-45mm; background:radial-gradient(circle at 30% 30%, #FFC24D, #E0A100 70%); opacity:.55; }
+  .cover .b2{ width:95mm; height:95mm; left:-35mm; bottom:40mm; background:radial-gradient(circle at 40% 40%, #FF5E9A, #E23E7B 70%); opacity:.45; }
+  .cover .b3{ width:60mm; height:60mm; right:20mm; bottom:-15mm; background:radial-gradient(circle, #3FD1BC, #0F9D8A 70%); opacity:.55; }
+  .cover-inner{ position:relative; padding:28mm 18mm 0; height:100%; }
+  .tag{ display:inline-block; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.4); padding:5px 14px; border-radius:30px; font-size:11pt; letter-spacing:.5px; font-weight:600; }
+  .cover h1{ font-size:46pt; line-height:1.02; margin-top:16mm; font-weight:800; letter-spacing:-1px; }
+  .cover h1 span{ color:#FFE08A; }
+  .cover .sub{ font-size:16pt; margin-top:8mm; max-width:150mm; line-height:1.4; font-weight:400; }
+  .cover-pills{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12mm; max-width:160mm; }
+  .cover-pills div{ background:#fff; color:var(--orange-d); font-weight:700; font-size:11pt; padding:8px 14px; border-radius:30px; box-shadow:0 3px 10px rgba(0,0,0,.15); }
+  .cover-foot{ position:absolute; left:18mm; right:18mm; bottom:18mm; display:flex; justify-content:space-between; align-items:flex-end; }
+  .cover-foot .brand{ font-size:12pt; font-weight:700; }
+  .cover-foot .brand small{ display:block; font-weight:400; opacity:.85; font-size:10pt; margin-top:2px; }
+  .phone-card{ background:#fff; color:var(--ink); border-radius:16px; padding:12px 16px; font-size:10.5pt; box-shadow:0 8px 24px rgba(0,0,0,.2); }
+  .phone-card b{ color:var(--orange); font-size:13pt; }
+
+  /* ---------- section headings ---------- */
+  .kicker{ font-size:10pt; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--orange); }
+  .h2{ font-size:23pt; font-weight:800; margin-top:2mm; letter-spacing:-.5px; }
+  .lead{ font-size:12pt; color:var(--soft); margin-top:3mm; max-width:170mm; }
+  .band{ height:6mm; background:linear-gradient(90deg,var(--orange),var(--gold),var(--pink),var(--purple),var(--blue),var(--teal)); }
+
+  /* ---------- why grid ---------- */
+  .why{ display:grid; grid-template-columns:1fr 1fr; gap:5mm; margin-top:7mm; }
+  .why .w{ border-radius:14px; padding:5mm 5.5mm; color:#fff; }
+  .why .w .ic{ font-size:24pt; }
+  .why .w h3{ font-size:14pt; margin:3mm 0 2mm; }
+  .why .w p{ font-size:10.5pt; opacity:.95; }
+  .bg-orange{ background:linear-gradient(135deg,#FF7A1A,#E8590C); }
+  .bg-teal{ background:linear-gradient(135deg,#1FBFA8,#0F9D8A); }
+  .bg-blue{ background:linear-gradient(135deg,#5A8DF5,#2F6FEB); }
+  .bg-purple{ background:linear-gradient(135deg,#9A68F0,#7B3FE4); }
+  .bg-pink{ background:linear-gradient(135deg,#F2679A,#E23E7B); }
+  .bg-green{ background:linear-gradient(135deg,#4CBF62,#2E9E44); }
+
+  .stats{ display:flex; gap:5mm; margin-top:7mm; }
+  .stat{ flex:1; background:var(--orange-l); border-radius:14px; padding:5mm; text-align:center; }
+  .stat b{ display:block; font-size:22pt; color:var(--orange); font-weight:800; }
+  .stat span{ font-size:9.5pt; color:var(--soft); }
+
+  /* ---------- feature cards ---------- */
+  .feats{ display:grid; grid-template-columns:1fr 1fr; gap:4mm; margin-top:5mm; }
+  .f{ border-radius:14px; padding:4mm 5mm; border-left:6px solid; }
+  .f .hd{ display:flex; align-items:center; gap:3mm; margin-bottom:2mm; }
+  .f .ic{ width:11mm; height:11mm; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:16pt; color:#fff; flex:none; }
+  .f h3{ font-size:13pt; }
+  .f ul{ margin:0; padding-left:4.5mm; font-size:9.3pt; line-height:1.4; }
+  .f li{ margin-bottom:.6mm; }
+  .f li::marker{ font-weight:700; }
+  .c-orange{ background:var(--orange-l); border-color:var(--orange); } .c-orange .ic{ background:var(--orange); } .c-orange li::marker{ color:var(--orange); }
+  .c-teal{ background:var(--teal-l); border-color:var(--teal); } .c-teal .ic{ background:var(--teal); } .c-teal li::marker{ color:var(--teal); }
+  .c-blue{ background:var(--blue-l); border-color:var(--blue); } .c-blue .ic{ background:var(--blue); } .c-blue li::marker{ color:var(--blue); }
+  .c-purple{ background:var(--purple-l); border-color:var(--purple); } .c-purple .ic{ background:var(--purple); } .c-purple li::marker{ color:var(--purple); }
+  .c-pink{ background:var(--pink-l); border-color:var(--pink); } .c-pink .ic{ background:var(--pink); } .c-pink li::marker{ color:var(--pink); }
+  .c-green{ background:var(--green-l); border-color:var(--green); } .c-green .ic{ background:var(--green); } .c-green li::marker{ color:var(--green); }
+  .c-gold{ background:var(--gold-l); border-color:var(--gold); } .c-gold .ic{ background:var(--gold); } .c-gold li::marker{ color:var(--gold); }
+  .wide{ grid-column:1 / -1; }
+
+  /* ---------- reports chips ---------- */
+  .chips{ display:flex; flex-wrap:wrap; gap:2.5mm; margin-top:5mm; }
+  .chip{ font-size:10pt; font-weight:600; padding:2mm 4mm; border-radius:30px; color:#fff; }
+
+  /* ---------- steps ---------- */
+  .steps{ margin-top:8mm; display:grid; grid-template-columns:repeat(4,1fr); gap:4mm; }
+  .step{ text-align:center; }
+  .step .n{ width:16mm; height:16mm; border-radius:50%; margin:0 auto 3mm; display:flex; align-items:center; justify-content:center; font-size:18pt; font-weight:800; color:#fff; }
+  .step h3{ font-size:11.5pt; margin-bottom:1.5mm; }
+  .step p{ font-size:9.5pt; color:var(--soft); }
+
+  .who{ display:grid; grid-template-columns:repeat(3,1fr); gap:4mm; margin-top:6mm; }
+  .who div{ border-radius:12px; padding:4mm; text-align:center; font-size:10pt; font-weight:600; border:2px solid; }
+  .who div span{ display:block; font-size:20pt; margin-bottom:1mm; }
+
+  .cta{ margin-top:8mm; border-radius:18px; padding:7mm 9mm; color:#fff; background:linear-gradient(135deg,#E8590C 0%,#E23E7B 55%,#7B3FE4 100%); position:relative; overflow:hidden; }
+  .cta h2{ font-size:22pt; font-weight:800; }
+  .cta p{ font-size:11.5pt; margin-top:2mm; opacity:.95; }
+  .cta .nums{ display:flex; gap:5mm; margin-top:6mm; flex-wrap:wrap; }
+  .cta .nums div{ background:#fff; color:var(--ink); border-radius:12px; padding:3.5mm 5mm; font-size:10pt; }
+  .cta .nums b{ display:block; font-size:14pt; color:var(--orange); }
+
+  .footer{ position:absolute; left:16mm; right:16mm; bottom:8mm; display:flex; justify-content:space-between; font-size:8.5pt; color:var(--soft); border-top:1px solid #EFDFCF; padding-top:2.5mm; }
+</style></head>
+<body>
+
+<!-- ===================== PAGE 1: COVER ===================== -->
+<section class="page cover">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  <div class="cover-inner">
+    <div class="tag">seiGEN Commerce Lite</div>
+    <h1>Run your whole shop<br>from <span>one app</span>.</h1>
+    <p class="sub">Sell, track stock, manage credit customers, close the day properly and grow across branches — even with no internet.</p>
+    <div class="cover-pills">
+      <div>🛒 Fast checkout</div>
+      <div>📦 Stock control</div>
+      <div>💳 Credit accounts</div>
+      <div>📊 14+ reports</div>
+      <div>🏬 Multi-branch</div>
+      <div>📶 Works offline</div>
+      <div>📲 WhatsApp sharing</div>
+    </div>
+  </div>
+  <div class="cover-foot">
+    <div class="brand">Digital Commerce<small>Built for people who care about growth in business.</small></div>
+    <div class="phone-card">Call / WhatsApp<br><b>+263 77 447 9121</b></div>
+  </div>
+</section>
+
+<!-- ===================== PAGE 2: WHY ===================== -->
+<section class="page">
+  <div class="band"></div>
+  <div class="pad">
+    <div class="kicker">Why vendors choose it</div>
+    <div class="h2">Built for the way real shops work</div>
+    <p class="lead">Whether you run one till at a market stall or several branches across town, seiGEN Commerce Lite gives you the same control a big retailer has — on the phone or computer you already own.</p>
+
+    <div class="why">
+      <div class="w bg-orange"><div class="ic">📶</div><h3>No internet? No problem.</h3><p>After the first open, every feature — selling, stock, reports, end of day — works fully offline. Power cuts and data bundles don't stop your trading.</p></div>
+      <div class="w bg-teal"><div class="ic">📱</div><h3>Runs on what you have</h3><p>Use it on an Android phone, a tablet or a Windows computer. Install it like an app or simply open a single file — no expensive till hardware needed.</p></div>
+      <div class="w bg-blue"><div class="ic">🔒</div><h3>Your records stay with you</h3><p>Sales, stock and customer records are stored on your own device. Staff PINs, Admin passcodes and audit trails keep every change accountable.</p></div>
+      <div class="w bg-purple"><div class="ic">🏬</div><h3>Grows with your business</h3><p>Start with one shop. Add remote branches later, send stock between them with Delivery Notes, and see every branch's numbers in one place.</p></div>
+      <div class="w bg-pink"><div class="ic">💬</div><h3>WhatsApp-friendly</h3><p>Send receipts, reports, payment reminders and data files straight to WhatsApp — the way your customers and managers already talk.</p></div>
+      <div class="w bg-green"><div class="ic">💰</div><h3>Know where every dollar goes</h3><p>Blind cash counts, payouts, variance, margins and seed-money recovery show you exactly how the business is really doing.</p></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b>4+</b><span>payment methods, plus split tender</span></div>
+      <div class="stat"><b>14+</b><span>ready-made reports</span></div>
+      <div class="stat"><b>100%</b><span>offline after first open</span></div>
+      <div class="stat"><b>30-day</b><span>free trial on setup</span></div>
+    </div>
+  </div>
+  <div class="footer"><span>seiGEN Commerce Lite · Vendor guide</span><span>2</span></div>
+</section>
+
+<!-- ===================== PAGE 3: FEATURES A ===================== -->
+<section class="page">
+  <div class="band"></div>
+  <div class="pad">
+    <div class="kicker">What it does for you</div>
+    <div class="h2">Everything at the counter</div>
+
+    <div class="feats">
+      <div class="f c-orange">
+        <div class="hd"><div class="ic">🛒</div><h3>Selling &amp; checkout</h3></div>
+        <ul>
+          <li>Find products fast by name, SKU, barcode or hidden search keywords</li>
+          <li>Cash, EcoCash, Bank and Credit — with payment references recorded</li>
+          <li>Split one sale across several payment methods</li>
+          <li>Line-item and whole-sale discounts, each with a reason and approval</li>
+          <li>Quick-tap checkout for the busiest moments</li>
+        </ul>
+      </div>
+      <div class="f c-teal">
+        <div class="hd"><div class="ic">💱</div><h3>Multi-currency</h3></div>
+        <ul>
+          <li>Accept payment in other currencies alongside your base currency</li>
+          <li>You set the exchange rates — no live feed or internet needed</li>
+          <li>See the cart total in a customer's currency before they pay</li>
+          <li>Every tender is recorded in the currency actually received</li>
+        </ul>
+      </div>
+      <div class="f c-blue">
+        <div class="hd"><div class="ic">🧾</div><h3>Receipts &amp; invoices</h3></div>
+        <ul>
+          <li>Thermal receipts sized for 58mm or 80mm printers</li>
+          <li>Proper A4 invoices for credit customers, with balance due</li>
+          <li>Send any receipt to the customer on WhatsApp in one tap</li>
+          <li>Your shop name and banner on every document</li>
+        </ul>
+      </div>
+      <div class="f c-purple">
+        <div class="hd"><div class="ic">🔌</div><h3>Works with your hardware</h3></div>
+        <ul>
+          <li>USB &amp; Bluetooth barcode scanners — for selling and stock counts</li>
+          <li>USB thermal receipt printers, no driver needed (Chrome)</li>
+          <li>Cash drawer that opens on your command</li>
+          <li>Or use no hardware at all — a phone is enough</li>
+        </ul>
+      </div>
+      <div class="f c-pink">
+        <div class="hd"><div class="ic">💳</div><h3>Credit customers</h3></div>
+        <ul>
+          <li>Credit sales create customer accounts automatically</li>
+          <li>Record payments and see who owes what at a glance</li>
+          <li>Send polite payment reminders on WhatsApp</li>
+          <li>Customer directory for WhatsApp marketing messages</li>
+        </ul>
+      </div>
+      <div class="f c-green">
+        <div class="hd"><div class="ic">🎁</div><h3>Reward loyal customers</h3></div>
+        <ul>
+          <li>Automatic frequent-customer vouchers you configure</li>
+          <li>e.g. "5 purchases in 30 days earns a $2 voucher"</li>
+          <li>Voucher badge shows at checkout — apply in one tap</li>
+          <li>Customer Report shows your best buyers</li>
+        </ul>
+      </div>
+      <div class="f c-gold wide">
+        <div class="hd"><div class="ic">🌙</div><h3>Shifts &amp; End of Day — close the day properly</h3></div>
+        <ul style="columns:2;column-gap:8mm">
+          <li>Start each shift by declaring the opening cash float</li>
+          <li>Log payouts taken from the drawer, with a reason</li>
+          <li>Blind cash count — staff count first, then reveal the variance</li>
+          <li>Print or WhatsApp the End of Day report to management</li>
+          <li>New sales wait until yesterday's day has been closed</li>
+          <li>Tamper-resistant clock protects your dates and records</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>seiGEN Commerce Lite · Vendor guide</span><span>3</span></div>
+</section>
+
+<!-- ===================== PAGE 4: FEATURES B ===================== -->
+<section class="page">
+  <div class="band"></div>
+  <div class="pad">
+    <div class="kicker">What it does for you</div>
+    <div class="h2">Behind the counter</div>
+
+    <div class="feats">
+      <div class="f c-blue">
+        <div class="hd"><div class="ic">📦</div><h3>Products &amp; stock</h3></div>
+        <ul>
+          <li>Photo, SKU, price, cost and stock for every product</li>
+          <li>Bulk-import your inventory from Excel or CSV</li>
+          <li>Stock adjustments for damage, expiry, theft or miscount — Admin approved</li>
+          <li>Print A4 product catalogues and marketing cards</li>
+        </ul>
+      </div>
+      <div class="f c-teal">
+        <div class="hd"><div class="ic">📋</div><h3>Stocktakes</h3></div>
+        <ul>
+          <li>Blind counting so staff aren't influenced by system numbers</li>
+          <li>Scan or search items while you count</li>
+          <li>Variance report before anything changes</li>
+          <li>Apply counts to live stock only when you confirm</li>
+        </ul>
+      </div>
+      <div class="f c-orange">
+        <div class="hd"><div class="ic">🚚</div><h3>Purchasing &amp; receiving</h3></div>
+        <ul>
+          <li>Record stock you buy in, with cost, from any supplier</li>
+          <li>Track how much of your starting capital sales have recovered</li>
+          <li>Customer Requests notepad — never forget what people asked for</li>
+        </ul>
+      </div>
+      <div class="f c-purple">
+        <div class="hd"><div class="ic">🏬</div><h3>Multiple branches</h3></div>
+        <ul>
+          <li>Main branch controls products, prices and costs</li>
+          <li>Remote branches sell from the main branch's catalogue</li>
+          <li>Send stock with Delivery Notes; confirm with a GRV</li>
+          <li>Merge every branch's data on a head-office device</li>
+        </ul>
+      </div>
+      <div class="f c-pink">
+        <div class="hd"><div class="ic">👥</div><h3>Staff &amp; security</h3></div>
+        <ul>
+          <li>Each staff member signs in with a personal PIN</li>
+          <li>Every sale, discount and stock change is recorded against a name</li>
+          <li>Admin passcode protects settings, prices and adjustments</li>
+          <li>Costs and margins hidden from remote branches</li>
+        </ul>
+      </div>
+      <div class="f c-green">
+        <div class="hd"><div class="ic">💾</div><h3>Backups &amp; sharing</h3></div>
+        <ul>
+          <li>Export your data file any time — automatic backup before imports</li>
+          <li>Clearly named files: shop, branch, date and time</li>
+          <li>Share data files straight through WhatsApp</li>
+          <li>Export items and reports to Excel</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top:8mm">
+      <div class="kicker" style="color:var(--purple)">Reports that answer real questions</div>
+      <div class="chips">
+        <span class="chip" style="background:var(--orange)">Sales</span>
+        <span class="chip" style="background:var(--teal)">Inventory</span>
+        <span class="chip" style="background:var(--blue)">Stock Received</span>
+        <span class="chip" style="background:var(--pink)">Low Stock</span>
+        <span class="chip" style="background:var(--purple)">Credit Sales</span>
+        <span class="chip" style="background:var(--green)">Discounts</span>
+        <span class="chip" style="background:var(--gold)">Margin</span>
+        <span class="chip" style="background:var(--orange-d)">Aging Inventory</span>
+        <span class="chip" style="background:var(--teal)">Fast Movers</span>
+        <span class="chip" style="background:var(--blue)">Payouts</span>
+        <span class="chip" style="background:var(--pink)">Customers</span>
+        <span class="chip" style="background:var(--purple)">Branch Summary</span>
+        <span class="chip" style="background:var(--green)">Stock Movements</span>
+        <span class="chip" style="background:var(--gold)">End of Day</span>
+      </div>
+      <p style="font-size:10pt;color:var(--soft);margin-top:4mm">Filter every report by branch and date, view it on screen with the Report Writer, print it on A4, or send it to WhatsApp.</p>
+    </div>
+  </div>
+  <div class="footer"><span>seiGEN Commerce Lite · Vendor guide</span><span>4</span></div>
+</section>
+
+<!-- ===================== PAGE 5: GET STARTED ===================== -->
+<section class="page">
+  <div class="band"></div>
+  <div class="pad">
+    <div class="kicker">Getting started</div>
+    <div class="h2">Up and selling in minutes</div>
+    <p class="lead">No technician, no server, no monthly hardware bills. If you have a phone or computer, you're ready.</p>
+
+    <div class="steps">
+      <div class="step"><div class="n bg-orange">1</div><h3>Get the app</h3><p>Install it from a link, or open the single app file we send you.</p></div>
+      <div class="step"><div class="n bg-teal">2</div><h3>Set up your shop</h3><p>Enter your shop name, branch, currency and contact number.</p></div>
+      <div class="step"><div class="n bg-blue">3</div><h3>Add products</h3><p>Type them in, or import your whole list from Excel.</p></div>
+      <div class="step"><div class="n bg-purple">4</div><h3>Start selling</h3><p>Open a shift, declare your float, and ring up your first sale.</p></div>
+    </div>
+
+    <div style="margin-top:9mm">
+      <div class="kicker" style="color:var(--teal)">Made for</div>
+      <div class="who">
+        <div style="border-color:var(--orange);background:var(--orange-l)"><span>🏪</span>Tuck shops &amp; grocers</div>
+        <div style="border-color:var(--teal);background:var(--teal-l)"><span>💊</span>Pharmacies &amp; clinics</div>
+        <div style="border-color:var(--blue);background:var(--blue-l)"><span>🔧</span>Hardware &amp; spares</div>
+        <div style="border-color:var(--purple);background:var(--purple-l)"><span>👗</span>Boutiques &amp; salons</div>
+        <div style="border-color:var(--pink);background:var(--pink-l)"><span>🥤</span>Wholesalers &amp; distributors</div>
+        <div style="border-color:var(--green);background:var(--green-l)"><span>🛍️</span>Market &amp; street vendors</div>
+      </div>
+    </div>
+
+    <div class="cta">
+      <h2>Try it free for 30 days.</h2>
+      <p>Every new setup includes a full 30-day trial with all features switched on. After that, keep going with a simple monthly activation code — just send us the code shown in the app.</p>
+      <div class="nums">
+        <div>Call / WhatsApp<b>+263 77 447 9121</b></div>
+        <div>Call / WhatsApp<b>+263 78 948 7287</b></div>
+        <div>Web<b>digitalcommerce.com</b></div>
+      </div>
+      <p style="margin-top:6mm;font-size:10pt;opacity:.9">Digital Commerce · Commerce Valley Est, Marirangwe, Mhondoro</p>
+    </div>
+  </div>
+  <div class="footer"><span>seiGEN Commerce Lite · Distributed under license from seiGEN Commerce Infrastructure</span><span>5</span></div>
+</section>
+
+</body></html>

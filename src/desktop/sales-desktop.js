@@ -42,12 +42,18 @@
   }
 
   function renderPOSDesktop(main){
-    // Overrides the shared mobile `main{max-width:640px;margin:0 auto}`
-    // rule via a higher-specificity class instead of editing that rule —
-    // router.js recreates <main id="main"> from scratch on every route
-    // change, so this class never leaks onto other screens.
+    // The shared `main{}` rule (styles.css) is fluid-width on every build
+    // now (Desktop Nav task), so .desktop-main's own max-width/margin are
+    // redundant here — its one remaining job is padding:0, since ds-main/
+    // ds-cart below handle their own inner padding. Kept as a class (not
+    // an inline style) so it stays a single, findable override rather than
+    // duplicated per element; router.js recreates <main id="main"> from
+    // scratch on every route change, so this class never leaks onto other
+    // screens.
     main.className = "desktop-main";
     main.innerHTML = `
+      ${shiftBlockBannerHtml()}
+      ${dcMessagesBannerHtml()}
       <div class="desktop-sales">
         <div class="ds-main">
           <div class="ds-searchbar">
@@ -95,6 +101,22 @@
   }
 
   function desktopCartHtml(){
+    // Digital Commerce device check-in: mirrors router.js's renderDrawer()
+    // treatment exactly — a locked cart replaces the whole interactive body
+    // (items, discount inputs, payment buttons) with a plain notice, so a
+    // lock that lands mid-session takes effect on the panel's very next
+    // re-render (any add/qty change re-renders this whole screen — see
+    // renderPOSDesktop), not just on a fresh screen load.
+    const dcReason = dcLockCartReason();
+    if(dcReason){
+      return `
+        <div class="ds-cart-head">Cart</div>
+        <div class="ds-cart-empty">
+          <div class="ic">🔒</div>
+          <h4>Cart locked</h4>
+          <p>${escapeHtml(dcReason)}</p>
+        </div>`;
+    }
     if(cart.length===0){
       return `
         <div class="ds-cart-head">Cart</div>
@@ -113,6 +135,10 @@
             <div style="flex:1;min-width:0">
               <div class="ds-ci-name">${escapeHtml(c.name)}</div>
               <div class="ds-ci-price">${currency}${c.price.toFixed(2)} each</div>
+              <div class="row" style="margin-top:4px;align-items:center;gap:6px">
+                <label class="muted" style="flex:none;font-size:11px">Discount ${currency}</label>
+                <input class="field" style="flex:0.7;padding:6px 8px" type="number" step="0.01" min="0" placeholder="0.00" data-line-discount="${c.product_id}" value="${escapeHtml(String(c.discount||''))}">
+              </div>
             </div>
             <div class="ds-qty-ctl">
               <button data-dec="${c.product_id}">−</button>
@@ -122,22 +148,35 @@
           </div>`).join("")}
       </div>
       <div class="ds-cart-foot">
+        <div id="discountExtra" style="display:${cartDiscountTotal()>0?'block':'none'}">
+          <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Reason for discount</label>
+          <input class="field" id="discountReason" placeholder="e.g. Bulk purchase" value="${window._discountReasonVal||''}" style="margin-bottom:8px">
+          <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Approved by (leave blank if pending)</label>
+          <input class="field" id="discountApprovedBy" placeholder="Approver's name" value="${window._discountApprovedVal||''}" style="margin-bottom:10px">
+        </div>
         <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Customer name (required for Credit)</label>
         <input class="field" id="custName" placeholder="e.g. Tendai Moyo" value="${window._custNameVal||""}" style="margin-bottom:8px">
         <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Payment reference (EcoCash/Bank)</label>
         <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||""}" style="margin-bottom:10px">
         <div class="ds-subline"><span>Subtotal</span><span>${currency}${subtotal.toFixed(2)}</span></div>
         <div class="ds-totalline"><span>Total</span><span id="dsTotal">${currency}${cartTotal().toFixed(2)}</span></div>
+        ${fxPreviewHtml()}
+        ${splitTender? splitTenderPanelHtml() : `
+        ${quickTapCurrencySelectorHtml()}
         <div class="ds-pay-grid">
           <button class="btn btn-primary" id="dsPayCash">Cash</button>
           <button class="btn btn-ghost" id="dsPayEcocash">EcoCash</button>
           <button class="btn btn-ghost" id="dsPayBank">Bank</button>
           <button class="btn btn-outline" id="dsPayCredit">Credit</button>
         </div>
+        <button class="btn btn-ghost btn-sm" id="dsStartSplitTender" style="margin-top:8px;width:100%">+ Split into multiple payment methods</button>
+        `}
       </div>`;
   }
 
   function wireDesktopSales(main){
+    wireShiftBlockBanner();
+    wireDcMessagesBanner();
     const search = document.getElementById("dsSearch");
     search.oninput = (e)=>{ searchQuery = e.target.value; refreshDesktopRows(); };
     main.querySelectorAll("[data-cat]").forEach(b=>{
@@ -161,19 +200,38 @@
     });
   }
   function wireDesktopCartActions(main){
+    // Digital Commerce device check-in: none of the elements this function
+    // wires below exist while locked (desktopCartHtml() replaced them with
+    // a plain notice) — skip entirely rather than wiring against nulls.
+    if(dcLockCartReason()) return;
     main.querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.inc,1));
     main.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.dec,-1));
+    const cartAside = main.querySelector(".ds-cart");
+    wireLineDiscountInputs(cartAside);
+    const dr = document.getElementById("discountReason");
+    if(dr) dr.oninput = (e)=>{ window._discountReasonVal = e.target.value; };
+    const dab = document.getElementById("discountApprovedBy");
+    if(dab) dab.oninput = (e)=>{ window._discountApprovedVal = e.target.value; };
     const cn = document.getElementById("custName");
     if(cn) cn.oninput = (e)=>{ window._custNameVal = e.target.value; };
     const pr = document.getElementById("paymentRef");
     if(pr) pr.oninput = (e)=>{ window._paymentRefVal = e.target.value; };
-    const resetTemp = ()=>{ window._custNameVal=""; window._paymentRefVal=""; };
-    const cash = document.getElementById("dsPayCash");
-    const eco = document.getElementById("dsPayEcocash");
-    const bank = document.getElementById("dsPayBank");
-    const credit = document.getElementById("dsPayCredit");
-    if(cash) cash.onclick = ()=>{ completeSale("Cash"); resetTemp(); };
-    if(eco) eco.onclick = ()=>{ completeSale("EcoCash"); resetTemp(); };
-    if(bank) bank.onclick = ()=>{ completeSale("Bank"); resetTemp(); };
-    if(credit) credit.onclick = ()=>{ completeSale("Credit"); resetTemp(); };
+    const resetTemp = ()=>{ window._custNameVal=""; window._paymentRefVal="";
+      window._discountReasonVal=""; window._discountApprovedVal=""; };
+    wireFxPreview(cartAside, ()=>renderPOSDesktop(main));
+    if(splitTender){
+      wireSplitTenderPanel(cartAside, ()=>renderPOSDesktop(main), (payments)=>{ completeSale(null, payments); resetTemp(); });
+    } else {
+      wireQuickTapCurrencySelector(cartAside, ()=>renderPOSDesktop(main));
+      const startSplit = document.getElementById("dsStartSplitTender");
+      if(startSplit) startSplit.onclick = ()=>{ startSplitTender(); renderPOSDesktop(main); };
+      const cash = document.getElementById("dsPayCash");
+      const eco = document.getElementById("dsPayEcocash");
+      const bank = document.getElementById("dsPayBank");
+      const credit = document.getElementById("dsPayCredit");
+      if(cash) cash.onclick = ()=>{ completeSale("Cash", quickTapPayments("Cash")); resetTemp(); };
+      if(eco) eco.onclick = ()=>{ completeSale("EcoCash", quickTapPayments("EcoCash")); resetTemp(); };
+      if(bank) bank.onclick = ()=>{ completeSale("Bank", quickTapPayments("Bank")); resetTemp(); };
+      if(credit) credit.onclick = ()=>{ completeSale("Credit", quickTapPayments("Credit")); resetTemp(); };
+    }
   }

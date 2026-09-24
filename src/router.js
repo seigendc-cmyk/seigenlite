@@ -1,9 +1,27 @@
+  // Reuses the exact same build-target signal router.js already relies on
+  // for the Sell screen (renderPOSDesktop only exists in the dist-tauri
+  // bundle — see build.js's DESKTOP_EXTRA_SCRIPTS) rather than inventing a
+  // second build-target flag. Nav shell is therefore locked to which build
+  // this is, never to window width.
+  function isDesktopBuild(){ return typeof renderPOSDesktop==="function"; }
+
+  // Single source of truth for the nav items — both the phone/branch
+  // bottom tab bar (dist/dist-pwa) and the desktop hamburger drawer
+  // (dist-tauri) render from this one list instead of each hardcoding it.
+  const NAV_ITEMS = [
+    { id:"pos", icon:ICON_NAV_SELL, label:"Sell" },
+    { id:"products", icon:ICON_NAV_PRODUCTS, label:"Products" },
+    { id:"credit", icon:ICON_NAV_CREDIT, label:"Credit" },
+    { id:"reports", icon:ICON_NAV_REPORTS, label:"Reports" },
+    { id:"more", icon:ICON_NAV_MORE, label:"More" },
+  ];
+
   // ================== CLICK ROUTER ==================
   document.addEventListener("click",(e)=>{
     const btn = e.target.closest("[data-route]");
     if(btn){
       if(route==="more" && btn.dataset.route!=="more" && moreTab==="settings") settingsUnlocked=false;
-      route = btn.dataset.route; drawerOpen=false; render();
+      route = btn.dataset.route; drawerOpen=false; navDrawerOpen=false; render();
     }
     const kebabToggle = e.target.closest("[data-kebab-toggle]");
     if(kebabToggle){
@@ -20,8 +38,10 @@
   function render(){
     if(route==="setup") return renderSetup();
     if(route==="lock") return renderLock();
+    const desktop = isDesktopBuild();
     $app.innerHTML = `
       <div class="topbar">
+        ${desktop? `<button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>` : ""}
         ${bannerMarkup(34)}
         <div class="names">
           <div class="shop">${escapeHtml(getSetting("shop_name","Shop"))}</div>
@@ -30,22 +50,36 @@
         <button class="cart-btn" id="cartBtn">🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
       </div>
       <main id="main"></main>
-      <div class="navbar">
-        ${navBtn("pos",ICON_NAV_SELL,"Sell")}
-        ${navBtn("products",ICON_NAV_PRODUCTS,"Products")}
-        ${navBtn("credit",ICON_NAV_CREDIT,"Credit")}
-        ${navBtn("reports",ICON_NAV_REPORTS,"Reports")}
-        ${navBtn("more",ICON_NAV_MORE,"More")}
-      </div>
+      ${desktop? "" : `<div class="navbar">${NAV_ITEMS.map(n=>navBtn(n.id,n.icon,n.label)).join("")}</div>`}
       <div class="overlay ${drawerOpen?'show':''}" id="overlay"></div>
       <div class="drawer ${drawerOpen?'show':''}" id="drawer"></div>
       <div class="overlay ${reqDrawerOpen?'show':''}" id="reqOverlay"></div>
       <div class="drawer ${reqDrawerOpen?'show':''}" id="reqDrawer"></div>
+      ${desktop? `
+      <div class="overlay ${navDrawerOpen?'show':''}" id="navOverlay"></div>
+      <div class="drawer nav-drawer ${navDrawerOpen?'show':''}" id="navDrawer">
+        <div class="drawer-head"><h3 style="margin:0">Menu</h3><button class="close-x" id="closeNavDrawer">✕</button></div>
+        <div class="drawer-body">
+          ${NAV_ITEMS.map(n=>`<button class="nav-drawer-item ${route===n.id?'active':''}" data-route="${n.id}"><span class="ic">${n.icon}</span>${escapeHtml(n.label)}</button>`).join("")}
+        </div>
+      </div>` : ""}
     `;
-    document.getElementById("cartBtn").onclick = ()=>{ drawerOpen=true; render(); };
+    document.getElementById("cartBtn").onclick = ()=>{
+      const dcReason = dcLockCartReason();
+      if(dcReason){ alert(dcReason); return; }
+      drawerOpen=true; render();
+    };
     document.getElementById("overlay").onclick = ()=>{ drawerOpen=false; render(); };
     document.getElementById("reqOverlay").onclick = ()=>{ reqDrawerOpen=false; render(); };
     document.getElementById("userChip").onclick = changeSessionUser;
+    if(desktop){
+      document.getElementById("hamburgerBtn").onclick = ()=>{ navDrawerOpen=true; render(); };
+      document.getElementById("navOverlay").onclick = ()=>{ navDrawerOpen=false; render(); };
+      document.getElementById("closeNavDrawer").onclick = ()=>{ navDrawerOpen=false; render(); };
+      // Nav items carry [data-route] already, so the document-level click
+      // router above handles navigation AND clears navDrawerOpen — this
+      // only needs the drawer's own open/close chrome.
+    }
     renderDrawer();
     renderRequestsDrawer();
     const main = document.getElementById("main");
@@ -68,6 +102,25 @@
   function renderDrawer(){
     const drawer = document.getElementById("drawer");
     if(!drawer) return;
+    // Digital Commerce device check-in: a locked cart is replaced with a
+    // plain notice — checked here too (not just cartBtn's click handler
+    // above) so a lock that lands while the drawer is already open still
+    // takes effect on its very next re-render (e.g. a qty +/- tap), rather
+    // than leaving an already-open drawer's Pay buttons usable until the
+    // shop happens to close and reopen it.
+    const dcReason = dcLockCartReason();
+    if(dcReason){
+      drawer.innerHTML = `
+        <div class="drawer-head"><h3 style="margin:0">Cart</h3><button class="close-x" id="closeDrawer">✕</button></div>
+        <div class="drawer-body">
+          <div class="card" style="border-color:var(--danger,#c0392b)">
+            <p style="margin:0 0 4px;font-weight:700">🔒 Cart locked</p>
+            <p class="muted" style="margin:0">${escapeHtml(dcReason)}</p>
+          </div>
+        </div>`;
+      document.getElementById("closeDrawer").onclick=()=>{drawerOpen=false;render();};
+      return;
+    }
     const subtotal = cartSubtotal();
     drawer.innerHTML = `
       <div class="drawer-head"><h3 style="margin:0">Cart</h3><button class="close-x" id="closeDrawer">✕</button></div>
@@ -78,6 +131,10 @@
               <div style="flex:1">
                 <div class="ci-name">${escapeHtml(c.name)}</div>
                 <div class="ci-price">${currency}${c.price.toFixed(2)} each</div>
+                <div class="row" style="margin-top:6px;align-items:center;gap:6px">
+                  <label class="muted" style="flex:none;font-size:12px">Discount ${currency}</label>
+                  <input class="field" style="flex:0.7" type="number" step="0.01" min="0" placeholder="0.00" data-line-discount="${c.product_id}" value="${escapeHtml(String(c.discount||''))}">
+                </div>
               </div>
               <div class="qty-ctl">
                 <button data-dec="${c.product_id}">−</button>
@@ -87,19 +144,11 @@
             </div>`).join("")}
       </div>
       <div class="drawer-foot">
-        <label style="margin-top:0">Discount (${currency})</label>
-        <input class="field" id="discountInput" type="number" step="0.01" placeholder="0.00" value="${window._discountVal||''}">
-        <div id="discountExtra" style="display:${(parseFloat(window._discountVal)||0)>0?'block':'none'}">
-          <label>Reason for discount</label>
+        <div id="discountExtra" style="display:${cartDiscountTotal()>0?'block':'none'}">
+          <label style="margin-top:0">Reason for discount</label>
           <input class="field" id="discountReason" placeholder="e.g. Bulk purchase" value="${window._discountReasonVal||''}">
           <label>Approved by (leave blank if pending)</label>
           <input class="field" id="discountApprovedBy" placeholder="Approver's name" value="${window._discountApprovedVal||''}">
-        </div>
-        <label>Markup (${currency})</label>
-        <input class="field" id="markupInput" type="number" step="0.01" placeholder="0.00" value="${window._markupVal||''}">
-        <div id="markupExtra" style="display:${(parseFloat(window._markupVal)||0)>0?'block':'none'}">
-          <label>Reason for markup</label>
-          <input class="field" id="markupReason" placeholder="e.g. Rush delivery" value="${window._markupReasonVal||''}">
         </div>
         <label>Payment reference (EcoCash/Bank)</label>
         <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||''}">
@@ -111,6 +160,9 @@
         <div class="hr" style="margin:10px 0"></div>
         <div class="subline"><span>Subtotal</span><span>${currency}${subtotal.toFixed(2)}</span></div>
         <div class="total-line"><span>Total</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
+        ${fxPreviewHtml()}
+        ${splitTender? splitTenderPanelHtml() : `
+        ${quickTapCurrencySelectorHtml()}
         <div class="row" style="margin-bottom:8px">
           <button class="btn btn-primary" id="payCash" ${cart.length===0?"disabled":""}>Cash</button>
           <button class="btn btn-ghost" id="payEcocash" ${cart.length===0?"disabled":""}>EcoCash</button>
@@ -119,40 +171,37 @@
           <button class="btn btn-ghost" id="payBank" ${cart.length===0?"disabled":""}>Bank</button>
           <button class="btn btn-outline" id="payCredit" ${cart.length===0?"disabled":""}>Credit</button>
         </div>
+        <button class="btn btn-ghost btn-sm" id="startSplitTender" ${cart.length===0?"disabled":""}>+ Split into multiple payment methods</button>
+        `}
       </div>`;
     document.getElementById("closeDrawer").onclick=()=>{drawerOpen=false;render();};
     drawer.querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.inc,1));
     drawer.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.dec,-1));
-    const discountInput = document.getElementById("discountInput");
-    discountInput.oninput = ()=>{
-      window._discountVal = discountInput.value;
-      document.getElementById("drawerTotal").textContent = currency+cartTotal().toFixed(2);
-      document.getElementById("discountExtra").style.display = (parseFloat(discountInput.value)||0)>0 ? "block":"none";
-    };
+    wireLineDiscountInputs(drawer);
     document.getElementById("discountReason").oninput=(e)=>{ window._discountReasonVal=e.target.value; };
     document.getElementById("discountApprovedBy").oninput=(e)=>{ window._discountApprovedVal=e.target.value; };
-    const markupInput = document.getElementById("markupInput");
-    markupInput.oninput = ()=>{
-      window._markupVal = markupInput.value;
-      document.getElementById("drawerTotal").textContent = currency+cartTotal().toFixed(2);
-      document.getElementById("markupExtra").style.display = (parseFloat(markupInput.value)||0)>0 ? "block":"none";
-    };
-    document.getElementById("markupReason").oninput=(e)=>{ window._markupReasonVal=e.target.value; };
     document.getElementById("paymentRef").oninput=(e)=>{ window._paymentRefVal=e.target.value; };
     document.getElementById("custName").oninput=(e)=>{ window._custNameVal=e.target.value; renderVoucherBox(); };
     document.getElementById("custPhone").oninput=(e)=>{ window._custPhoneVal=e.target.value; };
     renderVoucherBox();
-    const payCash = document.getElementById("payCash");
-    const payEco = document.getElementById("payEcocash");
-    const payBank = document.getElementById("payBank");
-    const payCredit = document.getElementById("payCredit");
-    const resetTemp=()=>{ window._discountVal=""; window._custNameVal=""; window._custPhoneVal="";
-      window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal="";
-      window._markupVal=""; window._markupReasonVal=""; };
-    if(payCash) payCash.onclick=()=>{ completeSale("Cash"); resetTemp(); };
-    if(payEco) payEco.onclick=()=>{ completeSale("EcoCash"); resetTemp(); };
-    if(payBank) payBank.onclick=()=>{ completeSale("Bank"); resetTemp(); };
-    if(payCredit) payCredit.onclick=()=>{ completeSale("Credit"); resetTemp(); };
+    wireFxPreview(drawer, renderDrawer);
+    const resetTemp=()=>{ window._custNameVal=""; window._custPhoneVal="";
+      window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; };
+    if(splitTender){
+      wireSplitTenderPanel(drawer, renderDrawer, (payments)=>{ completeSale(null, payments); resetTemp(); });
+    } else {
+      wireQuickTapCurrencySelector(drawer, renderDrawer);
+      const startSplit = document.getElementById("startSplitTender");
+      if(startSplit) startSplit.onclick=()=>{ startSplitTender(); renderDrawer(); };
+      const payCash = document.getElementById("payCash");
+      const payEco = document.getElementById("payEcocash");
+      const payBank = document.getElementById("payBank");
+      const payCredit = document.getElementById("payCredit");
+      if(payCash) payCash.onclick=()=>{ completeSale("Cash", quickTapPayments("Cash")); resetTemp(); };
+      if(payEco) payEco.onclick=()=>{ completeSale("EcoCash", quickTapPayments("EcoCash")); resetTemp(); };
+      if(payBank) payBank.onclick=()=>{ completeSale("Bank", quickTapPayments("Bank")); resetTemp(); };
+      if(payCredit) payCredit.onclick=()=>{ completeSale("Credit", quickTapPayments("Credit")); resetTemp(); };
+    }
   }
   // Shows a "voucher available" badge + Apply button once the typed
   // customer name matches an existing customer with an Available voucher;

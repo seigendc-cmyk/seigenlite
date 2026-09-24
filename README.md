@@ -1,10 +1,10 @@
 # seiGEN Commerce Lite
 
 Offline-first POS and inventory app for small businesses — sales, stock,
-credit, stocktakes, reports, and multi-branch data merge, with no backend.
-All data lives in a SQLite database (via sql.js/WASM) persisted to the
-browser's IndexedDB, on the device it's used on. Nothing is ever sent to a
-server, and neither build target adds one.
+credit, stocktakes, reports, and multi-branch data merge. All data lives in
+a SQLite database (via sql.js/WASM) persisted to the browser's IndexedDB,
+on the device it's used on, and every feature above works fully offline
+with no server involved. The one optional exception is described below.
 
 ## Source layout
 
@@ -86,6 +86,66 @@ that's in every copy of `dist/index.html`) to that URL. It does not add a
 database, an API, or any server-side component, and no shop's sales,
 stock, or customer data is ever uploaded there — that data stays local to
 each device's IndexedDB, exactly as it does for the single-file build.
+
+## Cloud sync (foundation only)
+
+`src/sync.js` adds the app's first-ever, entirely optional connection to a
+backend: a generic local outbox (`sync_queue`, schema in `src/db.js`) and a
+background worker that pushes queued records to a Supabase project via its
+REST API (plain `fetch()`, no SDK/bundler). It ships with no user-facing
+feature — no RPN linkage, no Support button, no sync reminder — those are
+later work built on top of this. Until a project is configured in Settings
+→ Cloud sync (beta), the worker is a no-op and the app behaves exactly as
+described above: fully offline, nothing ever sent anywhere.
+
+**How a future feature (e.g. RPN linkage, support tasks) hooks in:**
+
+1. Register your record type once, anywhere at your feature's top level:
+
+   ```js
+   registerSyncType("rpn_link", { table: "rpn_link" }); // table = Supabase table name
+   ```
+
+2. Whenever you have something to sync:
+
+   ```js
+   enqueueSync("rpn_link", { rpn_name, rpn_code, rpn_whatsapp, city_area });
+   ```
+
+   `enqueueSync()` stamps the device's tenant id on automatically (reusing
+   the existing `getBranchId()` identity — no second tenant concept), marks
+   the record "pending", and returns immediately. You never touch
+   `sync_queue`'s SQL, call Supabase, or handle retries/offline yourself.
+3. The background worker (started once at boot) picks up due records,
+   POSTs each as one row to `${table}`, and marks it `synced` or `failed`
+   (with exponential backoff, capped at 30 minutes) — silently, without
+   blocking the UI or any POS operation.
+4. To show status later (e.g. a future Sync Reminder Modal), read
+   `pendingSyncCount()` / `pendingSyncRows()` — read-only.
+
+You still need to create the actual Supabase table for your feature (e.g.
+`rpn_link`) yourself — this foundation only proves the pipeline against a
+`sync_health_check` table:
+
+```sql
+create table if not exists sync_health_check (
+  id bigint generated always as identity primary key,
+  tenant_id text not null,
+  note text,
+  created_at timestamptz not null default now()
+);
+alter table sync_health_check enable row level security;
+create policy "anon insert" on sync_health_check for insert to anon with check (true);
+```
+
+No Supabase project is wired in by default — paste a project's URL and
+anon key into Settings → Cloud sync (beta) to activate the worker on a
+device. Both build targets share the same code path and storage
+(`settings` table via the usual `getSetting`/`setSetting`); a plain
+`fetch()` to the Supabase REST API works identically in the PWA (a real
+browser) and inside the Tauri webview — no extra Tauri capability is
+needed, since Tauri's permission system only gates calls into its own Rust
+commands, not the webview's own `fetch`.
 
 ## Verification
 

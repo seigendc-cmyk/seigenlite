@@ -126,7 +126,13 @@
     wireCreditCardHandlers(target);
   }
   function renderCredit(main){
-    const customers = all(`SELECT DISTINCT c.* FROM customers c JOIN sales s ON s.customer_id=c.id WHERE s.method='Credit' ORDER BY c.name`);
+    // Joins sale_payments (not sales.method) so a customer whose only
+    // credit exposure came from a Cash+Credit split sale still shows up
+    // here, not just customers with a plain single-method Credit sale.
+    const customers = all(`SELECT DISTINCT c.* FROM customers c
+      JOIN sales s ON s.customer_id=c.id
+      JOIN sale_payments sp ON sp.sale_id=s.id AND sp.method='Credit'
+      ORDER BY c.name`);
     main.innerHTML = `
       <h2>Credit Ledger</h2>
       <p class="muted">Customers with credit sales, and payment reminders.</p>

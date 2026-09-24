@@ -87,15 +87,17 @@
       persist(); wrap.remove(); render();
     };
   }
-  function renderStocktakeCounting(main, take){
-    const branch = take.branch;
-    const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[branch]);
-    const counted = all("SELECT * FROM stocktake_counts WHERE stocktake_id=?",[take.id]);
-    const countMap = {}; counted.forEach(c=> countMap[c.product_id]=c);
-    main.innerHTML = `
-      <h3>Stocktake — ${escapeHtml(take.branch)} — ${escapeHtml(take.start_date)}${take.end_date?` to ${escapeHtml(take.end_date)}`:""}</h3>
-      <p class="muted">Team: ${escapeHtml(take.team_names||"—")} · Counted ${counted.length} of ${products.length}</p>
-      <p class="muted">Count what's physically on the shelf — the system's expected quantity is hidden while you count, so it doesn't bias you.</p>
+  // Multi-Token Search Engine: the table body only (no header/search box),
+  // reused by both the initial full render below and
+  // renderStocktakeCountingListOnly() (called on every search keystroke,
+  // patching only this table rather than rebuilding the whole screen — the
+  // same targeted-re-render idiom renderProductsTableOnly() (products.js)
+  // already uses for the Products tab's own search box, kept here instead
+  // of full innerHTML rebuilds specifically so the search <input> itself is
+  // never touched/recreated and never loses focus mid-keystroke).
+  function stocktakeCountingTableHtml(products, countMap){
+    if(products.length===0) return `<p class="muted" style="padding:10px 4px">No products match.</p>`;
+    return `
       <table class="simple">
         <tr><th>Item</th><th>Shelf</th><th>Counted Qty</th></tr>
         ${products.map(p=>{
@@ -106,10 +108,10 @@
             <td><input class="field" data-count="${p.id}" type="number" min="0" style="max-width:90px" value="${c?c.counted_qty:""}" placeholder="—"></td>
           </tr>`;
         }).join("")}
-      </table>
-      <button class="btn btn-danger" id="cutoffStocktake" style="margin-top:14px">Cut Off & Generate Report</button>
-    `;
-    main.querySelectorAll("[data-count]").forEach(inp=>{
+      </table>`;
+  }
+  function wireStocktakeCountInputs(scope, take){
+    scope.querySelectorAll("[data-count]").forEach(inp=>{
       inp.onchange=(e)=>{
         const pid = +inp.dataset.count;
         const val = e.target.value;
@@ -127,6 +129,39 @@
         persist();
       };
     });
+  }
+  // Re-fetches products/counts fresh (a count just typed into another row
+  // must still be reflected) and re-renders ONLY #stCountTable — see the
+  // comment on stocktakeCountingTableHtml above for why not a full rebuild.
+  function renderStocktakeCountingListOnly(take){
+    const target = document.getElementById("stCountTable");
+    if(!target) return;
+    const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[take.branch]);
+    const counted = all("SELECT * FROM stocktake_counts WHERE stocktake_id=?",[take.id]);
+    const countMap = {}; counted.forEach(c=> countMap[c.product_id]=c);
+    const results = rankProductsBySearch(products, stocktakeQuery);
+    target.innerHTML = stocktakeCountingTableHtml(results, countMap);
+    wireStocktakeCountInputs(target, take);
+  }
+  function renderStocktakeCounting(main, take){
+    const branch = take.branch;
+    const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[branch]);
+    const counted = all("SELECT * FROM stocktake_counts WHERE stocktake_id=?",[take.id]);
+    const countMap = {}; counted.forEach(c=> countMap[c.product_id]=c);
+    const results = rankProductsBySearch(products, stocktakeQuery);
+    main.innerHTML = `
+      <h3>Stocktake — ${escapeHtml(take.branch)} — ${escapeHtml(take.start_date)}${take.end_date?` to ${escapeHtml(take.end_date)}`:""}</h3>
+      <p class="muted">Team: ${escapeHtml(take.team_names||"—")} · Counted ${counted.length} of ${products.length}</p>
+      <p class="muted">Count what's physically on the shelf — the system's expected quantity is hidden while you count, so it doesn't bias you.</p>
+      <div class="search-wrap">
+        <span class="ic">🔎</span>
+        <input class="field" id="stCountSearch" placeholder="Search products, SKU, description…" value="${escapeHtml(stocktakeQuery)}">
+      </div>
+      <div id="stCountTable">${stocktakeCountingTableHtml(results, countMap)}</div>
+      <button class="btn btn-danger" id="cutoffStocktake" style="margin-top:14px">Cut Off & Generate Report</button>
+    `;
+    document.getElementById("stCountSearch").oninput=(e)=>{ stocktakeQuery = e.target.value; renderStocktakeCountingListOnly(take); };
+    wireStocktakeCountInputs(document.getElementById("stCountTable"), take);
     document.getElementById("cutoffStocktake").onclick=()=>{
       if(!confirm("Cut off this stocktake? Any products not yet counted will be marked 'Not counted' in the report.")) return;
       run("UPDATE stocktakes SET status='Closed', cutoff_ts=? WHERE id=?",[new Date().toISOString(), take.id]);

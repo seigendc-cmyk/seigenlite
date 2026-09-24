@@ -67,6 +67,21 @@
     display:flex;align-items:center;justify-content:center;padding:0 3px;
   }
 
+  /* Desktop shell (dist-tauri) only — see router.js's isDesktopBuild().
+     Replaces .navbar below entirely; never rendered together with it. */
+  .hamburger-btn{
+    background:none;border:none;font-size:22px;line-height:1;color:var(--ink);
+    padding:4px 8px;flex:none;
+  }
+  .nav-drawer-item{
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    background:none;border:none;padding:13px 10px;font-size:14.5px;
+    color:var(--ink);border-radius:8px;
+  }
+  .nav-drawer-item .ic{font-size:18px;flex:none;}
+  .nav-drawer-item:hover,.nav-drawer-item:active{background:var(--surface);}
+  .nav-drawer-item.active{color:var(--orange);font-weight:700;}
+
   .navbar{
     background:var(--paper);border-radius:16px;
     box-shadow:0 -2px 14px rgba(36,28,21,.14);
@@ -85,7 +100,13 @@
     .navbar button{font-size:13px;}
   }
 
-  main{flex:1;padding:14px;padding-bottom:20px;max-width:640px;margin:0 auto;width:100%;}
+  /* Fluid content area (shared by dist/dist-pwa/dist-tauri — a nav-shell
+     decision, not this one): used to be capped at max-width:640px and
+     centered, which wasted horizontal space in any wide window/tablet.
+     The desktop Sell screen already proved a fluid main works fine here
+     (see .desktop-main, desktop/desktop-sales.css) — this just extends
+     that same width behavior to every screen, on every build. */
+  main{flex:1;padding:14px;padding-bottom:20px;width:100%;}
 
   h1,h2,h3{margin:0 0 10px;}
   h1{font-size:20px;} h2{font-size:17px;} h3{font-size:14px;color:var(--ink-soft);font-weight:600;}

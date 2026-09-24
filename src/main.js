@@ -19,6 +19,10 @@
     try{
       await initDB();
     }catch(e){ renderBootError(); return; }
+    startSyncWorker(); // Supabase Foundation: silent background outbox — see sync.js. No-op until a project is configured in Settings.
+    startDeviceCheckin(); // Digital Commerce device check-in: silent, best-effort phone-home — see devicecheckin.js. Never blocks boot.
+    businessDateToday(); // Shift/EOD control: establish the anti-rollback high-water-mark as early as possible each session — see eod.js.
+    await establishTrustedTime(); // License anti-rollback: same "as early as possible each session" habit, extended to full-timestamp precision — see eod.js. Awaited so activationStatus() below always sees this session's checked/corroborated time, never a stale one.
     const status = activationStatus();
     if(status==="no_setup"){ route="setup"; renderSetup(); return; }
     if(status==="locked"){ route="lock"; renderLock(); return; }

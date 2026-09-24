@@ -23,19 +23,43 @@ class Compat {
 function makeApp(settings){
   const db = new Compat();
   const sqlCtor = function(x){ return x && x.__db ? x.__db : new Compat(); };
+  // __fields simulates the handful of checkout-form inputs completeSale()
+  // (pos.js) reads directly by id (custName, paymentRef, ...): unset ids
+  // still resolve to null exactly as before (every existing test relies on
+  // that), so this only changes behavior for ids a test explicitly sets via
+  // app.setField().
+  const fields = {};
   const ctx = {
-    console, TextDecoder, TextEncoder, document:{ getElementById:()=>null }, window:{}, alert:()=>{}, confirm:()=>true, __h:{},
+    console, TextDecoder, TextEncoder, document:{ getElementById:(id)=> (id in fields)? {value:fields[id]} : null }, window:{ addEventListener:()=>{}, open:()=>{} }, alert:()=>{}, confirm:()=>true, __h:{},
     FileReader: class { readAsArrayBuffer(f){ Promise.resolve().then(()=>{ const b=f.bytes; this.result=b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength); this.onload&&this.onload(); }); } },
+    // sync.js: navigator.onLine is a plain data object tests flip directly
+    // (app.ctx.navigator.onLine = false); fetch defaults to Node's real
+    // fetch (Node 18+) so a test can point supabase_url at a local http
+    // server for a genuine over-the-wire proof, or override it via
+    // app.hook("fetch", fn) to simulate specific failures without a server.
+    navigator: { onLine:true },
+    fetch: (...args)=> globalThis.fetch(...args),
+    setInterval: ()=>0, clearInterval: ()=>{},
+    // License anti-rollback (eod.js's fetchNetworkTime): a real setTimeout/
+    // clearTimeout/AbortController so its network-probe timeout guard works
+    // exactly as it does in a real browser; tests never need to wait out
+    // the real NETWORK_TIME_TIMEOUT_MS since app.hook("fetch", fn) resolves
+    // synchronously-fast mocks instead of a real pending request.
+    setTimeout: (...args)=> setTimeout(...args), clearTimeout: (...args)=> clearTimeout(...args),
+    AbortController: (typeof AbortController!=="undefined")? AbortController : undefined,
     escapeHtmlStub:null, SQLctor:sqlCtor, __db:db, persistCount:0,
   };
   vm.createContext(ctx);
   const prelude = `let SQL={Database:SQLctor}, db=__db, sessionUser="Tester", currency="$";
     const IDB_NAME="x",IDB_STORE="x",IDB_KEY="x"; let route="", cart=[];
+    let sessionStaffId=null, accessStep=1, accessSelectedStaffId=null, accessPinDigits="", accessError="";
+    let moreTab="help", settingsUnlocked=false, drawerOpen=false, appliedVoucher=null;
+    let stocktakeReportId=null, stocktakeQuery="";
     function render(){} async function persist(){ persistCount++; }
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","rpn.js","currencies.js","eod.js","stocktake.js","import.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -44,14 +68,36 @@ function makeApp(settings){
         dnCommitDispatch, pendingTransfersCount, receiveTransfer, mergeDatabase, buildDN, validateDN, parseDN, serializeDN,
         sha256Hex, sha256HexPure, localIso, isDNFileBytes, openBranchPricesScreen, openPriceEditModal, showBranchPriceDifferences, hasAdminPasscode, productsTableHtml, productModal, wireProductRowButtons, priceModeOf, getBranchPrices, buildGRV, parseGRV, validateGRV, serializeGRV, checkIncomingDN, resolveLines, buildVarianceReport, varianceMessage, unmatchedMessage, receiveCheckBytes, commitReceive, commitVariance, incomingHeader, grvGetRecord, buildGRVFromCommit, grvFileName, grvVoucherHtml, openManagementWhatsApp, requireSignedIn, isoDateText, dnBuildFromDb, dnHeaderFor, sniffJsonFormat, buildCatalogue, parseCatalogue, validateCatalogue, verifyCatalogueChecksum, serializeCatalogue, checkCatalogueProducts, planCatalogueImport, priceDifferences, setBranchPriceMode, setBranchPrice, branchPriceRows, applyBulkBranchPrices, bulkAdjustPrices, catalogueStatus, buildCatalogueFor, catalogueImportPreflight, commitCatalogueImport, applyCatalogueImport, applyRemotePriceEdit, remotePriceEditable, effectivePrice, priceModeWarning, parsePriceInput, dnDestinationAllowed, dnProductCodeProblem, registerRow, catalogueFileName, catalogueProblemText, priceChangeLines, priceFingerprint, remotePriceNote, onMergePicked, onReplacePicked, dnFileName, insertDispatchDoc, hasDispatchDoc, branchDestinations, ensureSelfInRegister,
         recordDnEvent, dnMovementRows, dnStatusMap, buildMovements, filterMovements, computeDnStatus, awaitingDaysFrom, checkIncomingGRV, commitGrvImport, grvImportCheckBytes, compareGrvLines, mainFileProblem, keepDeviceIdentity, resetBranchId, createDeviceAdmin, adminPasscodeProblem, REPORT_CONFIGS, grvSendText, grvSendLabel, grvShare, dnPhoneFor, dnHeaderFor, dnStoredLines, branchRegisterCardHtml, branchNameLocked, branchNameToSave, destinationNameLocked, destinationLock, destinationLockText, renameRegisterBranch, replaceNameProblem, ADJ_REASONS, ADJ_REDUCE_ONLY, adjustmentProblem, adjustPreviewText, parseAdjustQty, commitAdjustment, adjustmentReport, adjustmentReportData, findAdmin, adjustmentValue, openAdjustStockModal, openAdjustmentsHistory, varianceText, chainText, dnNeedsAttention, backfillDnLinks, DN_CANCELLED_STATUSES, ADJ_SYSTEM_REASONS, ADJ_WRITEOFF_REASONS, writeAdjustment, CANCEL_FORMAT, ACK_FORMAT, CANCEL_KINDS, buildCancel, parseCancel, serializeCancel, buildAck, parseAck, serializeAck, checkIncomingCancel, checkIncomingAck, normalizeCancelPlan, cancelPlanSummary, newCancelNonce, cancelEnabled, startCancelCase, overridePendingCase, postCaseSync, ackCheckBytes, commitAckImport, cancelNoticeFor, cancelNoticeFileName, shareCancelNotice, dnCaseByNo, pendingCaseFor, derivedDnStatus, commitCancelNotice, commitReplacementClose, tombstoneDN, buildAckFromRow, cancelAckShare, commitConflictGrv, dnGetRecord, openCancelWizard, openPendingCancelModal, newerAppMessage, DN_FORMAT_VERSION_REPLACES, DN_STATUS_LABEL,
-        setDb:(d)=>{ db=d; }, getDb:()=>db };`;
+        pinProblem, hashPinSync, pinTakenByOther, singleOperatorMode, activeStaffWithPin, currentStaff, saveStaffMember, attemptPinLogin, PIN_MAX_ATTEMPTS, PIN_LOCKOUT_MINUTES,
+        tenantId, getSupabaseConfig, supabaseConfigured, isOnline, registerSyncType, syncTableFor, enqueueSync, pendingSyncRows, pendingSyncCount,
+        syncBackoffMs, supabaseInsert, pushOneSyncRow, runSyncWorker, startSyncWorker, syncTick, cloudSyncSectionHtml, SYNC_BASE_DELAY_MS, SYNC_MAX_DELAY_MS, SYNC_POLL_MS,
+        syncReminderShouldShow, syncReminderVisible, dismissSyncReminder, checkSyncReminderModal,
+        deviceCheckin, startDeviceCheckin, dcLockCartReason, dcLockAddProductReason, dcMessages, dcPendingMessages, dcMergeMessages, dcDismissMessage, dcMessagesBannerHtml,
+        getRpnLink, hasRpnLink, saveRpnLink, rpnFieldsHtml, rpnFieldsFromInputs, rpnSectionHtml, wireRpnSection,
+        supportSectionHtml, wireSupportSection, openSupportHandoff, openExternalUrl, waLink, isTauriApp,
+        businessDateToday, oldestOpenShift, openShiftForDate, eodOperatorName, eodOperatorStaffId, shiftBlockReason,
+        startShift, eodTotalsFor, completeEOD, markEodPrinted, eodPrintSummary, eodWhatsAppText,
+        computeActivationCode, activationStatus, currentDeviceCode,
+        trustedTimeHwm, establishTrustedTime, trustedNow, lastClockAnomaly, evaluateTrustedTime, fetchNetworkTime,
+        completeSale, addToCart, cartTotals, customerBalance, salePayments, saleHasPaymentMethod, paymentMethodTotals,
+        paymentMethodCurrencyTotals, BASE_CURRENCY_CODE, saveCurrency, activeCurrencies, allCurrencies, getCurrencyByCode,
+        quickTapPayments, setQuickTapCurrency:(c)=>{ quickTapCurrency=c; },
+        currencyAccepted, currencySymbolFor, currencyNameFor,
+        setDb:(d)=>{ db=d; }, getDb:()=>db, setSessionStaffId:(id)=>{ sessionStaffId=id; },
+        setRoute:(r)=>{ route=r; }, setDrawerOpen:(v)=>{ drawerOpen=v; }, getMoreTab:()=>moreTab, getSettingsUnlocked:()=>settingsUnlocked,
+        setCart:(arr)=>{ cart=arr; }, getCart:()=>cart, getLastReceipt:()=>window._lastReceipt,
+        rankProductsBySearch, matchesAnyOrder, searchTokens,
+        renderStocktake, renderStocktakeCounting, renderStocktakeCountingListOnly, computeStocktakeVariance,
+        setStocktakeQuery:(q)=>{ stocktakeQuery=q; }, getStocktakeQuery:()=>stocktakeQuery,
+        parseImportRows, findImportMatch, classifyImportRows, runImport, IMPORT_COLUMN_MAP };`;
   vm.runInContext(code + "\npersist = async function(){ persistCount++; };", ctx, { filename:"app-sources" });
   const api = ctx.api;
   db.run(api.SCHEMA); api.migrate(db);
   Object.entries(settings||{}).forEach(([k,v])=>api.setSetting(k,v));
   // Replace a function/binding inside the app (e.g. spy on downloadDb).
   const hook = (name, fn)=>{ ctx.__h[name]=fn; vm.runInContext(name+" = __h."+name+";", ctx); };
-  return { api, ctx, db, hook };
+  const setField = (id, value)=>{ fields[id]=value; };
+  return { api, ctx, db, hook, setField };
 }
 
 module.exports = { makeApp, Compat, src };
