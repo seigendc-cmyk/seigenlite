@@ -26,7 +26,8 @@ const WEBP = "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA
 
 function rig(settings){
   const app = makeApp(Object.assign({ branch_name:"Boka", branch_type:"main", setup_complete:"1",
-    shop_name:"Boka General Dealer", install_id:"INST-1234", contact_phone:"0771234567" }, settings||{}));
+    shop_name:"Boka General Dealer", install_id:"INST-1234", contact_phone:"0771234567",
+    secret_phrase:"Correct Horse", dc_vendor_id:"11111111-1111-4111-8111-111111111111" }, settings||{})); // a registered device
   // The file store is IndexedDB in the browser; keep it in memory here.
   const files = new Map();
   app.hook("mkfPut", async (k, rec)=>{ files.set(k, rec); return true; });
@@ -248,6 +249,35 @@ function rig(settings){
     api.setSetting("shop_name","Boka");
     const st = await ops.buildExport({ city:"Harare", currency:"USD" });
     assert.strictEqual(st.exportNo, "MKT0001");
+  });
+
+  await t("buildExport refuses an unregistered device, says what to do, and uses no MKT number", async ()=>{
+    const { api, ops, add } = rig({ dc_vendor_id:"", secret_phrase:"" });
+    await ops.setSelection({ ids:[add("A")] });
+    await assert.rejects(()=>ops.buildExport({ city:"Harare", currency:"USD" }), /isn't registered.*activation secret phrase/);
+    api.setSetting("secret_phrase","Wrong"); api.setSetting("dc_checkin_error","Shop secret phrase does not match this install");
+    await assert.rejects(()=>ops.buildExport({ city:"Harare", currency:"USD" }), /different activation phrase/);
+    api.setSetting("dc_checkin_error","");
+    await assert.rejects(()=>ops.buildExport({ city:"Harare", currency:"USD" }), /connected to the internet/);
+    api.setSetting("dc_vendor_id","11111111-1111-4111-8111-111111111111");
+    assert.strictEqual((await ops.buildExport({ city:"Harare", currency:"USD" })).exportNo, "MKT0001", "no number was used by the refusals");
+  });
+
+  await t("a device registered under an older version (dc_vendor_status only) still counts as registered", async ()=>{
+    const { api, ops, add } = rig({ dc_vendor_id:"", dc_vendor_status:"active" });
+    assert.strictEqual(api.dcIsRegistered(), true);
+    await ops.setSelection({ ids:[add("A")] });
+    assert.strictEqual((await ops.buildExport({ city:"Harare", currency:"USD" })).exportNo, "MKT0001");
+  });
+
+  await t("the Marketing banner: a tick when registered, advice and Check again when not", async ()=>{
+    assert.match(rig().api.marketRegistrationHtml(false), /data-registered="1"[\s\S]*registered with Digital Commerce/);
+    const html = rig({ dc_vendor_id:"", secret_phrase:"" }).api.marketRegistrationHtml(false);
+    assert.match(html, /data-registered="0"/);
+    assert.match(html, /isn't registered with Digital Commerce yet/);
+    assert.match(html, /activation secret phrase/);
+    assert.match(html, /id="marketRegCheck"/);
+    assert.match(rig({ dc_vendor_id:"" }).api.marketRegistrationHtml(true), /Checking…/);
   });
 
   await t("each export gets the next MKT number", async ()=>{

@@ -73,7 +73,7 @@ function makeApp(settings){
         syncBackoffMs, supabaseInsert, pushOneSyncRow, runSyncWorker, startSyncWorker, syncTick, cloudSyncSectionHtml, SYNC_BASE_DELAY_MS, SYNC_MAX_DELAY_MS, SYNC_POLL_MS,
         syncReminderShouldShow, syncReminderVisible, dismissSyncReminder, checkSyncReminderModal,
         DC_SUPABASE_URL, DC_ANON_KEY, cloudSyncStatusText,
-        deviceCheckin, startDeviceCheckin, dcLockCartReason, dcLockAddProductReason, dcMessages, dcPendingMessages, dcMergeMessages, dcDismissMessage, dcMessagesBannerHtml,
+        deviceCheckin, startDeviceCheckin, dcIsRegistered, dcRegistration, dcCheckinProblemText, marketRegistrationHtml, dcLockCartReason, dcLockAddProductReason, dcMessages, dcPendingMessages, dcMergeMessages, dcDismissMessage, dcMessagesBannerHtml,
         getRpnLink, hasRpnLink, saveRpnLink, rpnFieldsHtml, rpnFieldsFromInputs, rpnSectionHtml, wireRpnSection,
         supportSectionHtml, wireSupportSection, openSupportHandoff, openExternalUrl, waLink, isTauriApp,
         businessDateToday, oldestOpenShift, openShiftForDate, eodOperatorName, eodOperatorStaffId, shiftBlockReason,

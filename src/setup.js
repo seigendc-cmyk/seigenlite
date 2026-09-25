@@ -1,6 +1,6 @@
   // ================== SETUP FLOW ==================
   let setupStep = 1;
-  let setupData = {shop_name:"",branch_name:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:"",
+  let setupData = {shop_name:"",branch_name:"",secret_phrase:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:"",
     rpn:{rpn_name:"",rpn_code:"",rpn_whatsapp:"",city_area:""}};
 
   function renderSetup(){
@@ -15,6 +15,9 @@
             <input class="field" id="setShop" value="${escapeHtml(setupData.shop_name)}" placeholder="e.g. Gentronix">
             <label>Branch name (optional)</label>
             <input class="field" id="setBranch" value="${escapeHtml(setupData.branch_name)}" placeholder="e.g. Harare CBD">
+            <label>Activation secret phrase</label>
+            <input class="field" id="setSecret" value="${escapeHtml(setupData.secret_phrase)}" placeholder="From your RPN or Digital Commerce" autocomplete="off">
+            <p class="muted" style="margin-top:4px">Your RPN or Digital Commerce gives you this phrase when you join. It registers this device with Digital Commerce and is used for your activation codes.</p>
             <label>Branch type</label>
             <div class="row">
               <button type="button" class="btn ${setupData.branch_type==='main'?'btn-primary':'btn-outline'}" id="setMainBtn">Main Branch</button>
@@ -57,6 +60,7 @@
               <tr><td class="muted">Shop</td><td>${escapeHtml(setupData.shop_name)}</td></tr>
               <tr><td class="muted">Branch</td><td>${escapeHtml(setupData.branch_name)||"—"}</td></tr>
               <tr><td class="muted">Branch type</td><td>${setupData.branch_type==='main'?'Main Branch':'Remote Branch'}</td></tr>
+              <tr><td class="muted">Activation phrase</td><td>Entered</td></tr>
               ${setupData.branch_type==='remote'? `<tr><td class="muted">Admin passcode</td><td>Set</td></tr>` : ""}
               <tr><td class="muted">Contact</td><td>${escapeHtml(setupData.contact_phone)||"—"}</td></tr>
               <tr><td class="muted">Currency</td><td>${escapeHtml(setupData.currency)}</td></tr>
@@ -72,12 +76,18 @@
       </div>
     `;
     if(setupStep===1){
-      document.getElementById("setMainBtn").onclick=()=>{ setupData.branch_type="main"; renderSetup(); };
-      document.getElementById("setRemoteBtn").onclick=()=>{ setupData.branch_type="remote"; renderSetup(); };
-      document.getElementById("setupNext").onclick=()=>{
+      // Keep typed values when Main/Remote re-renders this step.
+      const keepStep1 = ()=>{
         setupData.shop_name = document.getElementById("setShop").value.trim();
         setupData.branch_name = document.getElementById("setBranch").value.trim();
+        setupData.secret_phrase = document.getElementById("setSecret").value.trim();
+      };
+      document.getElementById("setMainBtn").onclick=()=>{ keepStep1(); setupData.branch_type="main"; renderSetup(); };
+      document.getElementById("setRemoteBtn").onclick=()=>{ keepStep1(); setupData.branch_type="remote"; renderSetup(); };
+      document.getElementById("setupNext").onclick=()=>{
+        keepStep1();
         if(!setupData.shop_name) return alert("Enter your shop name");
+        if(!setupData.secret_phrase) return alert("Enter the activation secret phrase your RPN or Digital Commerce gave you.");
         setupStep=2; renderSetup();
       };
     } else if(setupStep===2){
@@ -112,7 +122,10 @@
     } else {
       document.getElementById("setupBack2").onclick=()=>{setupStep=3;renderSetup();};
       document.getElementById("setupFinish").onclick=async ()=>{
+        // Belt and braces: step 1 already insists on it.
+        if(!setupData.secret_phrase){ setupStep=1; renderSetup(); return alert("Enter the activation secret phrase your RPN or Digital Commerce gave you."); }
         setSetting("shop_name", setupData.shop_name);
+        setSetting("secret_phrase", setupData.secret_phrase);
         setSetting("branch_name", setupData.branch_name);
         setSetting("branch_type", setupData.branch_type);
         setSetting("contact_phone", setupData.contact_phone);
@@ -142,6 +155,9 @@
         if(rpn.rpn_name || rpn.rpn_code || rpn.rpn_whatsapp || rpn.city_area) saveRpnLink(rpn);
         await persist();
         route="pos"; render();
+        // Register with Digital Commerce now, not at the next launch: the
+        // check-in at boot ran before this device had an install ID.
+        deviceCheckin();
       };
     }
   }

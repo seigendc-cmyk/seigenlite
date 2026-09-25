@@ -179,6 +179,71 @@ const sampleResponse = {
     assert.strictEqual(typeof sawSignal.addEventListener, "function", "it's a real AbortSignal (or equivalent), abortable by the internal ~8s timeout");
   });
 
+  // ================= registration + result reasons =================
+  await t("a successful check-in marks the device registered (dc_vendor_id), clears the last error and resolves ok", async ()=>{
+    const A = rig({ dc_checkin_error:"old failure" });
+    assert.strictEqual(A.api.dcIsRegistered(), false);
+    A.hook("fetch", async ()=> ({ ok:true, json: async()=>sampleResponse }));
+    const r = await A.api.deviceCheckin();
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(r)), { ok:true, reason:"registered" });
+    assert.strictEqual(A.api.getSetting("dc_vendor_id",""), sampleResponse.vendor_id);
+    assert.strictEqual(A.api.getSetting("dc_checkin_error",""), "");
+    assert.ok(A.api.getSetting("dc_checkin_ok_ts",""));
+    assert.strictEqual(A.api.dcIsRegistered(), true);
+  });
+
+  await t("no secret phrase: no fetch (the server would refuse it), reason no_phrase, advice says where to enter it", async ()=>{
+    const A = rig({ secret_phrase:"  " });
+    let fetchCalled = false;
+    A.hook("fetch", async ()=>{ fetchCalled = true; return { ok:true, json: async()=>sampleResponse }; });
+    const r = await A.api.deviceCheckin();
+    assert.strictEqual(fetchCalled, false);
+    assert.strictEqual(r.reason, "no_phrase");
+    assert.match(A.api.dcCheckinProblemText(r), /activation secret phrase.*Settings/);
+  });
+
+  await t("a rejection keeps the server's message (JSON or text) for Settings/Marketing, without alerting or registering", async ()=>{
+    const A = rig();
+    let alerted = "";
+    A.hook("alert", (m)=>{ alerted = m; });
+    A.hook("fetch", async ()=> ({ ok:false, status:400, text: async()=>JSON.stringify({ code:"P0001", message:"Shop secret phrase does not match this install" }) }));
+    const r = await A.api.deviceCheckin();
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.reason, "rejected");
+    assert.strictEqual(A.api.getSetting("dc_checkin_error",""), "Shop secret phrase does not match this install");
+    assert.strictEqual(A.api.dcIsRegistered(), false);
+    assert.strictEqual(alerted, "");
+    assert.match(A.api.dcCheckinProblemText(r), /different activation phrase/);
+  });
+
+  await t("offline and network failures resolve with a reason instead of rejecting", async ()=>{
+    const A = rig();
+    A.ctx.navigator = { onLine:false };
+    assert.strictEqual((await A.api.deviceCheckin()).reason, "offline");
+    A.ctx.navigator = { onLine:true };
+    A.hook("fetch", async ()=>{ throw new Error("boom"); });
+    const r = await A.api.deviceCheckin();
+    assert.strictEqual(r.reason, "network");
+    assert.match(A.api.dcCheckinProblemText(r), /Connect to the internet/);
+    assert.strictEqual(A.api.dcCheckinProblemText({ reason:"registered" }), "");
+  });
+
+  await t("overlapping check-ins (boot + end of setup + Save phrase) share one request", async ()=>{
+    const A = rig();
+    let calls = 0, release;
+    A.hook("fetch", ()=>{ calls++; return new Promise(res=>{ release = ()=>res({ ok:true, json: async()=>sampleResponse }); }); });
+    const p1 = A.api.deviceCheckin(), p2 = A.api.deviceCheckin();
+    await new Promise(r=>setTimeout(r, 10));
+    release();
+    const [r1, r2] = await Promise.all([p1, p2]);
+    assert.strictEqual(calls, 1);
+    assert.ok(r1.ok && r2.ok);
+    const p3 = A.api.deviceCheckin(); // a later one is a fresh request
+    await new Promise(r=>setTimeout(r, 10));
+    release(); await p3;
+    assert.strictEqual(calls, 2);
+  });
+
   console.log("\n"+passed+" passed, "+failed+" failed");
   process.exit(failed?1:0);
 })();

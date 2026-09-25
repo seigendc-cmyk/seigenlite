@@ -53,12 +53,53 @@
       <button class="btn btn-outline" id="marketRecheck">Check again</button>`;
   }
 
+  // ---- is this device registered with Digital Commerce? ----
+  // The publish portal only lists products for a registered device (its
+  // install ID in cl_vendors — see devicecheckin.js). Shown above the
+  // add-on, and preparing a file is blocked until it's true, so a shop
+  // never sends a file Digital Commerce can't publish.
+  function marketRegistrationAdvice(){
+    const reg = dcRegistration();
+    if(!reg.hasPhrase) return dcCheckinProblemText({ reason:"no_phrase" });
+    if(reg.lastError) return dcCheckinProblemText({ reason:"rejected", message:reg.lastError });
+    return "Make sure you're connected to the internet, then tap Check again.";
+  }
+  function marketRegistrationHtml(checking){
+    if(dcIsRegistered())
+      return `<p class="muted" id="marketReg" data-registered="1" style="margin-top:0">✓ This device is registered with Digital Commerce.</p>`;
+    return `
+      <div class="card" id="marketReg" data-registered="0" style="border-color:#e0a100">
+        <p style="margin-top:0"><b>This device isn't registered with Digital Commerce yet.</b></p>
+        <p class="muted">Digital Commerce can only list products from registered devices, so you can choose products but can't prepare the file until it is.</p>
+        <p class="muted" id="marketRegAdvice">${escapeHtml(marketRegistrationAdvice())}</p>
+        <button class="btn btn-outline" id="marketRegCheck" ${checking? "disabled" : ""}>${checking? "Checking…" : "Check again"}</button>
+      </div>`;
+  }
+  let marketAutoChecked = false;   // one automatic try per session; Check again is always there
+  function wireMarketRegistration(){
+    const btn = document.getElementById("marketRegCheck");
+    if(btn) btn.onclick = ()=> marketCheckRegistration();
+  }
+  // Updates only the banner, so the add-on frame (and any ticking in it) isn't reloaded.
+  async function marketCheckRegistration(){
+    const box = document.getElementById("marketReg");
+    if(box) box.outerHTML = marketRegistrationHtml(true);
+    await deviceCheckin();
+    const now = document.getElementById("marketReg");
+    if(now && route==="marketing"){ now.outerHTML = marketRegistrationHtml(false); wireMarketRegistration(); }
+  }
+
   function renderMarketing(main){
     main.innerHTML = `
       <h2>Marketing</h2>
+      ${marketRegistrationHtml(false)}
       <div id="marketStatus"></div>
       <iframe id="marketFrame" title="Marketing" sandbox="allow-scripts"
         style="display:block;width:100%;height:0;border:0;background:transparent"></iframe>`;
+    wireMarketRegistration();
+    // Not registered but ready to be (phrase saved)? Try now, quietly —
+    // e.g. a device that got its phrase after its last launch.
+    if(!dcIsRegistered() && dcRegistration().hasPhrase && isOnline() && !marketAutoChecked){ marketAutoChecked = true; marketCheckRegistration(); }
     const status = document.getElementById("marketStatus");
     if(marketLayerState==="missing"){
       document.getElementById("marketFrame").remove();
@@ -280,6 +321,8 @@
     args = args||{};
     const vendor = marketVendorIdentity();
     if(!vendor.install_id) throw new Error("This device has no install ID yet. Finish Setup first.");
+    // Checked before a number is reserved; see marketRegistrationHtml.
+    if(!dcIsRegistered()) throw new Error("This device isn't registered with Digital Commerce yet, so it can't list these products. " + marketRegistrationAdvice());
     if(!vendor.business_name) throw new Error("Set your shop name in More → Settings first.");
     const city = marketNormalizeCity(args.city);
     const cur = marketNormalizeCurrency(args.currency);

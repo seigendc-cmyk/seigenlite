@@ -10,8 +10,10 @@
   // queued insert, so it intentionally doesn't go through enqueueSync() or
   // share sync_queue.
   //
-  // Never blocks boot, never retries with backoff, never surfaces a failure
-  // to the shop: offline/timeout/server-error all just skip silently, and
+  // Runs at every launch, on every reconnect, straight after setup
+  // finishes and after Settings → Save phrase. Never blocks boot, never
+  // retries with backoff, never pops up an error: a failure is only
+  // recorded (dc_checkin_error) for Marketing and Settings to explain, and
   // the next launch or reconnect tries again (see startDeviceCheckin below)
   // — exactly the same "best-effort, nothing invented beyond what's asked"
   // rule fetchNetworkTime() (eod.js) already follows for its own probe.
@@ -66,11 +68,38 @@
     persist();
   }
 
+  // ---- registration (is this device known to Digital Commerce?) ----
+  // A device is registered once a check-in has succeeded: the server then
+  // has its install_id in cl_vendors, which is what the publish portal
+  // checks before it will list a shop's products. dc_vendor_id is stored by
+  // this version; dc_vendor_status is also accepted so a device that
+  // registered under an older version still counts.
+  // dc_checkin_error keeps the last reason a check-in didn't go through
+  // (never shown as an alert — Marketing and Settings read it to explain).
+  function dcIsRegistered(){ return !!(getSetting("dc_vendor_id","") || getSetting("dc_vendor_status","")); }
+  function dcRegistration(){
+    return { registered: dcIsRegistered(), hasPhrase: !!getSetting("secret_phrase","").trim(),
+      lastError: getSetting("dc_checkin_error",""), lastOkTs: getSetting("dc_checkin_ok_ts","") };
+  }
+
   // ---- the check-in call itself ----
-  async function deviceCheckin(){
-    if(!isOnline()) return; // sync.js's own cheap pre-filter, same rule its worker uses
+  // Resolves to { ok, reason, message? } — never rejects — so the places
+  // that start one on purpose (end of setup, Save phrase, Marketing's
+  // "Check again") can say what happened. reason: "registered" |
+  // "offline" | "no_install" | "no_phrase" | "rejected" | "network".
+  let _dcInFlight = null;
+  function deviceCheckin(){
+    // One at a time: boot, setup and Save phrase can overlap on a fresh device.
+    if(!_dcInFlight) _dcInFlight = dcCheckinOnce().finally(()=>{ _dcInFlight = null; });
+    return _dcInFlight;
+  }
+  async function dcCheckinOnce(){
+    if(!isOnline()) return { ok:false, reason:"offline" }; // sync.js's own cheap pre-filter, same rule its worker uses
     const installId = getSetting("install_id","");
-    if(!installId) return; // nothing meaningful to report before setup has created this device's identity
+    if(!installId) return { ok:false, reason:"no_install" }; // nothing meaningful to report before setup has created this device's identity
+    // The server refuses a check-in without the shop's activation phrase,
+    // so don't send one that can only fail.
+    if(!getSetting("secret_phrase","").trim()) return { ok:false, reason:"no_phrase" };
     let timer = null;
     try{
       const ctrl = (typeof AbortController!=="undefined")? new AbortController() : null;
@@ -91,15 +120,27 @@
           p_rpn_hint_id: null         // RPN linkage (rpn.js) is stored as free text, no UUID tracked locally — see summary
         })
       });
-      if(!res.ok) return;
+      if(!res.ok){
+        // e.g. "Shop secret phrase does not match this install" — kept so
+        // Settings/Marketing can explain; lock state is left untouched.
+        let message = "HTTP " + res.status;
+        try{ const t = await res.text(); try{ const j = JSON.parse(t); message = j.message || t || message; }catch(e){ message = t || message; } }catch(e){}
+        setSetting("dc_checkin_error", String(message).slice(0, 200));
+        await persist();
+        return { ok:false, reason:"rejected", message: String(message).slice(0, 200) };
+      }
       const data = await res.json();
-      if(!data || typeof data!=="object") return;
+      if(!data || typeof data!=="object") return { ok:false, reason:"network" };
       setSetting("dc_lock_cart", data.lock_cart? "1" : "");
       setSetting("dc_lock_add_product", data.lock_add_product? "1" : "");
       setSetting("dc_lock_reason", data.lock_reason || "");
       setSetting("dc_vendor_status", data.status || "");
+      if(data.vendor_id) setSetting("dc_vendor_id", String(data.vendor_id));
+      setSetting("dc_checkin_error", "");
+      setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);
       await persist();
+      return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —
       // forcing a full re-render would be exactly the rebuild-loses-focus
@@ -108,10 +149,21 @@
       // call, so the new lock/messages state takes effect on the very next
       // natural render (next tap, next screen) with no special-casing here.
     }catch(e){
-      // Offline, timeout, server error, malformed response — all the same:
-      // skip silently, never alert the shop user, try again next launch or
-      // reconnect (see startDeviceCheckin below).
+      // Offline, timeout, unreachable server, malformed response — all the
+      // same: never alert the shop user, try again next launch or reconnect
+      // (see startDeviceCheckin below).
+      return { ok:false, reason:"network" };
     } finally { if(timer) clearTimeout(timer); }
+  }
+  // What to tell the shop when a check-in didn't register the device.
+  function dcCheckinProblemText(r){
+    r = r || {};
+    if(r.reason==="no_phrase") return "Enter your activation secret phrase (from your RPN or Digital Commerce) in More → Settings.";
+    if(r.reason==="offline" || r.reason==="network") return "Connect to the internet, then try again.";
+    if(r.reason==="rejected") return /secret phrase does not match/i.test(r.message||"")
+      ? "Digital Commerce has a different activation phrase for this device. Check the phrase with your RPN or Digital Commerce and save it again in More → Settings."
+      : "Digital Commerce couldn't register this device (" + (r.message||"unknown reason") + "). Contact Digital Commerce.";
+    return "";
   }
 
   // Called once at boot (main.js, after initDB — so getSetting/currentDeviceCode

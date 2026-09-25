@@ -124,9 +124,17 @@
       setSetting("freq_voucher_amount", parseFloat(document.getElementById("sFreqAmount").value)||0);
       persist(); alert("Voucher settings saved.");
     };
-    document.getElementById("saveSecret").onclick=()=>{
+    document.getElementById("saveSecret").onclick=async (e)=>{
+      const btn = e.currentTarget;
       setSetting("secret_phrase", document.getElementById("sSecret").value.trim());
-      persist(); alert("Secret phrase saved.");
+      await persist();
+      // Register with Digital Commerce straight away rather than at the next launch.
+      btn.disabled = true; btn.textContent = "Saving…";
+      const r = await deviceCheckin();
+      btn.disabled = false; btn.textContent = "Save phrase";
+      alert(r.ok || dcIsRegistered()
+        ? "Secret phrase saved. This device is registered with Digital Commerce."
+        : "Secret phrase saved, but this device isn't registered with Digital Commerce yet. " + dcCheckinProblemText(r));
     };
     wirePrinterSection();
     wireBarcodeReaderSection();

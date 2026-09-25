@@ -27,6 +27,7 @@
 "use strict";
 const assert = require("assert");
 const path = require("path");
+const { stubDigitalCommerce, TEST_PHRASE } = require("./dc-fake");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -46,10 +47,12 @@ async function newSetUpPage(browser, distFile){
   const page = await browser.newPage();
   const pageErrors = [];
   page.on("pageerror", err => pageErrors.push(err.message));
+  await stubDigitalCommerce(page); // setup checks in: never reach the live project
   const fileUrl = "file:///" + path.resolve(__dirname, "..", distFile).replace(/\\/g, "/");
   await page.goto(fileUrl);
   await page.waitForSelector("#setShop", { timeout: 15000 }); // sql.js WASM (CDN) + boot()
   await page.fill("#setShop", "Test Shop");
+  await page.fill("#setSecret", TEST_PHRASE); // setup won't continue without it
   await page.click("#setupNext");
   await page.click("#setupNext2");
   await page.click("#setupNext3");
@@ -256,7 +259,7 @@ async function addProduct(page, name, price, stock){
     page.on("pageerror", err => pageErrors.push(err.message));
     await page.goto("file:///" + path.resolve(__dirname, "..", "dist/index.html").replace(/\\/g, "/"));
     await page.waitForSelector("#setShop", { timeout: 15000 });
-    await page.fill("#setShop", "Test Shop");
+    await page.fill("#setShop", "Test Shop"); await page.fill("#setSecret", TEST_PHRASE);
     await page.click("#setupNext"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
     await page.waitForSelector("[data-route]");
     await page.click('[data-route="more"]');

@@ -21,6 +21,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { stubDigitalCommerce, TEST_PHRASE } = require("./dc-fake");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -53,9 +54,11 @@ async function setUpCore(browser, dir){
   const page = await browser.newPage();
   const pageErrors = [];
   page.on("pageerror", err => pageErrors.push(err.message));
+  await stubDigitalCommerce(page); // setup checks in: registered, without reaching the live project
   await page.goto(fileUrl(path.join(dir, "index.html")));
   await page.waitForSelector("#setShop", { timeout: 15000 }); // sql.js WASM (CDN) + boot()
   await page.fill("#setShop", "Test Shop");
+  await page.fill("#setSecret", TEST_PHRASE); // setup won't continue without it
   await page.click("#setupNext");
   await page.click("#setupNext2");
   await page.click("#setupNext3");
