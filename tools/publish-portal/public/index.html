@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Publish Portal</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Publish Portal <span class="sub">Digital Commerce · internal</span></h1>
+  <nav id="nav" hidden>
+    <button type="button" data-view="upload" class="tab active">Upload</button>
+    <button type="button" data-view="history" class="tab">History</button>
+    <button type="button" id="logoutBtn" class="link">Sign out</button>
+  </nav>
+</header>
+
+<main>
+  <section id="loginView" hidden>
+    <form id="loginForm" class="card narrow">
+      <h2>Sign in</h2>
+      <label for="passphrase">Passphrase</label>
+      <input id="passphrase" type="password" autocomplete="current-password" required>
+      <p id="loginError" class="error" hidden></p>
+      <button type="submit" class="primary">Sign in</button>
+    </form>
+  </section>
+
+  <section id="uploadView" hidden>
+    <div id="drop" class="card drop" tabindex="0">
+      <p><b>Drop a vendor's .scl file here</b>, or <label class="pick">choose a file<input id="fileInput" type="file" accept=".scl,application/json"></label>.</p>
+      <p class="muted">Nothing is published until you review it and press Publish.</p>
+    </div>
+    <p id="uploadError" class="error" hidden></p>
+    <div id="preview"></div>
+  </section>
+
+  <section id="historyView" hidden>
+    <div class="row"><h2>Published</h2><button type="button" id="refreshHistory">Refresh</button></div>
+    <p id="historyError" class="error" hidden></p>
+    <div id="history"></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
