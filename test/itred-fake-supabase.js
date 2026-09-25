@@ -9,7 +9,9 @@
 // published + unexpired listings only for anyone, orders and their lines
 // only for their customer, lines only on a 'sent' order from a live listing
 // of that order's vendor (with the listing's name/price snapshotted), only
-// the granted columns written — without creating real accounts or sending
+// the granted columns written, customer-recorded quantity_fulfilled within
+// 0..quantity_requested with the order's status following its lines
+// — without creating real accounts or sending
 // real email. The real
 // RLS itself is covered against the live database by
 // supabase/tests/itred-live-test.js.
@@ -52,6 +54,14 @@ function createFakeSupabase(opts){
   };
   state.confirm = (email)=>{ const u = state.users.get(email.toLowerCase()); u.confirmed = true; return u; };
   state.issueCode = (email)=>{ const u = state.users.get(email.toLowerCase()); const code = "code-"+crypto.randomBytes(6).toString("hex"); state.codes.set(code, u.id); return code; };
+  // The itred_po_sync_status trigger: an order's status follows its lines.
+  function syncOrderStatus(orderId){
+    const o = state.orders.find(x=> x.id===orderId);
+    if(!o || o.status==="closed") return;
+    const lines = state.items.filter(i=> i.purchase_order_id===orderId);
+    o.status = lines.length && lines.every(i=> i.quantity_fulfilled >= i.quantity_requested)? "fulfilled"
+      : lines.some(i=> i.quantity_fulfilled > 0)? "partially_fulfilled" : "sent";
+  }
   state.requests = (pathPrefix, method)=> state.log.filter(r=> r.path.startsWith(pathPrefix) && (!method || r.method===method));
 
   async function handle(route){
@@ -242,6 +252,25 @@ function createFakeSupabase(opts){
         const mine = new Set(state.orders.filter(o=> o.customer_id===userId).map(o=>o.id));
         return send(200, state.items.filter(i=> mine.has(i.purchase_order_id)));
       }
+      // Customer-recorded fulfilment (20260925120000_itred_po_fulfilment.sql):
+      // quantity_fulfilled only, own orders only, 0..quantity_requested, and
+      // the order's status re-derived from its lines unless it's closed.
+      if(method==="PATCH"){
+        if(!onlyCols(body, ["quantity_fulfilled"])) return denied("purchase_order_items");
+        const mine = new Set(state.orders.filter(o=> o.customer_id===userId).map(o=>o.id));
+        const hits = state.items.filter(i=> mine.has(i.purchase_order_id)
+          && (!q.get("id") || i.id===eqParam("id"))
+          && (!q.get("purchase_order_id") || i.purchase_order_id===eqParam("purchase_order_id")));
+        const qf = Number(body.quantity_fulfilled);
+        if(hits.length && !(qf >= 0)) return send(400, { code:"23514", message:"new row for relation \"purchase_order_items\" violates check constraint \"purchase_order_items_quantity_fulfilled_check\"" });
+        if(hits.some(i=> qf > i.quantity_requested)) return send(400, { code:"23514", message:"new row for relation \"purchase_order_items\" violates check constraint \"purchase_order_items_not_overfulfilled\"" });
+        hits.forEach(i=>{
+          i.quantity_fulfilled = qf;
+          i.fulfillment_status = qf===0? "outstanding" : qf>=i.quantity_requested? "fulfilled" : "partially_fulfilled";
+        });
+        new Set(hits.map(i=> i.purchase_order_id)).forEach(syncOrderStatus);
+        return send(200, hits);
+      }
     }
 
     state.unexpected.push(method+" "+url.pathname+url.search);
@@ -249,6 +278,7 @@ function createFakeSupabase(opts){
   }
 
   state.install = async (page)=>{ await page.route(PROJECT+"/**", handle); };
+  state.__handle = handle; // for tests that route the project themselves
   return state;
 }
 

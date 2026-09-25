@@ -3,10 +3,10 @@
 // the run ends by counting leftover test rows (should all be 0).
 //
 //   node supabase/tests/itred-live-test.js live
-//       -> against SUPABASE_DB_URL (migration must already be applied)
+//       -> against SUPABASE_DB_URL (both migrations must already be applied)
 //   node supabase/tests/itred-live-test.js pglite
 //       -> in-memory PGlite with Supabase role / cl_vendors stubs; applies
-//          the migration first. No network or credentials needed.
+//          both migrations first. No network or credentials needed.
 //
 // Drivers are not app dependencies; install them without touching package.json:
 //   npm install --no-save pg @electric-sql/pglite
@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const MIG = fs.readFileSync(`${ROOT}/migrations/20260924120000_itred_marketplace_schema.sql`, 'utf8');
+const MIG_FULFIL = fs.readFileSync(`${ROOT}/migrations/20260925120000_itred_po_fulfilment.sql`, 'utf8');
 const INSPECT = fs.readFileSync(`${ROOT}/inspect/itred_existing_schema_check.sql`, 'utf8');
 const mode = process.argv[2] || 'pglite';
 
@@ -45,6 +46,7 @@ async function connect() {
   const db = new PGlite();
   await db.exec(PGLITE_STUB);
   await db.exec(MIG);
+  await db.exec(MIG_FULFIL);
   return { q: async (sql, p) => (await db.query(sql, p)).rows, multi: sql => db.exec(sql), end: () => db.close() };
 }
 
@@ -86,6 +88,11 @@ function ok(name, cond, extra) {
     ok('migration objects exist', (await rows(`select count(*)::int n from unnest(array['public.vendors','public.vendor_listings','public.customers','public.purchase_orders','public.purchase_order_items']) t where to_regclass(t) is not null`))[0].n === 5);
     const colsBefore = (await rows(`select count(*)::int n from information_schema.columns where table_schema='public' and table_name='vendors'`))[0].n;
     await expectErr('re-run aborts via preflight, naming public.vendors', MIG, /already exist: public\.vendors/);
+    ok('fulfilment migration objects exist', (await rows(`select
+        (select count(*)::int from pg_proc where proname='itred_po_sync_status') +
+        (select count(*)::int from pg_trigger where tgname='purchase_order_items_sync_po_status') +
+        (select count(*)::int from pg_policy where polname='Customers can record fulfilment on own purchase orders') n`))[0].n === 3);
+    await expectErr('fulfilment migration re-run aborts via preflight', MIG_FULFIL, /already exist: .*itred_po_sync_status/);
     ok('aborted re-run changed nothing', (await rows(`select count(*)::int n from information_schema.columns where table_schema='public' and table_name='vendors'`))[0].n === colsBefore);
     ok('cl_vendors_install_id_key constraint present', (await rows(`select count(*)::int n from pg_constraint where conrelid='public.cl_vendors'::regclass and conname='cl_vendors_install_id_key' and contype='u'`))[0].n === 1);
     const insp = INSPECT.replace(/^\s*--.*$/gm, '').split(/;\s*\n/).map(s => s.trim()).filter(Boolean);
@@ -157,8 +164,28 @@ function ok(name, cond, extra) {
     await expectErr('expired listing rejected', `insert into purchase_order_items(purchase_order_id,vendor_listing_id,item_name,quantity_requested) values ('${po.id}','a3000000-0000-4000-8000-000000000003','x',1)`, /not found|row-level/);
     await expectErr('pending listing rejected', `insert into purchase_order_items(purchase_order_id,vendor_listing_id,item_name,quantity_requested) values ('${po.id}','a2000000-0000-4000-8000-000000000002','x',1)`, /not found|row-level/);
     await expectErr('customer cannot set quantity_fulfilled', `insert into purchase_order_items(purchase_order_id,item_name,quantity_requested,is_custom_request,quantity_fulfilled) values ('${po.id}','x',1,true,1)`, /permission denied/);
-    await expectErr('customer cannot update items', `update purchase_order_items set quantity_fulfilled=2`, /permission denied/);
     await expectErr('customer cannot mark PO fulfilled', `update purchase_orders set status='fulfilled' where id='${po.id}'`, /row-level security/);
+
+    console.log('fulfilment recorded by the customer');
+    const LISTED = `purchase_order_id='${po.id}' and vendor_listing_id is not null`, CUSTOM = `purchase_order_id='${po.id}' and is_custom_request`;
+    const poStatus = async () => (await rows(`select status from purchase_orders where id=$1`, [po.id]))[0].status;
+    const lineStatus = async (where) => (await rows(`select fulfillment_status s from purchase_order_items where ${where}`))[0].s;
+    await db.q(`update purchase_order_items set quantity_fulfilled=1 where ${LISTED}`);
+    ok('customer records a partial line', await lineStatus(LISTED) === 'partially_fulfilled');
+    ok('PO becomes partially_fulfilled', await poStatus() === 'partially_fulfilled');
+    await db.q(`update purchase_order_items set quantity_fulfilled=2 where ${LISTED}`);
+    ok('one line fully fulfilled, other outstanding -> still partially_fulfilled', await poStatus() === 'partially_fulfilled');
+    await db.q(`update purchase_order_items set quantity_fulfilled=1 where ${CUSTOM}`);
+    ok('every line fulfilled -> PO fulfilled', await poStatus() === 'fulfilled');
+    await db.q(`update purchase_order_items set quantity_fulfilled=0 where purchase_order_id=$1`, [po.id]);
+    ok('correcting back to nothing -> PO sent again', await poStatus() === 'sent');
+    await expectErr('negative quantity_fulfilled rejected', `update purchase_order_items set quantity_fulfilled=-1 where ${LISTED}`, /check constraint/);
+    await expectErr('quantity_fulfilled above the ordered quantity rejected', `update purchase_order_items set quantity_fulfilled=3 where ${LISTED}`, /not_overfulfilled/);
+    await expectErr('customer cannot change quantity_requested', `update purchase_order_items set quantity_requested=9 where ${LISTED}`, /permission denied/);
+    await expectErr('customer cannot change unit_price', `update purchase_order_items set unit_price=0 where ${LISTED}`, /permission denied/);
+    await expectErr('customer cannot change item_name', `update purchase_order_items set item_name='x' where ${CUSTOM}`, /permission denied/);
+    await expectErr('customer cannot move a line to another order', `update purchase_order_items set purchase_order_id=gen_random_uuid() where ${CUSTOM}`, /permission denied/);
+    await expectErr('customer cannot call the status function', `select itred_po_sync_status()`, /permission denied|trigger functions/);
 
     console.log('customer u2');
     await as('authenticated', U2, 'u2@itred-test.invalid');
@@ -169,6 +196,11 @@ function ok(name, cond, extra) {
     await expectErr('u2 cannot create PO as u1', `insert into purchase_orders(customer_id,vendor_id) values ('${U1}','${VA}')`, /row-level security/);
     await expectErr('u2 cannot add items to u1 PO', `insert into purchase_order_items(purchase_order_id,item_name,quantity_requested,is_custom_request) values ('${po.id}','x',1,true)`, /row-level security/);
     ok('u2 cannot close u1 PO', (await rows(`update purchase_orders set status='closed' where id=$1 returning id`, [po.id])).length === 0);
+    ok("u2 cannot record fulfilment on u1's lines", (await rows(`update purchase_order_items set quantity_fulfilled=1 where purchase_order_id=$1 returning id`, [po.id])).length === 0);
+    // No WHERE/RETURNING, so only the UPDATE policy (not the SELECT one) decides.
+    await db.q(`update purchase_order_items set quantity_fulfilled=1`);
+    await as('postgres');
+    ok("u1's lines untouched by u2", (await rows(`select sum(quantity_fulfilled)::int n from purchase_order_items where purchase_order_id=$1`, [po.id]))[0].n === 0);
 
     console.log('fulfilment (service_role)');
     await as('service_role');
@@ -176,6 +208,7 @@ function ok(name, cond, extra) {
     ok('partial fulfilment derived', (await rows(`select fulfillment_status s from purchase_order_items where purchase_order_id=$1 and vendor_listing_id is not null`, [po.id]))[0].s === 'partially_fulfilled');
     await db.q(`update purchase_order_items set quantity_fulfilled=2 where purchase_order_id=$1 and vendor_listing_id is not null`, [po.id]);
     ok('full fulfilment derived', (await rows(`select fulfillment_status s from purchase_order_items where purchase_order_id=$1 and vendor_listing_id is not null`, [po.id]))[0].s === 'fulfilled');
+    ok('service_role fulfilment also drives PO status', (await rows(`select status from purchase_orders where id=$1`, [po.id]))[0].status === 'partially_fulfilled');
     await expectErr('over-fulfilment rejected', `update purchase_order_items set quantity_fulfilled=3 where purchase_order_id='${po.id}' and vendor_listing_id is not null`, /not_overfulfilled/);
     await expectErr("listing on an order can't be deleted", `delete from vendor_listings where id='a1000000-0000-4000-8000-000000000001'`, /foreign key/);
 
@@ -187,7 +220,9 @@ function ok(name, cond, extra) {
     ok('anon no longer sees vendor A', (await rows(`select id from vendors where id=$1`, [VA])).length === 0);
     await as('authenticated', U1, 'u1@itred-test.invalid');
     ok('u1 still sees vendor A via their order', (await rows(`select id, business_name from vendors where id=$1`, [VA])).length === 1);
-    await db.q(`update purchase_orders set status='closed' where id=$1`, [po.id]); ok('u1 can close own PO', true);
+    await db.q(`update purchase_orders set status='closed' where id=$1`, [po.id]); ok('u1 can close own partially fulfilled PO', true);
+    await db.q(`update purchase_order_items set quantity_fulfilled=1 where purchase_order_id=$1 and is_custom_request`, [po.id]);
+    ok('fulfilment recorded after closing leaves the PO closed', (await rows(`select status from purchase_orders where id=$1`, [po.id]))[0].status === 'closed');
     await expectErr('no items added after close', `insert into purchase_order_items(purchase_order_id,item_name,quantity_requested,is_custom_request) values ('${po.id}','x',1,true)`, /row-level security/);
     await expectErr('no reopening a closed PO', `update purchase_orders set status='sent' where id='${po.id}'`, /row-level security/);
   } catch (e) {
