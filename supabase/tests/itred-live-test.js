@@ -38,7 +38,9 @@ insert into public.cl_vendors (business_name, install_id, shop_secret_phrase) va
 async function connect() {
   if (mode === 'live') {
     const { Client } = require('pg');
-    const c = new Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } });
+    // Verify the server against Supabase's root CA (public cert, committed).
+    const ca = fs.readFileSync(`${ROOT}/prod-ca-2021.crt`, 'utf8');
+    const c = new Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { ca, rejectUnauthorized: true } });
     await c.connect();
     return { q: async (sql, p) => (await c.query(sql, p)).rows, multi: sql => c.query(sql), end: () => c.end() };
   }
@@ -237,7 +239,7 @@ function ok(name, cond, extra) {
       (select count(*)::int from auth.users where email like '%@itred-test.invalid') au,
       (select count(*)::int from public.vendors) v,
       (select count(*)::int from public.vendor_listings) vl,
-      (select count(*)::int from public.customers) c,
+      (select count(*)::int from public.customers where email like '%@itred-test.invalid') c,
       (select count(*)::int from public.purchase_orders) po,
       (select count(*)::int from public.purchase_order_items) poi`);
   console.log('\nrows left after rollback: ' + JSON.stringify(left[0]));
