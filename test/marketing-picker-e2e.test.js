@@ -141,6 +141,37 @@ async function addProduct(page, name, price, stock){
     await page.close();
   });
 
+  await t("Products → Add to Marketing opens Marketing with the checked products ticked; with none checked it just opens it", async ()=>{
+    const { page, pageErrors } = await setUpCore(browser, tempFolder(true));
+    await page.click('[data-route="products"]');
+    await addProduct(page, "Sugar 2kg", 3.5, 12);
+    await addProduct(page, "Rice 5kg", 6, 4);
+    await addProduct(page, "Bread", 1, 3);
+    // Nothing checked: Marketing opens, nothing pre-selected.
+    assert.match(await page.textContent("#addToMarketingBtn"), /Add to Marketing/);
+    await page.click("#addToMarketingBtn");
+    let frame = page.frameLocator("#marketFrame");
+    await frame.locator(".mk-row").first().waitFor({ timeout: 10000 });
+    assert.match(await frame.locator(".mk-footer .mk-count").textContent(), /^0 of 200 selected$/);
+    // Check two on the Products page and carry them over.
+    await page.click('[data-route="products"]');
+    const row = (name)=> page.locator("#productsTableArea tr", { hasText:name }).locator(".catCheck");
+    await row("Sugar 2kg").check();
+    await row("Bread").check();
+    await page.click("#addToMarketingBtn");
+    frame = page.frameLocator("#marketFrame");
+    await frame.locator(".mk-row").first().waitFor({ timeout: 10000 });
+    assert.strictEqual(await page.$eval('[data-route="marketing"]', el=> el.classList.contains("active")), true, "Marketing tab is showing");
+    assert.strictEqual(await frame.locator(".mk-row", { hasText:"Sugar 2kg" }).locator(".mk-check").isChecked(), true);
+    assert.strictEqual(await frame.locator(".mk-row", { hasText:"Bread" }).locator(".mk-check").isChecked(), true);
+    assert.strictEqual(await frame.locator(".mk-row", { hasText:"Rice 5kg" }).locator(".mk-check").isChecked(), false);
+    assert.match(await frame.locator(".mk-footer .mk-count").textContent(), /^2 of 200 selected$/);
+    // Nothing was exported or sent: still at the start of the flow.
+    assert.strictEqual(await frame.locator(".mk-status").getAttribute("data-state"), "not_exported");
+    assert.deepStrictEqual(pageErrors, []);
+    await page.close();
+  });
+
   await t("the picker stops at 200: other boxes disable, and Select all shown fills only up to the cap", async ()=>{
     const dir = tempFolder(true);
     // A stub host playing the core app's side of the bridge, with 205 products.

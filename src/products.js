@@ -231,6 +231,7 @@
       <div class="row" style="margin-bottom:10px">
         <button class="btn btn-outline" id="selectAllCat">Select all</button>
         <button class="btn btn-ghost" id="printCatalogueBtn">🖨️ Print Catalogue</button>
+        <button class="btn btn-ghost" id="addToMarketingBtn" title="Carry the checked products into Marketing, to prepare and send to Digital Commerce">${ICON_NAV_MARKETING} Add to Marketing</button>
       </div>
       <div id="productsTableArea">${productsTableHtml(filterProductsList(products, productsQuery), remote)}</div>
     `;
@@ -245,6 +246,11 @@
       if(ids.length===0) return alert("Select at least one product to include in the catalogue");
       const selected = ids.map(id=> one("SELECT * FROM products WHERE id=?",[id]));
       printCatalogue(selected);
+    };
+    // Same checkboxes as Print Catalogue. None checked just opens Marketing.
+    document.getElementById("addToMarketingBtn").onclick=()=>{
+      const ids = Array.from(main.querySelectorAll(".catCheck:checked")).map(cb=>+cb.dataset.cat);
+      openMarketingWith(ids);
     };
     document.getElementById("openDispatch").onclick=()=>openDispatchScreen();
     document.getElementById("openDispatchHistory").onclick=()=>openDispatchHistory();

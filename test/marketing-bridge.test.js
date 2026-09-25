@@ -98,6 +98,31 @@ function rig(settings){
     assert.deepStrictEqual(plain(ops.getSelection()), [b]);
   });
 
+  // ---------------- Products → "Add to Marketing" ----------------
+  await t("Add to Marketing adds the checked products after what's already selected, without duplicates", async ()=>{
+    const { api, ops, add } = rig();
+    const a = add("A"), b = add("B"), c = add("C");
+    await ops.setSelection({ ids:[b] });
+    const r = await api.marketAddToSelection([c, b, a]);
+    assert.deepStrictEqual(plain(r.selection), [b, c, a]);
+    assert.strictEqual(r.added, 2, "b was already there");
+    assert.deepStrictEqual(plain(r.notAdded), []);
+    assert.deepStrictEqual(plain(ops.getSelection()), [b, c, a], "saved, so the picker opens with them ticked");
+  });
+
+  await t("Add to Marketing ignores other branches' and deleted products, and reports what didn't fit under 200", async ()=>{
+    const { api, ops, add } = rig();
+    const other = add("Elsewhere", { branch:"CBD" });
+    const ids = []; for(let i=0; i<199; i++) ids.push(add("P"+i));
+    await ops.setSelection({ ids });
+    const x = add("X"), y = add("Y");
+    const r = await api.marketAddToSelection([other, 999999, x, y]);
+    assert.strictEqual(r.selection.length, 200);
+    assert.strictEqual(r.selection[199], x);
+    assert.strictEqual(r.added, 1);
+    assert.deepStrictEqual(plain(r.notAdded), [y]);
+  });
+
   await t("getProductImage only hands out photos of selected products", async ()=>{
     const { ops, add } = rig();
     const a = add("A", { image:WEBP }), b = add("B", { image:WEBP }), c = add("C");

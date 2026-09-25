@@ -141,6 +141,29 @@
   function marketSavedSelection(){
     try{ return marketCleanSelection(JSON.parse(getSetting("market_selection","[]"))); }catch(e){ return []; }
   }
+  // Products → "Add to Marketing": the products checked there join the
+  // Marketing selection (kept after what's already chosen), so the picker
+  // opens with them ticked. Nothing else changes — the shop still picks
+  // photos, prepares the file and sends it from the Marketing screen.
+  // Returns how many were newly added and which didn't fit under the cap.
+  async function marketAddToSelection(ids){
+    const before = marketSavedSelection();
+    const wanted = marketCleanSelection((Array.isArray(ids)? ids : []).map(Number)); // this branch's real products only
+    const merged = marketCleanSelection(before.concat(wanted));
+    setSetting("market_selection", JSON.stringify(merged));
+    await persist();
+    return { selection: merged,
+      added: wanted.filter(id=> !before.includes(id) && merged.includes(id)).length,
+      notAdded: wanted.filter(id=> !merged.includes(id)) };
+  }
+  function openMarketingWith(ids){
+    const go = ()=>{ route = "marketing"; render(); };
+    if(!ids || !ids.length){ go(); return Promise.resolve(); }
+    return marketAddToSelection(ids).then(r=>{
+      if(r.notAdded.length) alert(`Marketing holds up to ${MARKET_MAX_PRODUCTS} products, so ${r.notAdded.length} of the ones you checked weren't added. Untick some in Marketing to make room.`);
+      go();
+    });
+  }
 
   // ---- export file (.scl) ----
   // First data-pack type on the .scl extension (the others move over in a

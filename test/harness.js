@@ -91,7 +91,7 @@ function makeApp(settings){
         renderStocktake, renderStocktakeCounting, renderStocktakeCountingListOnly, computeStocktakeVariance,
         setStocktakeQuery:(q)=>{ stocktakeQuery=q; }, getStocktakeQuery:()=>stocktakeQuery,
         parseImportRows, findImportMatch, classifyImportRows, runImport, IMPORT_COLUMN_MAP,
-        marketProductRows, marketCleanSelection, MARKET_OPS, MARKET_MAX_PRODUCTS,
+        marketProductRows, marketCleanSelection, marketAddToSelection, marketSavedSelection, MARKET_OPS, MARKET_MAX_PRODUCTS,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.
   // Tests must never reach it, so every app instance instead reads the old
