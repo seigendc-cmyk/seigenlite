@@ -2,11 +2,15 @@
 // src/itred/index.html. It answers the real supabase-js requests the site
 // makes (Auth: signup / password + pkce token / user (get, update) /
 // logout / resend / recover;
-// REST: vendor_listings, customers) at the network level via Playwright's
-// page.route, so the site runs unmodified against it. It mirrors the rules
-// that matter to the site — email confirmation required, customers rows
-// only for the signed-in user, published + unexpired listings only for
-// anyone — without creating real accounts or sending real email. The real
+// REST: vendor_listings, customers, purchase_orders, purchase_order_items)
+// at the network level via Playwright's page.route, so the site runs
+// unmodified against it. It mirrors the rules that matter to the site —
+// email confirmation required, customers rows only for the signed-in user,
+// published + unexpired listings only for anyone, orders and their lines
+// only for their customer, lines only on a 'sent' order from a live listing
+// of that order's vendor (with the listing's name/price snapshotted), only
+// the granted columns written — without creating real accounts or sending
+// real email. The real
 // RLS itself is covered against the live database by
 // supabase/tests/itred-live-test.js.
 "use strict";
@@ -26,7 +30,11 @@ function createFakeSupabase(opts){
     log: [],                // every request: { method, path, query, body, auth }
     unexpected: [],         // anything this fake doesn't implement
   };
+  state.orders = [];  // purchase_orders rows
+  state.items = [];   // purchase_order_items rows
   const userById = (id)=> [...state.users.values()].find(u=>u.id===id);
+  // The fake has no vendors table: a vendor is whatever its listings embed.
+  const vendorById = (id)=>{ const l = state.listings.find(x=> x.vendor_id===id); return l && l.vendors; };
   const publicUser = (u)=>({ id:u.id, aud:"authenticated", role:"authenticated", email:u.email,
     email_confirmed_at: u.confirmed? new Date().toISOString() : null, user_metadata:u.user_metadata||{},
     app_metadata:{ provider:"email", providers:["email"] }, identities:[{ id:u.id, provider:"email" }],
@@ -157,6 +165,85 @@ function createFakeSupabase(opts){
         return send(200, wantsObject? r : [r]);
       }
     }
+    // purchase_orders / purchase_order_items: the migration's column grants,
+    // RLS policies and listing-snapshot trigger, as the site meets them.
+    const denied = (table)=> send(401, { code:"42501", message:"permission denied for table "+table });
+    const rlsFail = (table)=> send(403, { code:"42501", message:"new row violates row-level security policy for table \""+table+"\"" });
+    const onlyCols = (row, allowed)=> Object.keys(row).every(k=> allowed.includes(k));
+    const eqParam = (name)=> (q.get(name)||"").replace(/^eq\./,"");
+    if(url.pathname==="/rest/v1/purchase_orders"){
+      if(!userId) return denied("purchase_orders");
+      if(method==="POST"){
+        const row = Array.isArray(body)? body[0] : body;
+        if(!onlyCols(row, ["customer_id","vendor_id"])) return denied("purchase_orders");
+        if(state.failNextOrderInsert){ const f = state.failNextOrderInsert; state.failNextOrderInsert = null; return send(f.status, f.body); }
+        if(row.customer_id!==userId) return rlsFail("purchase_orders");
+        if(!state.customers.has(row.customer_id)) return send(409, { code:"23503", message:"insert or update on table \"purchase_orders\" violates foreign key constraint \"purchase_orders_customer_id_fkey\"" });
+        if(!vendorById(row.vendor_id)) return send(409, { code:"23503", message:"insert or update on table \"purchase_orders\" violates foreign key constraint \"purchase_orders_vendor_id_fkey\"" });
+        const stored = { id:crypto.randomUUID(), customer_id:row.customer_id, vendor_id:row.vendor_id, status:"sent", pdf_url:null,
+          created_at:new Date(Date.now() + state.orders.length).toISOString() };
+        state.orders.push(stored);
+        return send(201, wantsObject? stored : [stored]);
+      }
+      if(method==="PATCH"){
+        if(!onlyCols(body, ["status"])) return denied("purchase_orders");
+        const hits = state.orders.filter(o=> o.id===eqParam("id") && o.customer_id===userId);
+        if(hits.length && body.status!=="closed") return rlsFail("purchase_orders");
+        hits.forEach(o=> o.status = body.status);
+        return send(200, hits);
+      }
+      if(method==="GET"){
+        const select = q.get("select")||"";
+        const cust = eqParam("customer_id");
+        const rows = state.orders.filter(o=> o.customer_id===userId && (!cust || o.customer_id===cust))
+          .sort((a,b)=> b.created_at.localeCompare(a.created_at))
+          .map(o=>{
+            const r = Object.assign({}, o);
+            if(/vendors\(/.test(select)){ const v = vendorById(o.vendor_id); r.vendors = v? { business_name:v.business_name, whatsapp_number:v.whatsapp_number, city:v.city } : null; }
+            if(/purchase_order_items\(/.test(select)) r.purchase_order_items = state.items.filter(i=> i.purchase_order_id===o.id);
+            return r;
+          });
+        return send(200, rows);
+      }
+    }
+    if(url.pathname==="/rest/v1/purchase_order_items"){
+      if(!userId) return denied("purchase_order_items");
+      if(method==="POST"){
+        const rows = Array.isArray(body)? body : [body];
+        const allowed = ["purchase_order_id","vendor_listing_id","item_name","quantity_requested","is_custom_request"];
+        if(!rows.every(r=> onlyCols(r, allowed))) return denied("purchase_order_items");
+        if(state.failNextItemsInsert){ const f = state.failNextItemsInsert; state.failNextItemsInsert = null; return send(f.status, f.body); }
+        // One statement: every row is checked before any is stored.
+        const out = [];
+        for(const r of rows){
+          const custom = !!r.is_custom_request;
+          if(custom !== (r.vendor_listing_id==null))
+            return send(400, { code:"23514", message:"new row for relation \"purchase_order_items\" violates check constraint \"purchase_order_items_custom_xor_listing\"" });
+          if(!(Number(r.quantity_requested) > 0) || !String(r.item_name||"").trim())
+            return send(400, { code:"23514", message:"new row for relation \"purchase_order_items\" violates check constraint" });
+          let snap = { item_name:r.item_name, unit_price:null, currency:null };
+          if(!custom){
+            // the snapshot trigger runs as the customer, so it only sees live listings
+            const l = state.listings.find(x=> x.id===r.vendor_listing_id && x.status==="published" && new Date(x.expires_at) > new Date());
+            if(!l) return send(400, { code:"P0001", message:"vendor_listing "+r.vendor_listing_id+" not found or not published" });
+            snap = { item_name:l.product_name, unit_price:l.price, currency:l.currency };
+          }
+          const po = state.orders.find(o=> o.id===r.purchase_order_id && o.customer_id===userId && o.status==="sent");
+          if(!po) return rlsFail("purchase_order_items");
+          if(!custom && state.listings.find(x=> x.id===r.vendor_listing_id).vendor_id!==po.vendor_id) return rlsFail("purchase_order_items");
+          out.push({ id:crypto.randomUUID(), purchase_order_id:r.purchase_order_id, vendor_listing_id:custom? null : r.vendor_listing_id,
+            item_name:snap.item_name, unit_price:snap.unit_price, currency:snap.currency, quantity_requested:Number(r.quantity_requested),
+            quantity_fulfilled:0, is_custom_request:custom, fulfillment_status:"outstanding", created_at:new Date().toISOString() });
+        }
+        state.items.push(...out);
+        return send(201, out);
+      }
+      if(method==="GET"){
+        const mine = new Set(state.orders.filter(o=> o.customer_id===userId).map(o=>o.id));
+        return send(200, state.items.filter(i=> mine.has(i.purchase_order_id)));
+      }
+    }
+
     state.unexpected.push(method+" "+url.pathname+url.search);
     return send(404, { code:"PGRST205", message:"not in the fake" });
   }
@@ -169,7 +256,7 @@ function createFakeSupabase(opts){
 function listingRow(o){
   const now = Date.now();
   return Object.assign({
-    id: crypto.randomUUID(), product_name:"Product", price:1, currency:"USD", category:null, stock_quantity:1,
+    id: crypto.randomUUID(), vendor_id: crypto.randomUUID(), product_name:"Product", price:1, currency:"USD", category:null, stock_quantity:1,
     image_url:null, published_at:new Date(now - 86400000).toISOString(), expires_at:new Date(now + 6*86400000).toISOString(),
     status:"published", vendors:{ business_name:"Vendor", whatsapp_number:null, city:null },
   }, o||{});

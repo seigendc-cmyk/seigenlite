@@ -73,7 +73,8 @@
   .navtoggle{display:none;background:none;border:none;cursor:pointer;padding:8px;}
   .navtoggle span{display:block;width:22px;height:2px;background:var(--navy);margin:5px 0;}
 
-  @media (max-width:760px){
+  /* Eight nav links need ~960px on one line; below that, the menu toggle. */
+  @media (max-width:960px){
     nav.mainnav{
       display:none;position:absolute;top:100%;left:0;right:0;
       background:var(--white);border-bottom:1px solid var(--border);
@@ -259,6 +260,77 @@
   .auth-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
   .linkish{background:none;border:none;padding:0;color:var(--gold-dark);font-weight:600;font-size:13.5px;cursor:pointer;text-decoration:underline;}
   .thumb-empty{display:flex;align-items:center;justify-content:center;color:var(--text-soft);font-size:12px;}
+
+  /* ---------- Orders (#/orders) ---------- */
+  .nav-count{
+    display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;
+    background:var(--gold);color:var(--navy);font-size:11px;line-height:18px;text-align:center;
+  }
+  .nav-count:empty{display:none;}
+  .product-actions{display:flex;flex-direction:column;gap:0;flex-shrink:0;}
+  .product-list-item .product-actions .btn{margin-top:8px;}
+  .product-list-item .product-actions .btn:first-child{margin-top:0;}
+  .btn-added{background:#E3F0E6;color:#1F4F2C;border-color:#BFD9C5;}
+  .btn-added:hover{background:#D3E8D8;}
+  .po-card{background:var(--white);border:1px solid var(--border);padding:24px;margin-bottom:24px;}
+  .po-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;}
+  .po-head h3{font-size:21px;margin:0 0 2px 0;}
+  .po-head .hint{font-size:13px;color:var(--text-soft);}
+  .po-line{
+    display:grid;grid-template-columns:1fr 110px 96px 110px 34px;gap:12px;align-items:center;
+    padding:12px 0;border-top:1px solid var(--border);
+  }
+  .po-line .po-name{font-weight:600;color:var(--navy);font-size:14.5px;min-width:0;overflow-wrap:anywhere;}
+  .po-line .po-sub{display:block;font-size:12.5px;font-weight:400;color:var(--text-soft);margin-top:2px;}
+  .po-line .po-price,.po-line .po-total{font-size:14px;text-align:right;}
+  .po-line .po-total{font-weight:600;color:var(--navy);}
+  .po-line input.po-qty{padding:8px 10px;text-align:right;}
+  .po-remove{
+    background:none;border:1px solid var(--border);color:var(--text-soft);
+    width:34px;height:34px;cursor:pointer;font-size:16px;
+  }
+  .po-remove:hover{color:#8C1D18;border-color:#8C1D18;}
+  .po-warn{display:block;font-size:12.5px;font-weight:600;color:#8C1D18;margin-top:4px;}
+  .po-warn .linkish{font-size:12.5px;margin-left:6px;}
+  .po-custom-form{display:flex;gap:10px;flex-wrap:wrap;padding:16px 0;border-top:1px solid var(--border);}
+  .po-custom-form input[type=text]{flex:1;min-width:180px;}
+  .po-custom-form input[type=number]{width:96px;}
+  .po-custom-form .btn{padding:10px 18px;font-size:13.5px;}
+  .po-foot{
+    display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;
+    padding-top:16px;border-top:2px solid var(--navy);
+  }
+  .po-totals{font-size:14px;color:var(--text-soft);}
+  .po-totals b{font-family:'Fraunces',serif;font-size:20px;color:var(--navy);}
+  .po-send{display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right;}
+  .po-send .hint{font-size:12.5px;color:var(--text-soft);max-width:320px;}
+  .btn[disabled]{opacity:0.55;cursor:not-allowed;}
+  .po-sent-lines{margin-bottom:4px;}
+  .po-sent-lines summary{cursor:pointer;font-weight:600;color:var(--navy);font-size:14px;padding:8px 0;}
+  .po-sent-line{display:flex;justify-content:space-between;gap:16px;font-size:14px;padding:8px 0;border-top:1px solid var(--border);}
+  .po-sent-line span:first-child{min-width:0;overflow-wrap:anywhere;}
+  .po-sent-line span:last-child{white-space:nowrap;}
+  .po-sent-actions{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;gap:10px;}
+  .orders-subhead{font-size:13px;font-weight:600;color:var(--gold-dark);margin:0 0 14px 0;}
+  #orderToast{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:70;
+    background:var(--navy);color:var(--white);padding:12px 18px;font-size:14px;
+    box-shadow:0 4px 18px rgba(18,36,63,0.25);display:none;max-width:calc(100vw - 32px);
+  }
+  #orderToast.show{display:flex;gap:14px;align-items:center;}
+  #orderToast a{color:var(--gold);font-weight:600;white-space:nowrap;}
+  @media (max-width:640px){
+    .po-card{padding:16px;}
+    .po-line{grid-template-columns:1fr 84px 34px;grid-template-areas:"name name name" "price qty remove" "total total total";row-gap:8px;}
+    .po-line .po-name{grid-area:name;}
+    .po-line .po-price{grid-area:price;text-align:left;}
+    .po-line .po-qtycell{grid-area:qty;}
+    .po-line .po-remove{grid-area:remove;}
+    .po-line .po-total{grid-area:total;text-align:left;}
+    .po-send{align-items:stretch;text-align:left;}
+    .po-sent-actions .btn{flex:1;justify-content:center;}
+    #orderToast{bottom:76px;}
+  }
 </style>
 <!-- Pinned (not @2) so a supabase-js release can't change the site's
      behaviour underneath it; bump deliberately. -->
@@ -280,6 +352,7 @@
       <a href="#/rpn" data-route="/rpn">Become an RPN</a>
       <a href="#/help" data-route="/help">Help</a>
       <a href="#/contact" data-route="/contact">Contact</a>
+      <a href="#/orders" data-route="/orders" id="ordersNavLink">Orders<span class="nav-count" id="ordersNavCount"></span></a>
       <a href="#/account" data-route="/account" id="accountNavLink">Sign in</a>
     </nav>
   </div>
@@ -730,6 +803,24 @@
     </section>
   </div>
 
+  <!-- ORDERS -->
+  <!-- Purchase orders: one draft per vendor, built from Market Space and
+       kept in this browser until it's sent. Filled in by renderOrders(). -->
+  <div class="page" id="page-/orders">
+    <section class="hero" style="padding-bottom:40px;">
+      <div class="wrap">
+        <div class="section-kicker">Purchase orders</div>
+        <h1 style="font-size:36px;">Your orders</h1>
+        <p class="lede">Build an order from a vendor's listings, add anything else you'd like them to source, then send it to the vendor on WhatsApp. Each vendor gets its own order.</p>
+      </div>
+    </section>
+    <section style="padding-top:36px;">
+      <div class="wrap">
+        <div id="ordersRoot"></div>
+      </div>
+    </section>
+  </div>
+
   <!-- ACCOUNT -->
   <!-- Customer sign-up / sign-in (Supabase Auth, email + password) and the
        signed-in profile. Filled in by renderAccount() below. -->
@@ -738,7 +829,7 @@
       <div class="wrap">
         <div class="section-kicker">Customer account</div>
         <h1 style="font-size:36px;">Your iTred account</h1>
-        <p class="lede">Sign in to keep your details in one place. Ordering from vendors through iTred is coming next.</p>
+        <p class="lede">Sign in to keep your details in one place and send orders to vendors.</p>
       </div>
     </section>
     <section style="padding-top:36px;">
@@ -886,7 +977,9 @@
 
   // Mirrors the RLS policy anonymous visitors get ("published and
   // expires_at > now"), so the page asks for exactly what it may see.
-  const LISTING_SELECT = 'id, product_name, price, currency, category, stock_quantity, image_url, published_at, expires_at, vendors(business_name, whatsapp_number, city)';
+  // vendor_id: an order is addressed to one vendor, so drafts are grouped by it.
+  const LISTING_SELECT = 'id, vendor_id, product_name, price, currency, category, stock_quantity, image_url, published_at, expires_at, vendors(business_name, whatsapp_number, city)';
+  let listingsLoaded = false; // true once a listings fetch succeeded (drafts can then spot delisted items)
   async function loadListings(){
     if(!supabaseClient) return;
     const { data, error } = await supabaseClient.from('vendor_listings')
@@ -896,7 +989,9 @@
       .order('published_at', { ascending: false });
     if(error || !data) return;
     marketProducts = data.map(listingToProduct);
+    listingsLoaded = true;
     if(currentRoute() === '/market-space') renderMarketSpace();
+    if(currentRoute() === '/orders') renderOrders();
   }
   // vendor_listings + vendors -> the product shape the Market Space
   // renderer already used. Not in the schema, so gone: moq, search keywords
@@ -905,6 +1000,8 @@
     const v = row.vendors || {};
     const price = row.price == null ? '' : (row.currency ? row.currency + ' ' : '') + Number(row.price).toFixed(2);
     return {
+      listingId: row.id, vendorId: row.vendor_id || '',
+      unitPrice: row.price == null ? null : Number(row.price), currency: row.currency || '',
       name: row.product_name, vendor: v.business_name || '', vendorWhatsApp: v.whatsapp_number || '',
       category: row.category || '', searchKeywords: '',
       price, quantityAvailable: row.stock_quantity, moq: null,
@@ -971,7 +1068,7 @@
     loadListings(); loadVerifiedPartners(); loadHighlights(); loadShowcase(); loadSiteProducts();
   }
 
-  const routes = ['/','/market-space','/products','/rpn','/help','/contact','/account','/privacy','/terms'];
+  const routes = ['/','/market-space','/products','/rpn','/help','/contact','/orders','/account','/privacy','/terms'];
   const titles = {
     '/':'iTred Market Place',
     '/market-space':'Market Space — iTred',
@@ -979,6 +1076,7 @@
     '/rpn':'RPN Application — iTred',
     '/help':'Help — iTred',
     '/contact':'Contact Us — iTred',
+    '/orders':'Your orders — iTred',
     '/account':'Your account — iTred',
     '/privacy':'Privacy Policy — iTred',
     '/terms':'Terms of Business — iTred'
@@ -999,10 +1097,13 @@
     });
     document.title = titles[r] || 'iTred';
     document.getElementById('mainNav').classList.remove('open');
+    const toast = document.getElementById('orderToast');
+    if(toast) toast.classList.remove('show'); // its "View order" belongs to the page it was shown on
     window.scrollTo(0,0);
     if(r === '/market-space') renderMarketSpace();
     if(r === '/') { renderHighlights(); renderShowcase(); }
     if(r === '/account') renderAccount();
+    if(r === '/orders'){ renderOrders(); loadSentOrders(); }
   }
 
   window.addEventListener('hashchange', render);
@@ -1085,6 +1186,20 @@
       ? `<a href="${escapeHtml(whatsappLeadLink(p))}" target="_blank" rel="noopener" class="btn btn-gold">Contact on WhatsApp</a>`
       : '';
   }
+  // The order goes to the vendor over WhatsApp, so a vendor without a
+  // number can't be ordered from — no button, same as the contact button.
+  function canOrderFrom(p){ return !!(p.listingId && p.vendorId && waDigits(p.vendorWhatsApp)); }
+  function productOrderButton(p){
+    if(!canOrderFrom(p)) return '';
+    const inDraft = draftHasListing(p.vendorId, p.listingId);
+    return inDraft
+      ? `<a href="#/orders" class="btn btn-added" data-in-order="${escapeHtml(p.listingId)}">&#10003; In your order</a>`
+      : `<button type="button" class="btn btn-navy" data-add-to-order="${escapeHtml(p.listingId)}">Add to order</button>`;
+  }
+  function productActions(p){
+    const buttons = productWhatsAppButton(p) + productOrderButton(p);
+    return buttons ? `<div class="product-actions">${buttons}</div>` : '';
+  }
 
   function formatDate(iso){
     const d = new Date(iso);
@@ -1139,7 +1254,7 @@
               ${p.moq ? `<span>MOQ: ${escapeHtml(p.moq)}</span>` : ''}
               <span>Updated: ${formatDate(p.dateLastUpdated)}</span>
             </div>
-            ${productWhatsAppButton(p)}
+            ${productActions(p)}
           </div>
         </div>
       `).join('');
@@ -1157,7 +1272,7 @@
               <span>Updated: ${formatDate(p.dateLastUpdated)}</span>
             </div>
           </div>
-          ${productWhatsAppButton(p)}
+          ${productActions(p)}
         </div>
       `).join('');
     }
@@ -1339,6 +1454,649 @@
       </div>
     `).join('');
   }
+
+  // ---- Draft purchase orders (#/orders) ----
+  // One draft per vendor: an order is addressed to one vendor, and a customer
+  // may be weighing up several vendors at once, so each vendor they add from
+  // gets its own draft, side by side. Nothing is written to Supabase until a
+  // draft is sent — a draft is the customer's scratch list, kept in this
+  // browser's localStorage so it survives a reload, a closed tab or coming
+  // back tomorrow. It isn't shared with other devices, and if storage is
+  // blocked (private mode, full) drafts still work for this visit and the
+  // page says they won't be kept.
+  // A draft line is { key, listingId, name, unitPrice, currency, image, qty }
+  // for a listed product, or { key, listingId:null, custom:true, name, qty }
+  // for something the customer wants the vendor to source. Listed lines keep
+  // a copy of the listing so the draft still reads sensibly if the listing
+  // expires; the price shown is the live one while the listing is up (the
+  // database snapshots the live price when the order is sent anyway).
+  const DRAFTS_KEY = 'itred.draftOrders.v1';
+  const MAX_QTY = 999999; // purchase_order_items.quantity_requested is numeric(12,3)
+  let draftsSaveFailed = false;
+  let returnToOrders = false; // "Sign in to send" was tapped: come back here once signed in
+  let draftOrders = loadDrafts(); // vendorId -> { vendorId, vendor:{ name, city, whatsapp }, lines:[…], updatedAt }
+
+  function cleanQty(v){
+    const n = Math.round(Number(v) * 1000) / 1000;
+    return Number.isFinite(n) && n > 0 && n <= MAX_QTY ? n : null;
+  }
+  function cleanText(v, max){ return String(v == null ? '' : v).trim().slice(0, max); }
+  // Whatever is in storage came from this page, but could be from an older
+  // version or edited by hand: keep only well-formed drafts and lines.
+  function cleanDrafts(raw){
+    const out = {};
+    if(!raw || typeof raw !== 'object') return out;
+    for(const [vendorId, d] of Object.entries(raw)){
+      if(!d || typeof d !== 'object' || !Array.isArray(d.lines)) continue;
+      const v = d.vendor || {};
+      const lines = d.lines.map(l => {
+        if(!l || typeof l !== 'object') return null;
+        const qty = cleanQty(l.qty), name = cleanText(l.name, 200);
+        if(!qty || !name) return null;
+        if(l.custom) return { key: cleanText(l.key, 60) || newLineKey(), listingId: null, custom: true, name, qty };
+        if(!l.listingId) return null;
+        const price = l.unitPrice == null ? null : Number(l.unitPrice);
+        return { key: String(l.listingId), listingId: String(l.listingId), name, qty,
+          unitPrice: Number.isFinite(price) ? price : null, currency: cleanText(l.currency, 3),
+          image: /^https?:\/\//i.test(l.image || '') ? String(l.image) : '' };
+      }).filter(Boolean);
+      if(lines.length === 0) continue;
+      out[vendorId] = { vendorId, lines, updatedAt: Number(d.updatedAt) || 0,
+        vendor: { name: cleanText(v.name, 200), city: cleanText(v.city, 100), whatsapp: cleanText(v.whatsapp, 30) } };
+    }
+    return out;
+  }
+  function loadDrafts(){
+    try{
+      const parsed = JSON.parse(localStorage.getItem(DRAFTS_KEY) || 'null');
+      return parsed && parsed.v === 1 ? cleanDrafts(parsed.drafts) : {};
+    }catch(e){ return {}; }
+  }
+  function saveDrafts(){
+    try{ localStorage.setItem(DRAFTS_KEY, JSON.stringify({ v: 1, drafts: draftOrders })); draftsSaveFailed = false; }
+    catch(e){ draftsSaveFailed = true; }
+  }
+  function newLineKey(){ return 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
+  function draftList(){ return Object.values(draftOrders).sort((a, b) => b.updatedAt - a.updatedAt); }
+  function draftHasListing(vendorId, listingId){
+    const d = draftOrders[vendorId];
+    return !!(d && d.lines.some(l => l.listingId === listingId));
+  }
+  function liveListing(listingId){ return marketProducts.find(p => p.listingId === listingId) || null; }
+
+  // Every change goes through here: save, then redraw whatever shows drafts.
+  function draftsChanged(vendorId){
+    if(vendorId && draftOrders[vendorId]){
+      if(draftOrders[vendorId].lines.length === 0) delete draftOrders[vendorId];
+      else draftOrders[vendorId].updatedAt = Date.now();
+    }
+    saveDrafts();
+    refreshDraftViews();
+  }
+  function refreshDraftViews(){
+    updateOrdersNav();
+    const r = currentRoute();
+    if(r === '/market-space') renderMarketSpace();
+    if(r === '/orders') renderOrders();
+  }
+  function updateOrdersNav(){
+    const el = document.getElementById('ordersNavCount');
+    if(el) el.textContent = draftList().length || '';
+  }
+
+  function addListingToDraft(listingId){
+    const p = liveListing(listingId);
+    if(!p || !canOrderFrom(p)) return;
+    let d = draftOrders[p.vendorId];
+    if(!d) d = draftOrders[p.vendorId] = { vendorId: p.vendorId, lines: [], updatedAt: 0, vendor: {} };
+    d.vendor = { name: p.vendor, city: (p.location && p.location.area) || '', whatsapp: p.vendorWhatsApp };
+    const line = d.lines.find(l => l.listingId === listingId);
+    if(line) line.qty = cleanQty(line.qty + 1) || line.qty;
+    else d.lines.push({ key: listingId, listingId, name: p.name, unitPrice: p.unitPrice, currency: p.currency, image: p.image, qty: 1 });
+    draftsChanged(p.vendorId);
+    showOrderToast('Added to your order with ' + p.vendor + '.');
+  }
+
+  let orderToastTimer = null;
+  function showOrderToast(text){
+    let el = document.getElementById('orderToast');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'orderToast'; el.setAttribute('role', 'status');
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `<span>${escapeHtml(text)}</span><a href="#/orders">View order</a>`;
+    el.classList.add('show');
+    clearTimeout(orderToastTimer);
+    orderToastTimer = setTimeout(()=> el.classList.remove('show'), 4000);
+  }
+
+  function formatMoney(currency, n){ return (currency ? currency + ' ' : '') + Number(n).toFixed(2); }
+  function formatQty(n){ return String(Math.round(n * 1000) / 1000); }
+  // A listed line as it stands now: the live listing's price when it's still
+  // up, and whether it's gone (only known once listings have loaded).
+  function lineView(l){
+    if(l.custom) return { unitPrice: null, currency: '', delisted: false };
+    const live = liveListing(l.listingId);
+    if(live) return { unitPrice: live.unitPrice, currency: live.currency, delisted: false, available: live.quantityAvailable };
+    return { unitPrice: l.unitPrice, currency: l.currency, delisted: listingsLoaded };
+  }
+  // Listings from one vendor can be priced in different currencies, so
+  // totals are kept per currency rather than added together.
+  function draftTotals(d){
+    const byCurrency = {};
+    let custom = 0;
+    for(const l of d.lines){
+      const v = lineView(l);
+      if(l.custom){ custom++; continue; }
+      if(v.unitPrice == null || v.delisted) continue; // a delisted item can't be ordered at that price
+      byCurrency[v.currency] = (byCurrency[v.currency] || 0) + v.unitPrice * l.qty;
+    }
+    return { byCurrency, custom };
+  }
+
+  function renderDraftLine(d, l){
+    const v = lineView(l);
+    let sub = '', price = '—', total = '—';
+    if(l.custom){
+      sub = '<span class="badge badge-soon">Custom request</span> <span class="po-sub" style="display:inline;">Vendor to quote</span>';
+    } else {
+      if(v.unitPrice != null && !v.delisted){ price =escapeHtml(formatMoney(v.currency, v.unitPrice)); total = escapeHtml(formatMoney(v.currency, v.unitPrice * l.qty)); }
+      if(v.delisted){
+        sub = `<span class="po-warn">No longer listed.<button type="button" class="linkish" data-po-action="to-custom" data-vendor="${escapeHtml(d.vendorId)}" data-line="${escapeHtml(l.key)}">Keep as a custom request</button></span>`;
+      } else if(v.available != null && l.qty > Number(v.available)){
+        sub = `<span class="po-sub">Only ${escapeHtml(v.available)} listed — the vendor will confirm what they can supply.</span>`;
+      }
+    }
+    return `
+      <div class="po-line" data-line="${escapeHtml(l.key)}">
+        <div class="po-name">${escapeHtml(l.name)}${sub ? `<span class="po-sub">${sub}</span>` : ''}</div>
+        <div class="po-price">${l.custom ? '' : price + ' <span class="po-sub" style="display:inline;">each</span>'}</div>
+        <div class="po-qtycell"><input type="number" class="po-qty" min="0.001" step="any" inputmode="decimal" aria-label="Quantity of ${escapeHtml(l.name)}"
+          value="${escapeHtml(formatQty(l.qty))}" data-vendor="${escapeHtml(d.vendorId)}" data-line="${escapeHtml(l.key)}"></div>
+        <div class="po-total">${l.custom ? '' : total}</div>
+        <button type="button" class="po-remove" aria-label="Remove ${escapeHtml(l.name)}" title="Remove"
+          data-po-action="remove" data-vendor="${escapeHtml(d.vendorId)}" data-line="${escapeHtml(l.key)}">&times;</button>
+      </div>`;
+  }
+
+  function renderDraft(d){
+    const itemCount = d.lines.length;
+    const t = draftTotals(d);
+    const money = Object.entries(t.byCurrency).map(([c, n]) => escapeHtml(formatMoney(c, n)));
+    const hasDelisted = d.lines.some(l => lineView(l).delisted);
+    const vid = escapeHtml(d.vendorId);
+    let send;
+    if(!authSession){
+      send = `<a href="#/account" class="btn btn-navy" data-po-signin>Sign in to send</a>
+        <span class="hint">Your order is kept in this browser while you sign in.</span>`;
+    } else {
+      const sending = sendingVendor === d.vendorId;
+      const blocked = hasDelisted ? 'Remove the items that are no longer listed, or keep them as custom requests, first.'
+        : !waDigits(d.vendor.whatsapp) ? 'This vendor has no WhatsApp number, so the order can\'t be sent.'
+        : !customerProfile ? 'Your account details are still loading.' : '';
+      send = `<button type="button" class="btn btn-gold" data-po-action="send" data-vendor="${vid}" ${blocked || sendingVendor ? 'disabled' : ''}>${sending ? 'Sending…' : 'Send to vendor on WhatsApp'}</button>
+        <span class="hint">${escapeHtml(blocked || 'Saves the order to your account, then gives you the Sales Order PDF to send to ' + (d.vendor.name || 'the vendor') + ' on WhatsApp.')}</span>`;
+    }
+    const error = draftErrors[d.vendorId] ? `<div class="auth-msg error po-error" style="margin:16px 0 0 0;">${escapeHtml(draftErrors[d.vendorId])}</div>` : '';
+    return `
+      <div class="po-card" data-vendor="${vid}">
+        <div class="po-head">
+          <div>
+            <div class="section-kicker" style="margin-bottom:2px;">Draft — not sent yet</div>
+            <h3>${escapeHtml(d.vendor.name || 'Vendor')}</h3>
+            <div class="hint">${d.vendor.city ? escapeHtml(d.vendor.city) + ' &middot; ' : ''}${itemCount} item${itemCount === 1 ? '' : 's'}</div>
+          </div>
+          <button type="button" class="linkish" data-po-action="discard" data-vendor="${vid}">Discard draft</button>
+        </div>
+        <div class="po-lines">${d.lines.map(l => renderDraftLine(d, l)).join('')}</div>
+        <form class="po-custom-form" data-vendor="${vid}">
+          <input type="text" class="po-custom-name" maxlength="200" placeholder="Something else you'd like this vendor to source" aria-label="Item to request">
+          <input type="number" class="po-custom-qty" min="0.001" step="any" inputmode="decimal" value="1" aria-label="Quantity">
+          <button type="submit" class="btn btn-outline">Add request</button>
+        </form>
+        ${error}
+        <div class="po-foot">
+          <div class="po-totals">
+            ${money.length ? `Listed items: <b>${money.join(' + ')}</b>` : ''}
+            ${t.custom ? `<div>${money.length ? 'plus ' : ''}${t.custom} custom request${t.custom === 1 ? '' : 's'} for the vendor to quote</div>` : ''}
+          </div>
+          <div class="po-send">${send}</div>
+        </div>
+      </div>`;
+  }
+
+  function renderOrders(){
+    const root = document.getElementById('ordersRoot');
+    if(!root) return;
+    const drafts = draftList();
+    const warn = draftsSaveFailed
+      ? `<div class="auth-msg error" id="draftsNotSaved">This browser isn't letting iTred save your draft orders, so they'll be lost if you close or reload the page.</div>`
+      : '';
+    const draftsHtml = drafts.length ? `<h2 class="orders-subhead">Drafts</h2>${drafts.map(renderDraft).join('')}` : '';
+    // Sent orders live in Supabase, so only a signed-in customer has any.
+    // Orders with no lines are left out: that's a send whose lines were
+    // refused, which sendDraft() closes straight away.
+    let sentHtml = '';
+    const sent = (sentOrders || []).filter(o => o.purchase_order_items && o.purchase_order_items.length);
+    if(authSession){
+      if(sentOrdersError) sentHtml = `<h2 class="orders-subhead">Sent orders</h2>
+        <div class="auth-msg error" id="sentOrdersError">Your sent orders couldn't be loaded. (${escapeHtml(sentOrdersError)})
+          <button type="button" class="linkish" data-order-action="reload">Try again</button></div>`;
+      else if(!sentOrders) sentHtml = `<h2 class="orders-subhead">Sent orders</h2><p class="hint" id="sentOrdersLoading">Loading your sent orders…</p>`;
+      else if(sent.length) sentHtml = `<h2 class="orders-subhead" style="margin-top:40px;">Sent orders</h2>${sent.map(renderSentOrder).join('')}`;
+    }
+    const nothing = !drafts.length && !sentHtml;
+    const empty = nothing ? `<div class="empty-state" id="ordersEmpty">
+          <h3>No orders yet</h3>
+          <p>Browse Market Space and tap <b>Add to order</b> on a product. Each vendor you add from gets its own order.</p>
+          <a href="#/market-space" class="btn btn-gold">Browse Market Space</a>
+        </div>` : '';
+    const signInHint = authSession ? '' : `<p class="hint" id="sentSignInHint" style="margin-top:20px;">Orders you've sent are kept with your account — <a href="#/account" class="linkish" data-po-signin>sign in</a> to see them.</p>`;
+    root.innerHTML = warn + draftsHtml + sentHtml + empty + signInHint;
+    // Fetch the PDF tool ahead of the Send tap: a share sheet has to open
+    // soon after the tap, and a 400 KB download could use that time up.
+    if(authSession && (drafts.length || sent.length)) loadJsPdf().catch(()=>{});
+  }
+
+  // ---- Sending an order: Supabase, then the Sales Order PDF over WhatsApp ----
+  // The order is saved first, then the PDF is made from what the database
+  // stored (the prices come from the listing at that moment, not from the
+  // page), and handed to the customer's WhatsApp the way the shop app hands
+  // over its files (src/dn-browser.js shareDocFile): the phone's share
+  // sheet with the PDF attached where the browser can share files;
+  // otherwise the PDF is downloaded and a wa.me chat with the vendor is a
+  // tap away, to attach it there. A share that's cancelled or blocked
+  // leaves the order saved, and "Send PDF" on it tries again — so the order
+  // record never depends on the share succeeding.
+  // pdf_url stays empty: the schema sets it server-side only, and the PDF
+  // is re-made from the order whenever it's needed.
+  const JSPDF_URL = 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js'; // pinned, like supabase-js
+  const ORDER_ITEM_COLUMNS = 'id, vendor_listing_id, item_name, unit_price, currency, quantity_requested, quantity_fulfilled, is_custom_request, fulfillment_status, created_at';
+  const ORDER_SELECT = 'id, vendor_id, status, created_at, vendors(business_name, whatsapp_number, city), purchase_order_items(' + ORDER_ITEM_COLUMNS + ')';
+  let sentOrders = null;        // the customer's purchase_orders (with vendor + lines), once loaded
+  let sentOrdersError = null;
+  let sentOrdersLoading = false;
+  let sendingVendor = null;     // vendorId of the draft being sent right now
+  let draftErrors = {};         // vendorId -> why the last send failed
+  let sentNotes = {};           // orderId -> { kind, text } what happened on the last share
+
+  let jsPdfPromise = null;
+  function loadJsPdf(){
+    if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+    if(!jsPdfPromise){
+      jsPdfPromise = new Promise((resolve, reject)=>{
+        const s = document.createElement('script');
+        s.src = JSPDF_URL; s.async = true;
+        s.onload = ()=> window.jspdf && window.jspdf.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error('PDF tool missing'));
+        s.onerror = ()=> reject(new Error('PDF tool failed to load'));
+        document.head.appendChild(s);
+      }).catch(err => { jsPdfPromise = null; throw err; }); // let a later tap retry
+    }
+    return jsPdfPromise;
+  }
+
+  async function loadSentOrders(){
+    if(!authSession || sentOrdersLoading) return;
+    sentOrdersLoading = true;
+    const uid = authSession.user.id;
+    const { data, error } = await supabaseClient.from('purchase_orders').select(ORDER_SELECT)
+      .eq('customer_id', uid).order('created_at', { ascending: false });
+    sentOrdersLoading = false;
+    if(!authSession || authSession.user.id !== uid) return; // signed out / switched meanwhile
+    if(error){ sentOrdersError = error.message || String(error); }
+    else { sentOrdersError = null; sentOrders = data || []; }
+    if(currentRoute() === '/orders') renderOrders();
+  }
+
+  // Lines in a fixed order — listed items, then requests, each by name — so
+  // the PDF reads the same every time it's made (lines added in one go share
+  // a created_at, so the database can't give their original order back).
+  function orderLines(order){
+    return (order.purchase_order_items || []).slice().sort((a, b) =>
+      (a.is_custom_request - b.is_custom_request) || String(a.item_name).localeCompare(String(b.item_name), undefined, { sensitivity: 'base' }));
+  }
+  function orderRef(order){ return 'PO-' + String(order.id).replace(/-/g, '').slice(0, 8).toUpperCase(); }
+  function orderTotals(order){
+    const byCurrency = {};
+    let custom = 0;
+    for(const l of order.purchase_order_items || []){
+      if(l.is_custom_request || l.unit_price == null){ custom++; continue; }
+      byCurrency[l.currency || ''] = (byCurrency[l.currency || ''] || 0) + Number(l.unit_price) * Number(l.quantity_requested);
+    }
+    return { byCurrency, custom };
+  }
+  function formatDateTime(iso){
+    return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function orderVendor(order){
+    const v = order.vendors || {};
+    return { name: v.business_name || 'Vendor', city: v.city || '', whatsapp: v.whatsapp_number || '' };
+  }
+  function customerName(){
+    const p = customerProfile || {};
+    return p.full_name || (authSession && authSession.user.email) || 'A customer';
+  }
+  function orderWhatsAppText(order){
+    const n = (order.purchase_order_items || []).length;
+    return 'Hello ' + orderVendor(order).name + ', this is ' + customerName() + '. Here is my Sales Order ' + orderRef(order)
+      + ' from iTred Market Place (' + n + ' item' + (n === 1 ? '' : 's') + '). Please let me know what you can supply.';
+  }
+  function orderChatLink(order){
+    return 'https://wa.me/' + waDigits(orderVendor(order).whatsapp) + '?text='
+      + encodeURIComponent(orderWhatsAppText(order) + ' I\'m attaching the PDF here.');
+  }
+
+  // jsPDF's built-in fonts only cover Windows-1252; anything else (emoji,
+  // other scripts) would print as garbage, so it prints as "?" instead.
+  const PDF_EXTRA_CHARS = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+  function pdfText(s){
+    return Array.from(String(s == null ? '' : s)).map(ch => {
+      const c = ch.codePointAt(0);
+      return (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || PDF_EXTRA_CHARS.includes(ch) ? ch : '?';
+    }).join('');
+  }
+
+  function buildSalesOrderPdf(JsPDF, order){
+    const doc = new JsPDF({ unit: 'mm', format: 'a4', compress: false });
+    const W = 210, M = 18, BOTTOM = 277;
+    const NAVY = [18, 36, 63], GOLD = [168, 127, 56], SOFT = [91, 100, 114], RULE = [210, 214, 222];
+    const vendor = orderVendor(order), p = customerProfile || {};
+    const ref = orderRef(order);
+    let y = M;
+    const color = (c)=> doc.setTextColor(c[0], c[1], c[2]);
+    const font = (style, size)=>{ doc.setFont('helvetica', style); doc.setFontSize(size); };
+    const rule = (yy, c, w)=>{ doc.setDrawColor((c || RULE)[0], (c || RULE)[1], (c || RULE)[2]); doc.setLineWidth(w || 0.2); doc.line(M, yy, W - M, yy); };
+    const need = (h, redrawHeader)=>{ if(y + h > BOTTOM){ doc.addPage(); y = M; if(redrawHeader) redrawHeader(); } };
+
+    // Header
+    font('bold', 10); color(GOLD); doc.text('iTred Market Place', M, y + 4);
+    font('bold', 22); color(NAVY); doc.text('SALES ORDER', M, y + 14);
+    font('normal', 10); color(SOFT);
+    doc.text('Order ref', W - M - 55, y + 4); doc.text('Date', W - M - 55, y + 10);
+    font('bold', 10); color(NAVY);
+    doc.text(ref, W - M, y + 4, { align: 'right' });
+    doc.text(pdfText(formatDateTime(order.created_at)), W - M, y + 10, { align: 'right' });
+    y += 22; rule(y, NAVY, 0.6); y += 8;
+
+    // Parties
+    const colW = (W - 2 * M - 10) / 2;
+    const party = (x, title, lines)=>{
+      let yy = y;
+      font('bold', 9); color(GOLD); doc.text(title, x, yy); yy += 5.5;
+      lines.filter(Boolean).forEach((ln, i)=>{
+        font(i === 0 ? 'bold' : 'normal', i === 0 ? 11.5 : 10); color(i === 0 ? NAVY : SOFT);
+        const wrapped = doc.splitTextToSize(pdfText(ln), colW);
+        doc.text(wrapped, x, yy); yy += wrapped.length * (i === 0 ? 5.2 : 4.6);
+      });
+      return yy;
+    };
+    const yTo = party(M, 'TO (VENDOR)', [vendor.name, vendor.city, vendor.whatsapp ? 'WhatsApp: ' + vendor.whatsapp : '']);
+    const yFrom = party(M + colW + 10, 'FROM (CUSTOMER)', [p.full_name || (authSession && authSession.user.email) || '',
+      p.phone ? 'Phone: ' + p.phone : '', authSession ? authSession.user.email : '']);
+    y = Math.max(yTo, yFrom) + 6;
+
+    const lines = orderLines(order);
+    const listed = lines.filter(l => !l.is_custom_request), custom = lines.filter(l => l.is_custom_request);
+    const colQty = W - M - 72, colUnit = W - M - 30, colAmt = W - M, nameW = colQty - M - 14;
+    const tableHead = (title, cols)=>{
+      font('bold', 9); color(GOLD); doc.text(title, M, y); y += 5;
+      font('bold', 9); color(SOFT);
+      cols.forEach(([label, x, align])=> doc.text(label, x, y, align ? { align } : undefined));
+      y += 2.5; rule(y); y += 5;
+    };
+
+    if(listed.length){
+      const head = ()=> tableHead('LISTED ITEMS', [['Item', M], ['Qty', colQty, 'right'], ['Unit price', colUnit, 'right'], ['Amount', colAmt, 'right']]);
+      head();
+      listed.forEach(l=>{
+        const name = doc.splitTextToSize(pdfText(l.item_name), nameW);
+        const h = name.length * 4.8 + 3;
+        need(h, head);
+        font('normal', 10); color(NAVY);
+        doc.text(name, M, y);
+        doc.text(formatQty(Number(l.quantity_requested)), colQty, y, { align: 'right' });
+        color(SOFT); doc.text(pdfText(formatMoney(l.currency, l.unit_price)), colUnit, y, { align: 'right' });
+        font('bold', 10); color(NAVY);
+        doc.text(pdfText(formatMoney(l.currency, Number(l.unit_price) * Number(l.quantity_requested))), colAmt, y, { align: 'right' });
+        y += h - 3; rule(y); y += 5;
+      });
+      const t = orderTotals(order);
+      Object.entries(t.byCurrency).forEach(([cur, n])=>{
+        need(8);
+        font('bold', 11); color(NAVY);
+        doc.text('Total' + (Object.keys(t.byCurrency).length > 1 ? ' (' + cur + ')' : ''), colUnit, y + 1, { align: 'right' });
+        doc.text(pdfText(formatMoney(cur, n)), colAmt, y + 1, { align: 'right' });
+        y += 7;
+      });
+      y += 5;
+    }
+
+    if(custom.length){
+      need(20);
+      const head = ()=> tableHead('PLEASE SOURCE AND QUOTE (NOT CURRENTLY LISTED)', [['Item', M], ['Qty', colQty, 'right'], ['Price', colAmt, 'right']]);
+      head();
+      custom.forEach(l=>{
+        const name = doc.splitTextToSize(pdfText(l.item_name), nameW);
+        const h = name.length * 4.8 + 3;
+        need(h, head);
+        font('normal', 10); color(NAVY);
+        doc.text(name, M, y);
+        doc.text(formatQty(Number(l.quantity_requested)), colQty, y, { align: 'right' });
+        font('italic', 9.5); color(SOFT); doc.text('To quote', colAmt, y, { align: 'right' });
+        y += h - 3; rule(y); y += 5;
+      });
+      y += 3;
+    }
+
+    const note = 'Prices for listed items are as published on iTred Market Place when this order was placed. '
+      + 'Please reply to the customer on WhatsApp to confirm what you can supply, when, and your price for any items to quote.';
+    const noteLines = doc.splitTextToSize(note, W - 2 * M);
+    need(noteLines.length * 4.4 + 4);
+    font('normal', 9); color(SOFT); doc.text(noteLines, M, y + 2);
+
+    const pages = doc.getNumberOfPages();
+    for(let i = 1; i <= pages; i++){
+      doc.setPage(i);
+      font('normal', 8); color(SOFT);
+      doc.text('iTred Market Place  ·  Sales Order ' + ref, M, 290);
+      doc.text('Page ' + i + ' of ' + pages, W - M, 290, { align: 'right' });
+    }
+    return { blob: doc.output('blob'), fileName: 'Sales-Order-' + ref + '.pdf' };
+  }
+
+  function downloadBlob(blob, fileName){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName; a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 60000);
+  }
+
+  // Share the order's PDF. Returns what happened, in words for the customer.
+  async function deliverOrder(order){
+    const vendor = orderVendor(order);
+    let pdf;
+    try{ pdf = buildSalesOrderPdf(await loadJsPdf(), order); }
+    catch(e){ return { kind: 'error', text: 'The PDF couldn\'t be made (' + (e.message || e) + '). Check your connection and tap Send PDF again.' }; }
+    let file = null;
+    try{ file = new File([pdf.blob], pdf.fileName, { type: 'application/pdf' }); }catch(e){ /* no File constructor: download instead */ }
+    if(file && navigator.canShare && navigator.canShare({ files: [file] })){
+      try{
+        await navigator.share({ files: [file], title: 'Sales Order ' + orderRef(order), text: orderWhatsAppText(order) });
+        return { kind: 'ok', text: 'Shared. If you picked WhatsApp, check it went to ' + vendor.name + ' (' + vendor.whatsapp + ').' };
+      }catch(e){
+        if(e && e.name === 'AbortError') return { kind: 'info', text: 'Not sent yet — tap Send PDF when you\'re ready to share it with ' + vendor.name + '.' };
+        // NotAllowedError: the tap was too long ago (saving took a while).
+        // Anything else: fall through to the download below.
+        if(e && e.name === 'NotAllowedError') return { kind: 'info', text: 'Your order is saved. Tap Send PDF to share it with ' + vendor.name + ' on WhatsApp.' };
+      }
+    }
+    downloadBlob(pdf.blob, pdf.fileName);
+    return { kind: 'info', text: 'The PDF (' + pdf.fileName + ') has been downloaded. Tap Open WhatsApp chat, then attach it (📎 → Document) and send it to ' + vendor.name + '.' };
+  }
+
+  async function sendDraft(vendorId){
+    const d = draftOrders[vendorId];
+    if(!d || sendingVendor || !authSession || !customerProfile) return;
+    const fail = (msg)=>{ sendingVendor = null; draftErrors[vendorId] = msg; renderOrders(); };
+    sendingVendor = vendorId;
+    delete draftErrors[vendorId];
+    renderOrders();
+    // The PDF tool first: if it can't load, nothing has been recorded yet.
+    try{ await loadJsPdf(); }
+    catch(e){ return fail('The Sales Order PDF tool couldn\'t load — check your connection and try again. Nothing was sent.'); }
+    const po = await supabaseClient.from('purchase_orders')
+      .insert({ customer_id: authSession.user.id, vendor_id: vendorId })
+      .select('id, vendor_id, status, created_at').single();
+    if(po.error) return fail('Your order couldn\'t be saved (' + (po.error.message || po.error) + '). Nothing was sent.');
+    // Only the columns a customer may write; the database fills in the
+    // listed items' names and prices from the live listing.
+    const rows = d.lines.map(l => ({
+      purchase_order_id: po.data.id, vendor_listing_id: l.custom ? null : l.listingId,
+      item_name: l.name, quantity_requested: l.qty, is_custom_request: !!l.custom }));
+    const items = await supabaseClient.from('purchase_order_items').insert(rows).select(ORDER_ITEM_COLUMNS);
+    if(items.error){
+      // The lines go in as one statement, so none were saved. Close the
+      // empty order so it can't be added to later, and re-check listings:
+      // the usual cause is one having expired since the page loaded.
+      await supabaseClient.from('purchase_orders').update({ status: 'closed' }).eq('id', po.data.id);
+      await loadListings();
+      return fail('Your order couldn\'t be sent: ' + (/not found|not published|row-level security/i.test(items.error.message || '')
+        ? 'an item in it is no longer listed. It\'s marked below — remove it or keep it as a custom request, then send again.'
+        : (items.error.message || String(items.error)) + '. Nothing was sent.'));
+    }
+    const order = Object.assign({}, po.data, {
+      vendors: { business_name: d.vendor.name, whatsapp_number: d.vendor.whatsapp, city: d.vendor.city },
+      purchase_order_items: items.data || [] });
+    delete draftOrders[vendorId];
+    saveDrafts();
+    sentOrders = [order].concat(sentOrders || []);
+    sendingVendor = null;
+    sentNotes[order.id] = { kind: 'info', text: 'Order saved. Preparing the PDF…' };
+    updateOrdersNav();
+    renderOrders();
+    sentNotes[order.id] = await deliverOrder(order);
+    renderOrders();
+  }
+
+  const ORDER_STATUS_LABELS = { sent: 'Sent', partially_fulfilled: 'Partly fulfilled', fulfilled: 'Fulfilled', closed: 'Closed' };
+  function renderSentOrder(order){
+    const vendor = orderVendor(order);
+    const lines = orderLines(order);
+    const t = orderTotals(order);
+    const money = Object.entries(t.byCurrency).map(([c, n]) => escapeHtml(formatMoney(c, n)));
+    const note = sentNotes[order.id];
+    const oid = escapeHtml(order.id);
+    const status = ORDER_STATUS_LABELS[order.status] || order.status;
+    const chat = waDigits(vendor.whatsapp)
+      ? `<a href="${escapeHtml(orderChatLink(order))}" target="_blank" rel="noopener" class="btn btn-outline" data-order-chat>Open WhatsApp chat</a>` : '';
+    return `
+      <div class="po-card po-sent" data-order="${oid}">
+        <div class="po-head">
+          <div>
+            <div class="section-kicker" style="margin-bottom:2px;">Sent ${escapeHtml(formatDateTime(order.created_at))}</div>
+            <h3>${escapeHtml(vendor.name)}</h3>
+            <div class="hint">${escapeHtml(orderRef(order))} &middot; ${lines.length} item${lines.length === 1 ? '' : 's'}${vendor.city ? ' &middot; ' + escapeHtml(vendor.city) : ''}</div>
+          </div>
+          <span class="badge ${order.status === 'sent' ? 'badge-soon' : 'badge-live'} po-status">${escapeHtml(status)}</span>
+        </div>
+        <details class="po-sent-lines">
+          <summary>Items</summary>
+          ${lines.map(l => `<div class="po-sent-line"><span>${escapeHtml(l.item_name)} &times; ${escapeHtml(formatQty(Number(l.quantity_requested)))}</span>
+            <span>${l.is_custom_request || l.unit_price == null ? '<span class="po-sub" style="display:inline;">To quote</span>'
+              : escapeHtml(formatMoney(l.currency, Number(l.unit_price) * Number(l.quantity_requested)))}</span></div>`).join('')}
+        </details>
+        ${note ? `<div class="auth-msg ${note.kind === 'error' ? 'error' : note.kind === 'ok' ? 'ok' : ''} po-note" style="margin:16px 0 0 0;">${escapeHtml(note.text)}</div>` : ''}
+        <div class="po-foot">
+          <div class="po-totals">
+            ${money.length ? `Listed items: <b>${money.join(' + ')}</b>` : ''}
+            ${t.custom ? `<div>${money.length ? 'plus ' : ''}${t.custom} item${t.custom === 1 ? '' : 's'} for the vendor to quote</div>` : ''}
+          </div>
+          <div class="po-send po-sent-actions">
+            <button type="button" class="btn btn-gold" data-order-action="share" data-order="${oid}">Send PDF</button>
+            ${chat}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  document.addEventListener('click', async function(e){
+    const btn = e.target.closest && e.target.closest('[data-order-action]');
+    if(!btn || btn.disabled) return;
+    const action = btn.getAttribute('data-order-action');
+    if(action === 'reload'){ sentOrdersError = null; sentOrders = null; renderOrders(); loadSentOrders(); return; }
+    const order = (sentOrders || []).find(o => o.id === btn.getAttribute('data-order'));
+    if(action === 'share' && order){
+      btn.disabled = true;
+      sentNotes[order.id] = await deliverOrder(order);
+      renderOrders();
+    }
+  });
+
+  function findDraftLine(vendorId, key){
+    const d = draftOrders[vendorId];
+    return d ? { d, line: d.lines.find(l => l.key === key) } : { d: null, line: null };
+  }
+  document.addEventListener('click', function(e){
+    if(e.target.closest && e.target.closest('[data-po-signin]')) returnToOrders = true;
+    const add = e.target.closest && e.target.closest('[data-add-to-order]');
+    if(add){ addListingToDraft(add.getAttribute('data-add-to-order')); return; }
+    const btn = e.target.closest && e.target.closest('[data-po-action]');
+    if(!btn || btn.disabled) return;
+    const vendorId = btn.getAttribute('data-vendor');
+    const action = btn.getAttribute('data-po-action');
+    const d = draftOrders[vendorId];
+    if(!d || sendingVendor === vendorId) return; // no edits while it's being sent
+    if(action === 'send'){ sendDraft(vendorId); return; }
+    if(action === 'remove'){
+      d.lines = d.lines.filter(l => l.key !== btn.getAttribute('data-line'));
+      draftsChanged(vendorId);
+    } else if(action === 'discard'){
+      if(!confirm('Discard your draft order with ' + (d.vendor.name || 'this vendor') + '?')) return;
+      delete draftOrders[vendorId];
+      draftsChanged();
+    } else if(action === 'to-custom'){
+      const { line } = findDraftLine(vendorId, btn.getAttribute('data-line'));
+      if(!line) return;
+      const i = d.lines.indexOf(line);
+      d.lines[i] = { key: newLineKey(), listingId: null, custom: true, name: line.name, qty: line.qty };
+      draftsChanged(vendorId);
+    }
+  });
+  document.addEventListener('change', function(e){
+    if(!e.target.classList || !e.target.classList.contains('po-qty')) return;
+    const vendorId = e.target.getAttribute('data-vendor');
+    const { line } = findDraftLine(vendorId, e.target.getAttribute('data-line'));
+    if(!line) return;
+    const qty = cleanQty(e.target.value);
+    if(qty) line.qty = qty; // an empty/zero/invalid entry snaps back to what it was
+    draftsChanged(vendorId);
+  });
+  document.addEventListener('submit', function(e){
+    const form = e.target.closest && e.target.closest('.po-custom-form');
+    if(!form) return;
+    e.preventDefault();
+    const vendorId = form.getAttribute('data-vendor');
+    const d = draftOrders[vendorId];
+    const nameEl = form.querySelector('.po-custom-name');
+    const name = cleanText(nameEl.value, 200);
+    const qty = cleanQty(form.querySelector('.po-custom-qty').value);
+    if(!d) return;
+    if(!name){ nameEl.focus(); return; }
+    if(!qty){ form.querySelector('.po-custom-qty').focus(); return; }
+    d.lines.push({ key: newLineKey(), listingId: null, custom: true, name, qty });
+    draftsChanged(vendorId);
+    const again = document.querySelector('.po-custom-form[data-vendor="' + CSS.escape(vendorId) + '"] .po-custom-name');
+    if(again) again.focus();
+  });
+  // Another tab changed the drafts: pick that up rather than overwrite it.
+  window.addEventListener('storage', function(e){
+    if(e.key !== DRAFTS_KEY && e.key !== null) return;
+    draftOrders = loadDrafts();
+    refreshDraftViews();
+  });
+  updateOrdersNav();
 
   // ---- Customer accounts (#/account) ----
   // Supabase Auth, email + password. This project requires email
@@ -1637,7 +2395,12 @@
     // being typed into the account forms).
     const sameCustomer = authSession && customerProfile && customerProfile.id === authSession.user.id;
     if(sameCustomer) return;
+    // A different customer (or none): the last one's sent orders go.
+    sentOrders = null; sentOrdersError = null; sentNotes = {}; draftErrors = {};
     await loadCustomerProfile();
+    // Came to sign in from a draft order's "Sign in to send": go back to it.
+    if(authSession && returnToOrders){ returnToOrders = false; location.hash = '#/orders'; return; }
+    if(currentRoute() === '/orders'){ renderOrders(); loadSentOrders(); } // the send area depends on being signed in
     if(!(opts && opts.skipRender) && currentRoute() === '/account') renderAccount();
   }
 

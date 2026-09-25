@@ -3,7 +3,7 @@
 // The public iTred Market Place site (src/itred/index.html -> dist-itred/):
 // its page structure. Checks that
 //   * the build is a byte-for-byte copy of the source
-//   * each of the 9 hash routes shows exactly its own page, sets its title
+//   * each of the 10 hash routes shows exactly its own page, sets its title
 //     and highlights its nav link; an unknown route falls back to Home
 //   * the nav links really navigate, and the mobile menu toggle opens
 //   * the page throws no errors, and the only Supabase calls are the live
@@ -45,6 +45,7 @@ const ROUTES = [
   ["/rpn",          "RPN Application — iTred",   "Become an RPN"],
   ["/help",         "Help — iTred",              "Help"],
   ["/contact",      "Contact Us — iTred",        "Contact"],
+  ["/orders",       "Your orders — iTred",       "Orders"],
   ["/account",      "Your account — iTred",      "Sign in"],
   ["/privacy",      "Privacy Policy — iTred",    null], // footer-only pages: no top-nav link
   ["/terms",        "Terms of Business — iTred", null],
@@ -79,7 +80,7 @@ async function routeState(page){
 
   const browser = await chromium.launch();
 
-  await t("the site has exactly the 9 expected pages", async ()=>{
+  await t("the site has exactly the 10 expected pages", async ()=>{
     const { page } = await openSite(browser);
     const ids = await page.$$eval(".page", els=> els.map(e=>e.id));
     assert.deepStrictEqual(ids, ROUTES.map(r=>"page-"+r[0]));
