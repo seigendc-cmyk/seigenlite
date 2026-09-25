@@ -263,8 +263,7 @@
   }
   const shareOrDownloadDb = (filename, scope)=> shareOrSaveFile(exportBytes(scope), filename, SQLITE_MIME);
 
-  // Items to Excel — same columns as the import template (plus Branch and
-  // Shelf), so an exported list can be edited and imported back. Cost and
+  // Items to Excel — same columns as the import template (plus Branch), so an exported list can be edited and imported back. Cost and
   // search keywords are left out on Remote branches, where they're hidden.
   const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   async function itemsExcelBytes(scope){
@@ -273,7 +272,7 @@
                                         : all("SELECT * FROM products WHERE branch=? ORDER BY name",[scope]);
     const full = !isRemote();
     const data = items.map(p=>{
-      const r = {"Branch":p.branch||"", "SKU":p.sku||"", "Item Name":p.name, "Shelf":p.shelf||""};
+      const r = {"Branch":p.branch||"", "SKU":p.sku||"", "Item Name":p.name, "Shelf":p.shelf||"", "Category":p.category||""};
       if(full){ r["Search Keywords"]=p.description||""; r["Cost"]=p.cost||0; }
       r["Price"]=p.price; r["Qty"]=p.stock; r["Low Stock Alert Below"]=p.low_threshold;
       return r;

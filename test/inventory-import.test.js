@@ -225,6 +225,59 @@ function addExistingProduct(app, o){
     assert.strictEqual(A.api.all("SELECT * FROM products").length, 1, "the 3 malformed rows created nothing");
   });
 
+  // ================= field coverage / partial files =================
+  await t("Shelf is imported on new products and updated on existing ones", ()=>{
+    const A = rig();
+    const p = addExistingProduct(A, { name:"Rice 2kg", sku:"RICE-2KG" });
+    const { rows } = A.api.parseImportRows([
+      Object.assign(sheetRow({ "SKU":"RICE-2KG", "Item Name":"Rice 2kg", "Price":5 }), { "Shelf":"Aisle 3" }),
+      Object.assign(sheetRow({ "Item Name":"Salt 1kg", "Price":1 }), { "Shelf":"Bin 7" }),
+    ]);
+    const b = A.api.classifyImportRows(rows);
+    A.api.runImport(fakeWrap(), Object.assign({}, b, { totalRead:2 }), false);
+    assert.strictEqual(A.api.one("SELECT shelf FROM products WHERE id=?",[p.id]).shelf, "Aisle 3");
+    assert.strictEqual(A.api.one("SELECT shelf FROM products WHERE name='Salt 1kg'").shelf, "Bin 7");
+  });
+
+  await t("columns missing from the file (and blank numeric cells) leave existing values untouched", ()=>{
+    const A = rig();
+    const p = addExistingProduct(A, { name:"Rice 2kg", sku:"RICE-2KG", description:"rice white", category:"Groceries", cost:3 });
+    A.api.run("UPDATE products SET shelf='Aisle 1', low_threshold=9 WHERE id=?",[p.id]);
+    // e.g. a Remote branch's Items export: no Category/Keywords/Cost columns
+    const { rows } = A.api.parseImportRows([{ "SKU":"RICE-2KG", "Item Name":"Rice 2kg", "Price":6, "Low Stock Alert Below":"" }]);
+    const b = A.api.classifyImportRows(rows);
+    A.api.runImport(fakeWrap(), Object.assign({}, b, { totalRead:1 }), false);
+    const u = A.api.one("SELECT * FROM products WHERE id=?",[p.id]);
+    assert.strictEqual(u.price, 6);
+    assert.strictEqual(u.category, "Groceries");
+    assert.strictEqual(u.description, "rice white");
+    assert.strictEqual(u.cost, 3);
+    assert.strictEqual(u.shelf, "Aisle 1");
+    assert.strictEqual(u.low_threshold, 9);
+    assert.strictEqual(u.sku, "RICE-2KG");
+  });
+
+  await t("a blank Qty cell never zeroes stock, even with the opt-in ticked", ()=>{
+    const A = rig();
+    const p = addExistingProduct(A, { name:"Rice 2kg", stock:40 });
+    const { rows } = A.api.parseImportRows([ sheetRow({ "Item Name":"Rice 2kg", "Price":5, "Qty":"" }) ]);
+    const b = A.api.classifyImportRows(rows);
+    A.api.runImport(fakeWrap(), Object.assign({}, b, { totalRead:1 }), true);
+    assert.strictEqual(A.api.one("SELECT stock FROM products WHERE id=?",[p.id]).stock, 40);
+  });
+
+  await t("text numbers with thousands separators parse correctly; negative prices are rejected", ()=>{
+    const A = rig();
+    const { rows } = A.api.parseImportRows([
+      sheetRow({ "Item Name":"TV", "Price":"1,200.50", "Cost":"1,000", "Qty":"12" }),
+      sheetRow({ "Item Name":"Bad", "Price":"-3" }),
+    ]);
+    assert.strictEqual(rows[0].price, 1200.5);
+    assert.strictEqual(rows[0].cost, 1000);
+    assert.strictEqual(rows[0].qty, 12);
+    assert.ok(/negative/i.test(rows[1].skipReason));
+  });
+
   console.log("\n"+passed+" passed, "+failed+" failed");
   process.exit(failed?1:0);
 })();
