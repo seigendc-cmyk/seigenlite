@@ -3,12 +3,12 @@
   // console: reports this device's identity/contact details, and receives
   // back a lock state (Cart/Add Product) plus any message cards the shop's
   // RPN/Digital Commerce has queued for them. Deliberately separate from
-  // sync.js's outbox (enqueueSync/supabaseInsert/runSyncWorker): that
-  // mechanism always targets whichever Supabase project the SHOP configured
-  // in Settings -> Cloud sync (optional, per-tenant, off by default). This
-  // check-in always targets Digital Commerce's OWN fixed project below —
-  // the two must never be conflated, so this intentionally doesn't go
-  // through enqueueSync() or share sync_queue.
+  // sync.js's outbox (enqueueSync/supabaseInsert/runSyncWorker). Both talk
+  // to the same Digital Commerce project — DC_SUPABASE_URL/DC_ANON_KEY below
+  // are the one definition, and sync.js's getSupabaseConfig() reuses them —
+  // but this is a single RPC per launch whose reply sets lock state, not a
+  // queued insert, so it intentionally doesn't go through enqueueSync() or
+  // share sync_queue.
   //
   // Never blocks boot, never retries with backoff, never surfaces a failure
   // to the shop: offline/timeout/server-error all just skip silently, and
@@ -16,7 +16,8 @@
   // — exactly the same "best-effort, nothing invented beyond what's asked"
   // rule fetchNetworkTime() (eod.js) already follows for its own probe.
 
-  const DC_CHECKIN_URL = "https://urbopdsubwawtybwrxjd.supabase.co/rest/v1/rpc/cl_device_checkin";
+  const DC_SUPABASE_URL = "https://urbopdsubwawtybwrxjd.supabase.co";
+  const DC_CHECKIN_URL = DC_SUPABASE_URL + "/rest/v1/rpc/cl_device_checkin";
   const DC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyYm9wZHN1Yndhd3R5YndyeGpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMTYzNzEsImV4cCI6MjEwNTY5MjM3MX0.pCGkNETrB4ISse2ES_6goALKJz3g_22osjLfIgFG4k4";
   const DC_CHECKIN_TIMEOUT_MS = 8000;
 
@@ -116,8 +117,8 @@
   // Called once at boot (main.js, after initDB — so getSetting/currentDeviceCode
   // work) and again on every "online" event, mirroring startSyncWorker's own
   // listener registration (sync.js) but as its own separate listener: this
-  // always targets Digital Commerce's fixed project, never the shop's own
-  // optionally-configured one, so it can't share that worker's wiring.
+  // is one RPC whose reply drives lock state, not a queued insert, so it
+  // doesn't share that worker's wiring.
   function startDeviceCheckin(){
     deviceCheckin(); // fire-and-forget — boot() never awaits this, so it can never delay startup
     if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", deviceCheckin);

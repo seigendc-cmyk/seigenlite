@@ -1,14 +1,11 @@
   // ================== Supabase Foundation (sync queue) ==================
   // This app has no backend: everything lives in the local SQLite database
   // (sql.js -> IndexedDB), and that stays true by default. This file adds
-  // the FIRST-EVER, entirely optional connection outward — a generic outbox
-  // ("sync_queue", schema in db.js) that any future feature can drop records
-  // into, plus a background worker that tries to push them to Supabase
-  // whenever a project is configured and the device is online. Nothing here
-  // is wired into any user-facing screen yet (no RPN linkage, no Support
-  // button, no reminder modal — those are later work); it only has to work
-  // silently, in the background, without ever changing what already works
-  // offline.
+  // a generic outbox ("sync_queue", schema in db.js) that any feature can
+  // drop records into, plus a background worker that pushes them to Digital
+  // Commerce's Supabase project (built in — see getSupabaseConfig) whenever
+  // the device is online. It works silently, in the background, without
+  // ever changing what already works offline.
   //
   // ---- How a future feature registers a new sync record type ----
   // 1. Call registerSyncType() once, anywhere at the top level of your
@@ -54,9 +51,13 @@
   // this is the column every synced row is attributed by.
   function tenantId(){ return getBranchId(); }
 
-  // ---- Supabase config (local Settings, never hardcoded — see settings table) ----
+  // ---- Supabase config ----
+  // Always Digital Commerce's own project — the same one device check-in
+  // uses, defined once in devicecheckin.js. Shops no longer enter a URL/key;
+  // any supabase_url/supabase_anon_key left in settings by older versions
+  // is ignored. (Tests swap this function out to point at a local server.)
   function getSupabaseConfig(){
-    return { url: getSetting("supabase_url",""), anonKey: getSetting("supabase_anon_key","") };
+    return { url: DC_SUPABASE_URL, anonKey: DC_ANON_KEY };
   }
   function supabaseConfigured(){
     const cfg = getSupabaseConfig();
@@ -162,7 +163,7 @@
   }
   // Never blocks the UI or any core operation: this is only ever invoked
   // from a timer/connectivity event (see startSyncWorker) or an explicit,
-  // fire-and-forget call after Settings saves the Supabase config — nothing
+  // call from Settings → Cloud sync's "Sync now" — nothing
   // in POS/stocktake/etc. awaits it, and _syncRunning skips overlapping runs
   // instead of queueing up work that could pile up behind a slow network.
   async function runSyncWorker(){
@@ -192,10 +193,9 @@
     await runSyncWorker();
     checkSyncReminderModal();
   }
-  // Called once at boot (main.js), after initDB. Entirely passive: if
-  // Supabase was never configured, every tick below is a few synchronous
-  // reads (supabaseConfigured()/isOnline()) and returns immediately — this
-  // is the "zero behaviour change when unreachable/unconfigured" guarantee.
+  // Called once at boot (main.js), after initDB. Entirely passive: offline or
+  // with nothing due, every tick below is a few synchronous reads and
+  // returns immediately; an unreachable server just backs off.
   function startSyncWorker(){
     if(_syncTimer) return;
     syncTick();
@@ -240,41 +240,38 @@
     const byType = {};
     pending.forEach(r=>{ byType[r.record_type]=(byType[r.record_type]||0)+1; });
     const lines = Object.keys(byType).map(k=>`<li>${escapeHtml(k)}: ${byType[k]}</li>`).join("");
-    const reason = supabaseConfigured()? "You're offline." : "Cloud sync isn't configured yet.";
     _syncReminderEl = openModal("Waiting to sync", `
-      <p class="muted">${reason} ${pending.length} record(s) are saved on this device and will sync automatically once ${supabaseConfigured()? "you're back online" : "it's set up (Settings → Cloud sync)"}.</p>
+      <p class="muted">You're offline. ${pending.length} record(s) are saved on this device and will sync automatically once you're back online.</p>
       <ul style="margin:8px 0 0 18px;padding:0">${lines}</ul>
     `, dismissSyncReminder);
   }
 
-  // ---- Settings card (Cloud sync (beta)) ----
-  // Deliberately minimal and generic — no RPN/support-specific copy here,
-  // that's later work. Just where an owner pastes in a Supabase project once
-  // they have one; local behaviour is identical whether this is filled in
-  // or not.
-  function cloudSyncSectionHtml(){
-    const cfg = getSupabaseConfig();
-    const configured = supabaseConfigured();
+  // ---- Settings card (Cloud sync) ----
+  // Status only: the project is built in (getSupabaseConfig above), so
+  // there's nothing for the shop to enter — just whether its records have
+  // gone up, and a way to try now instead of waiting for the next tick.
+  function cloudSyncStatusText(){
     const pending = pendingSyncCount();
+    if(!pending) return "Everything is synced.";
+    if(!isOnline()) return `You're offline — ${pending} record(s) saved on this device will sync when you reconnect.`;
+    const retrying = one("SELECT COUNT(*) c FROM sync_queue WHERE status='failed'").c;
+    return `${pending} record(s) waiting to sync.` + (retrying? ` ${retrying} couldn't be sent yet and will be retried automatically.` : "");
+  }
+  function cloudSyncSectionHtml(){
     return `
       <div class="card">
-        <h3>Cloud sync (beta)</h3>
-        <p class="muted">Foundation for future features (support, backups, market data). Optional — the app works exactly the same whether this is filled in or not, and nothing is sent until it is.</p>
-        <label>Supabase project URL</label>
-        <input class="field" id="sSupabaseUrl" value="${escapeHtml(cfg.url)}" placeholder="https://xxxxxxxx.supabase.co">
-        <label>Supabase anon (public) key</label>
-        <input class="field" id="sSupabaseKey" value="${escapeHtml(cfg.anonKey)}" placeholder="anon public key">
-        <p class="muted" style="font-size:12px">${configured? `Configured. ${pending} record(s) waiting to sync.` : (pending? `Not configured — ${pending} record(s) queued locally until it is.` : "Not configured — nothing queued yet.")}</p>
-        <button class="btn btn-outline" id="saveCloudSync" style="margin-top:6px">Save</button>
+        <h3>Cloud sync</h3>
+        <p class="muted">Built in — there's nothing to set up. Records are kept on this device and sent to Digital Commerce in the background whenever you're online.</p>
+        <p class="muted" id="cloudSyncStatus" style="font-size:12px">${escapeHtml(cloudSyncStatusText())}</p>
+        ${pendingSyncCount()? `<button class="btn btn-outline" id="syncNowBtn" style="margin-top:6px">Sync now</button>` : ""}
       </div>`;
   }
   function wireCloudSyncSection(){
-    const btn = document.getElementById("saveCloudSync");
-    if(btn) btn.onclick=()=>{
-      setSetting("supabase_url", document.getElementById("sSupabaseUrl").value.trim());
-      setSetting("supabase_anon_key", document.getElementById("sSupabaseKey").value.trim());
-      persist();
-      runSyncWorker(); // fire-and-forget; never awaited, never blocks Save
+    const btn = document.getElementById("syncNowBtn");
+    if(btn) btn.onclick=async ()=>{
+      btn.disabled = true;
+      btn.textContent = "Syncing…";
+      await runSyncWorker();
       render();
     };
   }

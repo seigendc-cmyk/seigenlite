@@ -72,6 +72,7 @@ function makeApp(settings){
         tenantId, getSupabaseConfig, supabaseConfigured, isOnline, registerSyncType, syncTableFor, enqueueSync, pendingSyncRows, pendingSyncCount,
         syncBackoffMs, supabaseInsert, pushOneSyncRow, runSyncWorker, startSyncWorker, syncTick, cloudSyncSectionHtml, SYNC_BASE_DELAY_MS, SYNC_MAX_DELAY_MS, SYNC_POLL_MS,
         syncReminderShouldShow, syncReminderVisible, dismissSyncReminder, checkSyncReminderModal,
+        DC_SUPABASE_URL, DC_ANON_KEY, cloudSyncStatusText,
         deviceCheckin, startDeviceCheckin, dcLockCartReason, dcLockAddProductReason, dcMessages, dcPendingMessages, dcMergeMessages, dcDismissMessage, dcMessagesBannerHtml,
         getRpnLink, hasRpnLink, saveRpnLink, rpnFieldsHtml, rpnFieldsFromInputs, rpnSectionHtml, wireRpnSection,
         supportSectionHtml, wireSupportSection, openSupportHandoff, openExternalUrl, waLink, isTauriApp,
@@ -92,7 +93,14 @@ function makeApp(settings){
         parseImportRows, findImportMatch, classifyImportRows, runImport, IMPORT_COLUMN_MAP,
         marketProductRows, marketCleanSelection, MARKET_OPS, MARKET_MAX_PRODUCTS,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
-  vm.runInContext(code + "\npersist = async function(){ persistCount++; };", ctx, { filename:"app-sources" });
+  // getSupabaseConfig() is hardwired to Digital Commerce's live project.
+  // Tests must never reach it, so every app instance instead reads the old
+  // supabase_url/supabase_anon_key settings (blank = "not configured"),
+  // which is how the suites point the worker at a local server.
+  // api.getSupabaseConfig is still the real function, for tests of the
+  // built-in config itself.
+  const testSupabaseConfig = `getSupabaseConfig = function(){ return { url: getSetting("supabase_url",""), anonKey: getSetting("supabase_anon_key","") }; };`;
+  vm.runInContext(code + "\npersist = async function(){ persistCount++; };\n" + testSupabaseConfig, ctx, { filename:"app-sources" });
   const api = ctx.api;
   db.run(api.SCHEMA); api.migrate(db);
   Object.entries(settings||{}).forEach(([k,v])=>api.setSetting(k,v));

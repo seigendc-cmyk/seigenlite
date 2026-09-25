@@ -6899,7 +6899,7 @@ const APP_VERSION = "1.09.01";
   async function downloadImportTemplate(){
     try{
       await loadXLSX();
-      const headers = ["SKU","Item Name","Search Keywords","Category","Cost","Price","Qty","Low Stock Alert Below"];
+      const headers = ["SKU","Item Name","Shelf","Search Keywords","Category","Cost","Price","Qty","Low Stock Alert Below"];
       const ws = XLSX.utils.aoa_to_sheet([headers]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Products");
@@ -6912,6 +6912,7 @@ const APP_VERSION = "1.09.01";
   const IMPORT_COLUMN_MAP = {
     sku: ["sku"],
     name: ["item name","name","product name","item"],
+    shelf: ["shelf","shelf / location","location","bin"],
     keywords: ["search keywords","keywords","search"],
     category: ["category"],
     cost: ["cost"],
@@ -6928,6 +6929,22 @@ const APP_VERSION = "1.09.01";
   // price-or-description-only file (no such column) must never be able to
   // zero out existing stock just because a missing value parsed to 0. See
   // runImport()'s applyQty handling below, and item 6 of the task summary.
+  // Spreadsheet numbers arrive either as real numbers (xlsx) or as text
+  // (csv, or cells formatted as text). "1,200.50" must read as 1200.5, not
+  // parseFloat's silent 1 — thousands separators are stripped only when
+  // they're unambiguously thousands separators.
+  function importNum(v){
+    if(typeof v==="number") return v;
+    let s = String(v==null?"":v).trim().replace(/\s/g,"");
+    if(/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g,"");
+    return s===""? NaN : Number(s);
+  }
+  // Each row also carries `update`: only the fields an existing product
+  // should have overwritten. A column the file doesn't have at all (e.g.
+  // Category in an older Items export, or Cost in a Remote branch's export)
+  // leaves that field alone rather than blanking it, and a blank numeric
+  // cell leaves Cost / Low Stock Alert alone rather than resetting it to
+  // 0 / 5. Brand-new products still get the defaulted values.
   function parseImportRows(sheetRows){
     if(sheetRows.length===0) return { rows:[], hasQtyColumn:false };
     const rawHeaders = Object.keys(sheetRows[0]);
@@ -6937,20 +6954,31 @@ const APP_VERSION = "1.09.01";
     for(const field in IMPORT_COLUMN_MAP){ col[field] = findColumn(headerMap, IMPORT_COLUMN_MAP[field]); }
     const rows = sheetRows.map((r,i)=>{
       const get = (field)=> col[field]? r[col[field]] : "";
-      const name = String(get("name")||"").trim();
-      const priceNum = parseFloat(get("price"));
-      const sku = String(get("sku")||"").trim();
-      const keywords = String(get("keywords")||"").trim();
-      const category = String(get("category")||"").trim();
-      const cost = parseFloat(get("cost"))||0;
-      const qtyNum = parseInt(get("qty"));
+      const text = (field)=> String(get(field)==null? "" : get(field)).trim();
+      const name = text("name");
+      const priceNum = importNum(get("price"));
+      const sku = text("sku");
+      const shelf = text("shelf");
+      const keywords = text("keywords");
+      const category = text("category");
+      const costNum = importNum(get("cost"));
+      const cost = isNaN(costNum)? 0 : costNum;
+      const qtyNum = Math.trunc(importNum(get("qty")));
       const qty = isNaN(qtyNum)? 0 : qtyNum;
-      const thresholdNum = parseInt(get("threshold"));
+      const thresholdNum = Math.trunc(importNum(get("threshold")));
       const threshold = isNaN(thresholdNum)? 5 : thresholdNum;
       let skipReason = null;
       if(!name) skipReason = "missing Item Name";
       else if(isNaN(priceNum)) skipReason = "missing or invalid Price";
-      return { rowNum:i+2, name, sku, keywords, category, cost, price:isNaN(priceNum)?0:priceNum, qty, threshold, skipReason };
+      else if(priceNum<0) skipReason = "negative Price";
+      const update = { name, price: priceNum };
+      if(sku) update.sku = sku;   // blank SKU never wipes an existing one — it's half of the product's identity
+      if(col.shelf) update.shelf = shelf;
+      if(col.keywords) update.description = keywords;
+      if(col.category) update.category = category;
+      if(col.cost && !isNaN(costNum)) update.cost = costNum;
+      if(col.threshold && !isNaN(thresholdNum)) update.low_threshold = thresholdNum;
+      return { rowNum:i+2, name, sku, shelf, keywords, category, cost, price:isNaN(priceNum)?0:priceNum, qty, hasQty:!isNaN(qtyNum), threshold, update, skipReason };
     });
     return { rows, hasQtyColumn: col.qty!==null };
   }
@@ -6968,7 +6996,7 @@ const APP_VERSION = "1.09.01";
   }
   function importInventoryModal(){
     const wrap = openModal("Update Existing / Add New — Import Inventory from Excel", `
-      <p class="muted">Matches each row to an existing product by SKU, then by name — a match is updated in place, anything unmatched is added as new. Products already in your catalogue but missing from the file are left alone (nothing is ever deleted). Columns expected: SKU, Item Name, Search Keywords, Category, Cost, Price, Qty, Low Stock Alert Below — all optional except Item Name and Price. Column order and exact wording don't matter.</p>
+      <p class="muted">Matches each row to an existing product by SKU, then by name — a match is updated in place, anything unmatched is added as new. Products already in your catalogue but missing from the file are left alone (nothing is ever deleted). Columns expected: SKU, Item Name, Shelf, Search Keywords, Category, Cost, Price, Qty, Low Stock Alert Below — all optional except Item Name and Price. Column order and exact wording don't matter; a column left out of the file leaves that detail unchanged on existing products.</p>
       <input class="field" id="impFile" type="file" accept=".xlsx,.xls,.csv">
       <div id="impStatus" class="muted" style="margin-top:8px"></div>
     `);
@@ -6981,7 +7009,8 @@ const APP_VERSION = "1.09.01";
       try{
         await loadXLSX();
         const buf = await file.arrayBuffer();
-        const workbook = XLSX.read(buf, {type:"array"});
+        // raw for CSV: keep SKUs/barcodes as typed ("00123" must not become 123).
+        const workbook = XLSX.read(buf, {type:"array", raw:/\.csv$/i.test(file.name)});
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const sheetRows = XLSX.utils.sheet_to_json(sheet, {defval:""});
         const { rows, hasQtyColumn } = parseImportRows(sheetRows);
@@ -7069,9 +7098,13 @@ const APP_VERSION = "1.09.01";
         // shop explicitly opted in (applyQty) — everything else (name,
         // sku, description, category, cost, price, low-stock threshold)
         // is "product master data" and always safe to update in place.
-        run("UPDATE products SET name=?,sku=?,description=?,category=?,cost=?,price=?,low_threshold=? WHERE id=?",
-          [r.name, r.sku, r.keywords, r.category, r.cost, r.price, r.threshold, existing.id]);
-        if(applyQty){
+        // Only the fields parseImportRows() put in r.update — columns the
+        // file lacks (or blank numeric cells) keep their current values.
+        const fields = Object.keys(r.update);
+        run("UPDATE products SET "+fields.map(f=>f+"=?").join(",")+" WHERE id=?",
+          fields.map(f=>r.update[f]).concat([existing.id]));
+        // A blank Qty cell is "no figure given", never "set stock to 0".
+        if(applyQty && r.hasQty){
           const delta = r.qty - existing.stock;
           run("UPDATE products SET stock=? WHERE id=?",[r.qty, existing.id]);
           run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
@@ -7082,8 +7115,8 @@ const APP_VERSION = "1.09.01";
         // A brand-new product always needs a starting stock figure — this
         // is establishing it for the first time, not "changing" an
         // existing quantity, so it's unaffected by the applyQty opt-in.
-        run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,category) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-          [r.name, r.price, r.qty, r.threshold, r.sku, branch, "", r.cost, ts, r.keywords, r.category]);
+        run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,category,shelf) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+          [r.name, r.price, r.qty, r.threshold, r.sku, branch, "", r.cost, ts, r.keywords, r.category, r.shelf]);
         const pid = one("SELECT last_insert_rowid() as id").id;
         run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
           [ts, pid, r.name, r.qty, "Import — initial stock", branch, sessionUser||""]);
@@ -7539,10 +7572,9 @@ const APP_VERSION = "1.09.01";
   // included, by default) do not do for the Date header — so in practice
   // this often returns null, and the app correctly falls back to the local
   // high-water-mark below. It's still the right thing to attempt (it costs
-  // nothing when it fails), and it only ever runs at all on a device that
-  // already has Supabase configured (Settings → Cloud sync) — a device that
-  // never configured it has no server call to reuse, and this deliberately
-  // does not invent a new one (see task summary). Bounded by a short
+  // nothing when it fails). It reuses cloud sync's Supabase project (built
+  // in — see getSupabaseConfig in sync.js) rather than inventing a new
+  // server to ask. Bounded by a short
   // timeout so a hung request can never delay boot.
   async function fetchNetworkTime(){
     if(!isOnline()) return null;
@@ -9702,8 +9734,7 @@ const APP_VERSION = "1.09.01";
   }
   const shareOrDownloadDb = (filename, scope)=> shareOrSaveFile(exportBytes(scope), filename, SQLITE_MIME);
 
-  // Items to Excel — same columns as the import template (plus Branch and
-  // Shelf), so an exported list can be edited and imported back. Cost and
+  // Items to Excel — same columns as the import template (plus Branch), so an exported list can be edited and imported back. Cost and
   // search keywords are left out on Remote branches, where they're hidden.
   const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   async function itemsExcelBytes(scope){
@@ -9712,7 +9743,7 @@ const APP_VERSION = "1.09.01";
                                         : all("SELECT * FROM products WHERE branch=? ORDER BY name",[scope]);
     const full = !isRemote();
     const data = items.map(p=>{
-      const r = {"Branch":p.branch||"", "SKU":p.sku||"", "Item Name":p.name, "Shelf":p.shelf||""};
+      const r = {"Branch":p.branch||"", "SKU":p.sku||"", "Item Name":p.name, "Shelf":p.shelf||"", "Category":p.category||""};
       if(full){ r["Search Keywords"]=p.description||""; r["Cost"]=p.cost||0; }
       r["Price"]=p.price; r["Qty"]=p.stock; r["Low Stock Alert Below"]=p.low_threshold;
       return r;
@@ -9960,14 +9991,11 @@ const APP_VERSION = "1.09.01";
   // ================== Supabase Foundation (sync queue) ==================
   // This app has no backend: everything lives in the local SQLite database
   // (sql.js -> IndexedDB), and that stays true by default. This file adds
-  // the FIRST-EVER, entirely optional connection outward — a generic outbox
-  // ("sync_queue", schema in db.js) that any future feature can drop records
-  // into, plus a background worker that tries to push them to Supabase
-  // whenever a project is configured and the device is online. Nothing here
-  // is wired into any user-facing screen yet (no RPN linkage, no Support
-  // button, no reminder modal — those are later work); it only has to work
-  // silently, in the background, without ever changing what already works
-  // offline.
+  // a generic outbox ("sync_queue", schema in db.js) that any feature can
+  // drop records into, plus a background worker that pushes them to Digital
+  // Commerce's Supabase project (built in — see getSupabaseConfig) whenever
+  // the device is online. It works silently, in the background, without
+  // ever changing what already works offline.
   //
   // ---- How a future feature registers a new sync record type ----
   // 1. Call registerSyncType() once, anywhere at the top level of your
@@ -10013,9 +10041,13 @@ const APP_VERSION = "1.09.01";
   // this is the column every synced row is attributed by.
   function tenantId(){ return getBranchId(); }
 
-  // ---- Supabase config (local Settings, never hardcoded — see settings table) ----
+  // ---- Supabase config ----
+  // Always Digital Commerce's own project — the same one device check-in
+  // uses, defined once in devicecheckin.js. Shops no longer enter a URL/key;
+  // any supabase_url/supabase_anon_key left in settings by older versions
+  // is ignored. (Tests swap this function out to point at a local server.)
   function getSupabaseConfig(){
-    return { url: getSetting("supabase_url",""), anonKey: getSetting("supabase_anon_key","") };
+    return { url: DC_SUPABASE_URL, anonKey: DC_ANON_KEY };
   }
   function supabaseConfigured(){
     const cfg = getSupabaseConfig();
@@ -10121,7 +10153,7 @@ const APP_VERSION = "1.09.01";
   }
   // Never blocks the UI or any core operation: this is only ever invoked
   // from a timer/connectivity event (see startSyncWorker) or an explicit,
-  // fire-and-forget call after Settings saves the Supabase config — nothing
+  // call from Settings → Cloud sync's "Sync now" — nothing
   // in POS/stocktake/etc. awaits it, and _syncRunning skips overlapping runs
   // instead of queueing up work that could pile up behind a slow network.
   async function runSyncWorker(){
@@ -10151,10 +10183,9 @@ const APP_VERSION = "1.09.01";
     await runSyncWorker();
     checkSyncReminderModal();
   }
-  // Called once at boot (main.js), after initDB. Entirely passive: if
-  // Supabase was never configured, every tick below is a few synchronous
-  // reads (supabaseConfigured()/isOnline()) and returns immediately — this
-  // is the "zero behaviour change when unreachable/unconfigured" guarantee.
+  // Called once at boot (main.js), after initDB. Entirely passive: offline or
+  // with nothing due, every tick below is a few synchronous reads and
+  // returns immediately; an unreachable server just backs off.
   function startSyncWorker(){
     if(_syncTimer) return;
     syncTick();
@@ -10199,41 +10230,38 @@ const APP_VERSION = "1.09.01";
     const byType = {};
     pending.forEach(r=>{ byType[r.record_type]=(byType[r.record_type]||0)+1; });
     const lines = Object.keys(byType).map(k=>`<li>${escapeHtml(k)}: ${byType[k]}</li>`).join("");
-    const reason = supabaseConfigured()? "You're offline." : "Cloud sync isn't configured yet.";
     _syncReminderEl = openModal("Waiting to sync", `
-      <p class="muted">${reason} ${pending.length} record(s) are saved on this device and will sync automatically once ${supabaseConfigured()? "you're back online" : "it's set up (Settings → Cloud sync)"}.</p>
+      <p class="muted">You're offline. ${pending.length} record(s) are saved on this device and will sync automatically once you're back online.</p>
       <ul style="margin:8px 0 0 18px;padding:0">${lines}</ul>
     `, dismissSyncReminder);
   }
 
-  // ---- Settings card (Cloud sync (beta)) ----
-  // Deliberately minimal and generic — no RPN/support-specific copy here,
-  // that's later work. Just where an owner pastes in a Supabase project once
-  // they have one; local behaviour is identical whether this is filled in
-  // or not.
-  function cloudSyncSectionHtml(){
-    const cfg = getSupabaseConfig();
-    const configured = supabaseConfigured();
+  // ---- Settings card (Cloud sync) ----
+  // Status only: the project is built in (getSupabaseConfig above), so
+  // there's nothing for the shop to enter — just whether its records have
+  // gone up, and a way to try now instead of waiting for the next tick.
+  function cloudSyncStatusText(){
     const pending = pendingSyncCount();
+    if(!pending) return "Everything is synced.";
+    if(!isOnline()) return `You're offline — ${pending} record(s) saved on this device will sync when you reconnect.`;
+    const retrying = one("SELECT COUNT(*) c FROM sync_queue WHERE status='failed'").c;
+    return `${pending} record(s) waiting to sync.` + (retrying? ` ${retrying} couldn't be sent yet and will be retried automatically.` : "");
+  }
+  function cloudSyncSectionHtml(){
     return `
       <div class="card">
-        <h3>Cloud sync (beta)</h3>
-        <p class="muted">Foundation for future features (support, backups, market data). Optional — the app works exactly the same whether this is filled in or not, and nothing is sent until it is.</p>
-        <label>Supabase project URL</label>
-        <input class="field" id="sSupabaseUrl" value="${escapeHtml(cfg.url)}" placeholder="https://xxxxxxxx.supabase.co">
-        <label>Supabase anon (public) key</label>
-        <input class="field" id="sSupabaseKey" value="${escapeHtml(cfg.anonKey)}" placeholder="anon public key">
-        <p class="muted" style="font-size:12px">${configured? `Configured. ${pending} record(s) waiting to sync.` : (pending? `Not configured — ${pending} record(s) queued locally until it is.` : "Not configured — nothing queued yet.")}</p>
-        <button class="btn btn-outline" id="saveCloudSync" style="margin-top:6px">Save</button>
+        <h3>Cloud sync</h3>
+        <p class="muted">Built in — there's nothing to set up. Records are kept on this device and sent to Digital Commerce in the background whenever you're online.</p>
+        <p class="muted" id="cloudSyncStatus" style="font-size:12px">${escapeHtml(cloudSyncStatusText())}</p>
+        ${pendingSyncCount()? `<button class="btn btn-outline" id="syncNowBtn" style="margin-top:6px">Sync now</button>` : ""}
       </div>`;
   }
   function wireCloudSyncSection(){
-    const btn = document.getElementById("saveCloudSync");
-    if(btn) btn.onclick=()=>{
-      setSetting("supabase_url", document.getElementById("sSupabaseUrl").value.trim());
-      setSetting("supabase_anon_key", document.getElementById("sSupabaseKey").value.trim());
-      persist();
-      runSyncWorker(); // fire-and-forget; never awaited, never blocks Save
+    const btn = document.getElementById("syncNowBtn");
+    if(btn) btn.onclick=async ()=>{
+      btn.disabled = true;
+      btn.textContent = "Syncing…";
+      await runSyncWorker();
       render();
     };
   }
@@ -10243,12 +10271,12 @@ const APP_VERSION = "1.09.01";
   // console: reports this device's identity/contact details, and receives
   // back a lock state (Cart/Add Product) plus any message cards the shop's
   // RPN/Digital Commerce has queued for them. Deliberately separate from
-  // sync.js's outbox (enqueueSync/supabaseInsert/runSyncWorker): that
-  // mechanism always targets whichever Supabase project the SHOP configured
-  // in Settings -> Cloud sync (optional, per-tenant, off by default). This
-  // check-in always targets Digital Commerce's OWN fixed project below —
-  // the two must never be conflated, so this intentionally doesn't go
-  // through enqueueSync() or share sync_queue.
+  // sync.js's outbox (enqueueSync/supabaseInsert/runSyncWorker). Both talk
+  // to the same Digital Commerce project — DC_SUPABASE_URL/DC_ANON_KEY below
+  // are the one definition, and sync.js's getSupabaseConfig() reuses them —
+  // but this is a single RPC per launch whose reply sets lock state, not a
+  // queued insert, so it intentionally doesn't go through enqueueSync() or
+  // share sync_queue.
   //
   // Never blocks boot, never retries with backoff, never surfaces a failure
   // to the shop: offline/timeout/server-error all just skip silently, and
@@ -10256,7 +10284,8 @@ const APP_VERSION = "1.09.01";
   // — exactly the same "best-effort, nothing invented beyond what's asked"
   // rule fetchNetworkTime() (eod.js) already follows for its own probe.
 
-  const DC_CHECKIN_URL = "https://urbopdsubwawtybwrxjd.supabase.co/rest/v1/rpc/cl_device_checkin";
+  const DC_SUPABASE_URL = "https://urbopdsubwawtybwrxjd.supabase.co";
+  const DC_CHECKIN_URL = DC_SUPABASE_URL + "/rest/v1/rpc/cl_device_checkin";
   const DC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyYm9wZHN1Yndhd3R5YndyeGpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMTYzNzEsImV4cCI6MjEwNTY5MjM3MX0.pCGkNETrB4ISse2ES_6goALKJz3g_22osjLfIgFG4k4";
   const DC_CHECKIN_TIMEOUT_MS = 8000;
 
@@ -10356,8 +10385,8 @@ const APP_VERSION = "1.09.01";
   // Called once at boot (main.js, after initDB — so getSetting/currentDeviceCode
   // work) and again on every "online" event, mirroring startSyncWorker's own
   // listener registration (sync.js) but as its own separate listener: this
-  // always targets Digital Commerce's fixed project, never the shop's own
-  // optionally-configured one, so it can't share that worker's wiring.
+  // is one RPC whose reply drives lock state, not a queued insert, so it
+  // doesn't share that worker's wiring.
   function startDeviceCheckin(){
     deviceCheckin(); // fire-and-forget — boot() never awaits this, so it can never delay startup
     if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", deviceCheckin);
@@ -10391,10 +10420,10 @@ const APP_VERSION = "1.09.01";
   // header comment for the general pattern this follows. No parallel queue,
   // no parallel connectivity check: every "sync" action below is just an
   // enqueueSync() call, and status is read back through pendingSyncCount()
-  // the same way the Cloud sync (beta) Settings card already does.
+  // the same way the Cloud sync Settings card already does.
   //
   // Local storage reuses the existing `settings` key-value table — the same
-  // place shop_name/contact_phone/management_whatsapp/supabase_url/etc.
+  // place shop_name/contact_phone/management_whatsapp/etc.
   // already live — rather than a new table: RPN linkage is exactly the same
   // shape of thing (a handful of single-value fields describing this
   // device/tenant), so there was nothing to add to db.js's schema.

@@ -57,7 +57,11 @@ function makeDomApp(settings){
   // IndexedDB) — override it with a no-op after load, same pattern
   // test/harness.js uses, since this test only needs settings/business
   // logic and DOM output, never real persistence.
-  const code = prelude + files.map(src).join("\n") + "\npersist = async function(){};";
+  // getSupabaseConfig() now returns Digital Commerce's live project (from
+  // devicecheckin.js, not loaded here); read the old settings keys instead
+  // so fetchNetworkTime() never leaves the test — same seam as test/harness.js.
+  const code = prelude + files.map(src).join("\n") + "\npersist = async function(){};"
+    + `\ngetSupabaseConfig = function(){ return { url: getSetting("supabase_url",""), anonKey: getSetting("supabase_anon_key","") }; };`;
 
   vm.runInContext(code, ctx, { filename: "app-sources" });
   vm.runInContext(`db.run(SCHEMA); migrate(db);`, ctx);

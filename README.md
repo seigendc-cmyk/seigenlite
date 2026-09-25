@@ -139,16 +139,16 @@ database, an API, or any server-side component, and no shop's sales,
 stock, or customer data is ever uploaded there — that data stays local to
 each device's IndexedDB, exactly as it does for the single-file build.
 
-## Cloud sync (foundation only)
+## Cloud sync
 
-`src/sync.js` adds the app's first-ever, entirely optional connection to a
-backend: a generic local outbox (`sync_queue`, schema in `src/db.js`) and a
-background worker that pushes queued records to a Supabase project via its
-REST API (plain `fetch()`, no SDK/bundler). It ships with no user-facing
-feature — no RPN linkage, no Support button, no sync reminder — those are
-later work built on top of this. Until a project is configured in Settings
-→ Cloud sync (beta), the worker is a no-op and the app behaves exactly as
-described above: fully offline, nothing ever sent anywhere.
+`src/sync.js` is a generic local outbox (`sync_queue`, schema in
+`src/db.js`) and a background worker that pushes queued records to Digital
+Commerce's Supabase project via its REST API (plain `fetch()`, no
+SDK/bundler). The project is built in — it's the same one device check-in
+uses (`DC_SUPABASE_URL` / `DC_ANON_KEY` in `src/devicecheckin.js`), so
+shops have nothing to configure. Settings → Cloud sync only shows status
+(and a "Sync now" button while anything is waiting). Offline, records just
+wait on the device; the app works exactly the same either way.
 
 **How a future feature (e.g. RPN linkage, support tasks) hooks in:**
 
@@ -190,10 +190,7 @@ alter table sync_health_check enable row level security;
 create policy "anon insert" on sync_health_check for insert to anon with check (true);
 ```
 
-No Supabase project is wired in by default — paste a project's URL and
-anon key into Settings → Cloud sync (beta) to activate the worker on a
-device. Both build targets share the same code path and storage
-(`settings` table via the usual `getSetting`/`setSetting`); a plain
+Both build targets share the same code path; a plain
 `fetch()` to the Supabase REST API works identically in the PWA (a real
 browser) and inside the Tauri webview — no extra Tauri capability is
 needed, since Tauri's permission system only gates calls into its own Rust

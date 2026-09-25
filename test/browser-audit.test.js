@@ -244,6 +244,36 @@ async function addProduct(page, name, price, stock){
     await page.close();
   });
 
+  // ================= Settings → Cloud sync: built in, status only =================
+  await t("Settings → Cloud sync has no URL/key fields and shows status, in a REAL browser", async ()=>{
+    const browser2 = await chromium.launch();
+    const ctx = await browser2.newContext();
+    // The app now talks to Digital Commerce's live project on its own;
+    // never let a test reach it.
+    await ctx.route(/urbopdsubwawtybwrxjd\.supabase\.co/, route => route.abort());
+    const page = await ctx.newPage();
+    const pageErrors = [];
+    page.on("pageerror", err => pageErrors.push(err.message));
+    await page.goto("file:///" + path.resolve(__dirname, "..", "dist/index.html").replace(/\\/g, "/"));
+    await page.waitForSelector("#setShop", { timeout: 15000 });
+    await page.fill("#setShop", "Test Shop");
+    await page.click("#setupNext"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
+    await page.waitForSelector("[data-route]");
+    await page.click('[data-route="more"]');
+    await page.click('[data-kebab-toggle="moretab"]');
+    await page.click('[data-tab="settings"]');
+    await page.waitForSelector("#cloudSyncStatus");
+    const card = page.locator(".card", { has: page.locator("#cloudSyncStatus") });
+    const text = await card.textContent();
+    assert.ok(/Cloud sync/.test(text) && !/beta/.test(text));
+    assert.ok(/nothing to set up/.test(text));
+    assert.strictEqual(await card.locator("input").count(), 0, "no URL/key inputs");
+    assert.ok(!(await page.$("#saveCloudSync")));
+    if(process.env.SHOT_DIR) await card.screenshot({ path: path.join(process.env.SHOT_DIR, "cloud-sync-card.png") });
+    assert.deepStrictEqual(pageErrors, []);
+    await browser2.close();
+  });
+
   // ================= desktop build (dist-tauri) =================
   await t("desktop Sales screen search (dsSearch) keeps focus and filters correctly, in a REAL browser", async ()=>{
     const { page, pageErrors } = await newSetUpPage(browser, "dist-tauri/index.html");

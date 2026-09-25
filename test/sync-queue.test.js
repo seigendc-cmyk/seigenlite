@@ -239,6 +239,37 @@ function startMockSupabase(){
     } finally { await mock.close(); }
   });
 
+  // ================= built-in project (no per-shop configuration) =================
+  await t("the real config is Digital Commerce's project — the same constants device check-in uses — whatever old settings say", ()=>{
+    const A = rig();
+    configure(A, "https://someone-elses.supabase.co", "old-key"); // left over from an older version
+    const cfg = A.api.getSupabaseConfig(); // the real function, not the harness's test seam
+    assert.strictEqual(cfg.url, A.api.DC_SUPABASE_URL);
+    assert.strictEqual(cfg.anonKey, A.api.DC_ANON_KEY);
+    assert.strictEqual(cfg.url, "https://urbopdsubwawtybwrxjd.supabase.co");
+  });
+  await t("Settings card: no URL/key fields or Save — just status, and Sync now only while something is waiting", ()=>{
+    const A = rig();
+    let html = A.api.cloudSyncSectionHtml();
+    assert.ok(/<h3>Cloud sync<\/h3>/.test(html));
+    assert.ok(!/sSupabaseUrl|sSupabaseKey|saveCloudSync|<input/.test(html), "nothing for the shop to type");
+    assert.ok(/nothing to set up/.test(html));
+    assert.ok(/Everything is synced\./.test(html));
+    assert.ok(!/syncNowBtn/.test(html), "no Sync now when there's nothing to send");
+    A.api.enqueueSync("sync_health_check",{});
+    html = A.api.cloudSyncSectionHtml();
+    assert.ok(/1 record\(s\) waiting to sync\./.test(html));
+    assert.ok(/syncNowBtn/.test(html));
+  });
+  await t("Settings card status: offline and retrying states read plainly", ()=>{
+    const A = rig();
+    const row = A.api.enqueueSync("sync_health_check",{});
+    A.api.run("UPDATE sync_queue SET status='failed', attempts=2 WHERE id=?",[row.id]);
+    assert.strictEqual(A.api.cloudSyncStatusText(), "1 record(s) waiting to sync. 1 couldn't be sent yet and will be retried automatically.");
+    A.ctx.navigator.onLine = false;
+    assert.strictEqual(A.api.cloudSyncStatusText(), "You're offline — 1 record(s) saved on this device will sync when you reconnect.");
+  });
+
   console.log("\n"+passed+" passed, "+failed+" failed");
   process.exit(failed?1:0);
 })();

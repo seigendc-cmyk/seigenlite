@@ -4,10 +4,10 @@
   // header comment for the general pattern this follows. No parallel queue,
   // no parallel connectivity check: every "sync" action below is just an
   // enqueueSync() call, and status is read back through pendingSyncCount()
-  // the same way the Cloud sync (beta) Settings card already does.
+  // the same way the Cloud sync Settings card already does.
   //
   // Local storage reuses the existing `settings` key-value table — the same
-  // place shop_name/contact_phone/management_whatsapp/supabase_url/etc.
+  // place shop_name/contact_phone/management_whatsapp/etc.
   // already live — rather than a new table: RPN linkage is exactly the same
   // shape of thing (a handful of single-value fields describing this
   // device/tenant), so there was nothing to add to db.js's schema.

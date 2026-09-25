@@ -94,10 +94,9 @@
   // included, by default) do not do for the Date header — so in practice
   // this often returns null, and the app correctly falls back to the local
   // high-water-mark below. It's still the right thing to attempt (it costs
-  // nothing when it fails), and it only ever runs at all on a device that
-  // already has Supabase configured (Settings → Cloud sync) — a device that
-  // never configured it has no server call to reuse, and this deliberately
-  // does not invent a new one (see task summary). Bounded by a short
+  // nothing when it fails). It reuses cloud sync's Supabase project (built
+  // in — see getSupabaseConfig in sync.js) rather than inventing a new
+  // server to ask. Bounded by a short
   // timeout so a hung request can never delay boot.
   async function fetchNetworkTime(){
     if(!isOnline()) return null;
