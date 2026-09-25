@@ -267,6 +267,7 @@ async function addProduct(page, name, price, stock){
     const text = await card.textContent();
     assert.ok(/Cloud sync/.test(text) && !/beta/.test(text));
     assert.ok(/nothing to set up/.test(text));
+    assert.ok(/saved to your cloud storage whenever you.re online/.test(text));
     assert.strictEqual(await card.locator("input").count(), 0, "no URL/key inputs");
     assert.ok(!(await page.$("#saveCloudSync")));
     if(process.env.SHOT_DIR) await card.screenshot({ path: path.join(process.env.SHOT_DIR, "cloud-sync-card.png") });

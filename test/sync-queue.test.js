@@ -254,6 +254,7 @@ function startMockSupabase(){
     assert.ok(/<h3>Cloud sync<\/h3>/.test(html));
     assert.ok(!/sSupabaseUrl|sSupabaseKey|saveCloudSync|<input/.test(html), "nothing for the shop to type");
     assert.ok(/nothing to set up/.test(html));
+    assert.ok(/Records are kept on this device and saved to your cloud storage whenever you.re online./.test(html));
     assert.ok(/Everything is synced\./.test(html));
     assert.ok(!/syncNowBtn/.test(html), "no Sync now when there's nothing to send");
     A.api.enqueueSync("sync_health_check",{});
