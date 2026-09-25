@@ -13,6 +13,10 @@
   <nav id="nav" hidden>
     <button type="button" data-view="upload" class="tab active">Upload</button>
     <button type="button" data-view="history" class="tab">History</button>
+    <button type="button" data-view="vendors" class="tab">Vendors &amp; tokens</button>
+    <button type="button" data-view="staff" class="tab" id="staffTab" hidden>Staff</button>
+    <span id="whoami" class="muted"></span>
+    <button type="button" id="passwordBtn" class="link">Change password</button>
     <button type="button" id="logoutBtn" class="link">Sign out</button>
   </nav>
 </header>
@@ -21,10 +25,46 @@
   <section id="loginView" hidden>
     <form id="loginForm" class="card narrow">
       <h2>Sign in</h2>
-      <label for="passphrase">Passphrase</label>
-      <input id="passphrase" type="password" autocomplete="current-password" required>
+      <label for="username">Username</label>
+      <input id="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
       <p id="loginError" class="error" hidden></p>
       <button type="submit" class="primary">Sign in</button>
+    </form>
+  </section>
+
+  <section id="setupView" hidden>
+    <form id="setupForm" class="card narrow">
+      <h2>Create the first Admin</h2>
+      <p class="muted">No staff accounts exist yet. Prove you run this portal with the setup passphrase (<code>PORTAL_PASSPHRASE</code> in <code>.env</code>), then choose your own sign-in. You add everyone else afterwards, under Staff.</p>
+      <label for="setupPassphrase">Setup passphrase</label>
+      <input id="setupPassphrase" type="password" autocomplete="off" required>
+      <label for="setupName">Your name</label>
+      <input id="setupName" type="text" autocomplete="name" required>
+      <label for="setupUsername">Username</label>
+      <input id="setupUsername" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label for="setupPassword">Password <span class="muted">(10+ characters)</span></label>
+      <input id="setupPassword" type="password" autocomplete="new-password" required>
+      <label for="setupPassword2">Password again</label>
+      <input id="setupPassword2" type="password" autocomplete="new-password" required>
+      <p id="setupError" class="error" hidden></p>
+      <button type="submit" class="primary">Create Admin and sign in</button>
+    </form>
+  </section>
+
+  <section id="passwordView" hidden>
+    <form id="passwordForm" class="card narrow">
+      <h2>Change password</h2>
+      <p id="passwordForced" class="banner warn" hidden>You signed in with a temporary password. Choose your own to continue.</p>
+      <label for="pwCurrent">Current password</label>
+      <input id="pwCurrent" type="password" autocomplete="current-password" required>
+      <label for="pwNext">New password <span class="muted">(10+ characters)</span></label>
+      <input id="pwNext" type="password" autocomplete="new-password" required>
+      <label for="pwNext2">New password again</label>
+      <input id="pwNext2" type="password" autocomplete="new-password" required>
+      <p id="passwordError" class="error" hidden></p>
+      <div class="actions"><button type="button" id="pwCancel">Cancel</button><button type="submit" class="primary">Save password</button></div>
     </form>
   </section>
 
@@ -41,6 +81,32 @@
     <div class="row"><h2>Published</h2><button type="button" id="refreshHistory">Refresh</button></div>
     <p id="historyError" class="error" hidden></p>
     <div id="history"></div>
+  </section>
+
+  <section id="vendorsView" hidden>
+    <div class="row"><h2>Vendors &amp; tokens</h2><button type="button" id="refreshVendors">Refresh</button></div>
+    <p class="muted">Every registered device. A vendor needs an active token (listing rights for a period they've paid for) before their products can be published.</p>
+    <p id="vendorsError" class="error" hidden></p>
+    <div id="vendors"></div>
+  </section>
+
+  <section id="staffView" hidden>
+    <div class="row"><h2>Staff</h2></div>
+    <p id="staffError" class="error" hidden></p>
+    <div id="staffList"></div>
+    <form id="addStaffForm" class="card">
+      <h3>Add a staff member</h3>
+      <p class="muted">A <b>Reviewer</b> reviews, publishes and unpublishes listings. An <b>Admin</b> can also record vendor tokens and manage staff. Give them the temporary password yourself (not in a group chat); they choose their own the first time they sign in.</p>
+      <div class="grid">
+        <div><label for="newName">Name</label><input id="newName" type="text" required></div>
+        <div><label for="newUsername">Username</label><input id="newUsername" type="text" autocapitalize="none" spellcheck="false" required></div>
+        <div><label for="newRole">Role</label>
+          <select id="newRole"><option value="reviewer">Reviewer</option><option value="admin">Admin</option></select></div>
+        <div><label for="newPassword">Temporary password <span class="muted">(10+ characters)</span></label><input id="newPassword" type="text" autocomplete="off" required></div>
+      </div>
+      <p id="addStaffError" class="error" hidden></p>
+      <div class="actions"><button type="submit" class="primary">Add staff member</button></div>
+    </form>
   </section>
 </main>
 <script src="app.js"></script>

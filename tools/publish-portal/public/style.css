@@ -20,7 +20,17 @@ label.pick{display:inline-block;margin:0 2px;font-weight:600;}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px;margin-bottom:16px;}
 .narrow{max-width:360px;margin:40px auto;}
 label{display:block;font-weight:600;margin:0 0 4px;}
-input[type=password]{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;margin-bottom:12px;}
+input[type=password],input[type=text],input[type=date],input[type=number],select{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;margin-bottom:12px;background:var(--card);color:var(--ink);}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px;}
+.inline{display:flex;gap:8px;} .inline input:first-child{flex:1;} .inline .tk-currency{width:5.5em;}
+.token-form{margin-top:12px;} .token-form h3{margin-bottom:12px;}
+.banner button{margin-left:6px;}
+#whoami{margin:0 6px 0 10px;}
+tr.voided td{opacity:.55;text-decoration:line-through;} tr.voided td:last-child{text-decoration:none;opacity:1;}
+.vendor-body{padding:0 16px 16px;} .vendor-body table{margin-bottom:8px;}
+table.staff{padding:0;} table.staff select{margin:0;width:auto;}
+.row-actions{white-space:nowrap;} .row-actions button{margin-left:4px;}
+code{font-size:13px;background:#f0f2f5;padding:1px 5px;border-radius:4px;}
 .drop{border-style:dashed;text-align:center;padding:30px;}
 .drop.over{border-color:var(--accent);background:#eef3fb;}
 .muted{color:var(--soft);font-size:13.5px;}

@@ -85,6 +85,50 @@ function createSupabase({ url, serviceKey, fetchImpl }){
         { body: { status: "pending_review" }, headers: { Prefer: "return=representation" } });
       return rows && rows[0] || null;
     },
+
+    // ---- staff logins (portal_staff) ----
+    async staffCount(){
+      const rows = await call("GET", "/rest/v1/portal_staff?select=id&limit=1");
+      return (rows || []).length;
+    },
+    async staffByUsername(username){
+      const rows = await call("GET", `/rest/v1/portal_staff?select=*&username=eq.${q(username)}`);
+      return rows && rows[0] || null;
+    },
+    async staffById(id){
+      const rows = await call("GET", `/rest/v1/portal_staff?select=*&id=eq.${q(id)}`);
+      return rows && rows[0] || null;
+    },
+    // Never the password hashes.
+    async listStaff(){
+      return call("GET", "/rest/v1/portal_staff?select=id,username,display_name,role,active,must_change_password,failed_attempts,locked_until,last_login_at,created_at&order=created_at.asc");
+    },
+    async insertStaff(row){
+      const rows = await call("POST", "/rest/v1/portal_staff", { body: [row], headers: { Prefer: "return=representation" } });
+      return rows[0];
+    },
+    async updateStaff(id, patch){
+      const rows = await call("PATCH", `/rest/v1/portal_staff?id=eq.${q(id)}`,
+        { body: Object.assign({}, patch, { updated_at: new Date().toISOString() }), headers: { Prefer: "return=representation" } });
+      return rows && rows[0] || null;
+    },
+
+    // ---- registered devices + vendor tokens ----
+    async registeredDevices(){
+      return call("GET", "/rest/v1/cl_vendors?select=install_id,business_name,status&install_id=not.is.null&order=business_name.asc");
+    },
+    async tokens(installId){
+      return call("GET", "/rest/v1/vendor_tokens?select=*" + (installId ? `&install_id=eq.${q(installId)}` : "") + "&order=starts_on.asc");
+    },
+    async insertToken(row){
+      const rows = await call("POST", "/rest/v1/vendor_tokens", { body: [row], headers: { Prefer: "return=representation" } });
+      return rows[0];
+    },
+    async voidToken(id, patch){
+      const rows = await call("PATCH", `/rest/v1/vendor_tokens?id=eq.${q(id)}&voided_at=is.null`,
+        { body: patch, headers: { Prefer: "return=representation" } });
+      return rows && rows[0] || null;
+    },
   };
 }
 
