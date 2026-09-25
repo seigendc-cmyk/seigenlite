@@ -261,6 +261,10 @@ function createFakeSupabase(opts){
         const hits = state.items.filter(i=> mine.has(i.purchase_order_id)
           && (!q.get("id") || i.id===eqParam("id"))
           && (!q.get("purchase_order_id") || i.purchase_order_id===eqParam("purchase_order_id")));
+        // Test hook: state.failItemPatch = { id, status, body } fails the next
+        // PATCH that targets that line, once.
+        const f = state.failItemPatch;
+        if(f && hits.some(i=> i.id===f.id)){ state.failItemPatch = null; return send(f.status, f.body); }
         const qf = Number(body.quantity_fulfilled);
         if(hits.length && !(qf >= 0)) return send(400, { code:"23514", message:"new row for relation \"purchase_order_items\" violates check constraint \"purchase_order_items_quantity_fulfilled_check\"" });
         if(hits.some(i=> qf > i.quantity_requested)) return send(400, { code:"23514", message:"new row for relation \"purchase_order_items\" violates check constraint \"purchase_order_items_not_overfulfilled\"" });

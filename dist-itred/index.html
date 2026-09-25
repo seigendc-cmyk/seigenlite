@@ -319,6 +319,39 @@
   }
   #orderToast.show{display:flex;gap:14px;align-items:center;}
   #orderToast a{color:var(--gold);font-weight:600;white-space:nowrap;}
+  .po-delivered{display:block;font-size:12.5px;color:var(--text-soft);margin-top:2px;}
+
+  /* ---------- Record delivery (fulfilment) dialog ---------- */
+  #fulfilDialog{
+    border:1px solid var(--border);padding:0;background:var(--white);color:var(--text);
+    width:min(560px, calc(100vw - 32px));max-height:calc(100vh - 48px);
+    box-shadow:0 10px 40px rgba(18,36,63,0.28);
+  }
+  #fulfilDialog::backdrop{background:rgba(18,36,63,0.45);}
+  #fulfilDialog form{margin:0;display:flex;flex-direction:column;max-height:calc(100vh - 50px);}
+  .fl-head{padding:22px 24px 14px 24px;border-bottom:1px solid var(--border);}
+  .fl-head h3{font-size:21px;margin:0 0 2px 0;}
+  .fl-head .hint{font-size:13px;color:var(--text-soft);}
+  .fl-body{padding:4px 24px 8px 24px;overflow-y:auto;}
+  .fl-cols,.fl-line{display:grid;grid-template-columns:1fr 84px 110px;gap:12px;align-items:center;}
+  .fl-cols{font-size:12px;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.04em;padding:12px 0 6px 0;}
+  .fl-cols span:not(:first-child),.fl-line .fl-ordered{text-align:right;}
+  .fl-line{padding:12px 0;border-top:1px solid var(--border);}
+  .fl-line .fl-name{font-weight:600;color:var(--navy);font-size:14.5px;min-width:0;overflow-wrap:anywhere;}
+  .fl-line .fl-ordered{font-size:14px;}
+  .fl-line input.fl-qty{padding:8px 10px;text-align:right;}
+  .fl-line.invalid input.fl-qty{border-color:#B3261E;}
+  .fl-err{grid-column:1 / -1;font-size:12.5px;font-weight:600;color:#8C1D18;}
+  .fl-err:empty{display:none;}
+  .fl-foot{padding:14px 24px 20px 24px;border-top:1px solid var(--border);}
+  .fl-foot .auth-msg{margin:0 0 12px 0;}
+  .fl-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
+  .fl-actions .btn{padding:10px 20px;font-size:13.5px;}
+  @media (max-width:640px){
+    .fl-head,.fl-body,.fl-foot{padding-left:16px;padding-right:16px;}
+    .fl-cols,.fl-line{grid-template-columns:1fr 64px 92px;gap:8px;}
+    .fl-actions .btn{flex:1;justify-content:center;}
+  }
   @media (max-width:640px){
     .po-card{padding:16px;}
     .po-line{grid-template-columns:1fr 84px 34px;grid-template-areas:"name name name" "price qty remove" "total total total";row-gap:8px;}
@@ -1558,14 +1591,14 @@
   }
 
   let orderToastTimer = null;
-  function showOrderToast(text){
+  function showOrderToast(text, o){
     let el = document.getElementById('orderToast');
     if(!el){
       el = document.createElement('div');
       el.id = 'orderToast'; el.setAttribute('role', 'status');
       document.body.appendChild(el);
     }
-    el.innerHTML = `<span>${escapeHtml(text)}</span><a href="#/orders">View order</a>`;
+    el.innerHTML = `<span>${escapeHtml(text)}</span>` + (o && o.link === false ? '' : `<a href="#/orders">View order</a>`);
     el.classList.add('show');
     clearTimeout(orderToastTimer);
     orderToastTimer = setTimeout(()=> el.classList.remove('show'), 4000);
@@ -2003,7 +2036,8 @@
         </div>
         <details class="po-sent-lines">
           <summary>Items</summary>
-          ${lines.map(l => `<div class="po-sent-line"><span>${escapeHtml(l.item_name)} &times; ${escapeHtml(formatQty(Number(l.quantity_requested)))}</span>
+          ${lines.map(l => `<div class="po-sent-line"><span>${escapeHtml(l.item_name)} &times; ${escapeHtml(formatQty(Number(l.quantity_requested)))}${Number(l.quantity_fulfilled) > 0
+              ? `<span class="po-delivered">${escapeHtml(formatQty(Number(l.quantity_fulfilled)))} of ${escapeHtml(formatQty(Number(l.quantity_requested)))} delivered</span>` : ''}</span>
             <span>${l.is_custom_request || l.unit_price == null ? '<span class="po-sub" style="display:inline;">To quote</span>'
               : escapeHtml(formatMoney(l.currency, Number(l.unit_price) * Number(l.quantity_requested)))}</span></div>`).join('')}
         </details>
@@ -2016,6 +2050,7 @@
           <div class="po-send po-sent-actions">
             <button type="button" class="btn btn-gold" data-order-action="share" data-order="${oid}">Send PDF</button>
             ${chat}
+            ${fulfilmentEditable(order) ? `<button type="button" class="btn btn-outline" data-order-action="fulfil" data-order="${oid}">Record delivery</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -2032,7 +2067,175 @@
       sentNotes[order.id] = await deliverOrder(order);
       renderOrders();
     }
+    if(action === 'fulfil' && order) openFulfilDialog(order);
   });
+
+  // ---- Recording what was delivered ----
+  // The vendor answers on WhatsApp; the customer then enters, line by line,
+  // how much actually arrived. Only quantity_fulfilled is written (the one
+  // column the fulfilment migration grants); the order's status is worked
+  // out by the database trigger from the lines, so the page never sets it —
+  // it reloads the orders and shows whatever status came back.
+  // A closed order is finished: no button, and the dialog refuses it too.
+  function fulfilmentEditable(order){ return !!order && order.status !== 'closed'; }
+  let fulfilOrderId = null;
+  let fulfilSaving = false;
+  function fulfilDialog(){
+    let dlg = document.getElementById('fulfilDialog');
+    if(!dlg){
+      dlg = document.createElement('dialog');
+      dlg.id = 'fulfilDialog';
+      dlg.setAttribute('aria-labelledby', 'fulfilTitle');
+      document.body.appendChild(dlg);
+      dlg.addEventListener('cancel', e => { if(fulfilSaving) e.preventDefault(); }); // Esc mid-save
+      dlg.addEventListener('close', () => { fulfilOrderId = null; });
+      dlg.addEventListener('input', e => { if(e.target.classList.contains('fl-qty')) checkFulfilInput(e.target); });
+      dlg.addEventListener('submit', e => { e.preventDefault(); saveFulfilment(); });
+      dlg.addEventListener('click', e => {
+        if(e.target === dlg && !fulfilSaving) dlg.close();                       // backdrop
+        if(e.target.closest('[data-fulfil-cancel]') && !fulfilSaving) dlg.close();
+      });
+    }
+    return dlg;
+  }
+  function openFulfilDialog(order){
+    if(!fulfilmentEditable(order)) return;
+    const dlg = fulfilDialog();
+    fulfilOrderId = order.id;
+    renderFulfilDialog(order);
+    dlg.showModal();
+  }
+  // marks: lineId -> message shown under that line (a failed save);
+  // note: { kind, text } shown above the buttons.
+  function renderFulfilDialog(order, marks, note){
+    marks = marks || {};
+    const vendor = orderVendor(order);
+    fulfilDialog().innerHTML = `
+      <form novalidate>
+        <div class="fl-head">
+          <h3 id="fulfilTitle">Record delivery</h3>
+          <div class="hint">${escapeHtml(vendor.name)} &middot; ${escapeHtml(orderRef(order))}. Enter how much of each item you actually received.</div>
+        </div>
+        <div class="fl-body">
+          <div class="fl-cols" aria-hidden="true"><span>Item</span><span>Ordered</span><span>Received</span></div>
+          ${orderLines(order).map(l => {
+            const lid = escapeHtml(l.id), ordered = formatQty(Number(l.quantity_requested));
+            const got = formatQty(Number(l.quantity_fulfilled)), mark = marks[l.id];
+            return `<div class="fl-line${mark ? ' invalid failed' : ''}" data-line="${lid}">
+              <div class="fl-name">${escapeHtml(l.item_name)}${l.is_custom_request ? ' <span class="badge badge-soon">Custom request</span>' : ''}</div>
+              <div class="fl-ordered">${escapeHtml(ordered)}</div>
+              <input type="number" class="fl-qty" min="0" max="${escapeHtml(ordered)}" step="any" inputmode="decimal"
+                value="${escapeHtml(got)}" data-was="${escapeHtml(got)}" data-max="${escapeHtml(ordered)}"
+                aria-label="Received of ${escapeHtml(l.item_name)} (ordered ${escapeHtml(ordered)})"
+                aria-invalid="${mark ? 'true' : 'false'}" aria-describedby="flErr-${lid}">
+              <div class="fl-err" id="flErr-${lid}" role="alert">${mark ? escapeHtml(mark) : ''}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="fl-foot">
+          <div class="auth-msg ${note && note.kind === 'error' ? 'error' : ''}" id="fulfilError"${note ? '' : ' hidden'}>${note ? escapeHtml(note.text) : ''}</div>
+          <div class="fl-actions">
+            <button type="button" class="btn btn-outline" data-fulfil-cancel>${note ? 'Close' : 'Cancel'}</button>
+            <button type="submit" class="btn btn-gold" id="fulfilSave">Save</button>
+          </div>
+        </div>
+      </form>`;
+  }
+  // null when the value is fine, otherwise what to tell the customer.
+  function fulfilProblem(input){
+    const raw = input.value.trim(), max = Number(input.getAttribute('data-max'));
+    if(raw === '') return 'Enter how many arrived (0 if none).';
+    const n = Number(raw);
+    if(!Number.isFinite(n)) return 'Enter a number.';
+    if(n < 0) return "Received can't be less than 0.";
+    if(n > max) return `Only ${formatQty(max)} ordered — received can't be more than that.`;
+    return null;
+  }
+  function checkFulfilInput(input){
+    const row = input.closest('.fl-line');
+    const problem = fulfilProblem(input);
+    row.classList.toggle('invalid', !!problem);
+    row.classList.remove('failed');
+    input.setAttribute('aria-invalid', problem ? 'true' : 'false');
+    row.querySelector('.fl-err').textContent = problem || '';
+    return !problem;
+  }
+  function fulfilFail(text){
+    const box = document.getElementById('fulfilError');
+    box.className = 'auth-msg error';
+    box.textContent = text; box.hidden = false;
+  }
+  function lineName(order, id){
+    const l = (order.purchase_order_items || []).find(x => x.id === id);
+    return l ? l.item_name : 'An item';
+  }
+  // Each changed line is its own UPDATE, in the order the dialog lists
+  // them, stopping at the first one that fails: there's no multi-row
+  // transaction over the REST API, and every line saved on its own is a
+  // true record (the trigger re-derives the status after each). Whatever
+  // happens, the orders are then re-read, so the dialog and the card show
+  // what the database holds, not what was typed.
+  async function saveFulfilment(){
+    const dlg = fulfilDialog();
+    const order = (sentOrders || []).find(o => o.id === fulfilOrderId);
+    if(!order || fulfilSaving) return;
+    if(!fulfilmentEditable(order)){ fulfilFail('This order is closed, so deliveries can no longer be recorded.'); return; }
+    document.getElementById('fulfilError').hidden = true;
+    const inputs = [...dlg.querySelectorAll('.fl-qty')];
+    const valid = inputs.map(checkFulfilInput).every(Boolean);
+    if(!valid){ dlg.querySelector('.fl-line.invalid .fl-qty').focus(); return; }
+    const changed = inputs.filter(i => Number(i.value) !== Number(i.getAttribute('data-was')))
+      .map(i => ({ id: i.closest('.fl-line').getAttribute('data-line'), qty: Number(i.value) }));
+    if(!changed.length){ dlg.close(); return; }
+
+    fulfilSaving = true;
+    dlg.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
+    document.getElementById('fulfilSave').textContent = 'Saving…';
+    let saved = 0, failure = null;
+    for(const c of changed){
+      const { data, error } = await supabaseClient.from('purchase_order_items')
+        .update({ quantity_fulfilled: c.qty }).eq('id', c.id).select('id');
+      if(error || !data || !data.length){
+        failure = { id: c.id, reason: error ? (error.message || String(error)) : 'not saved (the order may no longer be yours to change)' };
+        break;
+      }
+      saved++;
+    }
+    await refreshSentOrders();
+    fulfilSaving = false;
+    const fresh = (sentOrders || []).find(o => o.id === order.id);
+    const status = fresh && (ORDER_STATUS_LABELS[fresh.status] || fresh.status);
+
+    if(!failure){
+      dlg.close();
+      showOrderToast(`Delivery recorded. Order is now: ${status || 'updated'}.`, { link: false });
+      return;
+    }
+    if(!dlg.open || fulfilOrderId !== order.id) return; // signed out meanwhile
+    if(!fresh){
+      renderFulfilDialog(order, { [failure.id]: "Couldn't be saved: " + failure.reason }, { kind: 'error',
+        text: `${saved} of ${changed.length} changes were saved, but the order couldn't be re-checked. Close this and reload the page to see what was recorded.` });
+      dlg.querySelectorAll('.fl-qty, #fulfilSave').forEach(el => { el.disabled = true; });
+      return;
+    }
+    const unsaved = changed.length - saved - 1;
+    const failedName = lineName(fresh, failure.id);
+    renderFulfilDialog(fresh, { [failure.id]: "Couldn't be saved: " + failure.reason }, { kind: 'error', text:
+      (saved ? `${saved} of ${changed.length} changes saved. ` : 'Nothing was saved. ')
+      + `${failedName} couldn't be saved`
+      + (unsaved === 1 ? ", so the change after it wasn't tried either" : unsaved ? `, so the ${unsaved} changes after it weren't tried either` : '')
+      + `. The quantities below are what's recorded now — the order is ${status}. Re-enter anything missing and save again.` });
+    if(!fulfilmentEditable(fresh)) dlg.querySelectorAll('.fl-qty, #fulfilSave').forEach(el => { el.disabled = true; });
+    const bad = dlg.querySelector('.fl-line.failed .fl-qty');
+    if(bad && !bad.disabled) bad.focus();
+  }
+  // Re-read the orders so each card (and the dialog) shows what the
+  // database holds, including the status the trigger set. Waits out a load
+  // already in flight, which may have started before the saves.
+  async function refreshSentOrders(){
+    while(sentOrdersLoading) await new Promise(r => setTimeout(r, 50));
+    await loadSentOrders();
+  }
 
   function findDraftLine(vendorId, key){
     const d = draftOrders[vendorId];
@@ -2397,6 +2600,8 @@
     if(sameCustomer) return;
     // A different customer (or none): the last one's sent orders go.
     sentOrders = null; sentOrdersError = null; sentNotes = {}; draftErrors = {};
+    const fulfilOpen = document.getElementById('fulfilDialog');
+    if(fulfilOpen && fulfilOpen.open) fulfilOpen.close(); // another account's orders
     await loadCustomerProfile();
     // Came to sign in from a draft order's "Sign in to send": go back to it.
     if(authSession && returnToOrders){ returnToOrders = false; location.hash = '#/orders'; return; }

@@ -672,6 +672,168 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     await context.close();
   });
 
+  // ================= recording delivery (fulfilment) =================
+  // An order already sent from Tariro's account to Boka: Sugar ×2, Oil ×1,
+  // and a custom request ×3 — seeded straight into the fake, as if sent on
+  // another visit.
+  async function openWithSentOrder(o){
+    o = o || {};
+    const fake = createFakeSupabase({ listings: catalogue() });
+    const r = await openSignedIn(browser, fake, o);
+    const uid = fake.users.get("tariro@example.com").id;
+    const order = { id:"9f000000-0000-4000-8000-000000000001", customer_id:uid, vendor_id:BOKA, status:o.status||"sent", pdf_url:null, created_at:new Date().toISOString() };
+    fake.orders.push(order);
+    const line = (id, name, qty, custom, listing, price)=>({ id, purchase_order_id:order.id, vendor_listing_id: custom? null : listing, item_name:name,
+      unit_price: custom? null : price, currency: custom? null : "USD", quantity_requested:qty, quantity_fulfilled:0, is_custom_request:custom,
+      fulfillment_status:"outstanding", created_at:order.created_at });
+    fake.items.push(line("9f100000-0000-4000-8000-000000000001", "Sugar 2kg", 2, false, "a0000000-0000-4000-8000-000000000001", 3.5),
+                    line("9f100000-0000-4000-8000-000000000002", "Cooking Oil 2L", 1, false, "a0000000-0000-4000-8000-000000000002", 4.25),
+                    line("9f100000-0000-4000-8000-000000000003", "Brown rice 10kg", 3, true));
+    await r.page.goto(SITE + "#/orders");
+    await sentCard(r.page).waitFor();
+    return Object.assign(r, { fake, order });
+  }
+  const fulfilRow = (page, name)=> page.locator("#fulfilDialog .fl-line", { has: page.locator(".fl-name", { hasText: name }) });
+  const statusBadge = (page)=> sentCard(page).locator(".po-status").textContent();
+  const itemPatches = (fake)=> fake.log.filter(r=> r.method==="PATCH" && r.path==="/rest/v1/purchase_order_items");
+  async function recordOne(page, name, qty){
+    await sentCard(page).locator('[data-order-action="fulfil"]').click();
+    await fulfilRow(page, name).locator(".fl-qty").fill(String(qty));
+    await page.click("#fulfilSave");
+    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
+  }
+
+  await t("Record delivery opens a dialog listing every line (listed and custom) with ordered and received quantities", async ()=>{
+    const { context, page, errors, fake } = await openWithSentOrder();
+    await sentCard(page).locator('[data-order-action="fulfil"]').click();
+    await page.locator("#fulfilDialog[open]").waitFor();
+    const rows = await page.locator("#fulfilDialog .fl-line").evaluateAll(els=> els.map(e=>({
+      name: e.querySelector(".fl-name").textContent.replace(/\s+/g," ").trim(),
+      ordered: e.querySelector(".fl-ordered").textContent.trim(),
+      received: e.querySelector(".fl-qty").value })));
+    assert.deepStrictEqual(rows, [
+      { name:"Cooking Oil 2L", ordered:"1", received:"0" },
+      { name:"Sugar 2kg", ordered:"2", received:"0" },
+      { name:"Brown rice 10kg Custom request", ordered:"3", received:"0" }]);
+    assert.match(await page.textContent("#fulfilDialog .fl-head"), /Boka General Dealer/);
+    await page.keyboard.press("Escape");
+    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
+    assert.strictEqual(itemPatches(fake).length, 0);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("recording part of one line saves just quantity_fulfilled and the order shows Partly fulfilled", async ()=>{
+    const { context, page, errors, fake } = await openWithSentOrder();
+    assert.strictEqual((await statusBadge(page)).trim(), "Sent");
+    await recordOne(page, "Sugar 2kg", 1);
+    const patches = itemPatches(fake);
+    assert.strictEqual(patches.length, 1);
+    assert.deepStrictEqual(patches[0].body, { quantity_fulfilled:1 });
+    assert.strictEqual(new URLSearchParams(patches[0].query).get("id"), "eq.9f100000-0000-4000-8000-000000000001");
+    await page.waitForFunction(()=> /Partly fulfilled/.test(document.querySelector(".po-sent .po-status").textContent));
+    assert.strictEqual(fake.orders[0].status, "partially_fulfilled", "status set by the (fake) trigger, not the page");
+    assert.ok(!fake.log.some(r=> r.method==="PATCH" && r.path==="/rest/v1/purchase_orders"), "the page never writes the status itself");
+    assert.match(await page.textContent("#orderToast"), /Delivery recorded\. Order is now: Partly fulfilled\./);
+    await sentCard(page).locator("summary").click();
+    assert.match(await sentCard(page).locator(".po-sent-line", { hasText:"Sugar 2kg" }).textContent(), /1 of 2 delivered/);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("out-of-range or blank received quantities are refused on the page with a plain message; nothing is sent", async ()=>{
+    const { context, page, errors, fake } = await openWithSentOrder();
+    await sentCard(page).locator('[data-order-action="fulfil"]').click();
+    const sugar = fulfilRow(page, "Sugar 2kg");
+    for(const [val, msg] of [["3", /Only 2 ordered/], ["-1", /can't be less than 0/], ["", /Enter how many arrived/]]){
+      await sugar.locator(".fl-qty").fill(val);
+      await page.click("#fulfilSave");
+      assert.match(await sugar.locator(".fl-err").textContent(), msg, "for "+JSON.stringify(val));
+      assert.strictEqual(await sugar.locator(".fl-qty").getAttribute("aria-invalid"), "true");
+    }
+    assert.ok(await page.locator("#fulfilDialog[open]").count(), "dialog stays open");
+    assert.strictEqual(itemPatches(fake).length, 0);
+    await sugar.locator(".fl-qty").fill("2");
+    assert.strictEqual(await sugar.locator(".fl-err").textContent(), "", "error clears once the value is fine");
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("completing every line in one save moves the order to Fulfilled; badge and toast say so", async ()=>{
+    const { context, page, errors, fake } = await openWithSentOrder();
+    await sentCard(page).locator('[data-order-action="fulfil"]').click();
+    await fulfilRow(page, "Sugar 2kg").locator(".fl-qty").fill("2");
+    await fulfilRow(page, "Cooking Oil 2L").locator(".fl-qty").fill("1");
+    await fulfilRow(page, "Brown rice 10kg").locator(".fl-qty").fill("3");
+    await page.click("#fulfilSave");
+    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
+    // One UPDATE per changed line, in the dialog's order, quantity_fulfilled only.
+    assert.deepStrictEqual(itemPatches(fake).map(p=> p.body), [{ quantity_fulfilled:1 }, { quantity_fulfilled:2 }, { quantity_fulfilled:3 }]);
+    assert.deepStrictEqual(itemPatches(fake).map(p=> new URLSearchParams(p.query).get("id").slice(-1)), ["2","1","3"]);
+    await page.waitForFunction(()=> document.querySelector(".po-sent .po-status").textContent.trim() === "Fulfilled");
+    assert.strictEqual(fake.orders[0].status, "fulfilled");
+    assert.ok(!fake.log.some(r=> r.method==="PATCH" && r.path==="/rest/v1/purchase_orders"), "status comes from the trigger");
+    assert.match(await page.textContent("#orderToast"), /Order is now: Fulfilled\./);
+    // Re-opening shows what's recorded; saving with nothing changed sends nothing.
+    await sentCard(page).locator('[data-order-action="fulfil"]').click();
+    assert.deepStrictEqual(await page.locator("#fulfilDialog .fl-qty").evaluateAll(els=> els.map(e=> e.value)), ["1","2","3"]);
+    await page.click("#fulfilSave");
+    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
+    assert.strictEqual(itemPatches(fake).length, 3);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("a save that fails partway keeps the earlier lines, reloads the true state, and marks the failed line", async ()=>{
+    const { context, page, errors, fake } = await openWithSentOrder();
+    // Dialog order: Cooking Oil, Sugar, Brown rice. Sugar (second) will fail.
+    fake.failItemPatch = { id:"9f100000-0000-4000-8000-000000000001", status:500, body:{ code:"XX000", message:"server hiccup" } };
+    await sentCard(page).locator('[data-order-action="fulfil"]').click();
+    await fulfilRow(page, "Cooking Oil 2L").locator(".fl-qty").fill("1");
+    await fulfilRow(page, "Sugar 2kg").locator(".fl-qty").fill("1");
+    await fulfilRow(page, "Brown rice 10kg").locator(".fl-qty").fill("2");
+    const getsBefore = fake.requests("/rest/v1/purchase_orders", "GET").length;
+    await page.click("#fulfilSave");
+    await page.locator("#fulfilDialog .fl-line.failed").waitFor();
+
+    // Oil was saved; Sugar failed; Brown rice was never tried.
+    assert.strictEqual(itemPatches(fake).length, 2);
+    const byName = Object.fromEntries(fake.items.map(i=> [i.item_name, i.quantity_fulfilled]));
+    assert.deepStrictEqual(byName, { "Sugar 2kg":0, "Cooking Oil 2L":1, "Brown rice 10kg":0 });
+    assert.ok(fake.requests("/rest/v1/purchase_orders", "GET").length > getsBefore, "orders re-read after the failure");
+    // The dialog shows the database's values, not what was typed.
+    assert.ok(await page.locator("#fulfilDialog[open]").count());
+    const shown = await page.locator("#fulfilDialog .fl-line").evaluateAll(els=> els.map(e=>({
+      name: e.querySelector(".fl-name").childNodes[0].textContent.trim(), value: e.querySelector(".fl-qty").value,
+      failed: e.classList.contains("failed"), err: e.querySelector(".fl-err").textContent })));
+    assert.deepStrictEqual(shown.map(r=> [r.name, r.value, r.failed]),
+      [["Cooking Oil 2L","1",false], ["Sugar 2kg","0",true], ["Brown rice 10kg","0",false]]);
+    assert.match(shown[1].err, /Couldn't be saved: server hiccup/);
+    const note = await page.textContent("#fulfilError");
+    assert.match(note, /1 of 3 changes saved\. Sugar 2kg couldn't be saved, so the change after it wasn't tried either/);
+    assert.match(note, /the order is Partly fulfilled/);
+    assert.strictEqual(await page.evaluate(()=> document.activeElement && document.activeElement.closest(".fl-line.failed") !== null), true, "focus on the failed line");
+    // The card behind reflects it too.
+    await page.waitForFunction(()=> /Partly fulfilled/.test(document.querySelector(".po-sent .po-status").textContent));
+
+    // Fixing it: re-enter and save again; this time it goes through.
+    await fulfilRow(page, "Sugar 2kg").locator(".fl-qty").fill("2");
+    await fulfilRow(page, "Brown rice 10kg").locator(".fl-qty").fill("3");
+    await page.click("#fulfilSave");
+    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
+    await page.waitForFunction(()=> document.querySelector(".po-sent .po-status").textContent.trim() === "Fulfilled");
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("a closed order has no Record delivery button", async ()=>{
+    const { context, page, errors } = await openWithSentOrder({ status:"closed" });
+    assert.strictEqual((await statusBadge(page)).trim(), "Closed");
+    assert.strictEqual(await sentCard(page).locator('[data-order-action="fulfil"]').count(), 0);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
   await browser.close();
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed?1:0);
