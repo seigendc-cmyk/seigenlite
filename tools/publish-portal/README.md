@@ -18,6 +18,30 @@ A vendor sends their `.scl` marketing export on WhatsApp. You review it here, th
 
 There's nothing to install: it only uses Node's built-in modules (Node 18+). The portal listens on `127.0.0.1` only, so no other machine can reach it.
 
+## Hosting it (Render)
+
+`render.yaml` at the repo root is a Render Blueprint for the portal as a web service. The portal switches to **hosted mode** when `PORTAL_PUBLIC_ORIGIN` is set (for example `https://dc-publish-portal.onrender.com`). In hosted mode it:
+
+- listens on `0.0.0.0` on the `PORT` Render gives it;
+- answers only that host name, redirects plain HTTP to HTTPS, and sends HSTS;
+- uses a `Secure`, `__Host-` session cookie;
+- refuses any write whose `Origin` isn't the portal itself;
+- limits wrong sign-ins per client IP (10 per 5 minutes), with a higher overall ceiling, so one person can't pause sign-in for all staff;
+- turns first-run setup off (set `PORTAL_ALLOW_SETUP=1` to allow it). Create the first Admin on the local portal instead: it uses the same database.
+
+Set only these in Render's dashboard:
+- `SUPABASE_URL`;
+- `SUPABASE_SERVICE_ROLE_KEY`;
+- `PORTAL_PUBLIC_ORIGIN`.
+
+The portal doesn't use `SUPABASE_DB_URL`, `SUPABASE_ANON_KEY` or `PORTAL_PASSPHRASE`, so don't put them on a public server. Health check: `/healthz`.
+
+Everywhere, locally and hosted:
+- `/robots.txt` disallows everything;
+- every response carries `X-Robots-Tag: noindex`.
+
+Sessions and uploaded files live in memory, so a restart or redeploy signs everyone out and clears uploads that haven't been published.
+
 ## Staff accounts
 
 - **First run:** with no staff accounts yet, the page asks for the setup passphrase (`PORTAL_PASSPHRASE`) and then your name, username and password. That makes you the first Admin and signs you in. Setup then closes for good.

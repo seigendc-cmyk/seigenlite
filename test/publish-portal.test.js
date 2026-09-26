@@ -681,6 +681,121 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
     } finally { P.close(); }
   });
 
+  // ================= hosted mode (Render: TLS proxy in front, public URL) =================
+  const ORIGIN = "https://portal.example.test";
+  async function startHosted(extra){
+    const fake = await startFakeSupabase();
+    for(const [who, role] of [[ADMIN, "admin"], [REVIEWER, "reviewer"]])
+      fake.state.portal_staff.push({ id:crypto.randomUUID(), username:who.username, display_name:who.name, role, password_hash:hashPassword(who.password),
+        must_change_password:false, active:true, failed_attempts:0, locked_until:null, created_at:new Date().toISOString() });
+    const { server } = createPortal(Object.assign({ supabaseUrl:fake.url, serviceKey:SERVICE_KEY, setupPassphrase:PASS, log:()=>{}, publicOrigin:ORIGIN }, extra||{}));
+    await new Promise(r=> server.listen(0, "127.0.0.1", r));
+    const port = server.address().port;
+    // As Render's proxy delivers a request: Host is the public name, the
+    // client's IP and https are in X-Forwarded-*.
+    function req(p, o){
+      o = o || {};
+      const headers = Object.assign({ Host:"portal.example.test", "X-Forwarded-Proto":"https", "X-Forwarded-For":(o.ip||"203.0.113.5")+", 10.0.0.1", "X-Portal":"1", Origin:ORIGIN }, o.headers||{});
+      for(const k of Object.keys(headers)) if(headers[k]===null) delete headers[k];
+      return new Promise((resolve, reject)=>{
+        const r = http.request({ host:"127.0.0.1", port, path:p, method:o.method||"GET", headers }, res=>{
+          const chunks = []; res.on("data", c=> chunks.push(c));
+          res.on("end", ()=>{ const text = Buffer.concat(chunks).toString(); let json = null; try{ json = JSON.parse(text); }catch(e){} resolve({ status:res.statusCode, headers:res.headers, text, json }); });
+        });
+        r.on("error", reject); if(o.body) r.write(o.body); r.end();
+      });
+    }
+    const login = (who, pw, o)=> req("/api/login", Object.assign({ method:"POST", body:JSON.stringify({ username:who.username, password:pw||who.password }) }, o||{}));
+    return { fake, req, login, close(){ server.close(); fake.server.close(); } };
+  }
+
+  await t("hosted: only the public host name; plain http is redirected to https; HSTS on every response", async ()=>{
+    const H = await startHosted();
+    try{
+      assert.strictEqual((await H.req("/", { headers:{ Host:"evil.example" } })).status, 421);
+      assert.strictEqual((await H.req("/", { headers:{ Host:"127.0.0.1" } })).status, 421, "not the local names either");
+      const plain = await H.req("/app.js?x=1", { headers:{ "X-Forwarded-Proto":"http" } });
+      assert.deepStrictEqual([plain.status, plain.headers.location], [308, ORIGIN + "/app.js?x=1"]);
+      assert.strictEqual((await H.login(ADMIN, null, { headers:{ "X-Forwarded-Proto":"http" } })).status, 403, "a write over http is refused, not redirected");
+      const page = await H.req("/");
+      assert.strictEqual(page.status, 200);
+      assert.strictEqual(page.headers["strict-transport-security"], "max-age=31536000; includeSubDomains");
+    } finally { H.close(); }
+    const P = await startPortal();
+    try{ assert.strictEqual((await P.call("/")).headers.get("strict-transport-security"), null, "no HSTS on the local http portal"); } finally { P.close(); }
+  });
+
+  await t("not crawlable: robots.txt disallows everything, and every response says noindex", async ()=>{
+    const H = await startHosted();
+    try{
+      const r = await H.req("/robots.txt");
+      assert.deepStrictEqual([r.status, r.text], [200, "User-agent: *\nDisallow: /\n"]);
+      for(const p of ["/", "/app.js", "/api/session", "/robots.txt"]) assert.strictEqual((await H.req(p)).headers["x-robots-tag"], "noindex, nofollow, noarchive", p);
+      assert.match(require("fs").readFileSync(require("path").join(__dirname, "..", "tools/publish-portal/public/index.html"), "utf8"), /<meta name="robots" content="noindex, nofollow">/);
+    } finally { H.close(); }
+  });
+
+  await t("hosted: the session cookie is __Host- prefixed and Secure; writes from another origin are refused", async ()=>{
+    const H = await startHosted();
+    try{
+      const li = await H.login(ADMIN);
+      assert.strictEqual(li.status, 200);
+      const sc = li.headers["set-cookie"][0];
+      assert.match(sc, /^__Host-portal_session=[A-Za-z0-9_-]+; HttpOnly; SameSite=Strict; Path=\/; Secure; Max-Age=43200$/);
+      const cookie = sc.split(";")[0];
+      assert.strictEqual((await H.req("/api/session", { headers:{ Cookie:cookie } })).json.me.username, "tariro");
+      assert.strictEqual((await H.req("/api/session", { headers:{ Cookie:cookie.replace("__Host-", "") } })).json.signedIn, false, "the unprefixed name isn't accepted");
+      const other = await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:{ Cookie:cookie, Origin:"https://evil.example" } });
+      assert.deepStrictEqual([other.status, other.json.error], [403, "wrong origin"]);
+      assert.strictEqual((await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:{ Cookie:cookie, Origin:null } })).status, 403, "no Origin at all is refused too");
+      assert.strictEqual((await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:{ Cookie:cookie } })).status, 200);
+      const out = await H.req("/api/logout", { method:"POST", body:"{}", headers:{ Cookie:cookie } });
+      assert.match(out.headers["set-cookie"][0], /^__Host-portal_session=; HttpOnly; SameSite=Strict; Path=\/; Secure; Max-Age=0$/);
+    } finally { H.close(); }
+  });
+
+  await t("hosted: first-run setup is off unless explicitly allowed (create the first Admin locally)", async ()=>{
+    const H = await startHosted();
+    try{
+      H.fake.state.portal_staff.length = 0;
+      const s = (await H.req("/api/session")).json;
+      assert.deepStrictEqual([s.setupNeeded, s.setupAvailable], [true, false]);
+      const r = await H.req("/api/setup", { method:"POST", body:JSON.stringify({ setupPassphrase:PASS, username:"x-admin", displayName:"X", password:"long enough password" }) });
+      assert.strictEqual(r.status, 403);
+      assert.match(r.json.error, /Setup is off on the hosted portal/);
+      assert.strictEqual(H.fake.state.portal_staff.length, 0);
+    } finally { H.close(); }
+    const H2 = await startHosted({ allowSetup:true });
+    try{
+      H2.fake.state.portal_staff.length = 0;
+      assert.strictEqual((await H2.req("/api/setup", { method:"POST", body:JSON.stringify({ setupPassphrase:PASS, username:"x-admin", displayName:"X", password:"long enough password" }) })).status, 200);
+    } finally { H2.close(); }
+  });
+
+  await t("hosted: wrong sign-ins are limited per client IP, so one person can't pause sign-in for all staff", async ()=>{
+    const H = await startHosted();
+    try{
+      for(let i=0; i<10; i++) await H.login({ username:"guess"+i, password:"password guess "+i }, null, { ip:"198.51.100.9" });
+      assert.strictEqual((await H.login(ADMIN, null, { ip:"198.51.100.9" })).status, 429, "that IP is paused");
+      assert.strictEqual((await H.login(ADMIN, null, { ip:"203.0.113.77" })).status, 200, "everyone else can still sign in");
+    } finally { H.close(); }
+  });
+
+  await t("hosted: a public origin must be https with no path", ()=>{
+    for(const bad of ["http://portal.example.test", "https://portal.example.test/portal", "https://portal.example.test/?a=1"])
+      assert.throws(()=> createPortal({ supabaseUrl:"http://x", serviceKey:"k", publicOrigin:bad }), /PORTAL_PUBLIC_ORIGIN/, bad);
+  });
+
+  await t("/healthz answers for the host's health check without touching Supabase or saying anything", async ()=>{
+    const H = await startHosted();
+    try{
+      const before = H.fake.state.log.length;
+      const r = await H.req("/healthz", { headers:{ Host:"10.0.0.4:10000", "X-Forwarded-Proto":null } });
+      assert.deepStrictEqual([r.status, r.json], [200, { ok:true }]);
+      assert.strictEqual(H.fake.state.log.length, before);
+    } finally { H.close(); }
+  });
+
   // ================= the page, in a real browser =================
   let chromium = null;
   try{ ({ chromium } = require("playwright")); }catch(e){ console.log("  (Playwright not installed — skipping the browser test)"); }
@@ -856,6 +971,61 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       await shot(page, "portal-7-vendors");
       assert.deepStrictEqual(errors(), []);
     } finally { await browser.close(); P.close(); }
+  });
+
+  // Hosted mode end to end: a local HTTPS proxy in front of the portal, as
+  // Render's is (TLS ends there; X-Forwarded-Proto/For added), so the
+  // Secure __Host- cookie and the Origin check run in a real browser.
+  let tls = null;
+  try{
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "portal-tls-"));
+    require("child_process").execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj", "/CN=portal.example.test",
+      "-keyout", path.join(dir, "key.pem"), "-out", path.join(dir, "cert.pem")], { stdio: "ignore" });
+    tls = { key: fs.readFileSync(path.join(dir, "key.pem")), cert: fs.readFileSync(path.join(dir, "cert.pem")) };
+  }catch(e){ console.log("  (openssl not available — skipping the hosted browser test)"); }
+  if(chromium && tls) await t("in a browser, hosted behind HTTPS: sign in, token status, publish gate, record a token, publish", async ()=>{
+    const https = require("https");
+    const fake = await startFakeSupabase();
+    fake.state.portal_staff.push({ id:crypto.randomUUID(), username:ADMIN.username, display_name:ADMIN.name, role:"admin", password_hash:hashPassword(ADMIN.password),
+      must_change_password:false, active:true, failed_attempts:0, locked_until:null, created_at:new Date().toISOString() });
+    const proxy = https.createServer(tls);
+    await new Promise(r=> proxy.listen(0, "127.0.0.1", r));
+    const origin = "https://portal.example.test:" + proxy.address().port;
+    const { server } = createPortal({ supabaseUrl:fake.url, serviceKey:SERVICE_KEY, log:()=>{}, publicOrigin:origin, clock:()=> new Date(TODAY+"T10:00:00Z") });
+    await new Promise(r=> server.listen(0, "127.0.0.1", r));
+    proxy.on("request", (req, res)=>{
+      const up = http.request({ host:"127.0.0.1", port:server.address().port, path:req.url, method:req.method,
+        headers:Object.assign({}, req.headers, { "x-forwarded-proto":"https", "x-forwarded-for":"198.51.100.20" }) }, r=>{ res.writeHead(r.statusCode, r.headers); r.pipe(res); });
+      req.pipe(up);
+    });
+    const browser = await chromium.launch({ args:["--host-resolver-rules=MAP portal.example.test 127.0.0.1"] });
+    try{
+      const file = path.join(os.tmpdir(), "MKT0007-Boka-portal-hosted.scl");
+      fs.writeFileSync(file, await makeScl());
+      const ctx = await browser.newContext({ ignoreHTTPSErrors:true });
+      const page = await ctx.newPage();
+      const errors = [];
+      page.on("pageerror", e=> errors.push(e.message));
+      page.on("dialog", d=> d.accept());
+      await page.goto(origin + "/");
+      await signIn(page, ADMIN);
+      await page.waitForSelector("#drop");
+      const cookies = await ctx.cookies(origin);
+      assert.deepStrictEqual(cookies.map(c=> [c.name, c.secure, c.httpOnly, c.sameSite]), [["__Host-portal_session", true, true, "Strict"]]);
+      await page.setInputFiles("#fileInput", file);
+      await page.waitForSelector("#tokenBlock");
+      assert.match(await page.textContent("#tokenBlock"), /No active token — none has been recorded/);
+      assert.strictEqual(await page.isDisabled("#publishBtn"), true);
+      await page.click("#recordTokenBtn");
+      await page.click(".token-form button[type=submit]");
+      await page.waitForFunction(()=> !document.querySelector("#tokenBlock"));
+      assert.match(await page.textContent("#vendorToken"), /token active until 24 Oct 2026/);
+      await page.click("#publishBtn");
+      await page.waitForSelector("#resultBanner");
+      assert.match(await page.textContent("#resultBanner"), /3 of 3 published/);
+      assert.strictEqual(fake.state.vendor_listings.length, 3);
+      assert.deepStrictEqual(errors, []);
+    } finally { await browser.close(); server.close(); proxy.close(); fake.server.close(); }
   });
 
   if(chromium) await t("in a browser: the lockout message and an Admin voiding a token", async ()=>{

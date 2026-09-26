@@ -33,6 +33,7 @@ const LOCK_AFTER = 5;          // wrong passwords in a row
 const LOCK_MINUTES = 15;
 const GLOBAL_FAILS = 20;       // wrong sign-ins across all accounts...
 const GLOBAL_WINDOW_MS = 5 * 60 * 1000;   // ...in this window pause sign-in for everyone
+const IP_FAILS = 10;           // hosted: wrong sign-ins from one client IP in that window
 
 // Minimal .env reader (KEY=value lines, # comments); the environment wins.
 function loadEnvFile(file){
@@ -46,9 +47,29 @@ function loadEnvFile(file){
   return out;
 }
 
+// Hosted mode (opts.publicOrigin, e.g. https://publish.example.com): the
+// portal sits behind a TLS-terminating proxy (Render) on a public URL, so:
+//   * only that host name is answered (instead of 127.0.0.1 / localhost)
+//   * plain HTTP is redirected to HTTPS, and HSTS is sent
+//   * the session cookie is Secure and __Host- prefixed
+//   * every write must come from that origin (Origin header)
+//   * wrong sign-ins are limited per client IP, so one person on the
+//     internet can't pause sign-in for all staff (a much higher global
+//     ceiling stays as a backstop)
+//   * first-run setup is off unless allowSetup: create the first Admin
+//     on the local portal, which uses the same database
 function createPortal(opts){
   const setupPassphrase = String(opts.setupPassphrase || opts.passphrase || "");
   if(setupPassphrase && setupPassphrase.length < 12) throw new Error("PORTAL_PASSPHRASE must be at least 12 characters.");
+  const publicOrigin = opts.publicOrigin ? new URL(opts.publicOrigin) : null;
+  if(publicOrigin && (publicOrigin.protocol !== "https:" || publicOrigin.pathname !== "/" || publicOrigin.search))
+    throw new Error("PORTAL_PUBLIC_ORIGIN must be an https:// origin with no path, e.g. https://publish.example.com");
+  const hosted = !!publicOrigin;
+  const setupAllowed = !hosted || !!opts.allowSetup;
+  const COOKIE = hosted ? "__Host-portal_session" : "portal_session";
+  const cookieAttrs = "HttpOnly; SameSite=Strict; Path=/" + (hosted ? "; Secure" : "");
+  const hostOk = (h)=> hosted ? h === publicOrigin.host : /^(127\.0\.0\.1|localhost)(:\d+)?$/.test(h);
+  const ipFailures = new Map();   // hosted: client IP -> timestamps of failed sign-ins
   const supa = opts.supabase || createSupabase({ url: opts.supabaseUrl, serviceKey: opts.serviceKey });
   const clock = opts.clock || (()=> new Date());
   const setupHash = setupPassphrase ? crypto.createHash("sha256").update(setupPassphrase).digest() : null;
@@ -59,7 +80,14 @@ function createPortal(opts){
   // History shows the published photos straight from the Storage bucket.
   const imageOrigin = new URL(opts.imageOrigin || opts.supabaseUrl).origin;
 
-  const sessionToken = (req)=>{ const m = (req.headers.cookie || "").match(/(?:^|;\s*)portal_session=([A-Za-z0-9_-]+)/); return m && m[1]; };
+  const sessionToken = (req)=>{
+    for(const part of (req.headers.cookie || "").split(/;\s*/)){ const i = part.indexOf("="); if(part.slice(0, i) === COOKIE && /^[A-Za-z0-9_-]+$/.test(part.slice(i + 1))) return part.slice(i + 1); }
+    return null;
+  };
+  // Behind Render's proxy the client is the first X-Forwarded-For entry. It
+  // can be spoofed, which only lets someone dodge the per-IP limit; the
+  // per-account lockout and the global ceiling still apply.
+  const clientIp = (req)=> hosted ? String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress : req.socket.remoteAddress;
   // The signed-in staff member, read fresh each time so a deactivation or
   // role change takes effect on the very next request.
   async function currentStaff(req){
@@ -74,11 +102,25 @@ function createPortal(opts){
   function startSession(staff){
     const token = crypto.randomBytes(32).toString("base64url");
     sessions.set(token, { staffId: staff.id, exp: Date.now() + SESSION_HOURS * 3600 * 1000 });
-    return { "Set-Cookie": `portal_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_HOURS * 3600}` };
+    return { "Set-Cookie": `${COOKIE}=${token}; ${cookieAttrs}; Max-Age=${SESSION_HOURS * 3600}` };
   }
   function endSessionsOf(staffId){ for(const [t, s] of sessions) if(s.staffId === staffId) sessions.delete(t); }
   const me = (s)=> s && ({ id: s.id, username: s.username, name: s.display_name, role: s.role, mustChangePassword: !!s.must_change_password });
-  const tooManyFailures = ()=>{ const now = Date.now(); while(failures.length && now - failures[0] > GLOBAL_WINDOW_MS) failures.shift(); return failures.length >= GLOBAL_FAILS; };
+  // Local: 20 wrong sign-ins in 5 minutes pause everyone. Hosted: 10 per
+  // client IP, and 200 in total as a backstop against guessing from many IPs.
+  const prune = (list)=>{ const now = Date.now(); while(list.length && now - list[0] > GLOBAL_WINDOW_MS) list.shift(); return list; };
+  const tooManyFailures = (req)=>{
+    if(!hosted) return prune(failures).length >= GLOBAL_FAILS;
+    const mine = ipFailures.get(clientIp(req));
+    return prune(failures).length >= GLOBAL_FAILS * 10 || (!!mine && prune(mine).length >= IP_FAILS);
+  };
+  const recordFailure = (req)=>{
+    failures.push(Date.now());
+    if(!hosted) return;
+    const ip = clientIp(req);
+    if(!ipFailures.has(ip)){ if(ipFailures.size > 10000) ipFailures.clear(); ipFailures.set(ip, []); }
+    ipFailures.get(ip).push(Date.now());
+  };
   const clockTime = (d)=> new Intl.DateTimeFormat("en-GB", { timeZone: A.TIME_ZONE, hour: "2-digit", minute: "2-digit" }).format(d);
 
   const sweep = ()=>{ const now = Date.now(); for(const [id, b] of batches) if(now - b.created > BATCH_TTL_MS) batches.delete(id); };
@@ -92,7 +134,11 @@ function createPortal(opts){
       "Referrer-Policy": "no-referrer",
       "X-Frame-Options": "DENY",
       "Content-Security-Policy": `default-src 'self'; img-src 'self' ${imageOrigin}; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
-    }, headers || {}));
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    }, hosted ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}, headers || {}));
     res.end(isBuf ? body : JSON.stringify(body));
   }
   function readBody(req){
@@ -232,8 +278,19 @@ function createPortal(opts){
     const url = new URL(req.url, "http://localhost");
     const route = url.pathname;
     const method = req.method;
-    // Only this machine's own names (blocks DNS-rebinding pages).
-    if(!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(req.headers.host || "")) return send(res, 421, { error: "wrong host" });
+    // For the host's health check: says nothing, touches nothing.
+    if(route === "/healthz" && method === "GET") return send(res, 200, { ok: true });
+    // Only this portal's own name: 127.0.0.1/localhost locally (blocks
+    // DNS-rebinding pages), the public host name when hosted.
+    if(!hostOk(req.headers.host || "")) return send(res, 421, { error: "wrong host" });
+    if(hosted && req.headers["x-forwarded-proto"] !== "https"){
+      if(method === "GET" || method === "HEAD"){ res.writeHead(308, { Location: publicOrigin.origin + req.url }); return res.end(); }
+      return send(res, 403, { error: "Use https." });
+    }
+    if(method === "GET" && route === "/robots.txt")
+      return send(res, 200, Buffer.from("User-agent: *\nDisallow: /\n"), { "Content-Type": "text/plain; charset=utf-8" });
+    // Hosted: every write must come from the portal's own page.
+    if(hosted && method !== "GET" && req.headers.origin !== publicOrigin.origin) return send(res, 403, { error: "wrong origin" });
 
     // Static files: the page itself is public (it's just the sign-in form
     // until the API says otherwise); everything under /api needs a session.
@@ -251,17 +308,18 @@ function createPortal(opts){
     if(route === "/api/session" && method === "GET"){
       const staff = await currentStaff(req);
       const setupNeeded = !staff && (await supa.staffCount()) === 0;
-      return send(res, 200, { signedIn: !!staff, me: me(staff), setupNeeded, setupAvailable: !!setupHash });
+      return send(res, 200, { signedIn: !!staff, me: me(staff), setupNeeded, setupAvailable: !!setupHash && setupAllowed });
     }
 
     // First run only: create the first Admin, proven by PORTAL_PASSPHRASE.
     if(route === "/api/setup" && method === "POST"){
-      if(tooManyFailures()) return send(res, 429, { error: "Too many wrong tries. Wait a few minutes and try again." });
+      if(tooManyFailures(req)) return send(res, 429, { error: "Too many wrong tries. Wait a few minutes and try again." });
       if((await supa.staffCount()) > 0) return send(res, 409, { error: "Setup is already done. Sign in with your username and password." });
+      if(!setupAllowed) return send(res, 403, { error: "Setup is off on the hosted portal. Create the first Admin on the local portal (same database), then sign in here." });
       if(!setupHash) return send(res, 503, { error: "Set PORTAL_PASSPHRASE in .env, restart the portal, then try again." });
       const body = json(await readBody(req)) || {};
       const given = crypto.createHash("sha256").update(String(body.setupPassphrase || "")).digest();
-      if(!crypto.timingSafeEqual(given, setupHash)){ failures.push(Date.now()); return send(res, 401, { error: "That isn't the setup passphrase (PORTAL_PASSPHRASE in .env)." }); }
+      if(!crypto.timingSafeEqual(given, setupHash)){ recordFailure(req); return send(res, 401, { error: "That isn't the setup passphrase (PORTAL_PASSPHRASE in .env)." }); }
       const username = A.normalizeUsername(body.username);
       const problem = A.usernameProblem(username) || (str(body.displayName, 80) ? "" : "Enter your name.") || A.passwordProblem(body.password, username);
       if(problem) return send(res, 400, { error: problem });
@@ -271,21 +329,21 @@ function createPortal(opts){
     }
 
     if(route === "/api/login" && method === "POST"){
-      if(tooManyFailures()) return send(res, 429, { error: "Too many wrong sign-ins on this portal. Wait a few minutes and try again." });
+      if(tooManyFailures(req)) return send(res, 429, { error: "Too many wrong sign-ins on this portal. Wait a few minutes and try again." });
       const body = json(await readBody(req)) || {};
       const username = A.normalizeUsername(body.username);
       const password = String(body.password || "");
       const staff = username ? await supa.staffByUsername(username) : null;
       if(!staff || !staff.active){
         A.verifyPassword(password, A.DUMMY_HASH);   // same time as a real check
-        failures.push(Date.now());
+        recordFailure(req);
         return send(res, 401, { error: "Wrong username or password." });
       }
       const now = clock();
       if(staff.locked_until && Date.parse(staff.locked_until) > now.getTime())
         return send(res, 423, { error: `This account is locked after ${LOCK_AFTER} wrong passwords. Try again after ${clockTime(new Date(staff.locked_until))}, or ask an Admin to unlock it.` });
       if(!A.verifyPassword(password, staff.password_hash)){
-        failures.push(Date.now());
+        recordFailure(req);
         const n = (staff.failed_attempts || 0) + 1;
         if(n >= LOCK_AFTER){
           const until = new Date(now.getTime() + LOCK_MINUTES * 60000);
@@ -308,7 +366,7 @@ function createPortal(opts){
 
     if(route === "/api/logout" && method === "POST"){
       sessions.delete(sessionToken(req));
-      return send(res, 200, { ok: true }, { "Set-Cookie": "portal_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" });
+      return send(res, 200, { ok: true }, { "Set-Cookie": `${COOKIE}=; ${cookieAttrs}; Max-Age=0` });
     }
     if(route === "/api/password" && method === "POST"){
       const body = json(await readBody(req)) || {};
@@ -483,9 +541,16 @@ if(require.main === module){
   const env = Object.assign(loadEnvFile(path.join(__dirname, "..", "..", ".env")), process.env);
   const missing = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"].filter(k => !env[k]);
   if(missing.length){ console.error("Missing in .env: " + missing.join(", ") + " (see .env.example)"); process.exit(1); }
-  const port = Number(env.PORTAL_PORT || 8787);
-  const { server } = createPortal({ supabaseUrl: env.SUPABASE_URL, serviceKey: env.SUPABASE_SERVICE_ROLE_KEY, setupPassphrase: env.PORTAL_PASSPHRASE });
-  server.listen(port, "127.0.0.1", ()=> console.log(`Publish portal: http://127.0.0.1:${port}/  (this machine only)`));
+  // Hosted (Render): PORTAL_PUBLIC_ORIGIN set, listen on all interfaces on
+  // the PORT the host gives. Locally: 127.0.0.1 only.
+  const publicOrigin = env.PORTAL_PUBLIC_ORIGIN || "";
+  const port = Number(env.PORT || env.PORTAL_PORT || 8787);
+  const bind = publicOrigin ? "0.0.0.0" : "127.0.0.1";
+  const { server } = createPortal({ supabaseUrl: env.SUPABASE_URL, serviceKey: env.SUPABASE_SERVICE_ROLE_KEY, setupPassphrase: env.PORTAL_PASSPHRASE,
+    publicOrigin, allowSetup: env.PORTAL_ALLOW_SETUP === "1" });
+  server.listen(port, bind, ()=> console.log(publicOrigin
+    ? `Publish portal (hosted): ${publicOrigin}/  listening on ${bind}:${port}`
+    : `Publish portal: http://127.0.0.1:${port}/  (this machine only)`));
 }
 
 module.exports = { createPortal, loadEnvFile, LOCK_AFTER, LOCK_MINUTES };

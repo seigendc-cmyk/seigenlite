@@ -1,0 +1,29 @@
+# Render Blueprint: the Digital Commerce Publish Portal (tools/publish-portal)
+# as a hosted web service. Secrets are NOT in this file: every `sync: false`
+# value is entered in Render's dashboard when the Blueprint is created.
+#
+# Deliberately not set here: SUPABASE_DB_URL (a full database password the
+# portal never uses), SUPABASE_ANON_KEY (not read by the portal) and
+# PORTAL_PASSPHRASE (setup is off on the hosted portal; create the first
+# Admin on the local portal, which uses the same database).
+services:
+  - type: web
+    name: dc-publish-portal
+    runtime: node
+    region: frankfurt
+    plan: starter            # free instances sleep when idle, which signs everyone out
+    # The portal uses only Node's built-in modules: nothing to install
+    # (and npm install would pull in the test tools, e.g. Playwright).
+    buildCommand: node --version
+    startCommand: node tools/publish-portal/server.js
+    healthCheckPath: /healthz
+    autoDeploy: false        # deploy on purpose, not on every push
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SUPABASE_URL
+        value: https://urbopdsubwawtybwrxjd.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false          # Supabase -> Project Settings -> API -> service_role
+      - key: PORTAL_PUBLIC_ORIGIN
+        sync: false          # e.g. https://dc-publish-portal.onrender.com (no trailing slash)
