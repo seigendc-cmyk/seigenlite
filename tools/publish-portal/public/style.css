@@ -3,6 +3,8 @@
   --accent:#1f5fbf; --ok:#1f7a3a; --okbg:#e5f3e9; --bad:#a3261d; --badbg:#fbeceb; --warn:#8a5a00; --warnbg:#fdf4e2;
 }
 *{box-sizing:border-box;}
+/* display rules below (e.g. nav{display:flex}) must not un-hide [hidden] elements */
+[hidden]{display:none !important;}
 body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg);}
 header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 24px;background:var(--card);border-bottom:1px solid var(--line);}
 h1{font-size:18px;margin:0;} h1 .sub{font-weight:400;color:var(--soft);font-size:14px;}

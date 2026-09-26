@@ -24,7 +24,6 @@ There's nothing to install: it only uses Node's built-in modules (Node 18+). The
 
 - listens on `0.0.0.0` on the `PORT` Render gives it;
 - answers only that host name, redirects plain HTTP to HTTPS, and sends HSTS;
-- uses a `Secure`, `__Host-` session cookie;
 - refuses any write whose `Origin` isn't the portal itself;
 - limits wrong sign-ins per client IP (10 per 5 minutes), with a higher overall ceiling, so one person can't pause sign-in for all staff;
 - turns first-run setup off (set `PORTAL_ALLOW_SETUP=1` to allow it). Create the first Admin on the local portal instead: it uses the same database.
@@ -41,6 +40,12 @@ Everywhere, locally and hosted:
 - every response carries `X-Robots-Tag: noindex`.
 
 Sessions and uploaded files live in memory, so a restart or redeploy signs everyone out and clears uploads that haven't been published.
+
+## Installing it as an app (PWA)
+
+The portal can be installed from Chrome or Edge as its own window with an app icon. The files are `manifest.webmanifest`, `sw.js` and the icons in `public/`. It still runs on this machine only: the installed app is just a window onto http://127.0.0.1:8787/, so the portal (`node tools/publish-portal/server.js`) must be running.
+
+The service worker caches the page shell only: HTML, CSS, JS, manifest and icons. It never touches anything under `/api/`, any request carrying a session, anything from Supabase, or anything that isn't a GET. The shell is only the sign-in form until the server says otherwise, so the cached copy lets the app window open when the portal is stopped, but nobody can get past sign-in.
 
 ## Staff accounts
 
@@ -90,7 +95,11 @@ A vendor's status is shown wherever their listings appear: on the uploaded file,
 - The `service_role` key bypasses row-level security. It stays in this server process: the page never receives it, and the tests check that no response contains it.
 - `portal_staff` and `vendor_tokens` have RLS on with no policies and no grants to `anon`/`authenticated`, so only this portal (service_role) can reach them. service_role can't delete from them either.
 - Passwords are stored as scrypt hashes, and no hash is ever sent to the page. A wrong username takes as long to refuse as a wrong password.
-- Sessions last 12 hours (an HttpOnly, SameSite=Strict cookie), and the account is re-read on every request, so role changes and deactivation apply at once.
+- **Sign-in never survives the page.** There's no session cookie: the session is held in the open page's memory and sent as an `X-Portal-Session` header.
+  - Every reload, new tab, new window or launch of the installed app starts at the sign-in form.
+  - Closing or reloading the page also ends the session on the server.
+  - Otherwise a session lasts at most 12 hours.
+  - The account is re-read on every request, so role changes and deactivation apply at once.
   - Every write request must carry an `X-Portal` header.
   - Requests using any host name other than `127.0.0.1` or `localhost` are refused.
 - Everything from a vendor's file or typed by staff is shown as text, never as HTML.

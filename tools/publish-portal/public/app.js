@@ -19,14 +19,20 @@ function el(tag, props, ...kids){
 }
 let me = null;          // the signed-in staff member: { id, username, name, role, mustChangePassword }
 const isAdmin = ()=> !!(me && me.role === "admin");
+// The sign-in lives in this variable only — never in a cookie, storage or
+// the service worker — so each newly opened window, tab, reload or
+// installed-app launch starts signed out.
+let session = null;
+const authHeaders = ()=> Object.assign({ "X-Portal": "1" }, session ? { "X-Portal-Session": session } : {});
 
 async function api(path, opts){
   opts = opts || {};
   const res = await fetch(path, {
     method: opts.method || "GET",
-    headers: Object.assign({ "X-Portal": "1" }, opts.json !== undefined ? { "Content-Type": "application/json" } : {}, opts.headers || {}),
+    headers: Object.assign(authHeaders(), opts.json !== undefined ? { "Content-Type": "application/json" } : {}, opts.headers || {}),
     body: opts.json !== undefined ? JSON.stringify(opts.json) : opts.body,
-    credentials: "same-origin",
+    credentials: "omit",
+    cache: "no-store",
   });
   const data = await res.json().catch(()=> ({}));
   if(res.status === 401 && !["/api/login", "/api/setup"].includes(path)){ showLogin(); throw new Error("Signed out — sign in again."); }
@@ -40,6 +46,14 @@ const when = (iso)=> iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 
 const fmtDate = (d)=> d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "";
 const addDays = (d, n)=>{ const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 function showError(id, msg){ const e = $(id); e.textContent = msg || ""; e.hidden = !msg; }
+// Photos from an upload need the session header, which an <img src> can't send.
+function authImage(img, url){
+  fetch(url, { headers: authHeaders(), credentials: "omit", cache: "no-store" })
+    .then(r => r.ok ? r.blob() : null)
+    .then(b => { if(b){ img.src = URL.createObjectURL(b); img.addEventListener("load", ()=> URL.revokeObjectURL(img.src), { once: true }); } })
+    .catch(()=>{});
+  return img;
+}
 
 // A vendor's token status as a small tag.
 function tokenTag(t){
@@ -67,7 +81,7 @@ function show(view){
   if(view === "staff") loadStaff();
 }
 // The next person to sign in starts on Upload, not on the last person's tab.
-function showLogin(){ me = null; lastView = "upload"; show("login"); $("username").focus(); }
+function showLogin(){ me = null; session = null; batch = null; $("preview").replaceChildren(); lastView = "upload"; show("login"); $("username").focus(); }
 function showPassword(forced){
   if(forced && me) me.mustChangePassword = true;
   $("passwordForced").hidden = !forced;
@@ -76,7 +90,7 @@ function showPassword(forced){
   show("password");
   $("pwCurrent").focus();
 }
-function signedIn(who){ me = who; if(me.mustChangePassword) showPassword(true); else show("upload"); }
+function signedIn(r){ session = r.session; const who = r.me; me = who; if(me.mustChangePassword) showPassword(true); else show("upload"); }
 document.querySelectorAll("#nav .tab").forEach(b => b.addEventListener("click", ()=> show(b.dataset.view)));
 
 $("loginForm").addEventListener("submit", async (e)=>{
@@ -85,7 +99,7 @@ $("loginForm").addEventListener("submit", async (e)=>{
   try{
     const r = await api("/api/login", { method: "POST", json: { username: $("username").value, password: $("password").value } });
     $("password").value = "";
-    signedIn(r.me);
+    signedIn(r);
   }catch(err){ showError("loginError", err.message); }
 });
 $("setupForm").addEventListener("submit", async (e)=>{
@@ -96,7 +110,7 @@ $("setupForm").addEventListener("submit", async (e)=>{
     const r = await api("/api/setup", { method: "POST", json: { setupPassphrase: $("setupPassphrase").value,
       displayName: $("setupName").value, username: $("setupUsername").value, password: $("setupPassword").value } });
     ["setupPassphrase", "setupPassword", "setupPassword2"].forEach(id => { $(id).value = ""; });
-    signedIn(r.me);
+    signedIn(r);
   }catch(err){ showError("setupError", err.message); }
 });
 $("passwordForm").addEventListener("submit", async (e)=>{
@@ -226,7 +240,7 @@ function renderPreview(){
     const box = el("input", { type: "checkbox", class: "include", "data-index": String(it.index), "aria-label": "Publish " + (it.name || "item " + (it.index + 1)),
       checked: !excluded.has(it.index), disabled: blocked || !b.canPublish || !!b.result });
     box.addEventListener("change", ()=>{ box.checked ? excluded.delete(it.index) : excluded.add(it.index); tr.classList.toggle("excluded", !box.checked); updateCount(); });
-    const photo = it.hasImage ? el("img", { class: "thumb", src: `/api/batches/${b.id}/images/${it.index}`, alt: it.name || "" }) : el("div", { class: "nophoto", text: "no photo" });
+    const photo = it.hasImage ? authImage(el("img", { class: "thumb", alt: it.name || "" }), `/api/batches/${b.id}/images/${it.index}`) : el("div", { class: "nophoto", text: "no photo" });
     const tags = [
       ...it.problems.map(p => el("span", { class: "tag bad", text: p })),
       ...it.notes.map(n => el("span", { class: "tag warn", text: n })),
@@ -405,8 +419,22 @@ $("addStaffForm").addEventListener("submit", async (e)=>{
 });
 
 // ---------------- start ----------------
+// A freshly opened page never has a session: it's either first-run setup or the sign-in form.
 api("/api/session").then(s => {
-  if(s.signedIn) return signedIn(s.me);
   if(s.setupNeeded){ show("setup"); if(!s.setupAvailable) showError("setupError", "Set PORTAL_PASSPHRASE in .env and restart the portal to create the first Admin."); return; }
   showLogin();
 }).catch(()=> showLogin());
+
+// Closing or reloading the window (or the installed app) ends the session
+// on the server too, not just in this page's memory.
+addEventListener("pagehide", ()=>{
+  if(!session) return;
+  // A beacon is what browsers reliably send while a page is going away.
+  navigator.sendBeacon("/api/end-session", new Blob([JSON.stringify({ session })], { type: "text/plain" }));
+  session = null;
+});
+
+// Installable app (sw.js caches the page shell only — never /api).
+if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+// A page brought back from the back/forward cache comes back signed out too.
+addEventListener("pageshow", (e)=>{ if(e.persisted && !session) showLogin(); });

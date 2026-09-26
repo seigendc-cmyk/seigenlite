@@ -173,15 +173,15 @@ async function startPortal(o){
   await new Promise(r=> server.listen(0, "127.0.0.1", r));
   const base = "http://127.0.0.1:"+server.address().port;
   const seen = [];   // every response the portal gave, to check the key never leaks
-  let cookie = "";
+  let session = "";   // as the page keeps it: in memory, sent as X-Portal-Session
   async function call(path, o){
     o = o || {};
     const res = await fetch(base+path, { method:o.method||"GET",
-      headers:Object.assign({ "X-Portal":"1" }, cookie? { Cookie:cookie } : {}, o.headers||{}), body:o.body });
+      headers:Object.assign({ "X-Portal":"1" }, session? { "X-Portal-Session":session } : {}, o.headers||{}), body:o.body });
     const buf = Buffer.from(await res.arrayBuffer());
     seen.push(JSON.stringify([...res.headers]) + buf.toString("latin1"));
-    const sc = res.headers.get("set-cookie"); if(sc && !o.keepCookie) cookie = sc.split(";")[0];
     let json = null; try{ json = JSON.parse(buf.toString()); }catch(e){}
+    if(json && json.session) session = json.session;
     return { status:res.status, json, buf, headers:res.headers };
   }
   const login = (who, password)=> call("/api/login", { method:"POST", body:JSON.stringify({ username:(who||ADMIN).username, password:password || (who||ADMIN).password }) });
@@ -191,7 +191,7 @@ async function startPortal(o){
   const staffRow = (username)=> fake.state.portal_staff.find(x=> x.username===username);
   const close = ()=>{ server.close(); fake.server.close(); };
   return { fake, base, call, login, upload, publish, post, staffRow, close, seen,
-    get cookie(){ return cookie; }, set cookie(v){ cookie = v; }, advance(ms){ now = new Date(now.getTime() + ms); }, setNow(iso){ now = new Date(iso); } };
+    get session(){ return session; }, set session(v){ session = v; }, advance(ms){ now = new Date(now.getTime() + ms); }, setNow(iso){ now = new Date(iso); } };
 }
 // Writes to listings, vendors, tokens or photos (a sign-in's own portal_staff update isn't one).
 const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="/rest/v1/portal_staff");
@@ -258,7 +258,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       assert.ok(!row.password_hash.includes("a good long password"));
       assert.strictEqual((await P.call("/api/session")).json.me.role, "admin", "signed in by setup");
       assert.strictEqual((await P.post("/api/setup", { setupPassphrase:PASS, username:"other", displayName:"X", password:"another long password" })).status, 409, "setup closes once an account exists");
-      P.cookie = "";
+      P.session = "";
       assert.strictEqual((await P.call("/api/session")).json.setupNeeded, false);
       assert.strictEqual((await P.login({ username:"tariro", password:"a good long password" })).status, 200);
     } finally { P.close(); }
@@ -296,7 +296,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       assert.match(right.json.error, /locked after 5 wrong passwords\. Try again after 12:15, or ask an Admin to unlock it/);
       assert.strictEqual((await P.login(ADMIN)).status, 200, "other accounts are unaffected");
       P.advance(14*60000);
-      P.cookie = "";
+      P.session = "";
       assert.strictEqual((await P.login(REVIEWER)).status, 423, "still locked at 14 minutes");
       P.advance(61000);
       assert.strictEqual((await P.login(REVIEWER)).status, 200, "open again after 15 minutes");
@@ -318,7 +318,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       const staff = (await P.call("/api/staff")).json.staff;
       assert.strictEqual(staff.find(x=> x.username==="rudo").locked, true);
       assert.strictEqual((await P.post(`/api/staff/${P.staffRow("rudo").id}`, { action:"unlock" })).status, 200);
-      P.cookie = "";
+      P.session = "";
       assert.strictEqual((await P.login(REVIEWER)).status, 200);
     } finally { P.close(); }
   });
@@ -359,15 +359,15 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
     const P = await startPortal();
     try{
       await P.login(REVIEWER);
-      const reviewerCookie = P.cookie;
+      const reviewerSession = P.session;
       P.staffRow("rudo").role = "admin";                 // (as if another Admin promoted them)
       assert.strictEqual((await P.call("/api/staff")).status, 200);
       P.staffRow("rudo").role = "reviewer";
       assert.strictEqual((await P.call("/api/staff")).status, 403);
-      P.cookie = "";
+      P.session = "";
       await P.login(ADMIN);
       assert.strictEqual((await P.post(`/api/staff/${P.staffRow("rudo").id}`, { action:"deactivate" })).status, 200);
-      P.cookie = reviewerCookie;
+      P.session = reviewerSession;
       assert.strictEqual((await P.call("/api/history")).status, 401, "signed out at once");
       assert.strictEqual((await P.login(REVIEWER)).status, 401, "can't sign in while deactivated");
     } finally { P.close(); }
@@ -384,7 +384,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       assert.strictEqual(add.status, 200, JSON.stringify(add.json));
       assert.deepStrictEqual([add.json.staff.username, add.json.staff.role, add.json.staff.mustChangePassword], ["chipo", "reviewer", true]);
       assert.strictEqual(P.staffRow("chipo").created_by, P.staffRow("tariro").id);
-      P.cookie = "";
+      P.session = "";
       const li = await P.login({ username:"chipo", password:"temporary pass 1" });
       assert.strictEqual(li.json.me.mustChangePassword, true);
       const blocked = await P.upload(await makeScl());
@@ -395,7 +395,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       const ch = await P.post("/api/password", { current:"temporary pass 1", next:"a password of my own" });
       assert.strictEqual(ch.json.me.mustChangePassword, false);
       assert.strictEqual((await P.upload(await makeScl())).status, 200, "works once changed, same session");
-      P.cookie = "";
+      P.session = "";
       assert.strictEqual((await P.login({ username:"chipo", password:"temporary pass 1" })).status, 401, "temporary password no longer works");
       assert.strictEqual((await P.login({ username:"chipo", password:"a password of my own" })).status, 200);
     } finally { P.close(); }
@@ -404,7 +404,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
   await t("there's always an active Admin: no demoting or deactivating the last one, or yourself; resets sign the person out", async ()=>{
     const P = await startPortal();
     try{
-      await P.login(REVIEWER); const reviewerCookie = P.cookie; P.cookie = "";
+      await P.login(REVIEWER); const reviewerSession = P.session; P.session = "";
       await P.login(ADMIN);
       const me = P.staffRow("tariro").id, rudo = P.staffRow("rudo").id;
       assert.match((await P.post(`/api/staff/${me}`, { action:"role", role:"reviewer" })).json.error, /your own role/);
@@ -415,7 +415,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       assert.match((await P.post(`/api/staff/${rudo}`, { action:"reset-password", password:"short" })).json.error, /at least 10/);
       const reset = await P.post(`/api/staff/${rudo}`, { action:"reset-password", password:"fresh temporary 9" });
       assert.strictEqual(reset.json.staff.mustChangePassword, true);
-      P.cookie = reviewerCookie;
+      P.session = reviewerSession;
       assert.strictEqual((await P.call("/api/history")).status, 401, "a reset signs them out everywhere");
       assert.strictEqual((await P.login(REVIEWER)).status, 401, "old password gone");
       assert.strictEqual((await P.login({ username:"rudo", password:"fresh temporary 9" })).json.me.mustChangePassword, true);
@@ -534,15 +534,20 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
     } finally { P.close(); }
   });
 
-  await t("sign-in sets an HttpOnly SameSite=Strict cookie; writes need the X-Portal header; other Host names are refused", async ()=>{
+  await t("sign-in hands back a session for the page's memory only — no cookie; it must be sent as a header; writes need X-Portal; other Host names are refused", async ()=>{
     const P = await startPortal();
     try{
       const r = await P.login();
       assert.strictEqual(r.status, 200);
-      assert.match(r.headers.get("set-cookie"), /HttpOnly; SameSite=Strict; Path=\//);
+      assert.match(r.json.session, /^[A-Za-z0-9_-]{43}$/);
+      assert.strictEqual(r.headers.get("set-cookie"), null, "nothing the browser would keep and re-send by itself");
       assert.strictEqual((await P.call("/api/session")).json.signedIn, true);
-      const noHeader = await fetch(P.base+"/api/batches", { method:"POST", headers:{ Cookie:P.cookie }, body:await makeScl() });
+      const asCookie = await fetch(P.base+"/api/session", { headers:{ Cookie:"portal_session="+P.session } });
+      assert.strictEqual((await asCookie.json()).signedIn, false, "a cookie carrying the token isn't accepted");
+      const noHeader = await fetch(P.base+"/api/batches", { method:"POST", headers:{ "X-Portal-Session":P.session }, body:await makeScl() });
       assert.strictEqual(noHeader.status, 403);
+      assert.strictEqual((await P.call("/api/logout", { method:"POST", body:"{}" })).status, 200);
+      assert.strictEqual((await P.call("/api/session")).json.signedIn, false, "sign-out ends it on the server");
       const rebinding = await new Promise(res=> http.get(P.base+"/api/session", { headers:{ Host:"evil.example" } }, r=> res(r.statusCode)));
       assert.strictEqual(rebinding, 421);
       assert.throws(()=> createPortal({ supabaseUrl:"http://x", serviceKey:"k", passphrase:"short" }), /at least 12/);
@@ -735,22 +740,20 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
     } finally { H.close(); }
   });
 
-  await t("hosted: the session cookie is __Host- prefixed and Secure; writes from another origin are refused", async ()=>{
+  await t("hosted: no cookie either; the session header works over https; writes from another origin are refused", async ()=>{
     const H = await startHosted();
     try{
       const li = await H.login(ADMIN);
       assert.strictEqual(li.status, 200);
-      const sc = li.headers["set-cookie"][0];
-      assert.match(sc, /^__Host-portal_session=[A-Za-z0-9_-]+; HttpOnly; SameSite=Strict; Path=\/; Secure; Max-Age=43200$/);
-      const cookie = sc.split(";")[0];
-      assert.strictEqual((await H.req("/api/session", { headers:{ Cookie:cookie } })).json.me.username, "tariro");
-      assert.strictEqual((await H.req("/api/session", { headers:{ Cookie:cookie.replace("__Host-", "") } })).json.signedIn, false, "the unprefixed name isn't accepted");
-      const other = await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:{ Cookie:cookie, Origin:"https://evil.example" } });
+      assert.strictEqual(li.headers["set-cookie"], undefined);
+      const s = { "X-Portal-Session":li.json.session };
+      assert.strictEqual((await H.req("/api/session", { headers:s })).json.me.username, "tariro");
+      const other = await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:Object.assign({ Origin:"https://evil.example" }, s) });
       assert.deepStrictEqual([other.status, other.json.error], [403, "wrong origin"]);
-      assert.strictEqual((await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:{ Cookie:cookie, Origin:null } })).status, 403, "no Origin at all is refused too");
-      assert.strictEqual((await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:{ Cookie:cookie } })).status, 200);
-      const out = await H.req("/api/logout", { method:"POST", body:"{}", headers:{ Cookie:cookie } });
-      assert.match(out.headers["set-cookie"][0], /^__Host-portal_session=; HttpOnly; SameSite=Strict; Path=\/; Secure; Max-Age=0$/);
+      assert.strictEqual((await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:Object.assign({ Origin:null }, s) })).status, 403, "no Origin at all is refused too");
+      assert.strictEqual((await H.req("/api/batches", { method:"POST", body:await makeScl(), headers:s })).status, 200);
+      assert.strictEqual((await H.req("/api/logout", { method:"POST", body:"{}", headers:s })).status, 200);
+      assert.strictEqual((await H.req("/api/session", { headers:s })).json.signedIn, false);
     } finally { H.close(); }
   });
 
@@ -794,6 +797,61 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       assert.deepStrictEqual([r.status, r.json], [200, { ok:true }]);
       assert.strictEqual(H.fake.state.log.length, before);
     } finally { H.close(); }
+  });
+
+  // ================= installable app (PWA), local =================
+  await t("PWA files: the manifest (standalone, portal colours, 192/512 + maskable icons) and the service worker are served", async ()=>{
+    const P = await startPortal();
+    try{
+      const m = await P.call("/manifest.webmanifest");
+      assert.strictEqual(m.headers.get("content-type"), "application/manifest+json; charset=utf-8");
+      assert.deepStrictEqual([m.json.name, m.json.short_name, m.json.display, m.json.start_url, m.json.scope, m.json.theme_color, m.json.background_color],
+        ["Publish Portal", "Publish", "standalone", "/", "/", "#1d2430", "#f5f6f8"]);
+      for(const icon of m.json.icons){
+        const r = await P.call(icon.src);
+        assert.strictEqual(r.headers.get("content-type"), "image/png", icon.src);
+        assert.strictEqual(r.buf.toString("ascii", 1, 4), "PNG");
+        const [w, h] = [r.buf.readUInt32BE(16), r.buf.readUInt32BE(20)];
+        assert.strictEqual(`${w}x${h}`, icon.sizes, icon.src);
+      }
+      assert.deepStrictEqual(m.json.icons.map(i=> [i.sizes, i.purpose]), [["192x192","any"], ["512x512","any"], ["512x512","maskable"]]);
+      const sw = await P.call("/sw.js");
+      assert.strictEqual(sw.headers.get("content-type"), "text/javascript; charset=utf-8");
+      assert.strictEqual(sw.headers.get("cache-control"), "no-store", "the browser always checks for a newer worker");
+      const shell = JSON.parse(sw.buf.toString().match(/const SHELL = (\[[^\]]*\]);/)[1]);
+      assert.ok(shell.every(p=> !p.startsWith("/api")), "the shell list has no /api paths");
+      assert.match(sw.buf.toString(), /url\.pathname\.startsWith\("\/api\/"\) \|\| req\.headers\.has\("x-portal-session"\)\) return;/);
+    } finally { P.close(); }
+  });
+
+  await t("end-session (the closing page's beacon) ends only the session it names, and ignores anything else", async ()=>{
+    const P = await startPortal();
+    try{
+      await P.login(REVIEWER); const rudo = P.session; P.session = "";
+      await P.login(ADMIN); const tariro = P.session;
+      const beacon = (body)=> fetch(P.base + "/api/end-session", { method:"POST", headers:{ "Content-Type":"text/plain" }, body });
+      for(const junk of ["", "{}", "not json", JSON.stringify({ session:"short" }), JSON.stringify({ session:"x".repeat(43) })]) assert.strictEqual((await beacon(junk)).status, 204);
+      assert.strictEqual((await P.call("/api/session")).json.signedIn, true, "junk ended nothing");
+      assert.strictEqual((await beacon(JSON.stringify({ session:rudo }))).status, 204);
+      P.session = rudo; assert.strictEqual((await P.call("/api/session")).json.signedIn, false);
+      P.session = tariro; assert.strictEqual((await P.call("/api/session")).json.signedIn, true, "other sessions untouched");
+    } finally { P.close(); }
+  });
+
+  await t("local: the portal listens on 127.0.0.1 only — not reachable on this machine's network address", async ()=>{
+    const net = require("net"), cp = require("child_process");
+    const port = 20000 + Math.floor(Math.random() * 20000);
+    const child = cp.spawn(process.execPath, [require("path").join(__dirname, "..", "tools/publish-portal/server.js")], {
+      env: Object.assign({}, process.env, { PORTAL_PORT:String(port), PORT:"", PORTAL_PUBLIC_ORIGIN:"", SUPABASE_URL:"http://127.0.0.1:9", SUPABASE_SERVICE_ROLE_KEY:"not-a-real-key" }), stdio:["ignore", "pipe", "pipe"] });
+    try{
+      const line = await new Promise((res, rej)=>{ child.stdout.once("data", d=> res(String(d))); child.once("exit", c=> rej(new Error("exited " + c))); });
+      assert.match(line, new RegExp(`http://127\\.0\\.0\\.1:${port}/  \\(this machine only\\)`));
+      const tryConnect = (host)=> new Promise(res=>{ const s = net.connect({ host, port, timeout:1500 }, ()=>{ s.destroy(); res("open"); }); s.on("error", e=> res(e.code)); s.on("timeout", ()=>{ s.destroy(); res("timeout"); }); });
+      assert.strictEqual(await tryConnect("127.0.0.1"), "open");
+      const lan = Object.values(require("os").networkInterfaces()).flat().filter(i=> i && i.family==="IPv4" && !i.internal).map(i=> i.address);
+      for(const ip of lan) assert.notStrictEqual(await tryConnect(ip), "open", "reachable on " + ip);
+      if(!lan.length) console.log("       (no network address on this machine to try)");
+    } finally { child.kill(); }
   });
 
   // ================= the page, in a real browser =================
@@ -973,9 +1031,111 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
     } finally { await browser.close(); P.close(); }
   });
 
+  if(chromium) await t("in a browser: the portal is installable (Chrome's own check), and its worker caches only the page shell", async ()=>{
+    const P = await startPortal();
+    const browser = await chromium.launch();
+    try{
+      const file = path.join(os.tmpdir(), "MKT0007-Boka-portal-pwa.scl");
+      fs.writeFileSync(file, await makeScl());
+      const { page, errors } = await browserPage(browser, P);
+      await page.waitForFunction(()=> navigator.serviceWorker.controller || navigator.serviceWorker.ready.then(()=> true));
+      await page.evaluate(()=> navigator.serviceWorker.ready);
+      const cdp = await page.context().newCDPSession(page);
+      const inst = await cdp.send("Page.getInstallabilityErrors");
+      assert.deepStrictEqual(inst.installabilityErrors, [], JSON.stringify(inst.installabilityErrors));
+      const man = await cdp.send("Page.getAppManifest");
+      assert.deepStrictEqual(man.errors, []);
+      // Use it: sign in, upload with photos, tokens, history — all through the worker's page.
+      await page.reload();
+      assert.ok(await page.evaluate(()=> !!navigator.serviceWorker.controller), "the page is controlled by the worker");
+      await signIn(page, ADMIN);
+      await page.waitForSelector("#drop");
+      await page.setInputFiles("#fileInput", file);
+      await page.waitForFunction(()=>{ const i = [...document.querySelectorAll("#items img.thumb")]; return i.length === 2 && i.every(x=> x.complete && x.naturalWidth > 0); });
+      await page.click('#nav [data-view="vendors"]'); await page.waitForSelector("details.vendor");
+      await page.click('#nav [data-view="history"]'); await page.waitForTimeout(300);
+      const cached = await page.evaluate(async ()=>{
+        const out = [];
+        for(const name of await caches.keys()){ const c = await caches.open(name); for(const r of await c.keys()) out.push(name + " " + new URL(r.url).pathname); }
+        return out.sort();
+      });
+      assert.deepStrictEqual(cached, ["/", "/app.js", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png", "/index.html", "/manifest.webmanifest", "/style.css"].map(p=> "publish-portal-shell-v1 " + p).sort());
+      assert.deepStrictEqual(errors(), []);
+    } finally { await browser.close(); P.close(); }
+  });
+
+  if(chromium) await t("in a browser: no way round signing in — reload, a new window (as launching the installed app), closing: all signed out; nothing kept in cookies or storage", async ()=>{
+    const P = await startPortal();
+    const browser = await chromium.launch();
+    try{
+      const ctx = await browser.newContext();   // one profile: the tab and the installed app share it
+      const page = await ctx.newPage();
+      let token = null;   // the most recent session any window in this profile used
+      ctx.on("request", r=>{ const h = r.headers()["x-portal-session"]; if(h) token = h; });
+      const alive = (t)=> fetch(P.base + "/api/session", { headers:{ "X-Portal-Session":t } }).then(r=> r.json()).then(j=> j.signedIn);
+      await page.goto(P.base + "/");
+      await page.evaluate(()=> navigator.serviceWorker.ready);
+      await signIn(page, ADMIN);
+      await page.waitForSelector("#drop");
+      await page.click('#nav [data-view="vendors"]'); await page.waitForSelector("details.vendor");
+      assert.ok(token, "the page used a session");
+      const stored = await page.evaluate(()=> ({ cookie: document.cookie, local: localStorage.length, sessionStore: sessionStorage.length }));
+      assert.deepStrictEqual(stored, { cookie:"", local:0, sessionStore:0 });
+      assert.deepStrictEqual(await ctx.cookies(), []);
+
+      // Reload: back to the sign-in form, and that session is over on the server too.
+      const first = token;
+      assert.strictEqual(await alive(first), true);
+      await page.reload();
+      await page.waitForSelector("#loginView:not([hidden])");
+      assert.strictEqual(await page.isVisible("#nav"), false);
+      await page.waitForTimeout(300);
+      assert.strictEqual(await alive(first), false, "the reload ended the old session");
+      // A second window in the same profile — what opening the installed app does.
+      const second = await ctx.newPage();
+      await second.goto(P.base + "/");
+      await second.waitForSelector("#loginView:not([hidden])");
+      assert.strictEqual(await second.isVisible("#drop"), false);
+      // Direct API use without signing in is refused, even from inside the app's origin.
+      assert.strictEqual(await second.evaluate(async ()=> (await fetch("/api/vendors")).status), 401);
+
+      // Closing the window ends the session on the server, not just in the page.
+      await signIn(second, ADMIN);
+      await second.waitForSelector("#drop");
+      await second.click('#nav [data-view="vendors"]'); await second.waitForSelector("details.vendor");
+      const live = token;
+      assert.notStrictEqual(live, first);
+      assert.strictEqual(await alive(live), true);
+      await second.close({ runBeforeUnload:true });
+      await new Promise(r=> setTimeout(r, 500));
+      assert.strictEqual(await alive(live), false, "session ended when the window closed");
+    } finally { await browser.close(); P.close(); }
+  });
+
+  if(chromium) await t("in a browser: with the portal stopped, the installed app still opens its sign-in page — and can't get past it", async ()=>{
+    const P = await startPortal();
+    const browser = await chromium.launch();
+    try{
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      await page.goto(P.base + "/");
+      await page.evaluate(()=> navigator.serviceWorker.ready);
+      await page.reload();
+      await page.waitForFunction(()=> !!navigator.serviceWorker.controller);
+      P.close();                                  // the portal isn't running
+      await new Promise(r=> setTimeout(r, 200));
+      const again = await ctx.newPage();
+      await again.goto(P.base + "/");
+      await again.waitForSelector("#loginView:not([hidden])");
+      await signIn(again, ADMIN);
+      await again.waitForSelector("#loginError:not([hidden])");
+      assert.strictEqual(await again.isVisible("#drop"), false);
+    } finally { await browser.close(); }
+  });
+
   // Hosted mode end to end: a local HTTPS proxy in front of the portal, as
   // Render's is (TLS ends there; X-Forwarded-Proto/For added), so the
-  // Secure __Host- cookie and the Origin check run in a real browser.
+  // session header over TLS and the Origin check run in a real browser.
   let tls = null;
   try{
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "portal-tls-"));
@@ -1010,8 +1170,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
       await page.goto(origin + "/");
       await signIn(page, ADMIN);
       await page.waitForSelector("#drop");
-      const cookies = await ctx.cookies(origin);
-      assert.deepStrictEqual(cookies.map(c=> [c.name, c.secure, c.httpOnly, c.sameSite]), [["__Host-portal_session", true, true, "Strict"]]);
+      assert.deepStrictEqual(await ctx.cookies(origin), [], "signed in without any cookie");
       await page.setInputFiles("#fileInput", file);
       await page.waitForSelector("#tokenBlock");
       assert.match(await page.textContent("#tokenBlock"), /No active token — none has been recorded/);

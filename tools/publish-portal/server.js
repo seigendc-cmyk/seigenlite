@@ -51,7 +51,6 @@ function loadEnvFile(file){
 // portal sits behind a TLS-terminating proxy (Render) on a public URL, so:
 //   * only that host name is answered (instead of 127.0.0.1 / localhost)
 //   * plain HTTP is redirected to HTTPS, and HSTS is sent
-//   * the session cookie is Secure and __Host- prefixed
 //   * every write must come from that origin (Origin header)
 //   * wrong sign-ins are limited per client IP, so one person on the
 //     internet can't pause sign-in for all staff (a much higher global
@@ -66,8 +65,6 @@ function createPortal(opts){
     throw new Error("PORTAL_PUBLIC_ORIGIN must be an https:// origin with no path, e.g. https://publish.example.com");
   const hosted = !!publicOrigin;
   const setupAllowed = !hosted || !!opts.allowSetup;
-  const COOKIE = hosted ? "__Host-portal_session" : "portal_session";
-  const cookieAttrs = "HttpOnly; SameSite=Strict; Path=/" + (hosted ? "; Secure" : "");
   const hostOk = (h)=> hosted ? h === publicOrigin.host : /^(127\.0\.0\.1|localhost)(:\d+)?$/.test(h);
   const ipFailures = new Map();   // hosted: client IP -> timestamps of failed sign-ins
   const supa = opts.supabase || createSupabase({ url: opts.supabaseUrl, serviceKey: opts.serviceKey });
@@ -80,9 +77,15 @@ function createPortal(opts){
   // History shows the published photos straight from the Storage bucket.
   const imageOrigin = new URL(opts.imageOrigin || opts.supabaseUrl).origin;
 
+  // The session travels in an X-Portal-Session header, never a cookie. The
+  // page keeps it in memory only, so every newly opened window, tab,
+  // reload or installed-app launch has to sign in again: nothing the
+  // browser stores (cookies, storage, the service worker's cache) can
+  // carry a sign-in over. It also means no request is ever authenticated
+  // just because the browser attached something automatically.
   const sessionToken = (req)=>{
-    for(const part of (req.headers.cookie || "").split(/;\s*/)){ const i = part.indexOf("="); if(part.slice(0, i) === COOKIE && /^[A-Za-z0-9_-]+$/.test(part.slice(i + 1))) return part.slice(i + 1); }
-    return null;
+    const t = String(req.headers["x-portal-session"] || "");
+    return /^[A-Za-z0-9_-]{43}$/.test(t) ? t : null;
   };
   // Behind Render's proxy the client is the first X-Forwarded-For entry. It
   // can be spoofed, which only lets someone dodge the per-IP limit; the
@@ -102,7 +105,7 @@ function createPortal(opts){
   function startSession(staff){
     const token = crypto.randomBytes(32).toString("base64url");
     sessions.set(token, { staffId: staff.id, exp: Date.now() + SESSION_HOURS * 3600 * 1000 });
-    return { "Set-Cookie": `${COOKIE}=${token}; ${cookieAttrs}; Max-Age=${SESSION_HOURS * 3600}` };
+    return token;
   }
   function endSessionsOf(staffId){ for(const [t, s] of sessions) if(s.staffId === staffId) sessions.delete(t); }
   const me = (s)=> s && ({ id: s.id, username: s.username, name: s.display_name, role: s.role, mustChangePassword: !!s.must_change_password });
@@ -133,7 +136,7 @@ function createPortal(opts){
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "no-referrer",
       "X-Frame-Options": "DENY",
-      "Content-Security-Policy": `default-src 'self'; img-src 'self' ${imageOrigin}; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+      "Content-Security-Policy": `default-src 'self'; img-src 'self' blob: ${imageOrigin}; manifest-src 'self'; worker-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
       "X-Robots-Tag": "noindex, nofollow, noarchive",
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Resource-Policy": "same-origin",
@@ -287,6 +290,14 @@ function createPortal(opts){
       if(method === "GET" || method === "HEAD"){ res.writeHead(308, { Location: publicOrigin.origin + req.url }); return res.end(); }
       return send(res, 403, { error: "Use https." });
     }
+    // Sent by the page as it closes or reloads (navigator.sendBeacon, which
+    // can't add headers): ends the session whose token is in the body.
+    // Knowing a token is the only way to use it, so this needs nothing else.
+    if(method === "POST" && route === "/api/end-session"){
+      const t = String((json(await readBody(req)) || {}).session || "");
+      if(/^[A-Za-z0-9_-]{43}$/.test(t)) sessions.delete(t);
+      res.writeHead(204, { "Cache-Control": "no-store" }); return res.end();
+    }
     if(method === "GET" && route === "/robots.txt")
       return send(res, 200, Buffer.from("User-agent: *\nDisallow: /\n"), { "Content-Type": "text/plain; charset=utf-8" });
     // Hosted: every write must come from the portal's own page.
@@ -296,10 +307,11 @@ function createPortal(opts){
     // until the API says otherwise); everything under /api needs a session.
     if(method === "GET" && !route.startsWith("/api/")){
       const file = route === "/" ? "index.html" : route.slice(1);
-      if(!/^[a-z0-9-]+\.(html|js|css)$/.test(file)) return send(res, 404, { error: "not found" });
+      if(!/^[a-z0-9-]+\.(html|js|css|webmanifest|png)$/.test(file)) return send(res, 404, { error: "not found" });
       const full = path.join(PUBLIC_DIR, file);
       if(!fs.existsSync(full)) return send(res, 404, { error: "not found" });
-      const type = { html: "text/html", js: "text/javascript", css: "text/css" }[file.split(".").pop()] + "; charset=utf-8";
+      const type = { html: "text/html; charset=utf-8", js: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8",
+        webmanifest: "application/manifest+json; charset=utf-8", png: "image/png" }[file.split(".").pop()];
       return send(res, 200, fs.readFileSync(full), { "Content-Type": type });
     }
     // Every API write needs this header: a plain cross-site form can't set it.
@@ -325,7 +337,7 @@ function createPortal(opts){
       if(problem) return send(res, 400, { error: problem });
       const staff = await supa.insertStaff({ username, display_name: str(body.displayName, 80), role: "admin", password_hash: A.hashPassword(body.password), last_login_at: clock().toISOString() });
       log("setup: first admin", username);
-      return send(res, 200, { ok: true, me: me(staff) }, startSession(staff));
+      return send(res, 200, { ok: true, me: me(staff), session: startSession(staff) });
     }
 
     if(route === "/api/login" && method === "POST"){
@@ -356,7 +368,7 @@ function createPortal(opts){
       }
       await supa.updateStaff(staff.id, { failed_attempts: 0, locked_until: null, last_login_at: now.toISOString() });
       log("login", username);
-      return send(res, 200, { ok: true, me: me(staff) }, startSession(staff));
+      return send(res, 200, { ok: true, me: me(staff), session: startSession(staff) });
     }
 
     const staff = await currentStaff(req);
@@ -366,7 +378,7 @@ function createPortal(opts){
 
     if(route === "/api/logout" && method === "POST"){
       sessions.delete(sessionToken(req));
-      return send(res, 200, { ok: true }, { "Set-Cookie": `${COOKIE}=; ${cookieAttrs}; Max-Age=0` });
+      return send(res, 200, { ok: true });
     }
     if(route === "/api/password" && method === "POST"){
       const body = json(await readBody(req)) || {};
