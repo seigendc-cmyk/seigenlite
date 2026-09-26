@@ -799,6 +799,32 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
     } finally { H.close(); }
   });
 
+  // ================= Supabase unreachable =================
+  await t("Supabase unreachable: a read is retried once (a brief drop goes unnoticed); the error names the real cause; writes aren't retried", async ()=>{
+    // A fetch that fails the way Node's does when the connection drops.
+    const drop = (code)=>{ const e = new TypeError("fetch failed"); e.cause = Object.assign(new Error("read " + code), { code }); return e; };
+    let calls = 0, failFirst = 1;
+    const fetchImpl = async (u, o)=>{ calls++; if(calls <= failFirst) throw drop("ECONNRESET"); return { ok:true, status:200, text: async()=> "[]" }; };
+    const s = createSupabase({ url:"https://x.supabase.co", serviceKey:"k", fetchImpl });
+    assert.deepStrictEqual(await s.listStaff(), [], "second try succeeded");
+    assert.strictEqual(calls, 2);
+    calls = 0; failFirst = 5;
+    await assert.rejects(()=> s.listStaff(), (e)=> e.network === true && /^couldn't reach Supabase — ECONNRESET read ECONNRESET\. Check the internet connection/.test(e.message));
+    assert.strictEqual(calls, 2, "only one retry");
+    calls = 0; failFirst = 1;
+    await assert.rejects(()=> s.insertToken({}), /couldn't reach Supabase/);
+    assert.strictEqual(calls, 1, "a write is never sent twice");
+    // Through the portal: the page gets the cause, not just "fetch failed".
+    const { server } = createPortal({ supabase:{ staffCount: async()=>{ throw Object.assign(new Error("couldn't reach Supabase — ENOTFOUND getaddrinfo ENOTFOUND x. Check the internet connection and try again."), { network:true }); } },
+      supabaseUrl:"http://127.0.0.1:9", log:()=>{} });
+    await new Promise(r=> server.listen(0, "127.0.0.1", r));
+    try{
+      const r = await fetch("http://127.0.0.1:" + server.address().port + "/api/session");
+      assert.strictEqual(r.status, 502);
+      assert.match((await r.json()).error, /^Couldn't reach Supabase — ENOTFOUND/);
+    } finally { server.close(); }
+  });
+
   // ================= installable app (PWA), local =================
   await t("PWA files: the manifest (standalone, portal colours, 192/512 + maskable icons) and the service worker are served", async ()=>{
     const P = await startPortal();

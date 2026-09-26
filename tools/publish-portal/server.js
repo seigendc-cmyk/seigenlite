@@ -543,7 +543,7 @@ function createPortal(opts){
   const server = http.createServer((req, res)=>{
     handle(req, res).catch(e => {
       log("error", req.method, req.url, e.message);
-      if(!res.headersSent) send(res, e.status === 413 ? 413 : 502, { error: e.status === 413 ? "That file is too large." : "Supabase error: " + e.message });
+      if(!res.headersSent) send(res, e.status === 413 ? 413 : 502, { error: e.status === 413 ? "That file is too large." : e.network ? e.message.charAt(0).toUpperCase() + e.message.slice(1) : "Supabase error: " + e.message });
     });
   });
   return { server, sessions, batches };

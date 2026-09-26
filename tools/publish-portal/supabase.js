@@ -13,13 +13,33 @@ function createSupabase({ url, serviceKey, fetchImpl }){
   const doFetch = fetchImpl || fetch;
   const auth = { apikey: serviceKey, Authorization: "Bearer " + serviceKey };
 
+  // When Supabase can't be reached at all, fetch() only says "fetch failed";
+  // the real reason (DNS, refused, reset, timeout…) is in err.cause. Name it.
+  function networkError(e){
+    let c = e && e.cause, detail = "";
+    while(c){ detail = [c.code, c.message].filter(Boolean).join(" "); if(!c.cause) break; c = c.cause; }
+    const err = new Error("couldn't reach Supabase — " + (detail || (e && e.message) || "network error") + ". Check the internet connection and try again.");
+    err.network = true;
+    return err;
+  }
+  const RETRY_MS = 600;
+
   // Errors never include the request headers, so the key can't leak through them.
   async function call(method, path, { body, headers, raw } = {}){
-    const res = await doFetch(base + path, {
+    const send = ()=> doFetch(base + path, {
       method,
       headers: Object.assign({}, auth, raw ? {} : { "Content-Type": "application/json" }, headers || {}),
       body: body === undefined ? undefined : (raw ? body : JSON.stringify(body)),
     });
+    let res;
+    try{ res = await send(); }
+    catch(e){
+      // A read is safe to repeat once, which rides out a brief drop. A
+      // write isn't retried: it may already have gone through.
+      if(method !== "GET") throw networkError(e);
+      await new Promise(r => setTimeout(r, RETRY_MS));
+      try{ res = await send(); }catch(e2){ throw networkError(e2); }
+    }
     const text = await res.text();
     let data = null;
     try{ data = text ? JSON.parse(text) : null; }catch(e){ data = text; }
