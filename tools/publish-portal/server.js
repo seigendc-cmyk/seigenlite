@@ -560,6 +560,15 @@ if(require.main === module){
   const bind = publicOrigin ? "0.0.0.0" : "127.0.0.1";
   const { server } = createPortal({ supabaseUrl: env.SUPABASE_URL, serviceKey: env.SUPABASE_SERVICE_ROLE_KEY, setupPassphrase: env.PORTAL_PASSPHRASE,
     publicOrigin, allowSetup: env.PORTAL_ALLOW_SETUP === "1" });
+  // Most often: an older copy of the portal is still running, and the
+  // browser would carry on talking to it. Say so instead of a stack trace.
+  server.on("error", (e)=>{
+    if(e.code !== "EADDRINUSE") throw e;
+    console.error(`Port ${port} is already in use — another copy of the portal is probably still running.\n`
+      + "Stop it first (Ctrl+C in its window, or end its node.exe in Task Manager), then start this again.\n"
+      + "Until then your browser is still talking to the old copy.");
+    process.exit(1);
+  });
   server.listen(port, bind, ()=> console.log(publicOrigin
     ? `Publish portal (hosted): ${publicOrigin}/  listening on ${bind}:${port}`
     : `Publish portal: http://127.0.0.1:${port}/  (this machine only)`));

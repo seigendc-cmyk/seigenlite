@@ -1031,6 +1031,36 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
     } finally { await browser.close(); P.close(); }
   });
 
+  if(chromium) await t("in a browser: talking to an out-of-date portal (signs in without a session token) stops at sign-in and says to restart it", async ()=>{
+    const P = await startPortal();
+    const browser = await chromium.launch();
+    try{
+      const page = await browser.newPage();
+      // An older portal answered sign-in with a cookie and no session in the body.
+      await page.route("**/api/login", async route=>{
+        const r = await route.fetch(); const j = await r.json(); delete j.session;
+        route.fulfill({ status:200, contentType:"application/json", body:JSON.stringify(j) });
+      });
+      await page.goto(P.base + "/");
+      await signIn(page, ADMIN);
+      await page.waitForSelector("#loginError:not([hidden])");
+      assert.match(await page.textContent("#loginError"), /older than this page, so nothing you do would save\. Stop the portal/);
+      assert.strictEqual(await page.isVisible("#drop"), false);
+    } finally { await browser.close(); P.close(); }
+  });
+
+  await t("starting a second copy while one is running says the port is taken, instead of a stack trace", async ()=>{
+    const P = await startPortal();
+    try{
+      const port = new URL(P.base).port;
+      const r = require("child_process").spawnSync(process.execPath, [require("path").join(__dirname, "..", "tools/publish-portal/server.js")], {
+        env: Object.assign({}, process.env, { PORTAL_PORT:port, PORT:"", PORTAL_PUBLIC_ORIGIN:"", SUPABASE_URL:"http://127.0.0.1:9", SUPABASE_SERVICE_ROLE_KEY:"k" }), encoding:"utf8", timeout:15000 });
+      assert.strictEqual(r.status, 1);
+      assert.match(r.stderr, new RegExp(`Port ${port} is already in use — another copy of the portal is probably still running`));
+      assert.ok(!/at Server\.setupListenHandle/.test(r.stderr), "no stack trace");
+    } finally { P.close(); }
+  });
+
   if(chromium) await t("in a browser: the portal is installable (Chrome's own check), and its worker caches only the page shell", async ()=>{
     const P = await startPortal();
     const browser = await chromium.launch();

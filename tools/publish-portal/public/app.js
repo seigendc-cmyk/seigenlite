@@ -90,7 +90,12 @@ function showPassword(forced){
   show("password");
   $("pwCurrent").focus();
 }
-function signedIn(r){ session = r.session; const who = r.me; me = who; if(me.mustChangePassword) showPassword(true); else show("upload"); }
+const STALE_SERVER = "The portal program that's running is older than this page, so nothing you do would save. Stop the portal (Ctrl+C in its window), start it again, then reload this page.";
+function signedIn(r){
+  // An older portal signs in with a cookie and hands back no session: every
+  // later request would be refused. Stop here and say why.
+  if(!r.session){ showLogin(); showError("loginError", STALE_SERVER); showError("setupError", STALE_SERVER); return; }
+  session = r.session; const who = r.me; me = who; if(me.mustChangePassword) showPassword(true); else show("upload"); }
 document.querySelectorAll("#nav .tab").forEach(b => b.addEventListener("click", ()=> show(b.dataset.view)));
 
 $("loginForm").addEventListener("submit", async (e)=>{
