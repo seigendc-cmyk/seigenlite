@@ -154,6 +154,8 @@
         </div>
         <label>Payment reference (EcoCash/Bank)</label>
         <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||''}">
+        <label>Document Reference No. (optional)</label>
+        <input class="field" id="docRef" maxlength="40" placeholder="e.g. PO, delivery note or invoice no." value="${escapeHtml(window._docRefVal||'')}">
         <label>Customer name (optional, required for Credit)</label>
         <input class="field" id="custName" placeholder="e.g. Tendai Moyo" value="${window._custNameVal||''}">
         <label>Customer phone (optional)</label>
@@ -183,12 +185,13 @@
     document.getElementById("discountReason").oninput=(e)=>{ window._discountReasonVal=e.target.value; };
     document.getElementById("discountApprovedBy").oninput=(e)=>{ window._discountApprovedVal=e.target.value; };
     document.getElementById("paymentRef").oninput=(e)=>{ window._paymentRefVal=e.target.value; };
+    document.getElementById("docRef").oninput=(e)=>{ window._docRefVal=e.target.value; };
     document.getElementById("custName").oninput=(e)=>{ window._custNameVal=e.target.value; renderVoucherBox(); };
     document.getElementById("custPhone").oninput=(e)=>{ window._custPhoneVal=e.target.value; };
     renderVoucherBox();
     wireFxPreview(drawer, renderDrawer);
     const resetTemp=()=>{ window._custNameVal=""; window._custPhoneVal="";
-      window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; };
+      window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; window._docRefVal=""; };
     if(splitTender){
       wireSplitTenderPanel(drawer, renderDrawer, (payments)=>{ completeSale(null, payments); resetTemp(); });
     } else {

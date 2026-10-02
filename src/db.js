@@ -248,6 +248,10 @@
       "ALTER TABLE sales ADD COLUMN voucher_amount REAL DEFAULT 0",
       "ALTER TABLE sales ADD COLUMN payment_ref TEXT DEFAULT ''",
       "ALTER TABLE sales ADD COLUMN user TEXT DEFAULT ''",
+      // Document Reference No.: optional free text the shop types at the
+      // cart (a PO / delivery note / invoice number the sale relates to).
+      // Never required — '' for every existing row and any sale without one.
+      "ALTER TABLE sales ADD COLUMN doc_ref TEXT DEFAULT ''",
       "ALTER TABLE sale_items ADD COLUMN cost REAL DEFAULT 0",
       // Line-Item Discount: additive column on the existing sale_items row,
       // not a parallel table (same rule sale_payments/tendered_amount

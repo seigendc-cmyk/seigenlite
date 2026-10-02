@@ -157,7 +157,9 @@
         <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Customer name (required for Credit)</label>
         <input class="field" id="custName" placeholder="e.g. Tendai Moyo" value="${window._custNameVal||""}" style="margin-bottom:8px">
         <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Payment reference (EcoCash/Bank)</label>
-        <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||""}" style="margin-bottom:10px">
+        <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||""}" style="margin-bottom:8px">
+        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Document Reference No. (optional)</label>
+        <input class="field" id="docRef" maxlength="40" placeholder="e.g. PO, delivery note or invoice no." value="${escapeHtml(window._docRefVal||"")}" style="margin-bottom:10px">
         <div class="ds-subline"><span>Subtotal</span><span>${currency}${subtotal.toFixed(2)}</span></div>
         <div class="ds-totalline"><span>Total</span><span id="dsTotal">${currency}${cartTotal().toFixed(2)}</span></div>
         ${fxPreviewHtml()}
@@ -216,7 +218,9 @@
     if(cn) cn.oninput = (e)=>{ window._custNameVal = e.target.value; };
     const pr = document.getElementById("paymentRef");
     if(pr) pr.oninput = (e)=>{ window._paymentRefVal = e.target.value; };
-    const resetTemp = ()=>{ window._custNameVal=""; window._paymentRefVal="";
+    const drf = document.getElementById("docRef");
+    if(drf) drf.oninput = (e)=>{ window._docRefVal = e.target.value; };
+    const resetTemp = ()=>{ window._custNameVal=""; window._paymentRefVal=""; window._docRefVal="";
       window._discountReasonVal=""; window._discountApprovedVal=""; };
     wireFxPreview(cartAside, ()=>renderPOSDesktop(main));
     if(splitTender){

@@ -412,6 +412,16 @@
   // sale_payments rows (see below): a plain sale just gets a single row
   // mirroring its one method/total, so EOD/credit/report queries never have
   // to special-case "was this split or not".
+  // Optional Document Reference No. (PO / delivery note / invoice number)
+  // typed at the cart. Never required, so there's no rejecting alert — just
+  // basic sanitising: control characters dropped (they'd garble an ESC/POS
+  // printout), runs of whitespace collapsed, and capped at DOC_REF_MAX so a
+  // stray paste can't blow out a receipt line. Blank stays blank.
+  const DOC_REF_MAX = 40;
+  function cleanDocRef(s){
+    return String(s||"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0, DOC_REF_MAX).trim();
+  }
+
   function completeSale(method, payments){
     if(cart.length===0) return;
     // Shift/EOD control (Part 3): the one choke point every payment method,
@@ -493,6 +503,9 @@
     const paymentRef = refEl? refEl.value.trim() : "";
     if(lines.some(l=>l.method==="EcoCash"||l.method==="Bank") && !paymentRef){ alert("Enter the payment reference number"); return; }
 
+    const docRefEl = document.getElementById("docRef");
+    const docRef = cleanDocRef(docRefEl? docRefEl.value : "");
+
     const customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
     const voucherToRedeem = appliedVoucher;
     const ts = new Date().toISOString();
@@ -503,9 +516,9 @@
     // was removed (Remove Cart Markup Calculation task); the columns stay
     // in the schema only so historical rows keep whatever was charged
     // before this change (see cartTotals above).
-    run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount]);
+    run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef]);
     const saleId = one("SELECT last_insert_rowid() as id").id;
     lines.forEach(l=>{
       run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
@@ -532,8 +545,8 @@
     logAudit("Sale", itemsSummary, `Receipt #${saleId} · ${currency}${total.toFixed(2)} · ${methodLabel}`);
     maybeIssueFrequentCustomerVoucher(customerId, branch, ts);
     persist();
-    window._lastReceipt = {saleId,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems};
-    printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines);
+    window._lastReceipt = {saleId,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef};
+    printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef);
     cart = []; drawerOpen=false; appliedVoucher=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
     render();
   }
@@ -580,9 +593,9 @@
     // the only thing this ever calls.
     const drawerBtn = document.getElementById("openDrawerBtn");
     if(drawerBtn) drawerBtn.onclick=()=> openCashDrawer();
-    if(rp) rp.onclick=()=>{ const r=window._lastReceipt; printReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments); };
-    if(up) up.onclick=()=>{ const r=window._lastReceipt; usbPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments); };
-    if(bp) bp.onclick=()=>{ const r=window._lastReceipt; btPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments); };
+    if(rp) rp.onclick=()=>{ const r=window._lastReceipt; printReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
+    if(up) up.onclick=()=>{ const r=window._lastReceipt; usbPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
+    if(bp) bp.onclick=()=>{ const r=window._lastReceipt; btPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
     if(ivb) ivb.onclick=()=>{ printCreditInvoice(window._lastReceipt.saleId); };
     if(wr) wr.onclick=()=>{
       const r = window._lastReceipt;
@@ -593,6 +606,7 @@
       totalLines.push(padLine("TOTAL", `${currency}${r.total.toFixed(2)}`));
       if(r.payments && r.payments.length>1) r.payments.forEach(p=> totalLines.push(padLine(`Payment: ${p.method}`, `${currency}${(parseFloat(p.amount)||0).toFixed(2)}`)));
       else totalLines.push(`Payment: ${r.method}`);
+      if(r.docRef) totalLines.push(`Doc Ref: ${r.docRef}`);
       shareWhatsApp(receiptText(`${escapeHtml(getSetting("shop_name",""))} — Receipt #${r.saleId}`, itemLines, totalLines));
     };
   }

@@ -189,10 +189,11 @@ const plain = (x)=> JSON.parse(JSON.stringify(x));
       VALUES(?,?,?,?,?,?,?,?,?)`,
       ["2026-01-05T10:00:00Z",40,0,55,"Cash","Boka","Tendai",15,"Rush delivery"]);
     const salesConfig = A.api.REPORT_CONFIGS.find(c=>c.id==="sales");
-    const salesRows = salesConfig.fetch("Boka","2026-01-01T00:00:00","2026-01-10T23:59:59").rows;
+    const salesData = salesConfig.fetch("Boka","2026-01-01T00:00:00","2026-01-10T23:59:59");
+    const salesRows = salesData.rows;
     assert.strictEqual(salesRows.length,1);
-    assert.strictEqual(salesRows[0][6],"$15.00","Sales Report's Markup column still reads the historical value");
-    assert.strictEqual(salesRows[0][7],"$55.00","Total column includes it, exactly as charged at the time");
+    assert.strictEqual(salesRows[0][salesData.headers.indexOf("Markup")],"$15.00","Sales Report's Markup column still reads the historical value");
+    assert.strictEqual(salesRows[0][salesData.headers.indexOf("Total")],"$55.00","Total column includes it, exactly as charged at the time");
 
     const markupConfig = A.api.REPORT_CONFIGS.find(c=>c.id==="markup");
     assert.ok(markupConfig, "the historical Markup Report itself was left in place — it's a read-only view of past data, not a cart-time calculation");

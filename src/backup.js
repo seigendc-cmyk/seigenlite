@@ -349,9 +349,9 @@
       const dup = one("SELECT id FROM sales WHERE branch=? AND ts=?",[s.branch,s.ts]);
       if(dup){ saleMap[s.id]=dup.id; return; }
       const newCustId = s.customer_id? (custMap[s.customer_id]||null) : null;
-      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0]);
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||""]);
       saleMap[s.id]=one("SELECT last_insert_rowid() as id").id;
       newSaleImpIds.add(s.id);
     });
