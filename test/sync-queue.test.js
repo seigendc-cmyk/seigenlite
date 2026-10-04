@@ -68,9 +68,9 @@ function startMockSupabase(){
   await t("pendingSyncRows/pendingSyncCount: grows as records are queued, filterable by type", ()=>{
     const A = rig();
     A.api.enqueueSync("sync_health_check",{a:1});
-    A.api.enqueueSync("rpn_link",{b:2});
+    A.api.enqueueSync("some_future_type",{b:2});   // rpn_link is paused since multi-terminal Phase 1
     assert.strictEqual(A.api.pendingSyncCount(),2);
-    assert.strictEqual(A.api.pendingSyncCount("rpn_link"),1);
+    assert.strictEqual(A.api.pendingSyncCount("some_future_type"),1);
     assert.strictEqual(A.api.pendingSyncRows("sync_health_check").length,1);
   });
   await t("registry: an unregistered type still queues and defaults to its own name as the table", ()=>{

@@ -117,7 +117,8 @@
           p_phone: getSetting("contact_phone",""),
           p_city: "",                 // no shop-city setting exists today — see summary
           p_location: getSetting("branch_name",""), // closest existing concept to a free-text location
-          p_rpn_hint_id: null         // RPN linkage (rpn.js) is stored as free text, no UUID tracked locally — see summary
+          p_rpn_hint_id: null,        // RPN linkage (rpn.js) is stored as free text, no UUID tracked locally — see summary
+          p_device_key: (typeof deviceKey==="function")? deviceKey() : null   // terminal.js: tells this device apart from another with the same install ID
         })
       });
       if(!res.ok){
@@ -136,6 +137,10 @@
       setSetting("dc_lock_reason", data.lock_reason || "");
       setSetting("dc_vendor_status", data.status || "");
       if(data.vendor_id) setSetting("dc_vendor_id", String(data.vendor_id));
+      // Multi-terminal: only ever filled in, never cleared, by a check-in —
+      // registering/joining (terminal.js) is what sets the full identity.
+      if(data.business_id && !getSetting("business_id","")) setSetting("business_id", String(data.business_id));
+      if(data.terminal_id && !getSetting("terminal_id","")) setSetting("terminal_id", String(data.terminal_id));
       setSetting("dc_checkin_error", "");
       setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);
@@ -162,6 +167,8 @@
     if(r.reason==="offline" || r.reason==="network") return "Connect to the internet, then try again.";
     if(r.reason==="rejected") return /secret phrase does not match/i.test(r.message||"")
       ? "Digital Commerce has a different activation phrase for this device. Check the phrase with your RPN or Digital Commerce and save it again in More → Settings."
+      : /registered to another device/i.test(r.message||"")
+      ? "Digital Commerce has this install ID registered to another device, so this one can't use it. Contact Digital Commerce to re-admit this device."
       : "Digital Commerce couldn't register this device (" + (r.message||"unknown reason") + "). Contact Digital Commerce.";
     return "";
   }

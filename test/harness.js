@@ -38,6 +38,7 @@ function makeApp(settings){
     // server for a genuine over-the-wire proof, or override it via
     // app.hook("fetch", fn) to simulate specific failures without a server.
     navigator: { onLine:true },
+    crypto: globalThis.crypto,   // terminal.js deviceKey(): crypto.getRandomValues, as in a browser
     fetch: (...args)=> globalThis.fetch(...args),
     setInterval: ()=>0, clearInterval: ()=>{},
     // License anti-rollback (eod.js's fetchNetworkTime): a real setTimeout/
@@ -59,7 +60,7 @@ function makeApp(settings){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","rpn.js","currencies.js","eod.js","stocktake.js","import.js","marketing.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","rpn.js","currencies.js","eod.js","stocktake.js","import.js","marketing.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -74,6 +75,7 @@ function makeApp(settings){
         syncReminderShouldShow, syncReminderVisible, dismissSyncReminder, checkSyncReminderModal,
         DC_SUPABASE_URL, DC_ANON_KEY, cloudSyncStatusText,
         deviceCheckin, startDeviceCheckin, dcIsRegistered, dcRegistration, dcCheckinProblemText, marketRegistrationHtml, dcLockCartReason, dcLockAddProductReason, dcMessages, dcPendingMessages, dcMergeMessages, dcDismissMessage, dcMessagesBannerHtml,
+        newInstallId, deviceKey, terminalIdentity, isTerminalRegistered, storeTerminal, terminalRpc, registerMainBranch, joinBusiness, issueJoinCode, fetchBusinessBranches, terminalProblemText, formatJoinCode, LONG_INSTALL_ID, SYNC_UID_TABLES, TERMINAL_STAMP_TABLES,
         getRpnLink, hasRpnLink, saveRpnLink, rpnFieldsHtml, rpnFieldsFromInputs, rpnSectionHtml, wireRpnSection,
         supportSectionHtml, wireSupportSection, openSupportHandoff, openExternalUrl, waLink, isTauriApp,
         businessDateToday, oldestOpenShift, openShiftForDate, eodOperatorName, eodOperatorStaffId, shiftBlockReason,

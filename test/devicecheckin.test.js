@@ -51,8 +51,11 @@ const sampleResponse = {
       p_phone: "+263771234567",
       p_city: "",
       p_location: "Boka",
-      p_rpn_hint_id: null
+      p_rpn_hint_id: null,
+      // multi-terminal Phase 1: this install's device_key (terminal.js), made once and reused
+      p_device_key: A.api.getSetting("device_key","")
     });
+    assert.match(captured.body.p_device_key, /^[0-9a-f]{32}$/);
   });
 
   // ================= success persists lock state =================

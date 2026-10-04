@@ -102,6 +102,7 @@ const SCRIPT_ORDER = [
   "backup.js",
   "sync.js",
   "devicecheckin.js",
+  "terminal.js",
   "rpn.js",
   "marketing.js",
   "staff.js",

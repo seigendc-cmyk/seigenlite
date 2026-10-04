@@ -1,6 +1,7 @@
   // ================== SETUP FLOW ==================
   let setupStep = 1;
   let setupData = {shop_name:"",branch_name:"",secret_phrase:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:"",
+    join_code:"",till_label:"",
     rpn:{rpn_name:"",rpn_code:"",rpn_whatsapp:"",city_area:""}};
 
   function renderSetup(){
@@ -8,7 +9,20 @@
       <div class="center-screen">
         <div class="setup-card">
           <div class="step-dots">${[1,2,3,4].map(n=>`<span class="${n<=setupStep?'on':''}"></span>`).join("")}</div>
-          ${setupStep===1? `
+          ${setupStep===1 && setupData.branch_type==='join'? `
+            <h2>Join an existing branch</h2>
+            <p class="muted">Add this device as another till of a business that already uses seiGEN Commerce Lite. Your main branch gives you a join code (Settings → Business &amp; Terminals → Add a terminal).</p>
+            <label>Business secret phrase</label>
+            <input class="field" id="setSecret" value="${escapeHtml(setupData.secret_phrase)}" placeholder="The main branch's activation phrase" autocomplete="off">
+            <label>Join code</label>
+            <input class="field" id="setJoinCode" value="${escapeHtml(setupData.join_code)}" placeholder="ABCD-EFGH" autocomplete="off" style="letter-spacing:2px;text-transform:uppercase">
+            <label>Name for this till (optional)</label>
+            <input class="field" id="setTillLabel" value="${escapeHtml(setupData.till_label)}" placeholder="e.g. Till 2, Back counter">
+            <p class="muted" style="margin-top:8px">This till starts with no products. Sharing products between tills comes in a later update. Joining needs the internet once; after that it sells offline as usual.</p>
+            <button class="btn btn-primary" id="setupJoin" style="margin-top:12px">Join and finish setup</button>
+            <p class="muted" id="setupJoinStatus" style="font-size:12.5px;margin-top:8px"></p>
+            <button type="button" class="btn btn-ghost" id="setupJoinBack" style="margin-top:4px">← Set up a new shop instead</button>
+          ` : setupStep===1? `
             <h2>Welcome</h2>
             <p class="muted">Let's set up seiGEN Commerce Lite for your shop.</p>
             <label>Shop name</label>
@@ -24,6 +38,8 @@
               <button type="button" class="btn ${setupData.branch_type==='remote'?'btn-primary':'btn-outline'}" id="setRemoteBtn">Remote Branch</button>
             </div>
             <p class="muted" style="margin-top:8px">Remote branches can sell, but can't add or edit items, change stock quantities directly, or see item costs.</p>
+            <button type="button" class="btn btn-outline" id="setJoinBtn" style="margin-top:8px">Join an existing branch</button>
+            <p class="muted" style="margin-top:4px">Adding another till to a business that's already set up? Join it with a code from your main branch.</p>
             <button class="btn btn-primary" id="setupNext" style="margin-top:16px">Continue</button>
           ` : setupStep===2? `
             <h2>Contact & branding</h2>
@@ -75,7 +91,49 @@
         </div>
       </div>
     `;
-    if(setupStep===1){
+    if(setupStep===1 && setupData.branch_type==='join'){
+      const keepJoin = ()=>{
+        setupData.secret_phrase = document.getElementById("setSecret").value.trim();
+        setupData.join_code = document.getElementById("setJoinCode").value.trim();
+        setupData.till_label = document.getElementById("setTillLabel").value.trim();
+      };
+      document.getElementById("setupJoinBack").onclick=()=>{ keepJoin(); setupData.branch_type="main"; renderSetup(); };
+      document.getElementById("setupJoin").onclick=async (e)=>{
+        keepJoin();
+        const status = document.getElementById("setupJoinStatus");
+        const say = (t)=>{ status.textContent = t; status.style.color = "var(--danger)"; };
+        if(!setupData.secret_phrase || !setupData.join_code) return say("Enter the business secret phrase and the join code.");
+        const btn = e.currentTarget;
+        btn.disabled = true; btn.textContent = "Joining…"; status.textContent = "";
+        // The install's identity is made before the call and kept, so a retry
+        // after a dropped connection is the same install (the server answers a
+        // repeated join with the same till instead of adding another).
+        if(!getSetting("install_id","")) setSetting("install_id", newInstallId());
+        deviceKey();
+        await persist();
+        const r = await joinBusiness({ phrase: setupData.secret_phrase, code: formatJoinCode(setupData.join_code), label: setupData.till_label });
+        if(!r.ok){ btn.disabled = false; btn.textContent = "Join and finish setup"; return say(terminalProblemText(r)); }
+        // Same as Finish setup below, with the business's names from the server.
+        setSetting("shop_name", r.data.business_name||"");
+        setSetting("secret_phrase", setupData.secret_phrase);
+        setSetting("branch_name", r.data.branch_name||"");
+        setSetting("branch_type", r.data.is_main? "main" : "remote");
+        setSetting("currency", setupData.currency||"$");
+        setSetting("paper_width","80");
+        resetBranchId();
+        const now = trustedNow();
+        setSetting("install_date", now.toISOString());
+        setSetting("activated_until", new Date(now.getTime()+30*86400000).toISOString());
+        setSetting("setup_complete","1");
+        currency = setupData.currency||"$";
+        backfillBranch(db, currentBranch());
+        logAudit("Joined business", "", "Till "+r.data.till_code+" of "+r.data.branch_name+" ("+r.data.business_name+")");
+        setupData.join_code = "";
+        await persist();
+        route="pos"; render();
+        deviceCheckin();
+      };
+    } else if(setupStep===1){
       // Keep typed values when Main/Remote re-renders this step.
       const keepStep1 = ()=>{
         setupData.shop_name = document.getElementById("setShop").value.trim();
@@ -84,6 +142,7 @@
       };
       document.getElementById("setMainBtn").onclick=()=>{ keepStep1(); setupData.branch_type="main"; renderSetup(); };
       document.getElementById("setRemoteBtn").onclick=()=>{ keepStep1(); setupData.branch_type="remote"; renderSetup(); };
+      document.getElementById("setJoinBtn").onclick=()=>{ keepStep1(); setupData.branch_type="join"; renderSetup(); };
       document.getElementById("setupNext").onclick=()=>{
         keepStep1();
         if(!setupData.shop_name) return alert("Enter your shop name");
@@ -132,7 +191,7 @@
         setSetting("currency", setupData.currency);
         setSetting("banner_image", setupData.banner_image);
         setSetting("paper_width","80");
-        setSetting("install_id", uid4());
+        setSetting("install_id", newInstallId());   // terminal.js: 4 characters until LONG_INSTALL_ID is switched on
         resetBranchId();                       // a new branch always gets a fresh identity
         // trustedNow() (eod.js), not a raw new Date(): seeds the trial from
         // the same watermark-clamped clock every other licensing decision

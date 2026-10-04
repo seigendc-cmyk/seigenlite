@@ -87,9 +87,23 @@
   // header). Not a real feature — RPN linkage/support tasks are later work.
   registerSyncType("sync_health_check", { table:"sync_health_check" });
 
+  // A type registered with { paused:true } queues nothing: enqueueSync()
+  // returns null and writes no row. Used for record types whose Supabase
+  // table doesn't exist (rpn_link, support_task — see rpn.js), so the queue
+  // stops growing with rows that can never be delivered. Rows already
+  // queued for a paused type are set to status 'paused' by
+  // pauseSyncBacklog() (called from migrate) — kept, never deleted, and
+  // outside every pending/failed count below.
+  function syncTypePaused(recordType){ return !!(SYNC_TYPES[recordType] && SYNC_TYPES[recordType].paused); }
+  const PAUSED_SYNC_TYPES = ["rpn_link","support_task"];
+  function pauseSyncBacklog(t){
+    try{ t.run(`UPDATE sync_queue SET status='paused' WHERE status IN ('pending','failed') AND record_type IN (${PAUSED_SYNC_TYPES.map(()=>"?").join(",")})`, PAUSED_SYNC_TYPES); }catch(e){}
+  }
+
   // ---- enqueue / read ----
   function enqueueSync(recordType, payload, recordKey){
     if(!recordType) throw new Error("enqueueSync needs a record type");
+    if(syncTypePaused(recordType)) return null;
     const now = new Date().toISOString();
     const body = Object.assign({}, payload||{});
     if(body.tenant_id===undefined) body.tenant_id = tenantId();

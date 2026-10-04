@@ -113,14 +113,16 @@
   function dnEventKey(dnBranchId, dnNo, type, ts){
     return dnBranchId+"|"+dnNo+"|"+type+(type==="variance"? "|"+ts : "");
   }
-  // e: { dnBranchId, dnNo, type, actorBranchId, actorName, fromName, toName, ts, grvNo, detail }
+  // e: { dnBranchId, dnNo, type, actorBranchId, actorName, fromName, toName, ts, grvNo, detail, uid? }
+  // uid is passed only by the merge (a fact arriving from another device keeps
+  // its uid); otherwise the dn_events_uid_ins trigger (db.js) makes one.
   // Synchronous (no persist). Returns true when a new row was written.
   function recordDnEvent(e){
     const before = one("SELECT COUNT(*) AS c FROM dn_events").c;
-    run(`INSERT OR IGNORE INTO dn_events(event_key,dn_branch_id,dn_no,event_type,actor_branch_id,actor_branch_name,dn_from_name,dn_to_name,event_ts,grv_no,detail_json)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+    run(`INSERT OR IGNORE INTO dn_events(event_key,dn_branch_id,dn_no,event_type,actor_branch_id,actor_branch_name,dn_from_name,dn_to_name,event_ts,grv_no,detail_json,uid)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
       [dnEventKey(e.dnBranchId,e.dnNo,e.type,e.ts), e.dnBranchId, e.dnNo, e.type, e.actorBranchId||"", e.actorName||"", e.fromName||"", e.toName||"",
-       e.ts, e.grvNo==null?null:e.grvNo, typeof e.detail==="string"? e.detail : (e.detail? JSON.stringify(e.detail) : "")]);
+       e.ts, e.grvNo==null?null:e.grvNo, typeof e.detail==="string"? e.detail : (e.detail? JSON.stringify(e.detail) : ""), e.uid||null]);
     return one("SELECT COUNT(*) AS c FROM dn_events").c > before;
   }
   function hasDispatchDoc(dispatchBranchId, dnNo){

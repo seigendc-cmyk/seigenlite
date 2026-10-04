@@ -75,6 +75,7 @@
         <input class="field" id="sSecret" value="${escapeHtml(getSetting("secret_phrase",""))}">
         <button class="btn btn-outline" id="saveSecret" style="margin-top:10px">Save phrase</button>
       </div>
+      ${terminalSectionHtml()}
       ${printerSectionHtml()}
       ${barcodeReaderSectionHtml()}
       ${cashDrawerSectionHtml()}
@@ -136,6 +137,7 @@
         ? "Secret phrase saved. This device is registered with Digital Commerce."
         : "Secret phrase saved, but this device isn't registered with Digital Commerce yet. " + dcCheckinProblemText(r));
     };
+    wireTerminalSection();
     wirePrinterSection();
     wireBarcodeReaderSection();
     wireCashDrawerSection();

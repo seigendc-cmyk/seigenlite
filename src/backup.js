@@ -322,44 +322,51 @@
     impDb.run(SCHEMA); migrate(impDb);
     const impBranch = getSettingX(impDb,"branch_name","") || getSettingX(impDb,"shop_name","") || "Imported Branch";
     backfillBranch(impDb, impBranch);
+    // Multi-terminal Phase 1: every merged row keeps its uid (impDb already
+    // has one on every row: migrate() above backfills older files), and rows
+    // that carry terminal stamps keep them. A row whose uid is already here
+    // is the same row: skipped before the natural-key checks, which are
+    // unchanged.
+    const byUid = (tbl, uid)=> uid? one(`SELECT id FROM ${tbl} WHERE uid=?`,[uid]) : null;
+    const tid = (r)=> r.terminal_id||null, buid = (r)=> r.branch_uuid||null;
 
     const prodMap = {};
     allX(impDb,"SELECT * FROM products").forEach(p=>{
-      const existing = one("SELECT * FROM products WHERE name=? AND branch=?",[p.name,p.branch]);
+      const existing = byUid("products",p.uid) || one("SELECT * FROM products WHERE name=? AND branch=?",[p.name,p.branch]);
       if(existing){ prodMap[p.id]=existing.id; }
       else{
-        run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description) VALUES(?,?,?,?,?,?,?,?,?,?)",
-          [p.name,p.price,p.stock,p.low_threshold,p.sku||"",p.branch,p.image||"",p.cost||0,p.created_ts||new Date().toISOString(),p.description||""]);
+        run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,uid) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+          [p.name,p.price,p.stock,p.low_threshold,p.sku||"",p.branch,p.image||"",p.cost||0,p.created_ts||new Date().toISOString(),p.description||"",p.uid||null]);
         prodMap[p.id] = one("SELECT last_insert_rowid() as id").id;
       }
     });
 
     const custMap = {};
     allX(impDb,"SELECT * FROM customers").forEach(c=>{
-      const existing = one("SELECT * FROM customers WHERE lower(name)=lower(?) AND COALESCE(phone,'')=COALESCE(?,'')",[c.name,c.phone]);
+      const existing = byUid("customers",c.uid) || one("SELECT * FROM customers WHERE lower(name)=lower(?) AND COALESCE(phone,'')=COALESCE(?,'')",[c.name,c.phone]);
       if(existing){ custMap[c.id]=existing.id; }
       else{
-        run("INSERT INTO customers(name,phone,branch) VALUES(?,?,?)",[c.name,c.phone,c.branch]);
+        run("INSERT INTO customers(name,phone,branch,uid) VALUES(?,?,?,?)",[c.name,c.phone,c.branch,c.uid||null]);
         custMap[c.id]=one("SELECT last_insert_rowid() as id").id;
       }
     });
 
     const saleMap = {}; const newSaleImpIds = new Set();
     allX(impDb,"SELECT * FROM sales").forEach(s=>{
-      const dup = one("SELECT id FROM sales WHERE branch=? AND ts=?",[s.branch,s.ts]);
+      const dup = byUid("sales",s.uid) || one("SELECT id FROM sales WHERE branch=? AND ts=?",[s.branch,s.ts]);
       if(dup){ saleMap[s.id]=dup.id; return; }
       const newCustId = s.customer_id? (custMap[s.customer_id]||null) : null;
-      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||""]);
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,uid,terminal_id,branch_uuid)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||"",s.uid||null,tid(s),buid(s)]);
       saleMap[s.id]=one("SELECT last_insert_rowid() as id").id;
       newSaleImpIds.add(s.id);
     });
     allX(impDb,"SELECT * FROM sale_items").forEach(it=>{
-      if(!newSaleImpIds.has(it.sale_id)) return;
+      if(!newSaleImpIds.has(it.sale_id) || byUid("sale_items",it.uid)) return;
       const newProdId = prodMap[it.product_id]||null;
-      run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost) VALUES(?,?,?,?,?,?)",
-        [saleMap[it.sale_id], newProdId, it.name, it.price, it.qty, it.cost||0]);
+      run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,uid) VALUES(?,?,?,?,?,?,?)",
+        [saleMap[it.sale_id], newProdId, it.name, it.price, it.qty, it.cost||0, it.uid||null]);
     });
     // Same additive rule as sale_items above: a merged-in split-tender sale
     // must bring its per-method payment lines along, or the receiving
@@ -371,15 +378,15 @@
     // so a foreign-currency line's real rate/tendered figure always
     // survives the merge, not just its base-currency amount.
     allX(impDb,"SELECT * FROM sale_payments").forEach(p=>{
-      if(!newSaleImpIds.has(p.sale_id)) return;
-      run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
-        [saleMap[p.sale_id], p.method, p.amount||0, p.currency||"BASE", p.rate||1, p.tendered_amount==null? (p.amount||0) : p.tendered_amount]);
+      if(!newSaleImpIds.has(p.sale_id) || byUid("sale_payments",p.uid)) return;
+      run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount,uid) VALUES(?,?,?,?,?,?,?)",
+        [saleMap[p.sale_id], p.method, p.amount||0, p.currency||"BASE", p.rate||1, p.tendered_amount==null? (p.amount||0) : p.tendered_amount, p.uid||null]);
     });
 
     allX(impDb,"SELECT * FROM payouts").forEach(p=>{
-      const dup = one("SELECT id FROM payouts WHERE branch=? AND ts=?",[p.branch,p.ts]);
+      const dup = byUid("payouts",p.uid) || one("SELECT id FROM payouts WHERE branch=? AND ts=?",[p.branch,p.ts]);
       if(dup) return;
-      run("INSERT INTO payouts(ts,amount,reason,branch,user) VALUES(?,?,?,?,?)",[p.ts,p.amount,p.reason,p.branch,p.user||""]);
+      run("INSERT INTO payouts(ts,amount,reason,branch,user,uid,terminal_id,branch_uuid) VALUES(?,?,?,?,?,?,?,?)",[p.ts,p.amount,p.reason,p.branch,p.user||"",p.uid||null,tid(p),buid(p)]);
     });
 
     allX(impDb,"SELECT * FROM stock_received").forEach(r=>{
@@ -389,35 +396,35 @@
       // Stock adjustment ledger rows (Phase 4b) are keyed by (adj_branch_id, adj_no).
       const isAdj = r.adj_no!=null && r.adj_branch_id;
       const linked = r.dn_no!=null;
-      const dup = isAdj
+      const dup = byUid("stock_received",r.uid) || (isAdj
         ? one("SELECT id FROM stock_received WHERE adj_branch_id=? AND adj_no=?",[r.adj_branch_id,r.adj_no])
         : linked
         ? one("SELECT id FROM stock_received WHERE branch=? AND dn_branch_id=? AND dn_no=? AND name=? AND qty=?",[r.branch,r.dn_branch_id,r.dn_no,r.name,r.qty])
-        : one("SELECT id FROM stock_received WHERE branch=? AND ts=?",[r.branch,r.ts]);
+        : one("SELECT id FROM stock_received WHERE branch=? AND ts=?",[r.branch,r.ts]));
       if(dup) return;
       const newProdId = prodMap[r.product_id]||null;
-      run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,grv_no,adj_branch_id,adj_no) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+      run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,grv_no,adj_branch_id,adj_no,uid,terminal_id,branch_uuid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         [r.ts,newProdId,r.name,r.qty,r.note,r.branch,r.user||"",linked?r.dn_branch_id:null,linked?r.dn_no:null,r.grv_no==null?null:r.grv_no,
-         isAdj?r.adj_branch_id:null,isAdj?r.adj_no:null]);
+         isAdj?r.adj_branch_id:null,isAdj?r.adj_no:null,r.uid||null,tid(r),buid(r)]);
     });
 
     // Stock adjustments (Phase 4b): additive, one row per (branch_id, adj_no), never updated.
     // products.stock is never touched by the merge, so nothing is counted twice.
     allX(impDb,"SELECT * FROM stock_adjustments").forEach(a=>{
       if(!a.branch_id || a.adj_no==null) return;
-      if(one("SELECT id FROM stock_adjustments WHERE branch_id=? AND adj_no=?",[a.branch_id,a.adj_no])) return;
-      run(`INSERT INTO stock_adjustments(branch,branch_id,adj_no,product_code,product_name,qty_delta,reason,note,by_user,authorised_by,ts,dn_branch_id,dn_no)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      if(byUid("stock_adjustments",a.uid) || one("SELECT id FROM stock_adjustments WHERE branch_id=? AND adj_no=?",[a.branch_id,a.adj_no])) return;
+      run(`INSERT INTO stock_adjustments(branch,branch_id,adj_no,product_code,product_name,qty_delta,reason,note,by_user,authorised_by,ts,dn_branch_id,dn_no,uid,terminal_id,branch_uuid)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [a.branch||"",a.branch_id,a.adj_no,a.product_code||"",a.product_name||"",a.qty_delta,a.reason||"",a.note||"",a.by_user||"",a.authorised_by||"",a.ts,
-         a.dn_branch_id||null,a.dn_no==null?null:a.dn_no]);
+         a.dn_branch_id||null,a.dn_no==null?null:a.dn_no,a.uid||null,tid(a),buid(a)]);
     });
 
     allX(impDb,"SELECT * FROM credit_payments").forEach(cp=>{
-      const dup = one("SELECT id FROM credit_payments WHERE branch=? AND ts=?",[cp.branch,cp.ts]);
+      const dup = byUid("credit_payments",cp.uid) || one("SELECT id FROM credit_payments WHERE branch=? AND ts=?",[cp.branch,cp.ts]);
       if(dup) return;
       const newCustId = custMap[cp.customer_id]||null;
       if(!newCustId) return;
-      run("INSERT INTO credit_payments(customer_id,ts,amount,note,branch,user) VALUES(?,?,?,?,?,?)",[newCustId,cp.ts,cp.amount,cp.note,cp.branch,cp.user||""]);
+      run("INSERT INTO credit_payments(customer_id,ts,amount,note,branch,user,uid,terminal_id,branch_uuid) VALUES(?,?,?,?,?,?,?,?,?)",[newCustId,cp.ts,cp.amount,cp.note,cp.branch,cp.user||"",cp.uid||null,tid(cp),buid(cp)]);
     });
 
     allX(impDb,"SELECT * FROM eod_sessions").forEach(e=>{
@@ -428,54 +435,55 @@
       // The old match alone would miss an OPEN shift's duplicate on a
       // repeat merge, since expected_cash/counted_cash are still NULL then
       // and SQL NULL=NULL never matches.
-      const dup = one(
+      const dup = byUid("eod_sessions",e.uid) || one(
         `SELECT id FROM eod_sessions WHERE branch=? AND date=? AND (
            (started_ts<>'' AND started_ts=?) OR (expected_cash=? AND counted_cash=?)
          )`,
         [e.branch,e.date,e.started_ts||"",e.expected_cash,e.counted_cash]);
       if(dup) return;
-      run(`INSERT INTO eod_sessions(date,expected_cash,counted_cash,variance,notes,branch,ts,status,opening_float,started_ts,started_by,started_staff_id,closed_ts,closed_by,closed_staff_id,printed_ts)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      run(`INSERT INTO eod_sessions(date,expected_cash,counted_cash,variance,notes,branch,ts,status,opening_float,started_ts,started_by,started_staff_id,closed_ts,closed_by,closed_staff_id,printed_ts,uid,terminal_id,branch_uuid)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [e.date,e.expected_cash,e.counted_cash,e.variance,e.notes||"",e.branch,e.ts||"",
          e.status||"closed",e.opening_float||0,e.started_ts||"",e.started_by||"",e.started_staff_id==null?null:e.started_staff_id,
-         e.closed_ts||"",e.closed_by||"",e.closed_staff_id==null?null:e.closed_staff_id,e.printed_ts||""]);
+         e.closed_ts||"",e.closed_by||"",e.closed_staff_id==null?null:e.closed_staff_id,e.printed_ts||"",e.uid||null,tid(e),buid(e)]);
     });
 
     allX(impDb,"SELECT * FROM audit_log").forEach(a=>{
-      const dup = one("SELECT id FROM audit_log WHERE branch=? AND ts=?",[a.branch,a.ts]);
+      const dup = byUid("audit_log",a.uid) || one("SELECT id FROM audit_log WHERE branch=? AND ts=?",[a.branch,a.ts]);
       if(dup) return;
-      run("INSERT INTO audit_log(ts,branch,user,action,product_name,details) VALUES(?,?,?,?,?,?)",[a.ts,a.branch,a.user||"",a.action,a.product_name,a.details]);
+      run("INSERT INTO audit_log(ts,branch,user,action,product_name,details,uid) VALUES(?,?,?,?,?,?,?)",[a.ts,a.branch,a.user||"",a.action,a.product_name,a.details,a.uid||null]);
     });
 
     allX(impDb,"SELECT * FROM stock_requests").forEach(r=>{
-      const dup = one("SELECT id FROM stock_requests WHERE branch=? AND ts=?",[r.branch,r.ts]);
+      const dup = byUid("stock_requests",r.uid) || one("SELECT id FROM stock_requests WHERE branch=? AND ts=?",[r.branch,r.ts]);
       if(dup) return;
-      run("INSERT INTO stock_requests(ts,branch,user,item_requested,customer_name,customer_phone,qty_wanted,notes,fulfilled) VALUES(?,?,?,?,?,?,?,?,?)",
-        [r.ts,r.branch,r.user||"",r.item_requested,r.customer_name||"",r.customer_phone||"",r.qty_wanted||null,r.notes||"",r.fulfilled||0]);
+      run("INSERT INTO stock_requests(ts,branch,user,item_requested,customer_name,customer_phone,qty_wanted,notes,fulfilled,uid) VALUES(?,?,?,?,?,?,?,?,?,?)",
+        [r.ts,r.branch,r.user||"",r.item_requested,r.customer_name||"",r.customer_phone||"",r.qty_wanted||null,r.notes||"",r.fulfilled||0,r.uid||null]);
     });
 
     allX(impDb,"SELECT * FROM stock_transfers").forEach(t=>{
       // Lines that belong to a Delivery Note merge as records only (dn_no is
       // kept, and every pending-receipt query excludes dn_no rows). They are
       // de-duplicated per DN line, because all lines of one DN share a ts.
-      const dup = t.dn_no!=null
+      const dup = byUid("stock_transfers",t.uid) || (t.dn_no!=null
         ? one("SELECT id FROM stock_transfers WHERE from_branch=? AND dn_no=? AND sku=? AND product_name=?",[t.from_branch,t.dn_no,t.sku||"",t.product_name])
-        : one("SELECT id FROM stock_transfers WHERE from_branch=? AND ts=?",[t.from_branch,t.ts]);
+        : one("SELECT id FROM stock_transfers WHERE from_branch=? AND ts=?",[t.from_branch,t.ts]));
       if(dup){
         if(t.dn_branch_id) run("UPDATE stock_transfers SET dn_branch_id=? WHERE id=? AND (dn_branch_id IS NULL OR dn_branch_id='')",[t.dn_branch_id,dup.id]);
         return;
       }
-      run(`INSERT INTO stock_transfers(ts,from_branch,to_branch,product_name,sku,qty,note,user,status,received_ts,received_user,dn_no,dn_branch_id)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [t.ts,t.from_branch,t.to_branch,t.product_name,t.sku||"",t.qty,t.note||"",t.user||"",t.status||"Dispatched",t.received_ts||"",t.received_user||"",t.dn_no==null?null:t.dn_no,t.dn_branch_id||null]);
+      run(`INSERT INTO stock_transfers(ts,from_branch,to_branch,product_name,sku,qty,note,user,status,received_ts,received_user,dn_no,dn_branch_id,uid)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [t.ts,t.from_branch,t.to_branch,t.product_name,t.sku||"",t.qty,t.note||"",t.user||"",t.status||"Dispatched",t.received_ts||"",t.received_user||"",t.dn_no==null?null:t.dn_no,t.dn_branch_id||null,t.uid||null]);
     });
 
     // DN events (Phase 4): additive, one row per fact. dispatch_docs itself is
     // NOT merged (its key would clash between the dispatcher's and receiver's rows).
     // event_key de-duplicates: the same fact reaching main from two devices is one row.
     allX(impDb,"SELECT * FROM dn_events").forEach(e=>{
+      if(byUid("dn_events",e.uid)) return;
       recordDnEvent({ dnBranchId:e.dn_branch_id, dnNo:e.dn_no, type:e.event_type, actorBranchId:e.actor_branch_id, actorName:e.actor_branch_name,
-        fromName:e.dn_from_name, toName:e.dn_to_name, ts:e.event_ts, grvNo:e.grv_no, detail:e.detail_json||"" });
+        fromName:e.dn_from_name, toName:e.dn_to_name, ts:e.event_ts, grvNo:e.grv_no, detail:e.detail_json||"", uid:e.uid||null });
     });
 
     // Destination register: main's list of branches (and WhatsApp numbers)
@@ -488,20 +496,20 @@
     });
 
     allX(impDb,"SELECT * FROM staff").forEach(s=>{
-      const existing = one("SELECT * FROM staff WHERE branch=? AND name=?",[s.branch,s.name]);
+      const existing = byUid("staff",s.uid) || one("SELECT * FROM staff WHERE branch=? AND name=?",[s.branch,s.name]);
       if(existing) return;
-      run("INSERT INTO staff(name,role,passcode,branch,active,created_ts) VALUES(?,?,?,?,?,?)",
-        [s.name,s.role||"Cashier",s.passcode||"",s.branch,s.active!==undefined?s.active:1,s.created_ts||new Date().toISOString()]);
+      run("INSERT INTO staff(name,role,passcode,branch,active,created_ts,uid) VALUES(?,?,?,?,?,?,?)",
+        [s.name,s.role||"Cashier",s.passcode||"",s.branch,s.active!==undefined?s.active:1,s.created_ts||new Date().toISOString(),s.uid||null]);
     });
 
     allX(impDb,"SELECT * FROM vouchers").forEach(v=>{
       const newCustId = custMap[v.customer_id]||null;
       if(!newCustId) return;
-      const dup = one("SELECT id FROM vouchers WHERE customer_id=? AND earned_ts=?",[newCustId,v.earned_ts]);
+      const dup = byUid("vouchers",v.uid) || one("SELECT id FROM vouchers WHERE customer_id=? AND earned_ts=?",[newCustId,v.earned_ts]);
       if(dup) return;
       const newSaleId = v.redeemed_sale_id? (saleMap[v.redeemed_sale_id]||null) : null;
-      run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,redeemed_ts,redeemed_sale_id) VALUES(?,?,?,?,?,?,?)",
-        [newCustId,v.amount,v.branch,v.earned_ts,v.status||"Available",v.redeemed_ts||"",newSaleId]);
+      run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,redeemed_ts,redeemed_sale_id,uid) VALUES(?,?,?,?,?,?,?,?)",
+        [newCustId,v.amount,v.branch,v.earned_ts,v.status||"Available",v.redeemed_ts||"",newSaleId,v.uid||null]);
     });
 
     // Information for main only: where the branch's prices differ from main's,

@@ -11,8 +11,13 @@
   // already live — rather than a new table: RPN linkage is exactly the same
   // shape of thing (a handful of single-value fields describing this
   // device/tenant), so there was nothing to add to db.js's schema.
-  registerSyncType("rpn_link", { table:"rpn_link" });
-  registerSyncType("support_task", { table:"support_task" });
+  // Paused (multi-terminal Phase 1, approved 2026-10-04): neither table
+  // exists on Digital Commerce's project and nothing there reads them, so
+  // every queued row failed forever. The RPN details are still saved in
+  // settings and Support still opens WhatsApp; nothing is queued. See
+  // docs/multi-terminal/phase1-plan.md §1E.
+  registerSyncType("rpn_link", { table:"rpn_link", paused:true });
+  registerSyncType("support_task", { table:"support_task", paused:true });
 
   function getRpnLink(){
     return {
@@ -120,7 +125,9 @@
       rpn_code: rpn.rpn_code,
       rpn_name: rpn.rpn_name,
       rpn_whatsapp: rpn.rpn_whatsapp,
-    });
+    }); // paused: queues nothing (see registerSyncType above); the audit line below is the record
+    logAudit("Support requested", "", "WhatsApp to RPN "+(rpn.rpn_name||rpn.rpn_whatsapp)+(rpn.rpn_code? " ("+rpn.rpn_code+")" : ""));
+    persist();
     const text = `Hi, this is ${who} on seiGEN Commerce Lite. I need some support — could you help?`;
     // openExternalUrl (dn-browser.js) is the existing wa.me mechanism that's
     // actually correct on both build targets: window.open() alone doesn't

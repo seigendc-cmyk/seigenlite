@@ -389,6 +389,37 @@
     // re-running this never overwrites a real foreign-currency line's
     // recorded tendered amount.
     try{ t.run("UPDATE sale_payments SET tendered_amount=amount WHERE tendered_amount IS NULL"); }catch(e){}
+    migrateSyncIdentity(t);
+    if(typeof pauseSyncBacklog==="function") pauseSyncBacklog(t);   // sync.js; absent in partial test loads
+  }
+  // Multi-terminal Phase 1: every row that will one day sync gets a stable
+  // uid, and rows written on this device carry which terminal and branch
+  // (server ids, see terminal.js) wrote them. Integer primary keys stay the
+  // local keys — nothing reads uid yet except the merge (backup.js).
+  // Stamped by triggers, not at each INSERT site, so no path can forget and
+  // it also works on a database opened for merge/replace. A row inserted
+  // WITH a uid (a merged row) keeps it and is never stamped with this
+  // device's terminal. terminal_id/branch_uuid stay NULL until the device is
+  // registered, and on rows from before this version ("pre-terminal").
+  const SYNC_UID_TABLES = ["sales","sale_items","sale_payments","products","customers","payouts","credit_payments",
+    "stock_received","stock_adjustments","stock_transfers","purchases","eod_sessions","staff","vouchers","stock_requests",
+    "stocktakes","stocktake_counts","dispatch_docs","dn_events","dn_cases","audit_log"];
+  const TERMINAL_STAMP_TABLES = ["sales","payouts","credit_payments","stock_received","stock_adjustments","eod_sessions","purchases"];
+  const NEW_UID_SQL = "lower(hex(randomblob(16)))";
+  function migrateSyncIdentity(t){
+    TERMINAL_STAMP_TABLES.forEach(tbl=>{
+      try{ t.run(`ALTER TABLE ${tbl} ADD COLUMN terminal_id TEXT`); }catch(e){}
+      try{ t.run(`ALTER TABLE ${tbl} ADD COLUMN branch_uuid TEXT`); }catch(e){}
+    });
+    const setting = (k)=> `(SELECT NULLIF(value,'') FROM settings WHERE key='${k}')`;
+    SYNC_UID_TABLES.forEach(tbl=>{
+      try{ t.run(`ALTER TABLE ${tbl} ADD COLUMN uid TEXT`); }catch(e){}
+      try{ t.run(`UPDATE ${tbl} SET uid=${NEW_UID_SQL} WHERE uid IS NULL`); }catch(e){}
+      try{ t.run(`CREATE UNIQUE INDEX IF NOT EXISTS ux_${tbl}_uid ON ${tbl}(uid) WHERE uid IS NOT NULL`); }catch(e){}
+      const stamp = TERMINAL_STAMP_TABLES.includes(tbl)? `, terminal_id=${setting("terminal_id")}, branch_uuid=${setting("branch_uuid")}` : "";
+      try{ t.run(`CREATE TRIGGER IF NOT EXISTS ${tbl}_uid_ins AFTER INSERT ON ${tbl} WHEN NEW.uid IS NULL
+        BEGIN UPDATE ${tbl} SET uid=${NEW_UID_SQL}${stamp} WHERE rowid=NEW.rowid; END`); }catch(e){}
+    });
   }
   // Phase 4: DN lines learn which branch id issued them (so a status can be joined
   // on (branch id, dn_no) instead of a name), and dn_events is filled in for

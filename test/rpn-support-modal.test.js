@@ -1,9 +1,11 @@
 // Run: node --no-warnings test/rpn-support-modal.test.js
 // RPN linkage + Support handoff (src/rpn.js) and the Sync Reminder Modal
 // (src/sync.js), over the REAL app source via the same harness the other
-// suites use. All three feed the existing sync.js foundation — these tests
-// assert exactly that: enqueueSync payloads/tenant scoping, and the modal
-// reading pendingSyncCount()/pendingSyncRows() rather than a second query.
+// suites use. rpn_link and support_task are PAUSED since multi-terminal
+// Phase 1 (their Supabase tables don't exist; docs/multi-terminal/
+// phase1-plan.md §1E): saving and Support still work locally, nothing is
+// queued, and the old backlog is set aside. The modal still reads
+// pendingSyncCount()/pendingSyncRows() rather than a second query.
 "use strict";
 const assert = require("assert");
 const { makeApp } = require("./harness");
@@ -31,36 +33,39 @@ const RPN = { rpn_name:"Tendai Moyo", rpn_code:"RPN-014", rpn_whatsapp:"07712345
     const saved = A.api.saveRpnLink({ rpn_name:"", rpn_code:"XYZ", rpn_whatsapp:"", city_area:"" });
     assert.strictEqual(saved.rpn_code,"XYZ"); assert.strictEqual(saved.rpn_name,"");
   });
-  await t("save enqueues via the EXISTING sync foundation: enqueueSync/sync_queue, not a parallel mechanism", ()=>{
+  await t("save (paused outbox): saved in settings, nothing queued — rpn_link stays registered but paused", ()=>{
     const A = rig();
     A.api.saveRpnLink(RPN);
-    const rows = A.api.pendingSyncRows("rpn_link");
-    assert.strictEqual(rows.length,1);
-    assert.strictEqual(rows[0].record_type,"rpn_link");
-    assert.strictEqual(A.api.syncTableFor("rpn_link"),"rpn_link","registerSyncType was called");
-    const payload = JSON.parse(rows[0].payload_json);
-    assert.strictEqual(payload.rpn_name,"Tendai Moyo"); assert.strictEqual(payload.rpn_code,"RPN-014");
-    assert.strictEqual(payload.rpn_whatsapp,"0771234567"); assert.strictEqual(payload.city_area,"Harare CBD");
-    assert.strictEqual(payload.tenant_id, A.api.tenantId(), "correct tenant on the payload");
-    assert.strictEqual(rows[0].tenant_id, A.api.tenantId(), "correct tenant on the queue row itself");
-    assert.ok(payload.updated_ts);
+    assert.strictEqual(A.api.getSetting("rpn_code",""),"RPN-014");
+    assert.ok(A.api.getSetting("rpn_updated_ts",""), "still timestamped locally");
+    assert.strictEqual(A.api.pendingSyncRows("rpn_link").length,0);
+    assert.strictEqual(A.api.one("SELECT COUNT(*) c FROM sync_queue").c,0,"sync_queue doesn't grow");
+    assert.strictEqual(A.api.syncTableFor("rpn_link"),"rpn_link","registerSyncType was still called");
+    assert.strictEqual(A.api.enqueueSync("rpn_link",{x:1}),null,"enqueueSync on a paused type returns null");
+  });
+  await t("an existing rpn_link/support_task backlog is set aside as 'paused' (kept, not deleted, out of every count)", ()=>{
+    const A = rig();
+    const ins = (type,status)=> A.api.run("INSERT INTO sync_queue(record_type,record_key,tenant_id,payload_json,status,attempts,next_attempt_ts,created_ts,updated_ts) VALUES(?,'','t','{}',?,0,'','now','now')",[type,status]);
+    ins("rpn_link","pending"); ins("support_task","failed"); ins("sync_health_check","pending"); ins("rpn_link","synced");
+    A.api.migrate(A.api.getDb());
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(A.api.all("SELECT record_type,status FROM sync_queue ORDER BY id"))),
+      [{record_type:"rpn_link",status:"paused"},{record_type:"support_task",status:"paused"},{record_type:"sync_health_check",status:"pending"},{record_type:"rpn_link",status:"synced"}]);
+    assert.strictEqual(A.api.pendingSyncCount(),1,"only the deliverable row is still counted");
   });
   await t("persists offline: saving/editing RPN details doesn't touch the network and always succeeds locally", ()=>{
     const A = rig();
     A.ctx.navigator.onLine = false;
     A.api.saveRpnLink(RPN);
     assert.strictEqual(A.api.getRpnLink().rpn_name,"Tendai Moyo");
-    assert.strictEqual(A.api.pendingSyncCount("rpn_link"),1,"queued locally, not lost because offline");
+    assert.strictEqual(A.api.pendingSyncCount("rpn_link"),0,"paused: nothing queued, offline or not");
   });
-  await t("edit: a later Save updates the local record AND enqueues a fresh sync (Part A.5)", ()=>{
+  await t("edit: a later Save updates the local record (Part A.5)", ()=>{
     const A = rig();
     A.api.saveRpnLink(RPN);
     const edited = A.api.saveRpnLink(Object.assign({}, RPN, { rpn_code:"RPN-099", city_area:"Bulawayo" }));
     assert.strictEqual(edited.rpn_code,"RPN-099"); assert.strictEqual(edited.city_area,"Bulawayo");
     assert.strictEqual(A.api.getRpnLink().rpn_code,"RPN-099","local record updated");
-    assert.strictEqual(A.api.pendingSyncRows("rpn_link").length,2,"a fresh sync record queued alongside the first");
-    const latest = JSON.parse(A.api.pendingSyncRows("rpn_link")[1].payload_json);
-    assert.strictEqual(latest.rpn_code,"RPN-099");
+    assert.strictEqual(A.api.pendingSyncRows("rpn_link").length,0,"paused: nothing queued");
   });
   await t("hasRpnLink: false until something is saved, true once any field is set", ()=>{
     const A = rig();
@@ -95,26 +100,25 @@ const RPN = { rpn_name:"Tendai Moyo", rpn_code:"RPN-014", rpn_whatsapp:"07712345
     assert.ok(decodeURIComponent(opened).includes("Gentronix"), "pre-filled message identifies the tenant/business");
     assert.strictEqual(opened, A.api.waLink("0771234567", decodeURIComponent(opened.split("text=")[1])), "built with the app's existing waLink() helper");
   });
-  await t("support tap enqueues a support_task via the existing sync foundation, with tenant id and RPN reference", ()=>{
+  await t("support tap (paused outbox): nothing queued; a local audit_log line records it, with the RPN reference", ()=>{
     const A = rig();
     A.api.saveRpnLink(RPN);
     A.hook("openExternalUrl",()=>{});
     A.api.openSupportHandoff();
-    const rows = A.api.pendingSyncRows("support_task");
-    assert.strictEqual(rows.length,1);
-    assert.strictEqual(A.api.syncTableFor("support_task"),"support_task","registerSyncType was called for this type too");
-    const payload = JSON.parse(rows[0].payload_json);
-    assert.strictEqual(payload.tenant_id, A.api.tenantId());
-    assert.strictEqual(payload.rpn_code,"RPN-014"); assert.strictEqual(payload.rpn_whatsapp,"0771234567");
-    assert.ok(payload.ts, "timestamped");
+    assert.strictEqual(A.api.pendingSyncRows("support_task").length,0);
+    assert.strictEqual(A.api.syncTableFor("support_task"),"support_task","registerSyncType was still called for this type");
+    const log = A.api.all("SELECT * FROM audit_log WHERE action='Support requested'");
+    assert.strictEqual(log.length,1);
+    assert.ok(/Tendai Moyo/.test(log[0].details) && /RPN-014/.test(log[0].details), log[0].details);
+    assert.strictEqual(log[0].branch,"Boka");
   });
-  await t("each Support tap logs its own task record (two taps -> two queued records)", ()=>{
+  await t("each Support tap writes its own audit line (two taps -> two lines)", ()=>{
     const A = rig();
     A.api.saveRpnLink(RPN);
     A.hook("openExternalUrl",()=>{});
     A.api.openSupportHandoff();
     A.api.openSupportHandoff();
-    assert.strictEqual(A.api.pendingSyncCount("support_task"),2);
+    assert.strictEqual(A.api.one("SELECT COUNT(*) c FROM audit_log WHERE action='Support requested'").c,2);
   });
 
   // ================= Part C: Sync Reminder Modal =================
@@ -144,8 +148,8 @@ const RPN = { rpn_name:"Tendai Moyo", rpn_code:"RPN-014", rpn_whatsapp:"07712345
   await t("reuses the EXISTING pending-count logic (pendingSyncCount), not a duplicate query", ()=>{
     const A = rig();
     A.ctx.navigator.onLine = false;
-    A.api.enqueueSync("rpn_link",{});
-    A.api.enqueueSync("support_task",{});
+    A.api.enqueueSync("sync_health_check",{});
+    A.api.enqueueSync("some_future_type",{});
     assert.strictEqual(A.api.pendingSyncCount(),2);
     assert.strictEqual(A.api.syncReminderShouldShow(),true);
     // draining the SAME queue the Cloud sync (beta) card reads is what turns it off
