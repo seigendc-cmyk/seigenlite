@@ -56,7 +56,7 @@ function createSupabase({ url, serviceKey, fetchImpl }){
   return {
     // Registered devices: never the secret phrase or lock flags.
     async registeredDevice(installId){
-      const rows = await call("GET", `/rest/v1/cl_vendors?select=install_id,business_name,status&install_id=eq.${q(installId)}`);
+      const rows = await call("GET", `/rest/v1/cl_vendors?select=install_id,business_name,status,rpn_id&install_id=eq.${q(installId)}`);
       return rows && rows[0] || null;
     },
     async vendorByInstallId(installId){
@@ -135,7 +135,11 @@ function createSupabase({ url, serviceKey, fetchImpl }){
 
     // ---- registered devices + vendor tokens ----
     async registeredDevices(){
-      return call("GET", "/rest/v1/cl_vendors?select=install_id,business_name,status&install_id=not.is.null&order=business_name.asc");
+      return call("GET", "/rest/v1/cl_vendors?select=install_id,business_name,status,rpn_id&install_id=not.is.null&order=business_name.asc");
+    },
+    // RPNs (read only): never the phone, passcode or verification code.
+    async rpns(){
+      return call("GET", "/rest/v1/cl_rpn?select=id,full_name,active&order=full_name.asc");
     },
     async tokens(installId){
       return call("GET", "/rest/v1/vendor_tokens?select=*" + (installId ? `&install_id=eq.${q(installId)}` : "") + "&order=starts_on.asc");

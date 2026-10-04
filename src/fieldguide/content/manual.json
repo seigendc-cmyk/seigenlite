@@ -1,0 +1,3260 @@
+{
+ "schema": 1,
+ "source": {
+  "title": "RPN Field Manual (Interactive)",
+  "file": "source/rpn-field-manual-interactive-2026-09-25.html",
+  "sha256": "2ca1010fc2d70617601b589c9d1955383bafa5a74922ac09d995e45dfaa1272f"
+ },
+ "tracks": [
+  {
+   "id": "the-bigger-picture",
+   "title": "The bigger picture",
+   "lessons": [
+    "ch1"
+   ]
+  },
+  {
+   "id": "start-here",
+   "title": "Start here",
+   "lessons": [
+    "ch2"
+   ]
+  },
+  {
+   "id": "your-role",
+   "title": "Your role",
+   "lessons": [
+    "ch3"
+   ]
+  },
+  {
+   "id": "your-conduct",
+   "title": "Your conduct",
+   "lessons": [
+    "ch4"
+   ]
+  },
+  {
+   "id": "relationships",
+   "title": "Relationships",
+   "lessons": [
+    "ch5"
+   ]
+  },
+  {
+   "id": "core-skill",
+   "title": "Core skill",
+   "lessons": [
+    "ch6",
+    "ch7"
+   ]
+  },
+  {
+   "id": "product-knowledge",
+   "title": "Product knowledge",
+   "lessons": [
+    "ch8",
+    "ch9",
+    "ch10"
+   ]
+  },
+  {
+   "id": "ongoing-support",
+   "title": "Ongoing support",
+   "lessons": [
+    "ch11"
+   ]
+  },
+  {
+   "id": "reporting",
+   "title": "Reporting",
+   "lessons": [
+    "ch12"
+   ]
+  },
+  {
+   "reserved": true,
+   "lessons": [],
+   "id": "licensing",
+   "title": "Licensing"
+  },
+  {
+   "reserved": true,
+   "lessons": [],
+   "id": "receipts-payments",
+   "title": "Receipts and payments"
+  },
+  {
+   "reserved": true,
+   "lessons": [],
+   "id": "staff-training",
+   "title": "Staff training"
+  }
+ ],
+ "chapters": [
+  {
+   "id": "ch1",
+   "n": 1,
+   "title": "Our Ecosystem",
+   "track": "the-bigger-picture",
+   "icon": "<path d=\"M32 14c-6-4-14-5-22-3v38c8-2 16-1 22 3 6-4 14-5 22-3V11c-8-2-16-1-22 3z\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><line x1=\"32\" y1=\"14\" x2=\"32\" y2=\"52\" stroke=\"currentColor\" stroke-width=\"2.5\"></line>",
+   "blocks": [
+    {
+     "id": "ch1.b01",
+     "type": "p",
+     "parts": [
+      "Before anything about the app itself, it helps to know why seiGEN Commerce exists at all, and where you fit in it.",
+      "This is the picture worth carrying with you into every vendor's shop."
+     ]
+    },
+    {
+     "id": "ch1.b02",
+     "type": "h2",
+     "parts": [
+      "Zimbabwe's hustle economy"
+     ]
+    },
+    {
+     "id": "ch1.b03",
+     "type": "p",
+     "parts": [
+      "Most businesses in Zimbabwe are informal — the tuck shops, the market stalls, the one-person operations.",
+      "That's not a small or marginal slice of the economy: informal trade is a major contributor to Zimbabwe's GDP and one of the country's biggest sources of employment.",
+      "This isn't unique to Zimbabwe either — it's the pattern across much of Africa."
+     ]
+    },
+    {
+     "id": "ch1.b04",
+     "type": "p",
+     "parts": [
+      "The question that matters most for these businesses isn't whether they can survive — they already do, every day.",
+      "It's whether they can grow: keep proper records, make better decisions, and turn a hustle into a lasting business."
+     ]
+    },
+    {
+     "id": "ch1.b05",
+     "type": "h2",
+     "parts": [
+      "Why seiGEN Commerce Lite exists"
+     ]
+    },
+    {
+     "id": "ch1.b06",
+     "type": "p",
+     "parts": [
+      "seiGEN Commerce Lite was built to grow alongside African businesses — Zimbabwe's informal traders included — rather than asking them to become something else first.",
+      "Simple enough to onboard in one sitting, but built to carry a business as it scales."
+     ]
+    },
+    {
+     "id": "ch1.b07",
+     "type": "h2",
+     "parts": [
+      "How the pieces fit together"
+     ]
+    },
+    {
+     "id": "ch1.b08",
+     "type": "table",
+     "head": [
+      "Name",
+      "What it is"
+     ],
+     "parts": [
+      [
+       "seiGEN Commerce Infrastructure (SCI)",
+       "The umbrella technology infrastructure behind the whole product family."
+      ],
+      [
+       "Digital Commerce ZW",
+       "Licensed by SCI to distribute its products in Zimbabwe — including through the RPN network."
+      ],
+      [
+       "RPN (you)",
+       "The face of SCI in the field. The street soldiers tasked with onboarding vendors onto the SaaS."
+      ],
+      [
+       "seiGEN Commerce Lite",
+       "The core POS product — what you install and support day to day."
+      ],
+      [
+       "iTred VPD",
+       "The customer-facing app that grows out of Commerce Lite's core, giving vendors' products visibility to buyers beyond their own shop."
+      ]
+     ]
+    },
+    {
+     "id": "ch1.b09",
+     "type": "p",
+     "parts": [
+      "That last connection is worth sitting with: when you help a vendor use the marketing export inside Commerce Lite, you're not just teaching a feature — you're plugging that vendor into iTred VPD, and into a bigger market than the one walking past their door."
+     ]
+    },
+    {
+     "id": "ch1.b10",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "When a vendor asks “who are you with?”, the honest answer is: you're an RPN partner, representing Digital Commerce ZW, who distribute seiGEN Commerce Infrastructure's products — starting with Commerce Lite."
+     ]
+    },
+    {
+     "id": "ch1.b11",
+     "type": "h2",
+     "parts": [
+      "Why this matters to you"
+     ]
+    },
+    {
+     "id": "ch1.b12",
+     "type": "p",
+     "parts": [
+      "Every vendor you onboard is one more informal business with real records, real visibility, and a real shot at growing.",
+      "That's the actual job underneath the onboarding checklist."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch1.c0",
+     "title": "Our Ecosystem",
+     "blocks": [
+      "ch1.b01"
+     ]
+    },
+    {
+     "id": "ch1.c1",
+     "title": "Zimbabwe's hustle economy",
+     "blocks": [
+      "ch1.b02",
+      "ch1.b03",
+      "ch1.b04"
+     ]
+    },
+    {
+     "id": "ch1.c2",
+     "title": "Why seiGEN Commerce Lite exists",
+     "blocks": [
+      "ch1.b05",
+      "ch1.b06"
+     ]
+    },
+    {
+     "id": "ch1.c3",
+     "title": "How the pieces fit together",
+     "blocks": [
+      "ch1.b07",
+      "ch1.b08",
+      "ch1.b09",
+      "ch1.b10"
+     ]
+    },
+    {
+     "id": "ch1.c4",
+     "title": "Why this matters to you",
+     "blocks": [
+      "ch1.b11",
+      "ch1.b12"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch1.q1",
+     "q": "Zimbabwe's informal businesses are best described as:",
+     "opts": [
+      "A small, marginal part of the economy",
+      "A major contributor to GDP and one of the country's biggest sources of employment",
+      "Mostly illegal and unregulated"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch1.b03",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch1.c1"
+    },
+    {
+     "id": "ch1.q2",
+     "q": "seiGEN Commerce was built with which goal in mind?",
+     "opts": [
+      "To replace informal businesses with large corporations",
+      "To grow alongside African businesses, including Zimbabwe's informal traders, as they formalise and scale",
+      "To serve only large retail chains"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch1.b06",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch1.c2"
+    },
+    {
+     "id": "ch1.q3",
+     "q": "seiGEN Commerce Infrastructure (SCI) is best understood as:",
+     "opts": [
+      "A single app",
+      "The umbrella technology infrastructure behind the whole product family, including seiGEN Commerce Lite",
+      "A government programme"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch1.b08",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch1.c3"
+    },
+    {
+     "id": "ch1.q4",
+     "q": "Digital Commerce ZW's relationship to SCI is:",
+     "opts": [
+      "They are unrelated organisations",
+      "Digital Commerce ZW is licensed to distribute SCI's products, including to and through the RPN network",
+      "Digital Commerce ZW owns SCI outright"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch1.b08",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch1.c3"
+    },
+    {
+     "id": "ch1.q5",
+     "q": "RPN partners are described in this ecosystem as:",
+     "opts": [
+      "Back-office administrators",
+      "The face of SCI in the field — the ones tasked with onboarding vendors onto the SaaS",
+      "Investors in Digital Commerce"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch1.b08",
+      "parts": [
+       2
+      ]
+     },
+     "concept": "ch1.c3"
+    },
+    {
+     "id": "ch1.q6",
+     "q": "iTred VPD's relationship to seiGEN Commerce Lite is:",
+     "opts": [
+      "Completely separate products with no connection",
+      "A customer-facing app that grows out of Commerce Lite's core, giving vendors' products visibility to buyers",
+      "A competing product from a different company"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch1.b08",
+      "parts": [
+       4
+      ]
+     },
+     "concept": "ch1.c3"
+    }
+   ],
+   "reflections": [
+    "In your own words, explain how RPN fits between Digital Commerce ZW and seiGEN Commerce Infrastructure.",
+    "How would you explain the connection between seiGEN Commerce Lite and iTred VPD to a curious vendor?"
+   ]
+  },
+  {
+   "id": "ch2",
+   "n": 2,
+   "title": "Welcome To The Field",
+   "track": "start-here",
+   "icon": "<circle cx=\"32\" cy=\"32\" r=\"30\" stroke=\"currentColor\" stroke-width=\"2.5\"></circle><path d=\"M14 30l8-6 6 4 4-3 8 5-6 8-4-2-4 3-5-3-7-6z\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><path d=\"M22 28l6 8M42 30l-6 8\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\"></path>",
+   "blocks": [
+    {
+     "id": "ch2.b01",
+     "type": "p",
+     "parts": [
+      "You're going to be the first real, human contact most of your vendors have with seiGEN Commerce Lite.",
+      "That's the whole job in one sentence — everything else in this manual is detail underneath it."
+     ]
+    },
+    {
+     "id": "ch2.b02",
+     "type": "p",
+     "parts": [
+      "Keep this open on your phone.",
+      "It's not something you read once and put away; it's the thing you check before a visit, mid-visit when you're stuck, and after a visit when you're writing up what happened.",
+      "Every chapter ends with a short quiz and a written reflection — a question you answer in your own words.",
+      "Neither is a test to pass once; they're how you check the habit actually stuck, and how your trainer can see how you're thinking, not just whether you memorised an answer.",
+      "When you finish a chapter, you can send both straight to the RPN Manager group from the button next to your results."
+     ]
+    },
+    {
+     "id": "ch2.b03",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "If you hit a situation this manual doesn't cover, that's useful information — send it through so it can be added for the next person."
+     ]
+    },
+    {
+     "id": "ch2.b04",
+     "type": "h2",
+     "parts": [
+      "How the chapters are laid out"
+     ]
+    },
+    {
+     "id": "ch2.b05",
+     "type": "table",
+     "head": [
+      "Chapter",
+      "What it gets you"
+     ],
+     "parts": [
+      [
+       "1 – Our Ecosystem",
+       "Why seiGEN Commerce exists and where you fit in it."
+      ],
+      [
+       "3 – Who You Are Out There",
+       "The boundaries of your role, especially around stocktakes."
+      ],
+      [
+       "4 – Presenting Yourself, Professionally",
+       "How you dress, speak and conduct yourself in front of a vendor."
+      ],
+      [
+       "5 – Selling Without Selling",
+       "How to open a conversation and build trust."
+      ],
+      [
+       "6–7 – Onboarding & Setup",
+       "The visit itself, step by step."
+      ],
+      [
+       "8–10 – The App, In Depth, & Fixing Things",
+       "What you need to know cold."
+      ],
+      [
+       "11 – Coordinating Stocktakes",
+       "Your ongoing role after onboarding."
+      ],
+      [
+       "12 – Staying Accountable",
+       "Reporting back to your RPN Manager."
+      ]
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch2.c0",
+     "title": "Welcome To The Field",
+     "blocks": [
+      "ch2.b01",
+      "ch2.b02",
+      "ch2.b03"
+     ]
+    },
+    {
+     "id": "ch2.c1",
+     "title": "How the chapters are laid out",
+     "blocks": [
+      "ch2.b04",
+      "ch2.b05"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch2.q1",
+     "q": "This manual is meant to be used:",
+     "opts": [
+      "Once, before your first day",
+      "Day to day, in the field, whenever you need it",
+      "Only by trainers"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch2.b02",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch2.c0"
+    },
+    {
+     "id": "ch2.q2",
+     "q": "If this manual doesn't cover a situation you're facing, you should:",
+     "opts": [
+      "Guess and move on",
+      "Send it to your RPN Manager so it can be added",
+      "Wait until your next training session"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch2.b03",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch2.c0"
+    },
+    {
+     "id": "ch2.q3",
+     "q": "Every chapter in this manual ends with:",
+     "opts": [
+      "Nothing — just move to the next chapter",
+      "A multiple-choice quiz and a short written reflection you can send to your trainer",
+      "A certificate"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch2.b02",
+      "parts": [
+       2
+      ]
+     },
+     "concept": "ch2.c0"
+    }
+   ],
+   "reflections": [
+    "What's one situation from your own experience so far that this manual didn't fully cover?"
+   ]
+  },
+  {
+   "id": "ch3",
+   "n": 3,
+   "title": "Who You Are Out There",
+   "track": "your-role",
+   "icon": "<path d=\"M32 6l6.5 4.2 7.6-.6 2.6 7.2L55 21l-3.4 7 3.4 7-6.3 4.2-2.6 7.2-7.6-.6L32 50l-6.5-4.2-7.6.6-2.6-7.2L9 35l3.4-7L9 21l6.3-4.2 2.6-7.2 7.6.6L32 6z\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><path d=\"M24 32l6 6 11-12\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path>",
+   "blocks": [
+    {
+     "id": "ch3.b01",
+     "type": "p",
+     "parts": [
+      "You're an independent partner — not a Digital Commerce employee.",
+      "You're paid on commission, and you work one city: the one you were verified for.",
+      "That independence is real, and so is the responsibility that comes with it.",
+      "When you're in front of a vendor, you are Digital Commerce — and by extension, seiGEN Commerce Infrastructure — to them."
+     ]
+    },
+    {
+     "id": "ch3.b02",
+     "type": "h2",
+     "parts": [
+      "Your two ongoing jobs"
+     ]
+    },
+    {
+     "id": "ch3.b03",
+     "type": "list",
+     "ordered": true,
+     "parts": [
+      "Vendor support — you're the first person a vendor calls when something's confusing or broken.",
+      "Coordinating stocktake cycles — keeping vendors on a regular counting rhythm so their stock numbers stay trustworthy."
+     ]
+    },
+    {
+     "id": "ch3.b04",
+     "type": "h2",
+     "parts": [
+      "The line you don't cross"
+     ]
+    },
+    {
+     "id": "ch3.b05",
+     "type": "p",
+     "parts": [
+      "Stocktakes are the one place people most often get the boundary wrong, so be precise about it: the vendor's stock, the vendor's shop, the vendor's count.",
+      "You coordinate — you don't do the counting for them.",
+      "Your part is scheduling it, prepping them for it, and helping capture the result into the app once they've counted.",
+      "If you find yourself physically counting stock item by item, you've stepped into their core work, not supported it."
+     ]
+    },
+    {
+     "id": "ch3.b06",
+     "type": "dont",
+     "label": "DON'T",
+     "parts": [
+      "Don't take over a routine stocktake because it's faster if you just do it yourself. It isn't your job, and a vendor who never learns to count their own stock never actually owns the process."
+     ]
+    },
+    {
+     "id": "ch3.b07",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "For a quick cycle check-in, a good rule of thumb: if you're holding the clipboard and counting, you're doing their job; if you're holding the phone and helping them enter what they counted, you're doing yours. A full, organized stocktake is different — Chapter 11 covers how you run one of those."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch3.c0",
+     "title": "Who You Are Out There",
+     "blocks": [
+      "ch3.b01"
+     ]
+    },
+    {
+     "id": "ch3.c1",
+     "title": "Your two ongoing jobs",
+     "blocks": [
+      "ch3.b02",
+      "ch3.b03"
+     ]
+    },
+    {
+     "id": "ch3.c2",
+     "title": "The line you don't cross",
+     "blocks": [
+      "ch3.b04",
+      "ch3.b05",
+      "ch3.b06",
+      "ch3.b07"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch3.q1",
+     "q": "You are best described as:",
+     "opts": [
+      "An employee of Digital Commerce",
+      "An independent partner, paid on commission, working your own city",
+      "A vendor who resells the app"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch3.b01",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch3.c0"
+    },
+    {
+     "id": "ch3.q2",
+     "q": "When it comes to a vendor's stocktake, your job is to:",
+     "opts": [
+      "Count the stock yourself so it's done faster",
+      "Coordinate it and help capture the result — the counting stays the vendor's own work",
+      "Avoid stocktakes entirely"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch3.b05",
+      "parts": [
+       1,
+       2
+      ]
+     },
+     "concept": "ch3.c2"
+    },
+    {
+     "id": "ch3.q3",
+     "q": "Your two ongoing responsibilities after a vendor is onboarded are:",
+     "opts": [
+      "Support and coordinating stocktake cycles",
+      "Selling and billing",
+      "Marketing and design"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch3.b03",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch3.c1"
+    },
+    {
+     "id": "ch3.q4",
+     "q": "When you're in front of a vendor, you represent:",
+     "opts": [
+      "Only yourself",
+      "Digital Commerce, and by extension seiGEN Commerce Infrastructure",
+      "No one in particular"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch3.b01",
+      "parts": [
+       3
+      ]
+     },
+     "concept": "ch3.c0"
+    },
+    {
+     "id": "ch3.q5",
+     "q": "Being \"independent\" as an RPN means:",
+     "opts": [
+      "You can represent the product however you like",
+      "You're commission-based and not an employee, but you still follow the standards in this manual",
+      "You set your own prices for everything, including standard visits"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch3.b01",
+      "parts": [
+       0,
+       1,
+       2
+      ]
+     },
+     "concept": "ch3.c0"
+    }
+   ],
+   "reflections": [
+    "Describe, in your own words, the line between coordinating a stocktake and doing one yourself."
+   ]
+  },
+  {
+   "id": "ch4",
+   "n": 4,
+   "title": "Presenting Yourself, Professionally",
+   "track": "your-conduct",
+   "icon": "<circle cx=\"32\" cy=\"14\" r=\"8\" stroke=\"currentColor\" stroke-width=\"2.5\"></circle><path d=\"M14 56c0-12 8-20 18-20s18 8 18 20\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\"></path><path d=\"M27 36l5 8 5-8\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><path d=\"M30 44l-2 12h8l-2-12\" fill=\"currentColor\"></path>",
+   "blocks": [
+    {
+     "id": "ch4.b01",
+     "type": "p",
+     "parts": [
+      "As an RPN, you represent Digital Commerce every time you meet a vendor, visit a business, conduct a stocktake, provide training, or solve a problem.",
+      "The way you dress, speak, organize yourself and open a conversation all become part of the vendor's experience of the company — before they've even seen the app."
+     ]
+    },
+    {
+     "id": "ch4.b02",
+     "type": "tip",
+     "label": "REMEMBER",
+     "parts": [
+      "Before a vendor understands what you're selling, they first see how you present yourself and how you behave."
+     ]
+    },
+    {
+     "id": "ch4.b03",
+     "type": "h2",
+     "parts": [
+      "Dressing matters, even without a budget"
+     ]
+    },
+    {
+     "id": "ch4.b04",
+     "type": "p",
+     "parts": [
+      "Your clothing doesn't need to be expensive.",
+      "It needs to be clean, neat, appropriate, presentable, and suitable for the work you're doing that day.",
+      "If you're in a formal meeting, dress for a formal meeting.",
+      "If you're conducting a physical stocktake, stay neat while allowing yourself to work safely and comfortably."
+     ]
+    },
+    {
+     "id": "ch4.b05",
+     "type": "p",
+     "parts": [
+      "Wear clean, neat clothing and shoes, keep your hair neat, maintain good hygiene, and avoid anything dirty, damaged, or out of place for business.",
+      "A clean, simple, well-presented appearance beats expensive clothing worn untidily — every time."
+     ]
+    },
+    {
+     "id": "ch4.b06",
+     "type": "h2",
+     "parts": [
+      "Be organized before you arrive"
+     ]
+    },
+    {
+     "id": "ch4.b07",
+     "type": "p",
+     "parts": [
+      "Professionalism isn't only about appearance.",
+      "Before you get to a vendor, you should already know who you're meeting, the name of the business, why you're visiting, what's already been agreed, and what you need from them."
+     ]
+    },
+    {
+     "id": "ch4.b08",
+     "type": "say",
+     "label": "SAY THIS",
+     "parts": [
+      "“Prepare yourself → prepare your information → prepare your tools → prepare your questions → then visit the vendor.”"
+     ]
+    },
+    {
+     "id": "ch4.b09",
+     "type": "p",
+     "parts": [
+      "Depending on the task, carry: your phone and a charger or power bank, a notebook or approved digital notes, the relevant Digital Commerce forms, the stocktake spreadsheet where it applies, a pen, and any identification or documents the assignment needs."
+     ]
+    },
+    {
+     "id": "ch4.b10",
+     "type": "dont",
+     "label": "DON'T",
+     "parts": [
+      "Don't arrive and start working out what you're supposed to do. An organized person prepares before the meeting, not during it."
+     ]
+    },
+    {
+     "id": "ch4.b11",
+     "type": "h2",
+     "parts": [
+      "How you speak"
+     ]
+    },
+    {
+     "id": "ch4.b12",
+     "type": "p",
+     "parts": [
+      "Your tone should be respectful, calm, clear, friendly, confident and professional — not arrogant, and not afraid to speak.",
+      "You're representing a business, so speak with confidence while staying respectful."
+     ]
+    },
+    {
+     "id": "ch4.b13",
+     "type": "p",
+     "parts": [
+      "Don't try to impress a vendor with complicated language.",
+      "Your job is to make them understand you, not to sound clever.",
+      "Compare:"
+     ]
+    },
+    {
+     "id": "ch4.b14",
+     "type": "table",
+     "head": [
+      "Instead of this",
+      "Say this"
+     ],
+     "parts": [
+      [
+       "“We shall facilitate the implementation of an integrated inventory management solution subsequent to the stock reconciliation exercise.”",
+       "“After we complete and verify the stocktake, we will load the stock information into the POS.”"
+      ]
+     ]
+    },
+    {
+     "id": "ch4.b15",
+     "type": "p",
+     "parts": [
+      "Simple English is professional English when it actually communicates.",
+      "When you explain something: say what you're going to do, explain why, explain what you need from the vendor, ask if they understand, then give them room to ask questions."
+     ]
+    },
+    {
+     "id": "ch4.b16",
+     "type": "h2",
+     "parts": [
+      "Choose your words carefully"
+     ]
+    },
+    {
+     "id": "ch4.b17",
+     "type": "table",
+     "head": [
+      "Instead of this",
+      "Say this"
+     ],
+     "parts": [
+      [
+       "“Give me your stock list.”",
+       "“Could you please provide the stock list so we can compare it with what we're collecting?”"
+      ],
+      [
+       "“You have to do this.”",
+       "“This is what we need to complete the process.”"
+      ],
+      [
+       "“You are wrong.”",
+       "“Let's check this information together and see where the difference comes from.”"
+      ],
+      [
+       "“I don't know.”",
+       "“Let me confirm that information and come back to you.”"
+      ]
+     ]
+    },
+    {
+     "id": "ch4.b18",
+     "type": "h2",
+     "parts": [
+      "Starting a conversation"
+     ]
+    },
+    {
+     "id": "ch4.b19",
+     "type": "p",
+     "parts": [
+      "Don't open with problems, prices or demands.",
+      "Greet the person properly, make eye contact where it's culturally appropriate, smile naturally, and introduce yourself before you get to business."
+     ]
+    },
+    {
+     "id": "ch4.b20",
+     "type": "say",
+     "label": "SAY THIS",
+     "parts": [
+      "“Good morning. My name is [Name]. I am an RPN with Digital Commerce. Thank you for giving me the opportunity to meet with you.”",
+      "“I am here to discuss your onboarding and the stocktake process with you.”",
+      "“Before we begin, I would like to understand your business and what you would like us to help you with.”"
+     ]
+    },
+    {
+     "id": "ch4.b21",
+     "type": "p",
+     "parts": [
+      "That structure — greet, introduce, thank, explain your purpose, ask questions, listen, explain, confirm understanding, agree the next step — turns a meeting into a conversation instead of an interrogation."
+     ]
+    },
+    {
+     "id": "ch4.b22",
+     "type": "h2",
+     "parts": [
+      "Learn to listen"
+     ]
+    },
+    {
+     "id": "ch4.b23",
+     "type": "p",
+     "parts": [
+      "A good RPN doesn't talk the whole time.",
+      "When a vendor explains a problem, let them finish.",
+      "Listen for what they need, what they've already tried, what's missing, and what they expect Digital Commerce to do.",
+      "If you don't understand something, ask — that's better than pretending to."
+     ]
+    },
+    {
+     "id": "ch4.b24",
+     "type": "say",
+     "label": "SAY THIS",
+     "parts": [
+      "“Could you please explain that part again?”",
+      "“When you say the stock isn't matching, what exactly is happening?”"
+     ]
+    },
+    {
+     "id": "ch4.b25",
+     "type": "h2",
+     "parts": [
+      "Don't argue, and be careful with promises"
+     ]
+    },
+    {
+     "id": "ch4.b26",
+     "type": "p",
+     "parts": [
+      "If a vendor disagrees with you, stay calm and explain your reasoning respectfully rather than getting defensive.",
+      "If you're not authorized to commit to something, don't — say you'll confirm it first.",
+      "That protects you and Digital Commerce."
+     ]
+    },
+    {
+     "id": "ch4.b27",
+     "type": "dont",
+     "label": "DON'T",
+     "parts": [
+      "Never make a promise you're not authorized or able to keep."
+     ]
+    },
+    {
+     "id": "ch4.b28",
+     "type": "h2",
+     "parts": [
+      "Body language says as much as your words"
+     ]
+    },
+    {
+     "id": "ch4.b29",
+     "type": "p",
+     "parts": [
+      "Stand or sit properly, pay attention, and keep a calm expression.",
+      "Avoid constantly checking your phone, folding your arms defensively, showing impatience, or laughing at a vendor's mistake.",
+      "If you genuinely need your phone for the work, say so — “Let me just check that information on the system” — rather than silently looking at it while they're speaking."
+     ]
+    },
+    {
+     "id": "ch4.b30",
+     "type": "h2",
+     "parts": [
+      "During a stocktake, conduct matters even more"
+     ]
+    },
+    {
+     "id": "ch4.b31",
+     "type": "p",
+     "parts": [
+      "You may be working inside a vendor's business for hours.",
+      "Dress neatly, arrive on time, respect their property, handle products carefully, keep the working area organized, avoid taking photographs unless it's required and authorized, keep vendor information confidential, and treat their employees respectfully.",
+      "Remember: you're working inside someone else's business."
+     ]
+    },
+    {
+     "id": "ch4.b32",
+     "type": "h2",
+     "parts": [
+      "How to end a visit"
+     ]
+    },
+    {
+     "id": "ch4.b33",
+     "type": "p",
+     "parts": [
+      "Don't just leave once the work is done.",
+      "Summarize what happened, ask if anything needs clarifying, and thank them."
+     ]
+    },
+    {
+     "id": "ch4.b34",
+     "type": "say",
+     "label": "SAY THIS",
+     "parts": [
+      "“Today we completed the first batch of the stocktake. The information has been checked and we have agreed on the items that need clarification. We will continue with the next batch on the agreed date.”",
+      "“Is there anything you would like me to clarify before I leave?”",
+      "“Thank you for your time. We appreciate your cooperation.”"
+     ]
+    },
+    {
+     "id": "ch4.b35",
+     "type": "tip",
+     "label": "RPN GOLDEN RULE",
+     "parts": [
+      "Look professional. Speak respectfully. Listen carefully. Be prepared. Tell the truth. Do what you say you will do. You're often the human face of Digital Commerce to a vendor — every visit should leave them feeling they're dealing with someone organized, respectful, knowledgeable and serious about business."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch4.c0",
+     "title": "Presenting Yourself, Professionally",
+     "blocks": [
+      "ch4.b01",
+      "ch4.b02"
+     ]
+    },
+    {
+     "id": "ch4.c1",
+     "title": "Dressing matters, even without a budget",
+     "blocks": [
+      "ch4.b03",
+      "ch4.b04",
+      "ch4.b05"
+     ]
+    },
+    {
+     "id": "ch4.c2",
+     "title": "Be organized before you arrive",
+     "blocks": [
+      "ch4.b06",
+      "ch4.b07",
+      "ch4.b08",
+      "ch4.b09",
+      "ch4.b10"
+     ]
+    },
+    {
+     "id": "ch4.c3",
+     "title": "How you speak",
+     "blocks": [
+      "ch4.b11",
+      "ch4.b12",
+      "ch4.b13",
+      "ch4.b14",
+      "ch4.b15"
+     ]
+    },
+    {
+     "id": "ch4.c4",
+     "title": "Choose your words carefully",
+     "blocks": [
+      "ch4.b16",
+      "ch4.b17"
+     ]
+    },
+    {
+     "id": "ch4.c5",
+     "title": "Starting a conversation",
+     "blocks": [
+      "ch4.b18",
+      "ch4.b19",
+      "ch4.b20",
+      "ch4.b21"
+     ]
+    },
+    {
+     "id": "ch4.c6",
+     "title": "Learn to listen",
+     "blocks": [
+      "ch4.b22",
+      "ch4.b23",
+      "ch4.b24"
+     ]
+    },
+    {
+     "id": "ch4.c7",
+     "title": "Don't argue, and be careful with promises",
+     "blocks": [
+      "ch4.b25",
+      "ch4.b26",
+      "ch4.b27"
+     ]
+    },
+    {
+     "id": "ch4.c8",
+     "title": "Body language says as much as your words",
+     "blocks": [
+      "ch4.b28",
+      "ch4.b29"
+     ]
+    },
+    {
+     "id": "ch4.c9",
+     "title": "During a stocktake, conduct matters even more",
+     "blocks": [
+      "ch4.b30",
+      "ch4.b31"
+     ]
+    },
+    {
+     "id": "ch4.c10",
+     "title": "How to end a visit",
+     "blocks": [
+      "ch4.b32",
+      "ch4.b33",
+      "ch4.b34",
+      "ch4.b35"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch4.q1",
+     "q": "Before a vendor understands what you're selling, they first see:",
+     "opts": [
+      "Your price list",
+      "How you present yourself and how you behave",
+      "Your Digital Commerce contract"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b02",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch4.c0"
+    },
+    {
+     "id": "ch4.q2",
+     "q": "Professional dressing, in this manual's terms, means:",
+     "opts": [
+      "Expensive clothing",
+      "Clean, neat, appropriate and suitable for the work you're doing that day",
+      "The same formal suit for every single task"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b04",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch4.c1"
+    },
+    {
+     "id": "ch4.q3",
+     "q": "When preparing for a visit, the correct order is:",
+     "opts": [
+      "Visit the vendor, then work out what you're supposed to do",
+      "Prepare yourself, your information, your tools and your questions — then visit",
+      "Prepare your tools only; the rest can be improvised"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b08",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch4.c2"
+    },
+    {
+     "id": "ch4.q4",
+     "q": "The clearer way to say “We shall facilitate the implementation of an integrated inventory management solution” is:",
+     "opts": [
+      "Keep it as-is — it sounds more professional",
+      "“After we complete and verify the stocktake, we will load the stock information into the POS.”",
+      "Don't explain it at all"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b14",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch4.c3"
+    },
+    {
+     "id": "ch4.q5",
+     "q": "Instead of saying “Give me your stock list,” you should say:",
+     "opts": [
+      "“You have to give me your stock list.”",
+      "“Could you please provide the stock list so we can compare it with what we're collecting?”",
+      "Nothing — just wait for them to offer it"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b17",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch4.c4"
+    },
+    {
+     "id": "ch4.q6",
+     "q": "A vendor asks something you don't know the answer to. You should say:",
+     "opts": [
+      "“I don't know.”",
+      "“Let me confirm that information and come back to you.”",
+      "Make up an answer so you sound confident"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b17",
+      "parts": [
+       3
+      ]
+     },
+     "concept": "ch4.c4"
+    },
+    {
+     "id": "ch4.q7",
+     "q": "If you're not authorized to make a commitment to a vendor, you should:",
+     "opts": [
+      "Promise it anyway to keep them happy",
+      "Say you'll confirm it with Digital Commerce before giving a final answer",
+      "Avoid the topic completely"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b26",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch4.c7"
+    },
+    {
+     "id": "ch4.q8",
+     "q": "During a stocktake inside a vendor's shop, you should:",
+     "opts": [
+      "Take photos freely for your own records",
+      "Respect their property, handle products carefully, and keep vendor information confidential",
+      "Chat casually with staff to pass the time"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b31",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch4.c9"
+    },
+    {
+     "id": "ch4.q9",
+     "q": "A good way to end a visit is to:",
+     "opts": [
+      "Leave once the work is done, without saying anything",
+      "Summarize what was done, ask if anything needs clarifying, and thank them",
+      "Immediately bring up the next sale"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch4.b33",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch4.c10"
+    }
+   ],
+   "reflections": [
+    "Rewrite this in plain, respectful English you'd actually say to a vendor: “You have to give me your stock list right now.”",
+    "Write out how you'd personally open and close a first visit with a brand-new vendor, start to finish."
+   ]
+  },
+  {
+   "id": "ch5",
+   "n": 5,
+   "title": "Selling Without Selling",
+   "track": "relationships",
+   "icon": "<path d=\"M10 26v12l8 2v-16l-8 2z\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><path d=\"M18 24l26-10v36l-26-10V24z\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><path d=\"M44 20a10 12 0 010 24\" stroke=\"currentColor\" stroke-width=\"2.5\"></path><path d=\"M16 40l3 12h6l-2-11\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path>",
+   "blocks": [
+    {
+     "id": "ch5.b01",
+     "type": "p",
+     "parts": [
+      "Nobody wants to be sold to.",
+      "Every vendor you meet has heard a pitch before.",
+      "What works instead is starting from a problem they already have."
+     ]
+    },
+    {
+     "id": "ch5.b02",
+     "type": "h2",
+     "parts": [
+      "How to open"
+     ]
+    },
+    {
+     "id": "ch5.b03",
+     "type": "say",
+     "label": "SAY THIS",
+     "parts": [
+      "“Quick question — at the end of the day, do you actually know what you sold, or are you working it out from memory?”",
+      "“How do you currently know when you're running low on something before it's gone?”"
+     ]
+    },
+    {
+     "id": "ch5.b04",
+     "type": "p",
+     "parts": [
+      "Both of those are real problems most small shops live with every day.",
+      "You're not describing features; you're naming something they already feel."
+     ]
+    },
+    {
+     "id": "ch5.b05",
+     "type": "h2",
+     "parts": [
+      "Reading hesitation"
+     ]
+    },
+    {
+     "id": "ch5.b06",
+     "type": "p",
+     "parts": [
+      "If a vendor slows down or goes quiet, that's not a signal to talk faster.",
+      "Stop and ask what's actually on their mind — it's often something small: a worry about losing existing habits, a worry about cost, a worry about their staff coping with something new.",
+      "Answer the real thing, not the thing you assumed."
+     ]
+    },
+    {
+     "id": "ch5.b07",
+     "type": "say",
+     "label": "SAY THIS",
+     "parts": [
+      "“What's the part of this that worries you most?”"
+     ]
+    },
+    {
+     "id": "ch5.b08",
+     "type": "h2",
+     "parts": [
+      "Trust is built after the sale, not during it"
+     ]
+    },
+    {
+     "id": "ch5.b09",
+     "type": "p",
+     "parts": [
+      "Anyone can sound convincing for twenty minutes.",
+      "What actually earns a vendor's trust is showing up when you said you would, and being reachable after they've handed over their business's daily numbers to a new tool.",
+      "That reputation follows you to the next vendor in the same neighbourhood."
+     ]
+    },
+    {
+     "id": "ch5.b10",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "Vendors talk to each other. One vendor who feels well supported is worth more to you long-term than one who was just closed quickly."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch5.c0",
+     "title": "Selling Without Selling",
+     "blocks": [
+      "ch5.b01"
+     ]
+    },
+    {
+     "id": "ch5.c1",
+     "title": "How to open",
+     "blocks": [
+      "ch5.b02",
+      "ch5.b03",
+      "ch5.b04"
+     ]
+    },
+    {
+     "id": "ch5.c2",
+     "title": "Reading hesitation",
+     "blocks": [
+      "ch5.b05",
+      "ch5.b06",
+      "ch5.b07"
+     ]
+    },
+    {
+     "id": "ch5.c3",
+     "title": "Trust is built after the sale, not during it",
+     "blocks": [
+      "ch5.b08",
+      "ch5.b09",
+      "ch5.b10"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch5.q1",
+     "q": "The strongest opening with a new vendor is usually:",
+     "opts": [
+      "Leading with the price",
+      "Leading with a problem they already have — running out of stock unnoticed, not knowing the day's real total",
+      "Leading with a long feature list"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch5.b01",
+      "parts": [
+       0,
+       1,
+       2
+      ]
+     },
+     "concept": "ch5.c0"
+    },
+    {
+     "id": "ch5.q2",
+     "q": "If a vendor seems hesitant, the best move is to:",
+     "opts": [
+      "Push harder on the same point",
+      "Slow down and ask what's actually worrying them",
+      "Move on to the next shop"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch5.b06",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch5.c2"
+    },
+    {
+     "id": "ch5.q3",
+     "q": "Trust with a vendor is mostly built by:",
+     "opts": [
+      "What you say on the first visit",
+      "Showing up when you said you would, and following through after the sale",
+      "How fast you can talk"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch5.b09",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch5.c3"
+    },
+    {
+     "id": "ch5.q4",
+     "q": "Mentioning that seiGEN Commerce grows with African and Zimbabwean businesses is useful because:",
+     "opts": [
+      "It sounds impressive but means nothing to the vendor",
+      "It connects the product to something the vendor already cares about — their own business growing",
+      "It's a legal requirement to say"
+     ],
+     "correct": 1,
+     "source": null,
+     "concept": "ch5.c0"
+    }
+   ],
+   "reflections": [
+    "Write a short opening line you'd personally use with a new vendor, based on a problem they likely have."
+   ]
+  },
+  {
+   "id": "ch6",
+   "n": 6,
+   "title": "Onboarding A New Vendor",
+   "track": "core-skill",
+   "icon": "<rect x=\"12\" y=\"8\" width=\"40\" height=\"48\" rx=\"3\" stroke=\"currentColor\" stroke-width=\"2.5\"></rect><path d=\"M20 22l4 4 8-8\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><line x1=\"36\" y1=\"24\" x2=\"46\" y2=\"24\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"></line><path d=\"M20 38l4 4 8-8\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><line x1=\"36\" y1=\"40\" x2=\"46\" y2=\"40\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"></line>",
+   "blocks": [
+    {
+     "id": "ch6.b01",
+     "type": "p",
+     "parts": [
+      "Onboarding is the highest-stakes hour you'll spend with any vendor.",
+      "Get it right and they're self-sufficient within days.",
+      "Get it wrong and you'll be fielding basic questions for months."
+     ]
+    },
+    {
+     "id": "ch6.b02",
+     "type": "h2",
+     "parts": [
+      "Before you arrive"
+     ]
+    },
+    {
+     "id": "ch6.b03",
+     "type": "table",
+     "head": [
+      "Confirm this first",
+      "Why"
+     ],
+     "parts": [
+      [
+       "Their device and browser",
+       "The app is designed to run in a standard browser, not inside a chat app's file preview."
+      ],
+      [
+       "Timing of the first internet connection",
+       "Only the very first load needs a connection — after that it works offline. Plan around their signal."
+      ],
+      [
+       "Main vs Remote branch",
+       "Decide this before you start — it's awkward to change after setup."
+      ]
+     ]
+    },
+    {
+     "id": "ch6.b04",
+     "type": "h2",
+     "parts": [
+      "During the visit"
+     ]
+    },
+    {
+     "id": "ch6.b05",
+     "type": "list",
+     "ordered": true,
+     "parts": [
+      "Walk through setup screen by screen, narrating what you're doing and why — don't do it silently.",
+      "Move into a guided first sale. This is the part people get wrong: your hands stay off their phone. You talk, they tap.",
+      "Before you leave, have them repeat one full sale and one EOD step completely unassisted, while you watch and say nothing unless they get stuck."
+     ]
+    },
+    {
+     "id": "ch6.b06",
+     "type": "dont",
+     "label": "DON'T",
+     "parts": [
+      "If you've done most of the tapping by the time you leave, they haven't actually learned it — and you'll be back sooner than you'd like."
+     ]
+    },
+    {
+     "id": "ch6.b07",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "Narrate like you're training someone to drive, not like you're demonstrating a gadget: “now you'd tap here because...”, not just “watch this.”"
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch6.c0",
+     "title": "Onboarding A New Vendor",
+     "blocks": [
+      "ch6.b01"
+     ]
+    },
+    {
+     "id": "ch6.c1",
+     "title": "Before you arrive",
+     "blocks": [
+      "ch6.b02",
+      "ch6.b03"
+     ]
+    },
+    {
+     "id": "ch6.c2",
+     "title": "During the visit",
+     "blocks": [
+      "ch6.b04",
+      "ch6.b05",
+      "ch6.b06",
+      "ch6.b07"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch6.q1",
+     "q": "Before you even open the app with a vendor, you should have already:",
+     "opts": [
+      "Decided nothing — improvise on the day",
+      "Confirmed their device, browser, and whether they'll be Main or Remote branch",
+      "Told them the price is negotiable"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch6.b03",
+      "parts": [
+       0,
+       2
+      ]
+     },
+     "concept": "ch6.c1"
+    },
+    {
+     "id": "ch6.q2",
+     "q": "During the guided first sale, your hands should be:",
+     "opts": [
+      "On their phone, doing it for them",
+      "Off their phone — you talk, they tap",
+      "Recording a video instead"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch6.b05",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch6.c2"
+    },
+    {
+     "id": "ch6.q3",
+     "q": "You know onboarding actually worked when:",
+     "opts": [
+      "You've shown them everything once",
+      "They can complete a sale and an EOD step alone, while you watch",
+      "They say thank you"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch6.b05",
+      "parts": [
+       2
+      ]
+     },
+     "concept": "ch6.c2"
+    },
+    {
+     "id": "ch6.q4",
+     "q": "A vendor asks whether their products can be seen by more buyers nearby. The honest answer points them to:",
+     "opts": [
+      "A feature that doesn't exist",
+      "The marketing/catalogue export, which can put their products in front of iTred VPD buyers",
+      "A competitor's app"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch1.b09",
+      "parts": [
+       0
+      ],
+      "crossChapter": true
+     },
+     "concept": "ch1.c3"
+    }
+   ],
+   "reflections": [
+    "Explain why letting the vendor do the tapping during onboarding matters more than doing it quickly."
+   ]
+  },
+  {
+   "id": "ch7",
+   "n": 7,
+   "title": "Initial Setup, Done Right",
+   "track": "core-skill",
+   "icon": "<circle cx=\"32\" cy=\"32\" r=\"9\" stroke=\"currentColor\" stroke-width=\"2.5\"></circle><path d=\"M32 6v7M32 51v7M58 32h-7M13 32H6M50 14l-5 5M19 45l-5 5M50 50l-5-5M19 19l-5-5\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\"></path>",
+   "blocks": [
+    {
+     "id": "ch7.b01",
+     "type": "p",
+     "parts": [
+      "Setup mistakes are the ones that cost the most later, because they're awkward to undo once a vendor has started using the app day to day.",
+      "Get these decisions right at the start."
+     ]
+    },
+    {
+     "id": "ch7.b02",
+     "type": "h2",
+     "parts": [
+      "Main vs Remote branch — decide by role, not by device"
+     ]
+    },
+    {
+     "id": "ch7.b03",
+     "type": "p",
+     "parts": [
+      "This trips people up constantly: the decision is about how the vendor's business is structured, not what device is in front of you.",
+      "A laptop can be a Remote branch just as easily as a phone can.",
+      "Ask about the business first, the device second."
+     ]
+    },
+    {
+     "id": "ch7.b04",
+     "type": "table",
+     "head": [
+      "If the vendor...",
+      "Then it's usually..."
+     ],
+     "parts": [
+      [
+       "Runs one shop, one till",
+       "Main branch"
+      ],
+      [
+       "Has more than one location or till reporting back to a central point",
+       "Main at the central point, Remote at each other location"
+      ]
+     ]
+    },
+    {
+     "id": "ch7.b05",
+     "type": "h2",
+     "parts": [
+      "The first connection"
+     ]
+    },
+    {
+     "id": "ch7.b06",
+     "type": "p",
+     "parts": [
+      "The app needs the internet for its very first load only.",
+      "After that, it runs offline.",
+      "Plan the timing of that first load around wherever the vendor actually has reliable signal — don't assume their shop does."
+     ]
+    },
+    {
+     "id": "ch7.b07",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "If you're not sure whether a business should be one branch or several, ask: “if I stood in each location, would each one need its own till record?” That usually settles it."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch7.c0",
+     "title": "Initial Setup, Done Right",
+     "blocks": [
+      "ch7.b01"
+     ]
+    },
+    {
+     "id": "ch7.c1",
+     "title": "Main vs Remote branch — decide by role, not by device",
+     "blocks": [
+      "ch7.b02",
+      "ch7.b03",
+      "ch7.b04"
+     ]
+    },
+    {
+     "id": "ch7.c2",
+     "title": "The first connection",
+     "blocks": [
+      "ch7.b05",
+      "ch7.b06",
+      "ch7.b07"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch7.q1",
+     "q": "The Main vs Remote branch decision should be made:",
+     "opts": [
+      "After the vendor has been using the app for a week",
+      "Before you start setup, based on how their business is structured",
+      "By whichever device is available that day"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch7.b03",
+      "parts": [
+       0,
+       2
+      ]
+     },
+     "concept": "ch7.c1"
+    },
+    {
+     "id": "ch7.q2",
+     "q": "A laptop can be:",
+     "opts": [
+      "Only a Main branch, never Remote",
+      "Either Main or Remote — it depends on its role, not the device",
+      "Not supported at all"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch7.b03",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch7.c1"
+    },
+    {
+     "id": "ch7.q3",
+     "q": "The app needs an internet connection:",
+     "opts": [
+      "Every time it's opened",
+      "For the very first load, then it works offline",
+      "Never, under any circumstance"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch7.b06",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch7.c2"
+    },
+    {
+     "id": "ch7.q4",
+     "q": "Setup mistakes matter more than most other mistakes because:",
+     "opts": [
+      "They're impossible to fix",
+      "They're awkward to undo once the vendor is already using the app day to day",
+      "They're the vendor's problem, not yours"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch7.b01",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch7.c0"
+    }
+   ],
+   "reflections": [
+    "Explain, in your own words, how you'd decide whether a vendor needs one branch or several."
+   ]
+  },
+  {
+   "id": "ch8",
+   "n": 8,
+   "title": "Running The App",
+   "track": "product-knowledge",
+   "icon": "<rect x=\"19\" y=\"6\" width=\"26\" height=\"52\" rx=\"4\" stroke=\"currentColor\" stroke-width=\"2.5\"></rect><line x1=\"19\" y1=\"14\" x2=\"45\" y2=\"14\" stroke=\"currentColor\" stroke-width=\"2\"></line><line x1=\"19\" y1=\"48\" x2=\"45\" y2=\"48\" stroke=\"currentColor\" stroke-width=\"2\"></line><line x1=\"26\" y1=\"21\" x2=\"38\" y2=\"21\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"></line><line x1=\"26\" y1=\"27\" x2=\"38\" y2=\"27\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"></line><line x1=\"26\" y1=\"33\" x2=\"34\" y2=\"33\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"></line>",
+   "blocks": [
+    {
+     "id": "ch8.b01",
+     "type": "p",
+     "parts": [
+      "You need to be able to operate every one of these without hesitation.",
+      "A vendor mirrors your confidence — if you're fumbling, they'll assume the app is the problem."
+     ]
+    },
+    {
+     "id": "ch8.b02",
+     "type": "table",
+     "head": [
+      "Area",
+      "What it does"
+     ],
+     "parts": [
+      [
+       "Sales",
+       "Recording a sale: items, discount, payment method."
+      ],
+      [
+       "End-of-Day (EOD)",
+       "Reconciles what was sold against what's physically in the till."
+      ],
+      [
+       "Credit sales",
+       "Tracks money a customer still owes — different from the Directory, which is just contacts."
+      ],
+      [
+       "Stock",
+       "Adding products, stocktakes, dispatch and receiving between branches."
+      ],
+      [
+       "Reports",
+       "Plain-language sales, stock and performance reports."
+      ],
+      [
+       "Settings",
+       "Backup/export, branch setup, staff and roles."
+      ],
+      [
+       "Marketing export",
+       "Sends up to a set number of products, with images, to be considered for iTred VPD."
+      ]
+     ]
+    },
+    {
+     "id": "ch8.b03",
+     "type": "h2",
+     "parts": [
+      "Explaining EOD to a vendor for the first time"
+     ]
+    },
+    {
+     "id": "ch8.b04",
+     "type": "say",
+     "label": "SAY THIS",
+     "parts": [
+      "“At the end of the day, this tells you if what's in the till actually matches what you sold. If it doesn't match, we'll know exactly where to look.”"
+     ]
+    },
+    {
+     "id": "ch8.b05",
+     "type": "h2",
+     "parts": [
+      "Explaining Credit sales vs the Directory"
+     ]
+    },
+    {
+     "id": "ch8.b06",
+     "type": "say",
+     "label": "SAY THIS",
+     "parts": [
+      "“Directory is just your contact list. Credit is when someone owes you money — the app keeps track of it so you don't have to remember.”"
+     ]
+    },
+    {
+     "id": "ch8.b07",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "Keep the Reports Cheat Sheet from the Support Manual open on your phone during early visits — it turns every report into one sentence a vendor can act on. Chapter 9 goes deeper into what's actually behind these screens."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch8.c0",
+     "title": "Running The App",
+     "blocks": [
+      "ch8.b01",
+      "ch8.b02"
+     ]
+    },
+    {
+     "id": "ch8.c1",
+     "title": "Explaining EOD to a vendor for the first time",
+     "blocks": [
+      "ch8.b03",
+      "ch8.b04"
+     ]
+    },
+    {
+     "id": "ch8.c2",
+     "title": "Explaining Credit sales vs the Directory",
+     "blocks": [
+      "ch8.b05",
+      "ch8.b06",
+      "ch8.b07"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch8.q1",
+     "q": "End-of-Day (EOD) exists so a vendor can:",
+     "opts": [
+      "Delete the day's sales",
+      "Check what was sold against what's actually in the till",
+      "Export a marketing file"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch8.b02",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch8.c0"
+    },
+    {
+     "id": "ch8.q2",
+     "q": "A Credit sale is different from a Directory entry because:",
+     "opts": [
+      "It tracks money a customer still owes; the Directory is just a contact list",
+      "They're the same feature",
+      "Only the Directory can be edited"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch8.b02",
+      "parts": [
+       2
+      ]
+     },
+     "concept": "ch8.c0"
+    },
+    {
+     "id": "ch8.q3",
+     "q": "The marketing/catalogue export lets a vendor:",
+     "opts": [
+      "Send a set of products, with images, to be considered for the marketplace",
+      "Automatically appear on every marketplace worldwide",
+      "Permanently delete old stock"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch8.b02",
+      "parts": [
+       6
+      ]
+     },
+     "concept": "ch8.c0"
+    },
+    {
+     "id": "ch8.q4",
+     "q": "A vendor asks what the Reports section is for. Your best answer is:",
+     "opts": [
+      "“It's too technical to explain”",
+      "“It turns your sales and stock activity into plain answers, like what sold best this week”",
+      "“It's only for Digital Commerce, not for you”"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch8.b02",
+      "parts": [
+       4
+      ]
+     },
+     "concept": "ch8.c0"
+    }
+   ],
+   "reflections": [
+    "In your own words, explain the difference between a Credit sale and the Directory, as you'd say it to a vendor."
+   ]
+  },
+  {
+   "id": "ch9",
+   "n": 9,
+   "title": "seiGEN Commerce Lite In Depth",
+   "track": "product-knowledge",
+   "icon": "<path d=\"M32 6l20 7v16c0 14-8.5 24.5-20 29-11.5-4.5-20-15-20-29V13l20-7z\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><path d=\"M24 31l6 6 11-12\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path>",
+   "blocks": [
+    {
+     "id": "ch9.b01",
+     "type": "p",
+     "parts": [
+      "Chapter 7 gave you the basics well enough to run a first visit.",
+      "This chapter goes further — the depth that separates an RPN who can demo the app from one who can actually solve a vendor's problem with it.",
+      "Everything below is a feature that's actually built into seiGEN Commerce Lite today, not something planned for later."
+     ]
+    },
+    {
+     "id": "ch9.b02",
+     "type": "h2",
+     "parts": [
+      "Built to work without the internet"
+     ]
+    },
+    {
+     "id": "ch9.b03",
+     "type": "p",
+     "parts": [
+      "Commerce Lite is offline-first: after its very first load, it keeps running without a live connection.",
+      "For a vendor in an area with patchy signal, that's not a nice-to-have — it's the difference between a tool they can trust every day and one they can't."
+     ]
+    },
+    {
+     "id": "ch9.b04",
+     "type": "h2",
+     "parts": [
+      "Real receipts, from a real printer"
+     ]
+    },
+    {
+     "id": "ch9.b05",
+     "type": "p",
+     "parts": [
+      "The app can talk directly to a thermal receipt printer over WebUSB or Bluetooth, printing a proper receipt without a computer or a print dialog in the way.",
+      "If a vendor already owns a small mobile receipt printer, Commerce Lite can usually drive it directly."
+     ]
+    },
+    {
+     "id": "ch9.b06",
+     "type": "h2",
+     "parts": [
+      "Getting a vendor's existing stock in fast"
+     ]
+    },
+    {
+     "id": "ch9.b07",
+     "type": "p",
+     "parts": [
+      "Vendors with an existing product list don't need to retype it.",
+      "The Excel import brings a spreadsheet in directly, matches common column names flexibly, and shows a preview before anything is actually committed — so a mistake in the spreadsheet doesn't become a mistake in their live stock."
+     ]
+    },
+    {
+     "id": "ch9.b08",
+     "type": "h2",
+     "parts": [
+      "Stocktakes done properly"
+     ]
+    },
+    {
+     "id": "ch9.b09",
+     "type": "p",
+     "parts": [
+      "The Stocktake module follows a deliberate three-step pattern: a blind count (so the vendor counts without seeing the old numbers biasing them), a variance report showing what changed, and a separate, explicit step to apply the new count to inventory.",
+      "Nothing updates silently in the background."
+     ]
+    },
+    {
+     "id": "ch9.b10",
+     "type": "h2",
+     "parts": [
+      "Moving stock between branches"
+     ]
+    },
+    {
+     "id": "ch9.b11",
+     "type": "p",
+     "parts": [
+      "For a vendor running more than one branch, Stock Dispatch and Receive lets stock move from one location to another with a proper record on both ends — and the Product List gives a read-only, cross-branch view with stock levels colour-coded, so a vendor can see what's where at a glance."
+     ]
+    },
+    {
+     "id": "ch9.b12",
+     "type": "h2",
+     "parts": [
+      "Reports that actually answer a question"
+     ]
+    },
+    {
+     "id": "ch9.b13",
+     "type": "p",
+     "parts": [
+      "The Report Writer isn't a wall of numbers — it's filtered, on-screen reports (12 or more types) with a simple sales-trend chart, built so a vendor can find an answer without you in the room.",
+      "The Sales Report drill-through takes this further: a vendor can open one specific past transaction in a read-only view and produce a clearly watermarked reprint if a customer needs a copy."
+     ]
+    },
+    {
+     "id": "ch9.b14",
+     "type": "h2",
+     "parts": [
+      "Keeping good customers close"
+     ]
+    },
+    {
+     "id": "ch9.b15",
+     "type": "p",
+     "parts": [
+      "Vouchers let a vendor reward frequent customers directly from the app — useful when you're explaining that Commerce Lite isn't just about recording sales, it's about helping them run the business better."
+     ]
+    },
+    {
+     "id": "ch9.b16",
+     "type": "h2",
+     "parts": [
+      "Staff, roles, and who can see what"
+     ]
+    },
+    {
+     "id": "ch9.b17",
+     "type": "p",
+     "parts": [
+      "Staff and Roles lets a vendor bring on employees without handing over full control — Remote branch settings can be passcode-gated, so day-to-day staff can process sales without reaching settings meant for the owner."
+     ]
+    },
+    {
+     "id": "ch9.b18",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "You don't need to demonstrate every one of these on a first visit. Know they exist, know roughly how they work, and bring them out when a vendor's own question opens the door — that's when they land best."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch9.c0",
+     "title": "seiGEN Commerce Lite In Depth",
+     "blocks": [
+      "ch9.b01"
+     ]
+    },
+    {
+     "id": "ch9.c1",
+     "title": "Built to work without the internet",
+     "blocks": [
+      "ch9.b02",
+      "ch9.b03"
+     ]
+    },
+    {
+     "id": "ch9.c2",
+     "title": "Real receipts, from a real printer",
+     "blocks": [
+      "ch9.b04",
+      "ch9.b05"
+     ]
+    },
+    {
+     "id": "ch9.c3",
+     "title": "Getting a vendor's existing stock in fast",
+     "blocks": [
+      "ch9.b06",
+      "ch9.b07"
+     ]
+    },
+    {
+     "id": "ch9.c4",
+     "title": "Stocktakes done properly",
+     "blocks": [
+      "ch9.b08",
+      "ch9.b09"
+     ]
+    },
+    {
+     "id": "ch9.c5",
+     "title": "Moving stock between branches",
+     "blocks": [
+      "ch9.b10",
+      "ch9.b11"
+     ]
+    },
+    {
+     "id": "ch9.c6",
+     "title": "Reports that actually answer a question",
+     "blocks": [
+      "ch9.b12",
+      "ch9.b13"
+     ]
+    },
+    {
+     "id": "ch9.c7",
+     "title": "Keeping good customers close",
+     "blocks": [
+      "ch9.b14",
+      "ch9.b15"
+     ]
+    },
+    {
+     "id": "ch9.c8",
+     "title": "Staff, roles, and who can see what",
+     "blocks": [
+      "ch9.b16",
+      "ch9.b17",
+      "ch9.b18"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch9.q1",
+     "q": "seiGEN Commerce Lite's offline-first design means:",
+     "opts": [
+      "It never needs the internet, even once",
+      "It works without a live connection after its first load, which suits patchy signal areas",
+      "It only works on Wi-Fi"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch9.b03",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch9.c1"
+    },
+    {
+     "id": "ch9.q2",
+     "q": "Thermal receipt printing in the app works by:",
+     "opts": [
+      "Connecting to a printer over WebUSB or Bluetooth and sending the receipt directly",
+      "Emailing the receipt to a printing service",
+      "Only printing from a desktop computer"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch9.b05",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch9.c2"
+    },
+    {
+     "id": "ch9.q3",
+     "q": "The Excel inventory import is useful because it lets a vendor:",
+     "opts": [
+      "Bring in their existing product list in bulk, with a preview before anything is committed",
+      "Only add one product at a time",
+      "Automatically delete their old stock list"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch9.b07",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch9.c3"
+    },
+    {
+     "id": "ch9.q4",
+     "q": "A Stocktake in the app follows this pattern:",
+     "opts": [
+      "A blind count, then a variance report, then an explicit step to apply it to inventory",
+      "Numbers are applied automatically with no review",
+      "It replaces the End-of-Day process"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch9.b09",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch9.c4"
+    },
+    {
+     "id": "ch9.q5",
+     "q": "The Sales Report drill-through lets a vendor:",
+     "opts": [
+      "Open a specific past transaction in a read-only view, with a watermarked reprint option",
+      "Delete old transactions in bulk",
+      "Edit historical sales figures"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch9.b13",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch9.c6"
+    },
+    {
+     "id": "ch9.q6",
+     "q": "Vouchers in the app are used for:",
+     "opts": [
+      "Rewarding frequent customers",
+      "Paying staff wages",
+      "Printing marketing flyers"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch9.b15",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch9.c7"
+    }
+   ],
+   "reflections": [
+    "Pick one feature from this chapter and explain, in your own words, a real situation where it would help a vendor.",
+    "Explain how the Stocktake module's three steps (count, variance, apply) protect a vendor from mistakes."
+   ]
+  },
+  {
+   "id": "ch10",
+   "n": 10,
+   "title": "When Something Breaks",
+   "track": "product-knowledge",
+   "icon": "<path d=\"M44 12a12 12 0 00-15 15L10 46l6 6 19-19a12 12 0 0015-15l-8 8-7-2-2-7 8-8z\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path>",
+   "blocks": [
+    {
+     "id": "ch10.b01",
+     "type": "p",
+     "parts": [
+      "A vendor's confidence in the whole app drops the first time something looks broken.",
+      "Your job is to stay calm and have the answer ready — not to open the manual in front of them and start searching."
+     ]
+    },
+    {
+     "id": "ch10.b02",
+     "type": "table",
+     "head": [
+      "What you'll see",
+      "What you say and do"
+     ],
+     "parts": [
+      [
+       "Blank screen / won't open",
+       "“Let's open this in Chrome directly, not the WhatsApp preview.” That fixes it almost every time."
+      ],
+      [
+       "WhatsApp warns the file “may be harmful”",
+       "“That's normal for this kind of file — it's safe, it's from us.”"
+      ],
+      [
+       "Vendor has lost their data",
+       "“We'll restore it from your last backup — that's exactly what it's there for.” Then go to Settings → Import."
+      ],
+      [
+       "Activation code not accepted",
+       "Check the device code on screen matches exactly what was sent — one digit off will do this."
+      ]
+     ]
+    },
+    {
+     "id": "ch10.b03",
+     "type": "h2",
+     "parts": [
+      "When you genuinely don't know"
+     ]
+    },
+    {
+     "id": "ch10.b04",
+     "type": "p",
+     "parts": [
+      "Escalate to Digital Commerce rather than guess.",
+      "A guessed fix that goes wrong costs you more trust than admitting you need to check."
+     ]
+    },
+    {
+     "id": "ch10.b05",
+     "type": "dont",
+     "label": "DON'T",
+     "parts": [
+      "Never tell a vendor a broken feature is “coming soon” unless you know that for a fact. If you're not sure, say you'll find out and follow up — then actually do it."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch10.c0",
+     "title": "When Something Breaks",
+     "blocks": [
+      "ch10.b01",
+      "ch10.b02"
+     ]
+    },
+    {
+     "id": "ch10.c1",
+     "title": "When you genuinely don't know",
+     "blocks": [
+      "ch10.b03",
+      "ch10.b04",
+      "ch10.b05"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch10.q1",
+     "q": "If the app opens to a blank screen, the first thing to try is:",
+     "opts": [
+      "Reinstalling everything",
+      "Opening it in Chrome directly, not inside a WhatsApp preview",
+      "Telling the vendor it's broken"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch10.b02",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch10.c0"
+    },
+    {
+     "id": "ch10.q2",
+     "q": "A WhatsApp warning that a file \"may be harmful\" is:",
+     "opts": [
+      "A sign it's corrupted",
+      "Normal for this file type, and safe from a trusted sender",
+      "A reason to stop the visit"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch10.b02",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch10.c0"
+    },
+    {
+     "id": "ch10.q3",
+     "q": "If a vendor has lost their data, you should:",
+     "opts": [
+      "Say it's gone for good",
+      "Restore it from their last exported backup",
+      "Re-type it all from memory"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch10.b02",
+      "parts": [
+       2
+      ]
+     },
+     "concept": "ch10.c0"
+    },
+    {
+     "id": "ch10.q4",
+     "q": "If you genuinely can't fix something after working through this manual, you should:",
+     "opts": [
+      "Guess at a fix rather than admit it",
+      "Escalate to Digital Commerce",
+      "Tell the vendor to figure it out"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch10.b04",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch10.c1"
+    }
+   ],
+   "reflections": [
+    "Describe a troubleshooting situation you've faced (or expect to face) that isn't in the table in this chapter."
+   ]
+  },
+  {
+   "id": "ch11",
+   "n": 11,
+   "title": "Coordinating Stocktakes",
+   "track": "ongoing-support",
+   "icon": "<path d=\"M10 22l22-12 22 12-22 12-22-12z\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><path d=\"M10 22v20l22 12 22-12V22\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linejoin=\"round\"></path><path d=\"M32 34v20\" stroke=\"currentColor\" stroke-width=\"2.5\"></path>",
+   "blocks": [
+    {
+     "id": "ch11.b01",
+     "type": "p",
+     "parts": [
+      "This is where the boundary from Chapter 3 gets practical — and it comes in two sizes.",
+      "A quick cycle check-in is a light nudge you handle in minutes.",
+      "A full stocktake job is something a vendor asks you to organize and manage from start to finish.",
+      "This chapter is about running that second one properly."
+     ]
+    },
+    {
+     "id": "ch11.b02",
+     "type": "h2",
+     "parts": [
+      "Two kinds of stocktake work"
+     ]
+    },
+    {
+     "id": "ch11.b03",
+     "type": "table",
+     "head": [
+      "Kind",
+      "What it looks like"
+     ],
+     "parts": [
+      [
+       "Quick cycle check-in",
+       "The vendor counts their own stock on a regular rhythm; you just help capture the result into the app."
+      ],
+      [
+       "Full organized stocktake",
+       "A vendor asks Digital Commerce to run a proper stocktake — usually at onboarding, or when their records need a real reset. You organize and manage the whole exercise."
+      ]
+     ]
+    },
+    {
+     "id": "ch11.b04",
+     "type": "p",
+     "parts": [
+      "The rest of this chapter is about the full organized stocktake — a chargeable Digital Commerce service, and one of the more important things you'll be trusted to run."
+     ]
+    },
+    {
+     "id": "ch11.b05",
+     "type": "h2",
+     "parts": [
+      "Your job is to organize it, not count everything yourself"
+     ]
+    },
+    {
+     "id": "ch11.b06",
+     "type": "p",
+     "parts": [
+      "When you take on a stocktake job, you're responsible for organizing and managing the exercise — not for personally counting every product.",
+      "Normally, you hire one stocktake worker, who works alongside a staff member from the vendor's own business.",
+      "The vendor's staff member matters more than they might seem to: they usually know the stock better than anyone from outside, and can help identify product names, brands, product types, codes, the different names used for the same item, and where things are actually located."
+     ]
+    },
+    {
+     "id": "ch11.b07",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "Before you agree to a job, be clear in your own head on: what stock needs counting, how big and what type it is, the dates, who's doing the counting, and whether the vendor has a staff member ready who actually knows the stock."
+     ]
+    },
+    {
+     "id": "ch11.b08",
+     "type": "h2",
+     "parts": [
+      "Explain the cost before you start — not after"
+     ]
+    },
+    {
+     "id": "ch11.b09",
+     "type": "p",
+     "parts": [
+      "The stocktake is a chargeable service, and you should explain that when you're onboarding the vendor, not once the counting has already started.",
+      "The current Digital Commerce rate is US$35 per day — but that's a starting point, not a fixed price for every job.",
+      "It can move up or down depending on the type of stock, how much of it there is, how difficult the count is, the location of the business, and how much time it will take."
+     ]
+    },
+    {
+     "id": "ch11.b10",
+     "type": "p",
+     "parts": [
+      "On top of the day rate, the vendor also covers the team's agreed transport and lunches.",
+      "For a shop outside Harare, the vendor should also arrange boarding for the team where it's needed."
+     ]
+    },
+    {
+     "id": "ch11.b11",
+     "type": "dont",
+     "label": "DON'T",
+     "parts": [
+      "Don't let a vendor discover the cost on the day the work starts. Agree the rate, the extras, and who's covering what before anyone begins counting."
+     ]
+    },
+    {
+     "id": "ch11.b12",
+     "type": "h2",
+     "parts": [
+      "Who's on the team, and who pays whom"
+     ]
+    },
+    {
+     "id": "ch11.b13",
+     "type": "table",
+     "head": [
+      "Person",
+      "Role",
+      "Paid by"
+     ],
+     "parts": [
+      [
+       "Stocktake worker",
+       "Hired to do the physical count",
+       "Digital Commerce"
+      ],
+      [
+       "Vendor's staff member",
+       "Knows the stock, helps identify and locate products",
+       "The vendor — not Digital Commerce, for this exercise"
+      ],
+      [
+       "You (the RPN)",
+       "Organizes, manages and verifies the whole exercise",
+       "—"
+      ]
+     ]
+    },
+    {
+     "id": "ch11.b14",
+     "type": "p",
+     "parts": [
+      "Agree the hired worker's rate before the job starts, same as everything else in this section."
+     ]
+    },
+    {
+     "id": "ch11.b15",
+     "type": "h2",
+     "parts": [
+      "Give the team the right spreadsheet"
+     ]
+    },
+    {
+     "id": "ch11.b16",
+     "type": "p",
+     "parts": [
+      "Before counting begins, hand the team the approved Digital Commerce stocktake spreadsheet template — not a blank sheet of paper, not a random Excel file.",
+      "Walk them through what each column means before they start.",
+      "The spreadsheet isn't just about quantities: it's what maps the vendor's products so the information can be imported into the app correctly."
+     ]
+    },
+    {
+     "id": "ch11.b17",
+     "type": "h2",
+     "parts": [
+      "Search words are worth extra attention"
+     ]
+    },
+    {
+     "id": "ch11.b18",
+     "type": "p",
+     "parts": [
+      "A customer rarely searches using the exact words a vendor uses on the shelf.",
+      "If a vendor records “Toyota Corolla Front Brake Pad”, a customer might search “Corolla brake pads”, “Toyota brake pads”, or just “front pads”.",
+      "Make sure the team captures the useful, everyday words a real customer would type — not just the vendor's own shorthand.",
+      "That's what iTred VPD uses to actually help a customer find the product later."
+     ]
+    },
+    {
+     "id": "ch11.b19",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "A stocktake isn't only a counting exercise — it's a product-data exercise. Good search words captured now are what make a product findable later."
+     ]
+    },
+    {
+     "id": "ch11.b20",
+     "type": "h2",
+     "parts": [
+      "During the physical count"
+     ]
+    },
+    {
+     "id": "ch11.b21",
+     "type": "p",
+     "parts": [
+      "For every product, make sure the team is capturing: the correct name, the brand where it applies, the product code or SKU where one exists, the correct quantity, a short description where required, and useful search words.",
+      "If anyone on the team genuinely doesn't know what an item is, the answer is to ask the vendor's staff member — never to guess."
+     ]
+    },
+    {
+     "id": "ch11.b22",
+     "type": "h2",
+     "parts": [
+      "Big stock? Work in batches"
+     ]
+    },
+    {
+     "id": "ch11.b23",
+     "type": "p",
+     "parts": [
+      "A large stocktake doesn't have to happen all in one sitting.",
+      "Split it by category — Batch 1, Batch 2, and so on.",
+      "For each batch: check the physical count, check the spreadsheet, correct any errors, let the relevant stakeholders verify it, get sign-off, and upload that batch where the agreed process allows it — then move to the next one."
+     ]
+    },
+    {
+     "id": "ch11.b24",
+     "type": "h2",
+     "parts": [
+      "Verify before you upload anything"
+     ]
+    },
+    {
+     "id": "ch11.b25",
+     "type": "p",
+     "parts": [
+      "Once the count and the spreadsheet are done, don't upload immediately.",
+      "Check first: was everything actually counted, are the quantities right, are names and codes correct, are the search words useful, are there duplicates or missing products, and have any differences been looked into?",
+      "Only once everyone involved is satisfied should the work be signed off."
+     ]
+    },
+    {
+     "id": "ch11.b26",
+     "type": "dont",
+     "label": "DON'T",
+     "parts": [
+      "Don't upload a spreadsheet just because the counting is finished. Bad data imported into the POS creates bad stock records and poor product search — for the vendor and for iTred VPD."
+     ]
+    },
+    {
+     "id": "ch11.b27",
+     "type": "h2",
+     "parts": [
+      "You personally upload the approved file"
+     ]
+    },
+    {
+     "id": "ch11.b28",
+     "type": "p",
+     "parts": [
+      "Once the spreadsheet is the final, approved, signed-off version, you — the RPN — are the one who uploads it into the app.",
+      "Confirm it's genuinely the final version, confirm sign-off happened, do the upload, then check that the information actually landed correctly.",
+      "If something didn't import right, report or correct it before you consider the job done."
+     ]
+    },
+    {
+     "id": "ch11.b29",
+     "type": "h2",
+     "parts": [
+      "Cycle stocktakes: keeping it accurate over time"
+     ]
+    },
+    {
+     "id": "ch11.b30",
+     "type": "p",
+     "parts": [
+      "A stocktake done once, on day one, only tells you the picture was accurate on day one.",
+      "Cycle stocktakes — arranged afterwards for audit and stock-control purposes — are what keep it accurate going forward.",
+      "A cycle stocktake doesn't have to mean counting the whole shop again; you can agree with the vendor to check selected products, selected categories, or investigate a specific difference."
+     ]
+    },
+    {
+     "id": "ch11.b31",
+     "type": "h2",
+     "parts": [
+      "The process, start to finish"
+     ]
+    },
+    {
+     "id": "ch11.b32",
+     "type": "list",
+     "ordered": true,
+     "parts": [
+      "Discuss the stocktake with the vendor",
+      "Explain the charges and arrangements",
+      "Agree the dates and requirements",
+      "Organize the hired stocktake worker",
+      "Arrange for a knowledgeable vendor staff member to take part",
+      "Give the team the Digital Commerce spreadsheet",
+      "Conduct the physical count",
+      "Correctly map products and capture search words",
+      "Complete the spreadsheet",
+      "Verify the completed work",
+      "Obtain stakeholder sign-off",
+      "Upload the approved spreadsheet into the app",
+      "Check the imported information",
+      "Arrange cycle stocktakes when required"
+     ]
+    },
+    {
+     "id": "ch11.b33",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "Whatever else changes from job to job, that order doesn't: agree, organize, count, map, verify, sign off, upload, check, repeat on a cycle."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch11.c0",
+     "title": "Coordinating Stocktakes",
+     "blocks": [
+      "ch11.b01"
+     ]
+    },
+    {
+     "id": "ch11.c1",
+     "title": "Two kinds of stocktake work",
+     "blocks": [
+      "ch11.b02",
+      "ch11.b03",
+      "ch11.b04"
+     ]
+    },
+    {
+     "id": "ch11.c2",
+     "title": "Your job is to organize it, not count everything yourself",
+     "blocks": [
+      "ch11.b05",
+      "ch11.b06",
+      "ch11.b07"
+     ]
+    },
+    {
+     "id": "ch11.c3",
+     "title": "Explain the cost before you start — not after",
+     "blocks": [
+      "ch11.b08",
+      "ch11.b09",
+      "ch11.b10",
+      "ch11.b11"
+     ]
+    },
+    {
+     "id": "ch11.c4",
+     "title": "Who's on the team, and who pays whom",
+     "blocks": [
+      "ch11.b12",
+      "ch11.b13",
+      "ch11.b14"
+     ]
+    },
+    {
+     "id": "ch11.c5",
+     "title": "Give the team the right spreadsheet",
+     "blocks": [
+      "ch11.b15",
+      "ch11.b16"
+     ]
+    },
+    {
+     "id": "ch11.c6",
+     "title": "Search words are worth extra attention",
+     "blocks": [
+      "ch11.b17",
+      "ch11.b18",
+      "ch11.b19"
+     ]
+    },
+    {
+     "id": "ch11.c7",
+     "title": "During the physical count",
+     "blocks": [
+      "ch11.b20",
+      "ch11.b21"
+     ]
+    },
+    {
+     "id": "ch11.c8",
+     "title": "Big stock? Work in batches",
+     "blocks": [
+      "ch11.b22",
+      "ch11.b23"
+     ]
+    },
+    {
+     "id": "ch11.c9",
+     "title": "Verify before you upload anything",
+     "blocks": [
+      "ch11.b24",
+      "ch11.b25",
+      "ch11.b26"
+     ]
+    },
+    {
+     "id": "ch11.c10",
+     "title": "You personally upload the approved file",
+     "blocks": [
+      "ch11.b27",
+      "ch11.b28"
+     ]
+    },
+    {
+     "id": "ch11.c11",
+     "title": "Cycle stocktakes: keeping it accurate over time",
+     "blocks": [
+      "ch11.b29",
+      "ch11.b30"
+     ]
+    },
+    {
+     "id": "ch11.c12",
+     "title": "The process, start to finish",
+     "blocks": [
+      "ch11.b31",
+      "ch11.b32",
+      "ch11.b33"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch11.q1",
+     "q": "For a full organized stocktake, your job as the RPN is to:",
+     "opts": [
+      "Personally count every product yourself",
+      "Organize and manage the whole exercise, without needing to count everything personally",
+      "Have nothing to do with it once it's booked"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch11.b06",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch11.c2"
+    },
+    {
+     "id": "ch11.q2",
+     "q": "The current Digital Commerce stocktake charge is:",
+     "opts": [
+      "Free for every vendor",
+      "A day rate (currently US$35/day) that can move depending on the stock, difficulty, location and time needed",
+      "Whatever the RPN personally decides to charge"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch11.b09",
+      "parts": [
+       1,
+       2
+      ]
+     },
+     "concept": "ch11.c3"
+    },
+    {
+     "id": "ch11.q3",
+     "q": "The stocktake team is normally made up of:",
+     "opts": [
+      "Just the RPN, working alone",
+      "A hired stocktake worker plus a vendor staff member who knows the stock",
+      "Two RPNs from different cities"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch11.b06",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch11.c2"
+    },
+    {
+     "id": "ch11.q4",
+     "q": "Who pays the hired stocktake worker?",
+     "opts": [
+      "Digital Commerce",
+      "The vendor",
+      "The RPN, out of their own commission"
+     ],
+     "correct": 0,
+     "source": {
+      "block": "ch11.b13",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch11.c4"
+    },
+    {
+     "id": "ch11.q5",
+     "q": "Product search words captured during a stocktake matter because:",
+     "opts": [
+      "They're a legal requirement",
+      "They help a customer actually find the product later through iTred VPD",
+      "They make the spreadsheet look tidier"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch11.b18",
+      "parts": [
+       2,
+       3
+      ]
+     },
+     "concept": "ch11.c6"
+    },
+    {
+     "id": "ch11.q6",
+     "q": "If you're unsure what a product is during the count, you should:",
+     "opts": [
+      "Guess based on similar-looking items",
+      "Ask the vendor's staff member who knows the stock",
+      "Leave it off the spreadsheet"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch11.b21",
+      "parts": [
+       1
+      ]
+     },
+     "concept": "ch11.c7"
+    },
+    {
+     "id": "ch11.q7",
+     "q": "A large stocktake:",
+     "opts": [
+      "Must always be finished in a single sitting",
+      "Can be split into batches, each checked, verified, signed off and uploaded before moving to the next",
+      "Can't use a spreadsheet at all"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch11.b23",
+      "parts": [
+       0,
+       1,
+       2
+      ]
+     },
+     "concept": "ch11.c8"
+    },
+    {
+     "id": "ch11.q8",
+     "q": "Who personally uploads the final, approved stocktake spreadsheet into the app?",
+     "opts": [
+      "The vendor",
+      "The RPN",
+      "Digital Commerce head office, without the RPN's involvement"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch11.b28",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch11.c10"
+    },
+    {
+     "id": "ch11.q9",
+     "q": "A cycle stocktake is best described as:",
+     "opts": [
+      "A one-off count that never happens again",
+      "A recurring check — sometimes only selected products or categories — for accuracy and audit purposes",
+      "Something that only happens if the app breaks"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch11.b30",
+      "parts": [
+       1,
+       2
+      ]
+     },
+     "concept": "ch11.c11"
+    }
+   ],
+   "reflections": [
+    "Explain, in your own words, why a one-time stocktake isn't enough on its own.",
+    "Walk through what you'd personally say to a vendor to explain the stocktake cost and arrangements before the work begins."
+   ]
+  },
+  {
+   "id": "ch12",
+   "n": 12,
+   "title": "Staying Accountable",
+   "track": "reporting",
+   "icon": "<rect x=\"8\" y=\"8\" width=\"48\" height=\"48\" rx=\"4\" stroke=\"currentColor\" stroke-width=\"2.5\"></rect><rect x=\"16\" y=\"34\" width=\"6\" height=\"14\" fill=\"currentColor\"></rect><rect x=\"26\" y=\"26\" width=\"6\" height=\"22\" fill=\"currentColor\"></rect><rect x=\"36\" y=\"18\" width=\"6\" height=\"30\" fill=\"currentColor\"></rect><rect x=\"46\" y=\"30\" width=\"6\" height=\"18\" fill=\"currentColor\"></rect>",
+   "blocks": [
+    {
+     "id": "ch12.b01",
+     "type": "p",
+     "parts": [
+      "The network only works if what you're doing in the field makes it back to the people coordinating it.",
+      "This isn't paperwork for its own sake — it's how support gets to the vendors who actually need it."
+     ]
+    },
+    {
+     "id": "ch12.b02",
+     "type": "h2",
+     "parts": [
+      "What to report, and when"
+     ]
+    },
+    {
+     "id": "ch12.b03",
+     "type": "table",
+     "head": [
+      "Form",
+      "When"
+     ],
+     "parts": [
+      [
+       "Pre-visit checklist",
+       "Before every onboarding visit."
+      ],
+      [
+       "Production / task activity form",
+       "After each onboarding or support task."
+      ],
+      [
+       "Weekly activity report",
+       "On a regular cadence to your RPN Manager."
+      ]
+     ]
+    },
+    {
+     "id": "ch12.b04",
+     "type": "h2",
+     "parts": [
+      "Pricing, one more time"
+     ]
+    },
+    {
+     "id": "ch12.b05",
+     "type": "p",
+     "parts": [
+      "Visit charges are set by Digital Commerce — not you.",
+      "A full organized stocktake follows Digital Commerce's day rate too, though it can move depending on the job (Chapter 11) — you explain that rate to the vendor, you don't invent your own.",
+      "Keep this straight; mixing it up is the fastest way to undermine a vendor's trust in the pricing itself."
+     ]
+    },
+    {
+     "id": "ch12.b06",
+     "type": "tip",
+     "label": "FIELD TIP",
+     "parts": [
+      "Treat your weekly report as part of the job, not an afterthought — it's also how issues you can't solve alone actually get picked up."
+     ]
+    }
+   ],
+   "concepts": [
+    {
+     "id": "ch12.c0",
+     "title": "Staying Accountable",
+     "blocks": [
+      "ch12.b01"
+     ]
+    },
+    {
+     "id": "ch12.c1",
+     "title": "What to report, and when",
+     "blocks": [
+      "ch12.b02",
+      "ch12.b03"
+     ]
+    },
+    {
+     "id": "ch12.c2",
+     "title": "Pricing, one more time",
+     "blocks": [
+      "ch12.b04",
+      "ch12.b05",
+      "ch12.b06"
+     ]
+    }
+   ],
+   "questions": [
+    {
+     "id": "ch12.q1",
+     "q": "Regular reporting to your RPN Manager matters because:",
+     "opts": [
+      "It's just paperwork",
+      "It's how the network tracks visits, onboarding and issues so support stays coordinated",
+      "It determines your visit pricing"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch12.b01",
+      "parts": [
+       0,
+       1
+      ]
+     },
+     "concept": "ch12.c0"
+    },
+    {
+     "id": "ch12.q2",
+     "q": "Visit pricing is:",
+     "opts": [
+      "Set by you, per vendor",
+      "Set by Digital Commerce",
+      "Negotiated freely with no guidance"
+     ],
+     "correct": 1,
+     "source": {
+      "block": "ch12.b05",
+      "parts": [
+       0
+      ]
+     },
+     "concept": "ch12.c2"
+    }
+   ],
+   "reflections": [
+    "What's one thing about your reporting routine you want to check with your RPN Manager?"
+   ]
+  }
+ ]
+}

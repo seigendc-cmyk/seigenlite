@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>RPN Field Manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFFBF6; --bg-elev:#FFFFFF; --bg-sunken:#FBF3EA;
+  --text:#2B2320; --text-soft:#6B5C52;
+  --accent:#C1550C; --accent-deep:#8F3E08; --accent-tint:#FBE7D4;
+  --border:#E9D9C8; --success:#1E7A34; --success-tint:#E4F4E7;
+  --danger:#B3261E; --danger-tint:#FBE7E5;
+  --shadow: 0 1px 2px rgba(43,35,32,.06), 0 8px 24px -12px rgba(43,35,32,.15);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1E1814; --bg-elev:#28211C; --bg-sunken:#241D18;
+    --text:#F3E9DF; --text-soft:#C9B7A6;
+    --accent:#FF8A47; --accent-deep:#FFB37A; --accent-tint:rgba(255,138,71,.14);
+    --border:#43362B; --success:#5BD87E; --success-tint:rgba(91,216,126,.12);
+    --danger:#FF8178; --danger-tint:rgba(255,129,120,.12);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1E1814; --bg-elev:#28211C; --bg-sunken:#241D18;
+  --text:#F3E9DF; --text-soft:#C9B7A6;
+  --accent:#FF8A47; --accent-deep:#FFB37A; --accent-tint:rgba(255,138,71,.14);
+  --border:#43362B; --success:#5BD87E; --success-tint:rgba(91,216,126,.12);
+  --danger:#FF8178; --danger-tint:rgba(255,129,120,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+img{max-width:100%;display:block;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'Lato', system-ui, -apple-system, sans-serif;
+  font-size:16px; line-height:1.6; padding:0;
+}
+h1,h2,h3,h4{font-family:'Merriweather', Georgia, serif; color:var(--accent-deep); text-wrap:balance; margin:0 0 .5em 0;}
+p{margin:0 0 1em 0; max-width:66ch;}
+ul,ol{margin:0 0 1em 0; padding-left:1.4em; max-width:66ch;}
+li{margin-bottom:.4em;}
+strong{color:var(--accent-deep);}
+a{color:var(--accent);}
+img{max-width:100%;}
+
+.layout{display:flex; min-height:100%;}
+
+/* -------- Sidebar -------- */
+.sidebar{
+  width:280px; flex-shrink:0; background:var(--bg-elev); border-right:1px solid var(--border);
+  position:sticky; top:env(safe-area-inset-top,0px); align-self:flex-start; height:100dvh; overflow-y:auto;
+  padding: 20px 0 30px 0;
+  transition: transform .25s ease;
+}
+.sidebar-brand{ padding: 0 20px 16px 20px; border-bottom:1px solid var(--border); margin-bottom:12px;}
+.sidebar-brand .kicker{ text-transform:uppercase; letter-spacing:1.5px; font-size:11px; color:var(--accent); font-weight:700;}
+.sidebar-brand h2{ font-size:19px; margin:4px 0 0 0;}
+.nav-group-label{ text-transform:uppercase; letter-spacing:1.2px; font-size:10.5px; color:var(--text-soft); font-weight:700; padding: 14px 20px 6px 20px;}
+.nav-link{
+  display:flex; align-items:center; gap:10px; padding:8px 20px; font-size:14px; color:var(--text-soft);
+  text-decoration:none; border-left:3px solid transparent; cursor:pointer;
+}
+.nav-link:hover{ background:var(--bg-sunken); color:var(--text); }
+.nav-link.active{ color:var(--accent-deep); border-left-color:var(--accent); background:var(--accent-tint); font-weight:700; }
+.nav-num{ font-family:'Merriweather',serif; font-weight:700; font-size:11px; color:var(--accent); width:16px; flex-shrink:0;}
+.nav-check{ margin-left:auto; font-size:12px; color:var(--success); opacity:0; }
+.nav-check.done{ opacity:1; }
+
+.sidebar-progress{ padding: 16px 20px 4px 20px; }
+.progress-track{ height:6px; border-radius:4px; background:var(--bg-sunken); overflow:hidden; border:1px solid var(--border);}
+.progress-fill{ height:100%; background:linear-gradient(90deg, var(--accent), var(--accent-deep)); width:0%; transition:width .3s ease; }
+.progress-label{ font-size:11px; color:var(--text-soft); margin-top:6px; }
+
+.menu-btn{
+  display:none; position:fixed; top:14px; left:14px; z-index:50;
+  background:var(--accent); color:#fff; border:none; border-radius:8px; width:40px; height:40px;
+  font-size:18px; align-items:center; justify-content:center; box-shadow:var(--shadow); cursor:pointer;
+}
+.menu-btn.hide{ display:none; }
+@media (max-width: 860px){ .menu-btn{ display:flex; } .menu-btn.hide{ display:none; } }
+.scrim{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }
+
+/* -------- Main -------- */
+.main{ flex:1; min-width:0; }
+.section{ padding: 60px max(20px, calc((100% - 760px)/2)); border-bottom:1px solid var(--border); }
+.section.tight{ padding-top:40px; padding-bottom:40px; }
+.section:last-child{ border-bottom:none; }
+
+/* -------- Hero / cover -------- */
+.hero{
+  background:linear-gradient(155deg, var(--accent) 0%, var(--accent-deep) 65%, #6E2E06 100%);
+  color:#fff; padding: 64px max(20px, calc((100% - 760px)/2)) 56px;
+}
+.hero .kicker{ text-transform:uppercase; letter-spacing:3px; font-size:13px; font-weight:700; opacity:.9;}
+.hero h1{ color:#fff; font-size:clamp(32px,6vw,52px); margin:14px 0 10px 0; }
+.hero p{ font-size:17px; opacity:.95; max-width:56ch; }
+.hero-icons{ display:flex; gap:22px; margin-top:30px; opacity:.9; flex-wrap:wrap; }
+.ribbon{ display:inline-block; background:#fff; color:var(--accent-deep); font-weight:800; font-size:11px; letter-spacing:1.3px; text-transform:uppercase; padding:7px 16px; border-radius:20px; margin-top:22px; }
+.hero-foot{ margin-top:34px; font-size:12.5px; opacity:.85; }
+
+/* -------- Legal -------- */
+.legal-block{ background:var(--bg-elev); border:1px solid var(--border); border-left:5px solid var(--accent); border-radius:8px; padding:18px 20px; margin:0 0 16px 0; box-shadow:var(--shadow); }
+.legal-block h4{ margin-top:0; color:var(--accent-deep); font-size:16px;}
+.small{ font-size:13px; color:var(--text-soft); }
+
+/* -------- Chapter head -------- */
+.chapter-head{ display:flex; align-items:center; gap:16px; border-bottom:3px solid var(--accent); padding-bottom:16px; margin-bottom:22px; }
+.chapter-num{ font-family:'Merriweather',serif; font-size:38px; font-weight:900; color:var(--accent-tint); -webkit-text-stroke:1.3px var(--accent); width:58px; flex-shrink:0;}
+.chapter-icon{ background:var(--accent-tint); border-radius:50%; width:64px; height:64px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.chapter-icon svg{ width:36px; height:36px; }
+.kicker-sm{ text-transform:uppercase; letter-spacing:1.4px; font-size:10.5px; color:var(--accent); font-weight:700; }
+.chapter-head h1{ margin:2px 0 0 0; font-size:26px; }
+
+/* -------- Callouts -------- */
+.tip,.fieldnote{ border-radius:8px; padding:14px 18px; margin:16px 0; font-size:14.5px; max-width:66ch; }
+.tip{ background:var(--accent-tint); border-left:5px solid var(--accent); }
+.fieldnote{ background:var(--bg-sunken); border-left:5px solid var(--text-soft); }
+.tip-label{ font-weight:800; font-size:10.5px; letter-spacing:1.1px; color:var(--accent-deep); margin-bottom:4px; }
+.fieldnote .tip-label{ color:var(--text-soft); }
+.tip p,.fieldnote p{ margin:0; max-width:none; }
+
+/* -------- Tables -------- */
+.data-table{ width:100%; max-width:720px; border-collapse:collapse; margin:14px 0 20px 0; font-size:14px; box-shadow:var(--shadow); border-radius:8px; overflow:hidden; }
+.data-table th{ background:var(--accent); color:#fff; text-align:left; padding:10px 12px; font-family:'Merriweather',serif; font-size:13px; }
+.data-table td{ padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top; background:var(--bg-elev); }
+.data-table tr:nth-child(even) td{ background:var(--bg-sunken); }
+
+/* -------- Quiz -------- */
+.quiz{ margin-top:30px; border:2px solid var(--accent); border-radius:12px; padding:20px 22px; background:var(--bg-elev); box-shadow:var(--shadow); max-width:720px; }
+.quiz-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:14px; flex-wrap:wrap; }
+.quiz-badge{ background:var(--accent); color:#fff; font-weight:800; font-size:11px; letter-spacing:1px; padding:5px 12px; border-radius:20px; }
+.quiz-score{ font-size:12.5px; color:var(--text-soft); font-weight:700; }
+.q{ margin:16px 0; }
+.q-text{ font-weight:700; margin-bottom:8px; max-width:none; }
+.q-num{ color:var(--accent); }
+.opts{ display:grid; gap:7px; }
+.opt-btn{
+  display:flex; align-items:center; gap:10px; text-align:left; width:100%;
+  background:var(--bg-sunken); border:1.5px solid var(--border); border-radius:8px; padding:9px 12px;
+  font-size:14px; font-family:inherit; color:var(--text); cursor:pointer; transition:background .15s, border-color .15s;
+}
+.opt-btn:hover:not(:disabled){ border-color:var(--accent); }
+.opt-btn:disabled{ cursor:default; }
+.opt-letter{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:1.5px solid var(--accent); border-radius:50%; font-size:11px; font-weight:700; color:var(--accent-deep); flex-shrink:0; background:var(--bg-elev); }
+.opt-btn.correct{ background:var(--success-tint); border-color:var(--success); }
+.opt-btn.correct .opt-letter{ border-color:var(--success); color:var(--success); }
+.opt-btn.wrong{ background:var(--danger-tint); border-color:var(--danger); }
+.opt-btn.wrong .opt-letter{ border-color:var(--danger); color:var(--danger); }
+.q-feedback{ font-size:12.5px; font-weight:700; margin-top:6px; }
+.q-feedback.correct{ color:var(--success); }
+.q-feedback.wrong{ color:var(--danger); }
+.quiz-result{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--border); font-weight:700; font-size:14px; display:none; }
+.quiz-result.show{ display:block; }
+.retry-btn{ margin-top:10px; background:var(--accent); color:#fff; border:none; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer; }
+.retry-btn:hover{ background:var(--accent-deep); }
+
+/* -------- Forms (interactive) -------- */
+.form-box{ border:1.5px dashed var(--accent); border-radius:10px; padding:18px 20px; margin:18px 0; background:var(--bg-elev); max-width:640px; }
+.form-title{ font-weight:800; color:var(--accent-deep); margin-bottom:12px; font-family:'Merriweather',serif; }
+.form-row{ display:flex; flex-direction:column; gap:4px; margin-bottom:14px; }
+.form-row label{ font-size:12.5px; color:var(--text-soft); font-weight:700; }
+.form-row input, .form-row textarea{
+  border:none; border-bottom:1.5px solid var(--border); background:transparent; color:var(--text);
+  font-family:inherit; font-size:14px; padding:6px 2px; outline:none;
+}
+.form-row input:focus, .form-row textarea:focus{ border-bottom-color:var(--accent); }
+.form-note{ font-size:11.5px; color:var(--text-soft); margin-top:-4px; }
+.clear-btn{ background:transparent; border:1.5px solid var(--border); color:var(--text-soft); border-radius:8px; padding:7px 14px; font-size:12.5px; font-weight:700; cursor:pointer; }
+.clear-btn:hover{ border-color:var(--accent); color:var(--accent-deep); }
+
+/* -------- Summary panel (Appendix C replacement) -------- */
+.score-card{ background:var(--bg-elev); border:1px solid var(--border); border-radius:10px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; max-width:640px; box-shadow:var(--shadow); }
+.score-card .ch-name{ font-weight:700; }
+.score-pill{ font-size:12.5px; font-weight:800; padding:4px 12px; border-radius:20px; background:var(--bg-sunken); color:var(--text-soft); }
+.score-pill.complete{ background:var(--success-tint); color:var(--success); }
+
+.section-title-row{ display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+.section-title-row .icon-wrap{ background:var(--accent-tint); border-radius:50%; width:52px; height:52px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+.section-title-row .icon-wrap svg{ width:28px; height:28px; }
+
+@media (max-width: 860px){
+  .sidebar{ position:fixed; z-index:45; transform:translateX(-100%); box-shadow: 0 0 0 100vmax rgba(0,0,0,0); }
+  .sidebar.open{ transform:translateX(0); box-shadow: var(--shadow); }
+  .menu-btn{ display:flex; }
+  .scrim.open{ display:block; }
+  .section{ padding-left:20px; padding-right:20px; }
+  .hero{ padding-left:20px; padding-right:20px; padding-top:76px; }
+}
+@media (prefers-reduced-motion: reduce){
+  *{ transition:none !important; animation:none !important; }
+}
+
+.scriptbox{ background:var(--bg-sunken); border-left:5px solid var(--accent-deep); border-radius:8px; padding:14px 18px; margin:16px 0; max-width:66ch; }
+.scriptbox p{ margin:0 0 8px 0; font-style:italic; color:var(--text); max-width:none; }
+.scriptbox p:last-child{ margin-bottom:0; }
+
+.name-gate{ position:fixed; inset:0; background:var(--bg); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px; overflow-y:auto; }
+.name-gate.hidden{ display:none; }
+.name-card{ max-width:420px; width:100%; background:var(--bg-elev); border:1px solid var(--border); border-radius:14px; padding:32px 28px; box-shadow:var(--shadow); text-align:center; margin:auto; }
+.name-card .kicker{ text-transform:uppercase; letter-spacing:2px; font-size:11px; color:var(--accent); font-weight:700; }
+.name-card h2{ margin:8px 0 6px 0; font-size:22px; }
+.name-card p{ font-size:13.5px; color:var(--text-soft); margin:0 auto 18px auto; max-width:none; }
+.name-card .field-label{ display:block; text-align:left; font-size:12px; font-weight:700; color:var(--text-soft); margin:0 0 5px 2px; }
+.name-card input{ width:100%; padding:11px 14px; border-radius:8px; border:1.5px solid var(--border); background:var(--bg); color:var(--text); font-size:15px; font-family:inherit; margin-bottom:14px; }
+.name-card input:focus{ outline:none; border-color:var(--accent); }
+.name-card .field-note{ text-align:left; font-size:11px; color:var(--text-soft); margin:-10px 0 14px 2px; }
+.gate-primary-btn{ width:100%; background:var(--accent); color:#fff; border:none; border-radius:8px; padding:11px; font-size:14.5px; font-weight:700; cursor:pointer; }
+.gate-primary-btn:hover{ background:var(--accent-deep); }
+.name-card .divider-label{ text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--accent); margin:4px 0 10px 2px; }
+.name-card .hidden{ display:none; }
+.gate-secondary-btn{ width:100%; background:none; border:1.5px solid var(--border); color:var(--text-soft); border-radius:8px; padding:10px; font-size:13.5px; font-weight:700; cursor:pointer; margin-top:8px; }
+.gate-secondary-btn:hover{ border-color:var(--accent); color:var(--accent-deep); }
+
+.profile-list{ display:flex; flex-direction:column; gap:8px; margin:6px 0 14px 0; max-height:38vh; overflow-y:auto; }
+.profile-row{ display:flex; align-items:center; gap:8px; border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; text-align:left; }
+.profile-row-main{ flex:1; background:none; border:none; text-align:left; cursor:pointer; padding:0; font-family:inherit; }
+.profile-row-name{ font-weight:700; font-size:14.5px; color:var(--text); }
+.profile-row-sub{ font-size:12px; color:var(--text-soft); margin-top:2px; }
+.profile-row-actions{ display:flex; gap:4px; flex-shrink:0; }
+.profile-row-actions button{ background:none; border:none; color:var(--text-soft); font-size:11px; font-weight:700; cursor:pointer; padding:4px 6px; text-decoration:underline; }
+.profile-row-actions button:hover{ color:var(--accent-deep); }
+.profile-row-actions .danger:hover{ color:var(--danger); }
+
+.you-badge{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-soft); flex-wrap:wrap; }
+.you-badge .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); flex-shrink:0; }
+.edit-trainer-btn{ background:none; border:none; color:var(--accent); font-size:11px; font-weight:700; cursor:pointer; padding:0; text-decoration:underline; margin-left:auto; }
+
+.quiz-actions{ display:flex; align-items:center; gap:10px; margin-top:14px; }
+.wa-btn{
+  display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%;
+  background:var(--accent-tint); border:1.5px solid var(--accent); color:var(--accent-deep); cursor:pointer;
+  flex-shrink:0; transition:background .15s;
+}
+.wa-btn:hover{ background:var(--accent); color:#fff; }
+.wa-btn svg{ width:18px; height:18px; }
+.wa-status{ font-size:12px; color:var(--success); font-weight:700; opacity:0; transition:opacity .2s; }
+.wa-status.show{ opacity:1; }
+.wa-hint{ font-size:11.5px; color:var(--text-soft); }
+
+/* -------- Search -------- */
+.search-fab{
+  position:fixed; top:14px; right:14px; z-index:55;
+  width:42px; height:42px; border-radius:50%; border:none;
+  background:var(--accent); color:#fff; box-shadow:var(--shadow); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.search-fab:hover{ background:var(--accent-deep); }
+.search-fab svg{ width:20px; height:20px; }
+
+.search-overlay{ position:fixed; inset:0; background:rgba(20,14,10,.5); z-index:110; display:flex; align-items:flex-start; justify-content:center; padding:10vh 20px 20px; }
+.search-overlay.hidden{ display:none; }
+.search-panel{ width:100%; max-width:560px; background:var(--bg-elev); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); overflow:hidden; max-height:70vh; display:flex; flex-direction:column; }
+.search-input-row{ display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.search-input-row svg{ width:20px; height:20px; color:var(--text-soft); flex-shrink:0; }
+.search-input-row input{ flex:1; border:none; background:transparent; font-size:16px; font-family:inherit; color:var(--text); outline:none; }
+.search-close{ background:none; border:none; color:var(--text-soft); font-size:13px; font-weight:700; cursor:pointer; padding:4px 6px; }
+.search-results{ overflow-y:auto; padding:6px; }
+.search-hint-row{ padding:18px 16px; font-size:13px; color:var(--text-soft); text-align:center; }
+.search-result{ display:block; width:100%; text-align:left; background:none; border:none; border-radius:8px; padding:10px 12px; cursor:pointer; margin-bottom:2px; }
+.search-result:hover, .search-result.active{ background:var(--bg-sunken); }
+.search-result .sr-tag{ display:inline-block; font-size:10.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--accent); background:var(--accent-tint); border-radius:4px; padding:2px 7px; margin-bottom:5px; }
+.search-result .sr-snippet{ font-size:13.5px; color:var(--text); line-height:1.45; }
+.search-result .sr-snippet mark{ background:var(--accent-tint); color:var(--accent-deep); font-weight:700; border-radius:2px; padding:0 1px; }
+.search-flash{ animation: searchFlash 1.6s ease; }
+@keyframes searchFlash{ 0%{ background:var(--accent-tint); } 100%{ background:transparent; } }
+
+/* -------- Written reflection -------- */
+.reflection-block{ background:var(--bg-sunken); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin:22px 0 8px 0; }
+.reflection-head{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.reflection-badge{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--accent-deep); background:var(--accent-tint); border-radius:5px; padding:3px 9px; }
+.reflection-note{ font-size:12.5px; color:var(--text-soft); margin:6px 0 14px 0; }
+.reflection-prompt{ margin-bottom:16px; }
+.reflection-prompt:last-of-type{ margin-bottom:10px; }
+.reflection-prompt label{ display:block; font-size:13.5px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.reflection-prompt textarea{ width:100%; min-height:80px; padding:10px 12px; border-radius:8px; border:1.5px solid var(--border); background:var(--bg); color:var(--text); font-size:14px; font-family:inherit; resize:vertical; }
+.reflection-prompt textarea:focus{ outline:none; border-color:var(--accent); }
+.reflection-save-note{ font-size:11.5px; color:var(--success); opacity:0; transition:opacity .2s; }
+.reflection-save-note.show{ opacity:1; }
+</style>
+
+
+</head>
+<body>
+<div class="name-gate" id="name-gate">
+  <div class="name-card">
+
+    <div class="kicker">seiGEN Commerce Lite</div>
+    <h2>RPN Field Manual</h2>
+
+    <div id="gate-picker-view">
+      <p>This device has more than one trainee set up. Pick who you are, or add someone new.</p>
+      <div id="profile-list"></div>
+      <button type="button" class="gate-secondary-btn" id="add-profile-btn">+ Add a new trainee</button>
+    </div>
+
+    <div id="gate-form-view" class="hidden">
+      <p id="gate-form-intro">Set this up once. Your quiz results will be sent straight to your trainer's WhatsApp, pre-filled and ready &mdash; you just tap Send.</p>
+
+      <span class="field-label" for="rpn-name-input">Your name</span>
+      <input type="text" id="rpn-name-input" placeholder="e.g. Tinashe Moyo" autocomplete="off" />
+
+      <div class="divider-label">Where results are sent</div>
+      <span class="field-label" for="trainer-name-input">Trainer / RPN Manager name</span>
+      <input type="text" id="trainer-name-input" placeholder="e.g. Rudo Chikwava" autocomplete="off" />
+
+      <span class="field-label" for="trainer-phone-input">Trainer's WhatsApp number</span>
+      <input type="tel" id="trainer-phone-input" placeholder="e.g. 0779 123 456" autocomplete="off" />
+      <div class="field-note">Any format is fine &mdash; with or without +263. Each trainee's name, trainer and quiz progress are kept separate on this device.</div>
+
+      <button type="button" class="gate-primary-btn" id="rpn-name-save">Start the manual</button>
+      <button type="button" class="gate-secondary-btn hidden" id="gate-back-btn">Back to profile list</button>
+    </div>
+
+  </div>
+</div>
+
+
+<button type="button" class="search-fab" id="search-fab" title="Search this manual" aria-label="Search this manual"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+<line x1="21" y1="21" x2="16.2" y2="16.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg></button>
+<div class="search-overlay hidden" id="search-overlay">
+  <div class="search-panel">
+    <div class="search-input-row">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+<line x1="21" y1="21" x2="16.2" y2="16.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg>
+      <input type="text" id="search-input" placeholder="Search for anything &mdash; e.g. lost data, main branch, stocktake" autocomplete="off" />
+      <button type="button" class="search-close" id="search-close">Esc</button>
+    </div>
+    <div class="search-results" id="search-results">
+      <div class="search-hint-row">Type a few words, in any order &mdash; e.g. "branch main" finds the same thing as "main branch".</div>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="kicker">seiGEN Commerce Lite</div>
+    <h2>RPN Field Manual</h2>
+    <div class="you-badge" style="margin-top:8px;"><span class="dot"></span><span id="you-label">Not set up yet</span><button type="button" class="edit-trainer-btn" id="edit-trainer-btn">Switch</button></div>
+  </div>
+  <div class="sidebar-progress">
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label">0 of 12 chapter quizzes complete</div>
+  </div>
+  <div class="nav-group-label">Start</div>
+  <a class="nav-link" data-target="cover" href="#cover"><span>Cover</span></a>
+  <div class="nav-group-label">Chapters</div>
+  <a class="nav-link" data-target="ch1" href="#ch1"><span class="nav-num">01</span><span>Our Ecosystem</span><span class="nav-check" id="check-ch1">&#10003;</span></a><a class="nav-link" data-target="ch2" href="#ch2"><span class="nav-num">02</span><span>Welcome To The Field</span><span class="nav-check" id="check-ch2">&#10003;</span></a><a class="nav-link" data-target="ch3" href="#ch3"><span class="nav-num">03</span><span>Who You Are Out There</span><span class="nav-check" id="check-ch3">&#10003;</span></a><a class="nav-link" data-target="ch4" href="#ch4"><span class="nav-num">04</span><span>Presenting Yourself, Professionally</span><span class="nav-check" id="check-ch4">&#10003;</span></a><a class="nav-link" data-target="ch5" href="#ch5"><span class="nav-num">05</span><span>Selling Without Selling</span><span class="nav-check" id="check-ch5">&#10003;</span></a><a class="nav-link" data-target="ch6" href="#ch6"><span class="nav-num">06</span><span>Onboarding A New Vendor</span><span class="nav-check" id="check-ch6">&#10003;</span></a><a class="nav-link" data-target="ch7" href="#ch7"><span class="nav-num">07</span><span>Initial Setup, Done Right</span><span class="nav-check" id="check-ch7">&#10003;</span></a><a class="nav-link" data-target="ch8" href="#ch8"><span class="nav-num">08</span><span>Running The App</span><span class="nav-check" id="check-ch8">&#10003;</span></a><a class="nav-link" data-target="ch9" href="#ch9"><span class="nav-num">09</span><span>seiGEN Commerce Lite In Depth</span><span class="nav-check" id="check-ch9">&#10003;</span></a><a class="nav-link" data-target="ch10" href="#ch10"><span class="nav-num">10</span><span>When Something Breaks</span><span class="nav-check" id="check-ch10">&#10003;</span></a><a class="nav-link" data-target="ch11" href="#ch11"><span class="nav-num">11</span><span>Coordinating Stocktakes</span><span class="nav-check" id="check-ch11">&#10003;</span></a><a class="nav-link" data-target="ch12" href="#ch12"><span class="nav-num">12</span><span>Staying Accountable</span><span class="nav-check" id="check-ch12">&#10003;</span></a>
+  <div class="nav-group-label">Summary</div>
+  <a class="nav-link" data-target="progress-summary" href="#progress-summary"><span>Your Progress</span></a>
+</nav>
+<button class="menu-btn" id="menu-btn" aria-label="Open menu">&#9776;</button>
+<div class="scrim" id="scrim"></div>
+
+  
+<div class="main">
+  
+<section class="hero" id="cover">
+  <div class="kicker">seiGEN Commerce Lite</div>
+  <h1>RPN Field Manual</h1>
+  <p>Your day-to-day guide out in the field &mdash; how to sell, how to onboard, how to run the app, how to fix
+  what breaks, and how to keep vendors' stock counts on track. Open it before a visit, mid-visit, whenever.</p>
+  <div class="ribbon">Field Edition &middot; Interactive</div>
+  <div class="hero-icons">
+    <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="32" cy="32" r="30" stroke="#FFFFFF" stroke-width="2.5"/>
+<path d="M14 30l8-6 6 4 4-3 8 5-6 8-4-2-4 3-5-3-7-6z" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M22 28l6 8M42 30l-6 8" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
+    <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="19" y="6" width="26" height="52" rx="4" stroke="#FFFFFF" stroke-width="2.5"/>
+<line x1="19" y1="14" x2="45" y2="14" stroke="#FFFFFF" stroke-width="2"/>
+<line x1="19" y1="48" x2="45" y2="48" stroke="#FFFFFF" stroke-width="2"/>
+<line x1="26" y1="21" x2="38" y2="21" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="26" y1="27" x2="38" y2="27" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+<line x1="26" y1="33" x2="34" y2="33" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+</svg>
+    <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 22l22-12 22 12-22 12-22-12z" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M10 22v20l22 12 22-12V22" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M32 34v20" stroke="#FFFFFF" stroke-width="2.5"/>
+</svg>
+    <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M32 6l6.5 4.2 7.6-.6 2.6 7.2L55 21l-3.4 7 3.4 7-6.3 4.2-2.6 7.2-7.6-.6L32 50l-6.5-4.2-7.6.6-2.6-7.2L9 35l3.4-7L9 21l6.3-4.2 2.6-7.2 7.6.6L32 6z" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M24 32l6 6 11-12" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+  </div>
+  <div class="hero-foot">seiGEN Commerce Lite &middot; Revenue Partners Network</div>
+</section>
+
+  
+<section class="section" id="ch1">
+  <div class="chapter-head">
+    <div class="chapter-num">01</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M32 14c-6-4-14-5-22-3v38c8-2 16-1 22 3 6-4 14-5 22-3V11c-8-2-16-1-22 3z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<line x1="32" y1="14" x2="32" y2="52" stroke="#C1550C" stroke-width="2.5"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">The bigger picture</div>
+      <h1>Our Ecosystem</h1>
+    </div>
+  </div>
+  
+<p>Before anything about the app itself, it helps to know why seiGEN Commerce exists at all, and where you fit
+in it. This is the picture worth carrying with you into every vendor's shop.</p>
+<h2>Zimbabwe's hustle economy</h2>
+<p>Most businesses in Zimbabwe are informal &mdash; the tuck shops, the market stalls, the one-person
+operations. That's not a small or marginal slice of the economy: informal trade is a major contributor to
+Zimbabwe's GDP and one of the country's biggest sources of employment. This isn't unique to Zimbabwe either
+&mdash; it's the pattern across much of Africa.</p>
+<p>The question that matters most for these businesses isn't whether they can survive &mdash; they already
+do, every day. It's whether they can <strong>grow</strong>: keep proper records, make better decisions, and
+turn a hustle into a lasting business.</p>
+<h2>Why seiGEN Commerce Lite exists</h2>
+<p>seiGEN Commerce Lite was built to grow alongside African businesses &mdash; Zimbabwe's informal traders
+included &mdash; rather than asking them to become something else first. Simple enough to onboard in one
+sitting, but built to carry a business as it scales.</p>
+<h2>How the pieces fit together</h2>
+<table class="data-table"><thead><tr><th>Name</th><th>What it is</th></tr></thead><tbody><tr><td>seiGEN Commerce Infrastructure (SCI)</td><td>The umbrella technology infrastructure behind the whole product family.</td></tr><tr><td>Digital Commerce ZW</td><td>Licensed by SCI to distribute its products in Zimbabwe &mdash; including through the RPN network.</td></tr><tr><td>RPN (you)</td><td>The face of SCI in the field. The street soldiers tasked with onboarding vendors onto the SaaS.</td></tr><tr><td>seiGEN Commerce Lite</td><td>The core POS product &mdash; what you install and support day to day.</td></tr><tr><td>iTred VPD</td><td>The customer-facing app that grows out of Commerce Lite's core, giving vendors' products visibility to buyers beyond their own shop.</td></tr></tbody></table>
+<p>That last connection is worth sitting with: when you help a vendor use the marketing export inside
+Commerce Lite, you're not just teaching a feature &mdash; you're plugging that vendor into iTred VPD, and
+into a bigger market than the one walking past their door.</p>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>When a vendor asks “who are you with?”, the honest answer is: you're an RPN partner, representing Digital Commerce ZW, who distribute seiGEN Commerce Infrastructure's products — starting with Commerce Lite.</p></div>
+<h2>Why this matters to you</h2>
+<p>Every vendor you onboard is one more informal business with real records, real visibility, and a real
+shot at growing. That's the actual job underneath the onboarding checklist.</p>
+
+  <div class="quiz" data-chapter="1" id="quiz-1"></div>
+  <div class="reflection" data-chapter="1" id="reflection-1"></div>
+</section>
+
+<section class="section" id="ch2">
+  <div class="chapter-head">
+    <div class="chapter-num">02</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="32" cy="32" r="30" stroke="#C1550C" stroke-width="2.5"/>
+<path d="M14 30l8-6 6 4 4-3 8 5-6 8-4-2-4 3-5-3-7-6z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M22 28l6 8M42 30l-6 8" stroke="#C1550C" stroke-width="2.5" stroke-linecap="round"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Start here</div>
+      <h1>Welcome To The Field</h1>
+    </div>
+  </div>
+  
+<p>You're going to be the first real, human contact most of your vendors have with seiGEN Commerce Lite. That's
+the whole job in one sentence &mdash; everything else in this manual is detail underneath it.</p>
+<p>Keep this open on your phone. It's not something you read once and put away; it's the thing you check before
+a visit, mid-visit when you're stuck, and after a visit when you're writing up what happened. Every chapter
+ends with a short quiz and a written reflection &mdash; a question you answer in your own words. Neither is a
+test to pass once; they're how you check the habit actually stuck, and how your trainer can see how you're
+thinking, not just whether you memorised an answer. When you finish a chapter, you can send both straight to
+the RPN Manager group from the button next to your results.</p>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>If you hit a situation this manual doesn't cover, that's useful information &mdash; send it through so it can be added for the next person.</p></div>
+<h2>How the chapters are laid out</h2>
+<table class="data-table"><thead><tr><th>Chapter</th><th>What it gets you</th></tr></thead><tbody><tr><td>1 &ndash; Our Ecosystem</td><td>Why seiGEN Commerce exists and where you fit in it.</td></tr><tr><td>3 &ndash; Who You Are Out There</td><td>The boundaries of your role, especially around stocktakes.</td></tr><tr><td>4 &ndash; Presenting Yourself, Professionally</td><td>How you dress, speak and conduct yourself in front of a vendor.</td></tr><tr><td>5 &ndash; Selling Without Selling</td><td>How to open a conversation and build trust.</td></tr><tr><td>6&ndash;7 &ndash; Onboarding &amp; Setup</td><td>The visit itself, step by step.</td></tr><tr><td>8&ndash;10 &ndash; The App, In Depth, &amp; Fixing Things</td><td>What you need to know cold.</td></tr><tr><td>11 &ndash; Coordinating Stocktakes</td><td>Your ongoing role after onboarding.</td></tr><tr><td>12 &ndash; Staying Accountable</td><td>Reporting back to your RPN Manager.</td></tr></tbody></table>
+
+  <div class="quiz" data-chapter="2" id="quiz-2"></div>
+  <div class="reflection" data-chapter="2" id="reflection-2"></div>
+</section>
+
+<section class="section" id="ch3">
+  <div class="chapter-head">
+    <div class="chapter-num">03</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M32 6l6.5 4.2 7.6-.6 2.6 7.2L55 21l-3.4 7 3.4 7-6.3 4.2-2.6 7.2-7.6-.6L32 50l-6.5-4.2-7.6.6-2.6-7.2L9 35l3.4-7L9 21l6.3-4.2 2.6-7.2 7.6.6L32 6z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M24 32l6 6 11-12" stroke="#C1550C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Your role</div>
+      <h1>Who You Are Out There</h1>
+    </div>
+  </div>
+  
+<p>You're an independent partner &mdash; not a Digital Commerce employee. You're paid on commission, and you
+work one city: the one you were verified for. That independence is real, and so is the responsibility that
+comes with it. When you're in front of a vendor, you <em>are</em> Digital Commerce &mdash; and by extension,
+seiGEN Commerce Infrastructure &mdash; to them.</p>
+<h2>Your two ongoing jobs</h2>
+<ol>
+  <li><strong>Vendor support</strong> &mdash; you're the first person a vendor calls when something's confusing or broken.</li>
+  <li><strong>Coordinating stocktake cycles</strong> &mdash; keeping vendors on a regular counting rhythm so their stock numbers stay trustworthy.</li>
+</ol>
+<h2>The line you don't cross</h2>
+<p>Stocktakes are the one place people most often get the boundary wrong, so be precise about it: the vendor's
+stock, the vendor's shop, the vendor's count. <strong>You coordinate &mdash; you don't do the counting for
+them.</strong> Your part is scheduling it, prepping them for it, and helping capture the result into the app
+once they've counted. If you find yourself physically counting stock item by item, you've stepped into their
+core work, not supported it.</p>
+<div class="fieldnote"><div class="tip-label">DON'T</div><p>Don't take over a routine stocktake because it's faster if you just do it yourself. It isn't your job, and a vendor who never learns to count their own stock never actually owns the process.</p></div>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>For a quick cycle check-in, a good rule of thumb: if you're holding the clipboard and counting, you're doing their job; if you're holding the phone and helping them enter what they counted, you're doing yours. A full, organized stocktake is different &mdash; Chapter 11 covers how you run one of those.</p></div>
+
+  <div class="quiz" data-chapter="3" id="quiz-3"></div>
+  <div class="reflection" data-chapter="3" id="reflection-3"></div>
+</section>
+
+<section class="section" id="ch4">
+  <div class="chapter-head">
+    <div class="chapter-num">04</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="32" cy="14" r="8" stroke="#C1550C" stroke-width="2.5"/>
+<path d="M14 56c0-12 8-20 18-20s18 8 18 20" stroke="#C1550C" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M27 36l5 8 5-8" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M30 44l-2 12h8l-2-12" fill="#C1550C"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Your conduct</div>
+      <h1>Presenting Yourself, Professionally</h1>
+    </div>
+  </div>
+  
+<p>As an RPN, you represent Digital Commerce every time you meet a vendor, visit a business, conduct a
+stocktake, provide training, or solve a problem. The way you dress, speak, organize yourself and open a
+conversation all become part of the vendor's experience of the company &mdash; before they've even seen the app.</p>
+<div class="tip"><div class="tip-label">REMEMBER</div><p>Before a vendor understands what you're selling, they first see how you present yourself and how you behave.</p></div>
+<h2>Dressing matters, even without a budget</h2>
+<p>Your clothing doesn't need to be expensive. It needs to be clean, neat, appropriate, presentable, and
+suitable for the work you're doing that day. If you're in a formal meeting, dress for a formal meeting. If
+you're conducting a physical stocktake, stay neat while allowing yourself to work safely and comfortably.</p>
+<p>Wear clean, neat clothing and shoes, keep your hair neat, maintain good hygiene, and avoid anything dirty,
+damaged, or out of place for business. A clean, simple, well-presented appearance beats expensive clothing worn
+untidily &mdash; every time.</p>
+<h2>Be organized before you arrive</h2>
+<p>Professionalism isn't only about appearance. Before you get to a vendor, you should already know who you're
+meeting, the name of the business, why you're visiting, what's already been agreed, and what you need from
+them.</p>
+<div class="scriptbox"><div class="tip-label">SAY THIS</div><p>&ldquo;Prepare yourself &rarr; prepare your information &rarr; prepare your tools &rarr; prepare your questions &rarr; then visit the vendor.&rdquo;</p></div>
+<p>Depending on the task, carry: your phone and a charger or power bank, a notebook or approved digital notes,
+the relevant Digital Commerce forms, the stocktake spreadsheet where it applies, a pen, and any identification
+or documents the assignment needs.</p>
+<div class="fieldnote"><div class="tip-label">DON'T</div><p>Don't arrive and start working out what you're supposed to do. An organized person prepares before the meeting, not during it.</p></div>
+<h2>How you speak</h2>
+<p>Your tone should be respectful, calm, clear, friendly, confident and professional &mdash; not arrogant, and
+not afraid to speak. You're representing a business, so speak with confidence while staying respectful.</p>
+<p>Don't try to impress a vendor with complicated language. Your job is to make them understand you, not to
+sound clever. Compare:</p>
+<table class="data-table"><thead><tr><th>Instead of this</th><th>Say this</th></tr></thead><tbody><tr><td>&ldquo;We shall facilitate the implementation of an integrated inventory management solution subsequent to the stock reconciliation exercise.&rdquo;</td><td>&ldquo;After we complete and verify the stocktake, we will load the stock information into the POS.&rdquo;</td></tr></tbody></table>
+<p>Simple English is professional English when it actually communicates. When you explain something: say what
+you're going to do, explain why, explain what you need from the vendor, ask if they understand, then give them
+room to ask questions.</p>
+<h2>Choose your words carefully</h2>
+<table class="data-table"><thead><tr><th>Instead of this</th><th>Say this</th></tr></thead><tbody><tr><td>&ldquo;Give me your stock list.&rdquo;</td><td>&ldquo;Could you please provide the stock list so we can compare it with what we're collecting?&rdquo;</td></tr><tr><td>&ldquo;You have to do this.&rdquo;</td><td>&ldquo;This is what we need to complete the process.&rdquo;</td></tr><tr><td>&ldquo;You are wrong.&rdquo;</td><td>&ldquo;Let's check this information together and see where the difference comes from.&rdquo;</td></tr><tr><td>&ldquo;I don't know.&rdquo;</td><td>&ldquo;Let me confirm that information and come back to you.&rdquo;</td></tr></tbody></table>
+<h2>Starting a conversation</h2>
+<p>Don't open with problems, prices or demands. Greet the person properly, make eye contact where it's
+culturally appropriate, smile naturally, and introduce yourself before you get to business.</p>
+<div class="scriptbox"><div class="tip-label">SAY THIS</div><p>&ldquo;Good morning. My name is [Name]. I am an RPN with Digital Commerce. Thank you for giving me the opportunity to meet with you.&rdquo;</p><p>&ldquo;I am here to discuss your onboarding and the stocktake process with you.&rdquo;</p><p>&ldquo;Before we begin, I would like to understand your business and what you would like us to help you with.&rdquo;</p></div>
+<p>That structure &mdash; greet, introduce, thank, explain your purpose, ask questions, listen, explain, confirm
+understanding, agree the next step &mdash; turns a meeting into a conversation instead of an interrogation.</p>
+<h2>Learn to listen</h2>
+<p>A good RPN doesn't talk the whole time. When a vendor explains a problem, let them finish. Listen for what
+they need, what they've already tried, what's missing, and what they expect Digital Commerce to do. If you
+don't understand something, ask &mdash; that's better than pretending to.</p>
+<div class="scriptbox"><div class="tip-label">SAY THIS</div><p>&ldquo;Could you please explain that part again?&rdquo;</p><p>&ldquo;When you say the stock isn't matching, what exactly is happening?&rdquo;</p></div>
+<h2>Don't argue, and be careful with promises</h2>
+<p>If a vendor disagrees with you, stay calm and explain your reasoning respectfully rather than getting
+defensive. If you're not authorized to commit to something, don't &mdash; say you'll confirm it first. That
+protects you and Digital Commerce.</p>
+<div class="fieldnote"><div class="tip-label">DON'T</div><p>Never make a promise you're not authorized or able to keep.</p></div>
+<h2>Body language says as much as your words</h2>
+<p>Stand or sit properly, pay attention, and keep a calm expression. Avoid constantly checking your phone,
+folding your arms defensively, showing impatience, or laughing at a vendor's mistake. If you genuinely need
+your phone for the work, say so &mdash; &ldquo;Let me just check that information on the system&rdquo; &mdash;
+rather than silently looking at it while they're speaking.</p>
+<h2>During a stocktake, conduct matters even more</h2>
+<p>You may be working inside a vendor's business for hours. Dress neatly, arrive on time, respect their
+property, handle products carefully, keep the working area organized, avoid taking photographs unless it's
+required and authorized, keep vendor information confidential, and treat their employees respectfully.
+Remember: you're working inside someone else's business.</p>
+<h2>How to end a visit</h2>
+<p>Don't just leave once the work is done. Summarize what happened, ask if anything needs clarifying, and
+thank them.</p>
+<div class="scriptbox"><div class="tip-label">SAY THIS</div><p>&ldquo;Today we completed the first batch of the stocktake. The information has been checked and we have agreed on the items that need clarification. We will continue with the next batch on the agreed date.&rdquo;</p><p>&ldquo;Is there anything you would like me to clarify before I leave?&rdquo;</p><p>&ldquo;Thank you for your time. We appreciate your cooperation.&rdquo;</p></div>
+<div class="tip"><div class="tip-label">RPN GOLDEN RULE</div><p>Look professional. Speak respectfully. Listen carefully. Be prepared. Tell the truth. Do what you say you will do. You're often the human face of Digital Commerce to a vendor &mdash; every visit should leave them feeling they're dealing with someone organized, respectful, knowledgeable and serious about business.</p></div>
+
+  <div class="quiz" data-chapter="4" id="quiz-4"></div>
+  <div class="reflection" data-chapter="4" id="reflection-4"></div>
+</section>
+
+<section class="section" id="ch5">
+  <div class="chapter-head">
+    <div class="chapter-num">05</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 26v12l8 2v-16l-8 2z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M18 24l26-10v36l-26-10V24z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M44 20a10 12 0 010 24" stroke="#C1550C" stroke-width="2.5"/>
+<path d="M16 40l3 12h6l-2-11" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Relationships</div>
+      <h1>Selling Without Selling</h1>
+    </div>
+  </div>
+  
+<p>Nobody wants to be sold to. Every vendor you meet has heard a pitch before. What works instead is starting
+from a problem they already have.</p>
+<h2>How to open</h2>
+<div class="scriptbox"><div class="tip-label">SAY THIS</div><p>&ldquo;Quick question &mdash; at the end of the day, do you actually know what you sold, or are you working it out from memory?&rdquo;</p><p>&ldquo;How do you currently know when you're running low on something before it's gone?&rdquo;</p></div>
+<p>Both of those are real problems most small shops live with every day. You're not describing features; you're
+naming something they already feel.</p>
+<h2>Reading hesitation</h2>
+<p>If a vendor slows down or goes quiet, that's not a signal to talk faster. Stop and ask what's actually on
+their mind &mdash; it's often something small: a worry about losing existing habits, a worry about cost, a
+worry about their staff coping with something new. Answer the real thing, not the thing you assumed.</p>
+<div class="scriptbox"><div class="tip-label">SAY THIS</div><p>&ldquo;What's the part of this that worries you most?&rdquo;</p></div>
+<h2>Trust is built after the sale, not during it</h2>
+<p>Anyone can sound convincing for twenty minutes. What actually earns a vendor's trust is showing up when you
+said you would, and being reachable after they've handed over their business's daily numbers to a new tool.
+That reputation follows you to the next vendor in the same neighbourhood.</p>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>Vendors talk to each other. One vendor who feels well supported is worth more to you long-term than one who was just closed quickly.</p></div>
+
+  <div class="quiz" data-chapter="5" id="quiz-5"></div>
+  <div class="reflection" data-chapter="5" id="reflection-5"></div>
+</section>
+
+<section class="section" id="ch6">
+  <div class="chapter-head">
+    <div class="chapter-num">06</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="12" y="8" width="40" height="48" rx="3" stroke="#C1550C" stroke-width="2.5"/>
+<path d="M20 22l4 4 8-8" stroke="#C1550C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="36" y1="24" x2="46" y2="24" stroke="#C1550C" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M20 38l4 4 8-8" stroke="#C1550C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="36" y1="40" x2="46" y2="40" stroke="#C1550C" stroke-width="2.2" stroke-linecap="round"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Core skill</div>
+      <h1>Onboarding A New Vendor</h1>
+    </div>
+  </div>
+  
+<p>Onboarding is the highest-stakes hour you'll spend with any vendor. Get it right and they're self-sufficient
+within days. Get it wrong and you'll be fielding basic questions for months.</p>
+<h2>Before you arrive</h2>
+<table class="data-table"><thead><tr><th>Confirm this first</th><th>Why</th></tr></thead><tbody><tr><td>Their device and browser</td><td>The app is designed to run in a standard browser, not inside a chat app's file preview.</td></tr><tr><td>Timing of the first internet connection</td><td>Only the very first load needs a connection — after that it works offline. Plan around their signal.</td></tr><tr><td>Main vs Remote branch</td><td>Decide this before you start — it's awkward to change after setup.</td></tr></tbody></table>
+<h2>During the visit</h2>
+<ol>
+  <li>Walk through setup screen by screen, narrating what you're doing and why &mdash; don't do it silently.</li>
+  <li>Move into a <strong>guided first sale</strong>. This is the part people get wrong: your hands stay off their phone. You talk, they tap.</li>
+  <li>Before you leave, have them repeat one full sale and one EOD step completely unassisted, while you watch and say nothing unless they get stuck.</li>
+</ol>
+<div class="fieldnote"><div class="tip-label">DON'T</div><p>If you've done most of the tapping by the time you leave, they haven't actually learned it &mdash; and you'll be back sooner than you'd like.</p></div>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>Narrate like you're training someone to drive, not like you're demonstrating a gadget: “now you'd tap here because...”, not just “watch this.”</p></div>
+
+  <div class="quiz" data-chapter="6" id="quiz-6"></div>
+  <div class="reflection" data-chapter="6" id="reflection-6"></div>
+</section>
+
+<section class="section" id="ch7">
+  <div class="chapter-head">
+    <div class="chapter-num">07</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="32" cy="32" r="9" stroke="#C1550C" stroke-width="2.5"/>
+<path d="M32 6v7M32 51v7M58 32h-7M13 32H6M50 14l-5 5M19 45l-5 5M50 50l-5-5M19 19l-5-5" stroke="#C1550C" stroke-width="2.5" stroke-linecap="round"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Core skill</div>
+      <h1>Initial Setup, Done Right</h1>
+    </div>
+  </div>
+  
+<p>Setup mistakes are the ones that cost the most later, because they're awkward to undo once a vendor has
+started using the app day to day. Get these decisions right at the start.</p>
+<h2>Main vs Remote branch &mdash; decide by role, not by device</h2>
+<p>This trips people up constantly: the decision is about how the vendor's business is structured, not what
+device is in front of you. A laptop can be a Remote branch just as easily as a phone can. Ask about the
+business first, the device second.</p>
+<table class="data-table"><thead><tr><th>If the vendor...</th><th>Then it's usually...</th></tr></thead><tbody><tr><td>Runs one shop, one till</td><td>Main branch</td></tr><tr><td>Has more than one location or till reporting back to a central point</td><td>Main at the central point, Remote at each other location</td></tr></tbody></table>
+<h2>The first connection</h2>
+<p>The app needs the internet for its very first load only. After that, it runs offline. Plan the timing of
+that first load around wherever the vendor actually has reliable signal &mdash; don't assume their shop does.</p>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>If you're not sure whether a business should be one branch or several, ask: “if I stood in each location, would each one need its own till record?” That usually settles it.</p></div>
+
+  <div class="quiz" data-chapter="7" id="quiz-7"></div>
+  <div class="reflection" data-chapter="7" id="reflection-7"></div>
+</section>
+
+<section class="section" id="ch8">
+  <div class="chapter-head">
+    <div class="chapter-num">08</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="19" y="6" width="26" height="52" rx="4" stroke="#C1550C" stroke-width="2.5"/>
+<line x1="19" y1="14" x2="45" y2="14" stroke="#C1550C" stroke-width="2"/>
+<line x1="19" y1="48" x2="45" y2="48" stroke="#C1550C" stroke-width="2"/>
+<line x1="26" y1="21" x2="38" y2="21" stroke="#C1550C" stroke-width="2" stroke-linecap="round"/>
+<line x1="26" y1="27" x2="38" y2="27" stroke="#C1550C" stroke-width="2" stroke-linecap="round"/>
+<line x1="26" y1="33" x2="34" y2="33" stroke="#C1550C" stroke-width="2" stroke-linecap="round"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Product knowledge</div>
+      <h1>Running The App</h1>
+    </div>
+  </div>
+  
+<p>You need to be able to operate every one of these without hesitation. A vendor mirrors your confidence
+&mdash; if you're fumbling, they'll assume the app is the problem.</p>
+<table class="data-table"><thead><tr><th>Area</th><th>What it does</th></tr></thead><tbody><tr><td>Sales</td><td>Recording a sale: items, discount, payment method.</td></tr><tr><td>End-of-Day (EOD)</td><td>Reconciles what was sold against what's physically in the till.</td></tr><tr><td>Credit sales</td><td>Tracks money a customer still owes &mdash; different from the Directory, which is just contacts.</td></tr><tr><td>Stock</td><td>Adding products, stocktakes, dispatch and receiving between branches.</td></tr><tr><td>Reports</td><td>Plain-language sales, stock and performance reports.</td></tr><tr><td>Settings</td><td>Backup/export, branch setup, staff and roles.</td></tr><tr><td>Marketing export</td><td>Sends up to a set number of products, with images, to be considered for iTred VPD.</td></tr></tbody></table>
+<h2>Explaining EOD to a vendor for the first time</h2>
+<div class="scriptbox"><div class="tip-label">SAY THIS</div><p>&ldquo;At the end of the day, this tells you if what's in the till actually matches what you sold. If it doesn't match, we'll know exactly where to look.&rdquo;</p></div>
+<h2>Explaining Credit sales vs the Directory</h2>
+<div class="scriptbox"><div class="tip-label">SAY THIS</div><p>&ldquo;Directory is just your contact list. Credit is when someone owes you money &mdash; the app keeps track of it so you don't have to remember.&rdquo;</p></div>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>Keep the Reports Cheat Sheet from the Support Manual open on your phone during early visits &mdash; it turns every report into one sentence a vendor can act on. Chapter 9 goes deeper into what's actually behind these screens.</p></div>
+
+  <div class="quiz" data-chapter="8" id="quiz-8"></div>
+  <div class="reflection" data-chapter="8" id="reflection-8"></div>
+</section>
+
+<section class="section" id="ch9">
+  <div class="chapter-head">
+    <div class="chapter-num">09</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M32 6l20 7v16c0 14-8.5 24.5-20 29-11.5-4.5-20-15-20-29V13l20-7z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M24 31l6 6 11-12" stroke="#C1550C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Product knowledge</div>
+      <h1>seiGEN Commerce Lite In Depth</h1>
+    </div>
+  </div>
+  
+<p>Chapter 7 gave you the basics well enough to run a first visit. This chapter goes further &mdash; the depth
+that separates an RPN who can demo the app from one who can actually solve a vendor's problem with it. Everything
+below is a feature that's actually built into seiGEN Commerce Lite today, not something planned for later.</p>
+
+<h2>Built to work without the internet</h2>
+<p>Commerce Lite is offline-first: after its very first load, it keeps running without a live connection. For
+a vendor in an area with patchy signal, that's not a nice-to-have &mdash; it's the difference between a tool
+they can trust every day and one they can't.</p>
+
+<h2>Real receipts, from a real printer</h2>
+<p>The app can talk directly to a thermal receipt printer over WebUSB or Bluetooth, printing a proper receipt
+without a computer or a print dialog in the way. If a vendor already owns a small mobile receipt printer,
+Commerce Lite can usually drive it directly.</p>
+
+<h2>Getting a vendor's existing stock in fast</h2>
+<p>Vendors with an existing product list don't need to retype it. The Excel import brings a spreadsheet in
+directly, matches common column names flexibly, and shows a preview before anything is actually committed
+&mdash; so a mistake in the spreadsheet doesn't become a mistake in their live stock.</p>
+
+<h2>Stocktakes done properly</h2>
+<p>The Stocktake module follows a deliberate three-step pattern: a blind count (so the vendor counts without
+seeing the old numbers biasing them), a variance report showing what changed, and a separate, explicit step to
+apply the new count to inventory. Nothing updates silently in the background.</p>
+
+<h2>Moving stock between branches</h2>
+<p>For a vendor running more than one branch, Stock Dispatch and Receive lets stock move from one location to
+another with a proper record on both ends &mdash; and the Product List gives a read-only, cross-branch view
+with stock levels colour-coded, so a vendor can see what's where at a glance.</p>
+
+<h2>Reports that actually answer a question</h2>
+<p>The Report Writer isn't a wall of numbers &mdash; it's filtered, on-screen reports (12 or more types) with
+a simple sales-trend chart, built so a vendor can find an answer without you in the room. The Sales Report
+drill-through takes this further: a vendor can open one specific past transaction in a read-only view and
+produce a clearly watermarked reprint if a customer needs a copy.</p>
+
+<h2>Keeping good customers close</h2>
+<p>Vouchers let a vendor reward frequent customers directly from the app &mdash; useful when you're explaining
+that Commerce Lite isn't just about recording sales, it's about helping them run the business better.</p>
+
+<h2>Staff, roles, and who can see what</h2>
+<p>Staff and Roles lets a vendor bring on employees without handing over full control &mdash; Remote branch
+settings can be passcode-gated, so day-to-day staff can process sales without reaching settings meant for the
+owner.</p>
+
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>You don't need to demonstrate every one of these on a first visit. Know they exist, know roughly how they work, and bring them out when a vendor's own question opens the door — that's when they land best.</p></div>
+
+  <div class="quiz" data-chapter="9" id="quiz-9"></div>
+  <div class="reflection" data-chapter="9" id="reflection-9"></div>
+</section>
+
+<section class="section" id="ch10">
+  <div class="chapter-head">
+    <div class="chapter-num">10</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M44 12a12 12 0 00-15 15L10 46l6 6 19-19a12 12 0 0015-15l-8 8-7-2-2-7 8-8z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Product knowledge</div>
+      <h1>When Something Breaks</h1>
+    </div>
+  </div>
+  
+<p>A vendor's confidence in the whole app drops the first time something looks broken. Your job is to stay
+calm and have the answer ready &mdash; not to open the manual in front of them and start searching.</p>
+<table class="data-table"><thead><tr><th>What you'll see</th><th>What you say and do</th></tr></thead><tbody><tr><td>Blank screen / won't open</td><td>“Let's open this in Chrome directly, not the WhatsApp preview.” That fixes it almost every time.</td></tr><tr><td>WhatsApp warns the file “may be harmful”</td><td>“That's normal for this kind of file &mdash; it's safe, it's from us.”</td></tr><tr><td>Vendor has lost their data</td><td>“We'll restore it from your last backup &mdash; that's exactly what it's there for.” Then go to Settings &rarr; Import.</td></tr><tr><td>Activation code not accepted</td><td>Check the device code on screen matches exactly what was sent &mdash; one digit off will do this.</td></tr></tbody></table>
+<h2>When you genuinely don't know</h2>
+<p>Escalate to Digital Commerce rather than guess. A guessed fix that goes wrong costs you more trust than
+admitting you need to check.</p>
+<div class="fieldnote"><div class="tip-label">DON'T</div><p>Never tell a vendor a broken feature is “coming soon” unless you know that for a fact. If you're not sure, say you'll find out and follow up &mdash; then actually do it.</p></div>
+
+  <div class="quiz" data-chapter="10" id="quiz-10"></div>
+  <div class="reflection" data-chapter="10" id="reflection-10"></div>
+</section>
+
+<section class="section" id="ch11">
+  <div class="chapter-head">
+    <div class="chapter-num">11</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 22l22-12 22 12-22 12-22-12z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M10 22v20l22 12 22-12V22" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M32 34v20" stroke="#C1550C" stroke-width="2.5"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Ongoing support</div>
+      <h1>Coordinating Stocktakes</h1>
+    </div>
+  </div>
+  
+<p>This is where the boundary from Chapter 3 gets practical &mdash; and it comes in two sizes. A quick cycle
+check-in is a light nudge you handle in minutes. A full stocktake job is something a vendor asks you to
+<strong>organize and manage</strong> from start to finish. This chapter is about running that second one
+properly.</p>
+<h2>Two kinds of stocktake work</h2>
+<table class="data-table"><thead><tr><th>Kind</th><th>What it looks like</th></tr></thead><tbody><tr><td>Quick cycle check-in</td><td>The vendor counts their own stock on a regular rhythm; you just help capture the result into the app.</td></tr><tr><td>Full organized stocktake</td><td>A vendor asks Digital Commerce to run a proper stocktake &mdash; usually at onboarding, or when their records need a real reset. You organize and manage the whole exercise.</td></tr></tbody></table>
+<p>The rest of this chapter is about the full organized stocktake &mdash; a chargeable Digital Commerce service,
+and one of the more important things you'll be trusted to run.</p>
+<h2>Your job is to organize it, not count everything yourself</h2>
+<p>When you take on a stocktake job, you're responsible for organizing and managing the exercise &mdash; not for
+personally counting every product. Normally, you hire <strong>one stocktake worker</strong>, who works alongside
+a staff member from the vendor's own business. The vendor's staff member matters more than they might seem to:
+they usually know the stock better than anyone from outside, and can help identify product names, brands,
+product types, codes, the different names used for the same item, and where things are actually located.</p>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>Before you agree to a job, be clear in your own head on: what stock needs counting, how big and what type it is, the dates, who's doing the counting, and whether the vendor has a staff member ready who actually knows the stock.</p></div>
+<h2>Explain the cost before you start &mdash; not after</h2>
+<p>The stocktake is a chargeable service, and you should explain that when you're onboarding the vendor, not
+once the counting has already started. The current Digital Commerce rate is <strong>US$35 per day</strong>
+&mdash; but that's a starting point, not a fixed price for every job. It can move up or down depending on the
+type of stock, how much of it there is, how difficult the count is, the location of the business, and how much
+time it will take.</p>
+<p>On top of the day rate, the vendor also covers the team's agreed transport and lunches. For a shop outside
+Harare, the vendor should also arrange boarding for the team where it's needed.</p>
+<div class="fieldnote"><div class="tip-label">DON'T</div><p>Don't let a vendor discover the cost on the day the work starts. Agree the rate, the extras, and who's covering what before anyone begins counting.</p></div>
+<h2>Who's on the team, and who pays whom</h2>
+<table class="data-table"><thead><tr><th>Person</th><th>Role</th><th>Paid by</th></tr></thead><tbody><tr><td>Stocktake worker</td><td>Hired to do the physical count</td><td>Digital Commerce</td></tr><tr><td>Vendor's staff member</td><td>Knows the stock, helps identify and locate products</td><td>The vendor &mdash; not Digital Commerce, for this exercise</td></tr><tr><td>You (the RPN)</td><td>Organizes, manages and verifies the whole exercise</td><td>&mdash;</td></tr></tbody></table>
+<p>Agree the hired worker's rate before the job starts, same as everything else in this section.</p>
+<h2>Give the team the right spreadsheet</h2>
+<p>Before counting begins, hand the team the approved Digital Commerce stocktake spreadsheet template &mdash;
+not a blank sheet of paper, not a random Excel file. Walk them through what each column means before they start.
+The spreadsheet isn't just about quantities: it's what maps the vendor's products so the information can be
+imported into the app correctly.</p>
+<h2>Search words are worth extra attention</h2>
+<p>A customer rarely searches using the exact words a vendor uses on the shelf. If a vendor records
+<em>&ldquo;Toyota Corolla Front Brake Pad&rdquo;</em>, a customer might search &ldquo;Corolla brake pads&rdquo;,
+&ldquo;Toyota brake pads&rdquo;, or just &ldquo;front pads&rdquo;. Make sure the team captures the useful,
+everyday words a real customer would type &mdash; not just the vendor's own shorthand. That's what iTred VPD
+uses to actually help a customer find the product later.</p>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>A stocktake isn't only a counting exercise &mdash; it's a product-data exercise. Good search words captured now are what make a product findable later.</p></div>
+<h2>During the physical count</h2>
+<p>For every product, make sure the team is capturing: the correct name, the brand where it applies, the
+product code or SKU where one exists, the correct quantity, a short description where required, and useful
+search words. If anyone on the team genuinely doesn't know what an item is, the answer is to ask the vendor's
+staff member &mdash; never to guess.</p>
+<h2>Big stock? Work in batches</h2>
+<p>A large stocktake doesn't have to happen all in one sitting. Split it by category &mdash; Batch 1, Batch 2,
+and so on. For each batch: check the physical count, check the spreadsheet, correct any errors, let the
+relevant stakeholders verify it, get sign-off, and upload that batch where the agreed process allows it &mdash;
+then move to the next one.</p>
+<h2>Verify before you upload anything</h2>
+<p>Once the count and the spreadsheet are done, don't upload immediately. Check first: was everything actually
+counted, are the quantities right, are names and codes correct, are the search words useful, are there
+duplicates or missing products, and have any differences been looked into? Only once everyone involved is
+satisfied should the work be signed off.</p>
+<div class="fieldnote"><div class="tip-label">DON'T</div><p>Don't upload a spreadsheet just because the counting is finished. Bad data imported into the POS creates bad stock records and poor product search &mdash; for the vendor and for iTred VPD.</p></div>
+<h2>You personally upload the approved file</h2>
+<p>Once the spreadsheet is the final, approved, signed-off version, you &mdash; the RPN &mdash; are the one who
+uploads it into the app. Confirm it's genuinely the final version, confirm sign-off happened, do the upload,
+then check that the information actually landed correctly. If something didn't import right, report or correct
+it before you consider the job done.</p>
+<h2>Cycle stocktakes: keeping it accurate over time</h2>
+<p>A stocktake done once, on day one, only tells you the picture was accurate on day one. Cycle stocktakes
+&mdash; arranged afterwards for audit and stock-control purposes &mdash; are what keep it accurate going
+forward. A cycle stocktake doesn't have to mean counting the whole shop again; you can agree with the vendor to
+check selected products, selected categories, or investigate a specific difference.</p>
+<h2>The process, start to finish</h2>
+<ol>
+  <li>Discuss the stocktake with the vendor</li>
+  <li>Explain the charges and arrangements</li>
+  <li>Agree the dates and requirements</li>
+  <li>Organize the hired stocktake worker</li>
+  <li>Arrange for a knowledgeable vendor staff member to take part</li>
+  <li>Give the team the Digital Commerce spreadsheet</li>
+  <li>Conduct the physical count</li>
+  <li>Correctly map products and capture search words</li>
+  <li>Complete the spreadsheet</li>
+  <li>Verify the completed work</li>
+  <li>Obtain stakeholder sign-off</li>
+  <li>Upload the approved spreadsheet into the app</li>
+  <li>Check the imported information</li>
+  <li>Arrange cycle stocktakes when required</li>
+</ol>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>Whatever else changes from job to job, that order doesn't: agree, organize, count, map, verify, sign off, upload, check, repeat on a cycle.</p></div>
+
+  <div class="quiz" data-chapter="11" id="quiz-11"></div>
+  <div class="reflection" data-chapter="11" id="reflection-11"></div>
+</section>
+
+<section class="section" id="ch12">
+  <div class="chapter-head">
+    <div class="chapter-num">12</div>
+    <div class="chapter-icon"><svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="8" y="8" width="48" height="48" rx="4" stroke="#C1550C" stroke-width="2.5"/>
+<rect x="16" y="34" width="6" height="14" fill="#C1550C"/>
+<rect x="26" y="26" width="6" height="22" fill="#C1550C"/>
+<rect x="36" y="18" width="6" height="30" fill="#C1550C"/>
+<rect x="46" y="30" width="6" height="18" fill="#C1550C"/>
+</svg></div>
+    <div>
+      <div class="kicker-sm">Reporting</div>
+      <h1>Staying Accountable</h1>
+    </div>
+  </div>
+  
+<p>The network only works if what you're doing in the field makes it back to the people coordinating it. This
+isn't paperwork for its own sake &mdash; it's how support gets to the vendors who actually need it.</p>
+<h2>What to report, and when</h2>
+<table class="data-table"><thead><tr><th>Form</th><th>When</th></tr></thead><tbody><tr><td>Pre-visit checklist</td><td>Before every onboarding visit.</td></tr><tr><td>Production / task activity form</td><td>After each onboarding or support task.</td></tr><tr><td>Weekly activity report</td><td>On a regular cadence to your RPN Manager.</td></tr></tbody></table>
+<h2>Pricing, one more time</h2>
+<p>Visit charges are set by Digital Commerce &mdash; not you. A full organized stocktake follows Digital
+Commerce's day rate too, though it can move depending on the job (Chapter 11) &mdash; you explain that rate to
+the vendor, you don't invent your own. Keep this straight; mixing it up is the fastest way to undermine a
+vendor's trust in the pricing itself.</p>
+<div class="tip"><div class="tip-label">FIELD TIP</div><p>Treat your weekly report as part of the job, not an afterthought &mdash; it's also how issues you can't solve alone actually get picked up.</p></div>
+
+  <div class="quiz" data-chapter="12" id="quiz-12"></div>
+  <div class="reflection" data-chapter="12" id="reflection-12"></div>
+</section>
+
+  
+<section class="section" id="progress-summary">
+  <div class="section-title-row"><div class="icon-wrap"><svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M32 6l6.5 4.2 7.6-.6 2.6 7.2L55 21l-3.4 7 3.4 7-6.3 4.2-2.6 7.2-7.6-.6L32 50l-6.5-4.2-7.6.6-2.6-7.2L9 35l3.4-7L9 21l6.3-4.2 2.6-7.2 7.6.6L32 6z" stroke="#C1550C" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M24 32l6 6 11-12" stroke="#C1550C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></div><h1 style="margin:0;">Your Progress</h1></div>
+  <p class="small">A running summary of the chapter quizzes you've completed.</p>
+  <div id="score-summary"></div>
+</section>
+
+</div>
+
+</div>
+
+<script>
+(function(){
+  var QUIZ_DATA = {"1": [{"q": "Zimbabwe's informal businesses are best described as:", "opts": ["A small, marginal part of the economy", "A major contributor to GDP and one of the country's biggest sources of employment", "Mostly illegal and unregulated"], "correct": 1}, {"q": "seiGEN Commerce was built with which goal in mind?", "opts": ["To replace informal businesses with large corporations", "To grow alongside African businesses, including Zimbabwe's informal traders, as they formalise and scale", "To serve only large retail chains"], "correct": 1}, {"q": "seiGEN Commerce Infrastructure (SCI) is best understood as:", "opts": ["A single app", "The umbrella technology infrastructure behind the whole product family, including seiGEN Commerce Lite", "A government programme"], "correct": 1}, {"q": "Digital Commerce ZW's relationship to SCI is:", "opts": ["They are unrelated organisations", "Digital Commerce ZW is licensed to distribute SCI's products, including to and through the RPN network", "Digital Commerce ZW owns SCI outright"], "correct": 1}, {"q": "RPN partners are described in this ecosystem as:", "opts": ["Back-office administrators", "The face of SCI in the field \u2014 the ones tasked with onboarding vendors onto the SaaS", "Investors in Digital Commerce"], "correct": 1}, {"q": "iTred VPD's relationship to seiGEN Commerce Lite is:", "opts": ["Completely separate products with no connection", "A customer-facing app that grows out of Commerce Lite's core, giving vendors' products visibility to buyers", "A competing product from a different company"], "correct": 1}], "2": [{"q": "This manual is meant to be used:", "opts": ["Once, before your first day", "Day to day, in the field, whenever you need it", "Only by trainers"], "correct": 1}, {"q": "If this manual doesn't cover a situation you're facing, you should:", "opts": ["Guess and move on", "Send it to your RPN Manager so it can be added", "Wait until your next training session"], "correct": 1}, {"q": "Every chapter in this manual ends with:", "opts": ["Nothing \u2014 just move to the next chapter", "A multiple-choice quiz and a short written reflection you can send to your trainer", "A certificate"], "correct": 1}], "3": [{"q": "You are best described as:", "opts": ["An employee of Digital Commerce", "An independent partner, paid on commission, working your own city", "A vendor who resells the app"], "correct": 1}, {"q": "When it comes to a vendor's stocktake, your job is to:", "opts": ["Count the stock yourself so it's done faster", "Coordinate it and help capture the result \u2014 the counting stays the vendor's own work", "Avoid stocktakes entirely"], "correct": 1}, {"q": "Your two ongoing responsibilities after a vendor is onboarded are:", "opts": ["Support and coordinating stocktake cycles", "Selling and billing", "Marketing and design"], "correct": 0}, {"q": "When you're in front of a vendor, you represent:", "opts": ["Only yourself", "Digital Commerce, and by extension seiGEN Commerce Infrastructure", "No one in particular"], "correct": 1}, {"q": "Being \"independent\" as an RPN means:", "opts": ["You can represent the product however you like", "You're commission-based and not an employee, but you still follow the standards in this manual", "You set your own prices for everything, including standard visits"], "correct": 1}], "4": [{"q": "Before a vendor understands what you're selling, they first see:", "opts": ["Your price list", "How you present yourself and how you behave", "Your Digital Commerce contract"], "correct": 1}, {"q": "Professional dressing, in this manual's terms, means:", "opts": ["Expensive clothing", "Clean, neat, appropriate and suitable for the work you're doing that day", "The same formal suit for every single task"], "correct": 1}, {"q": "When preparing for a visit, the correct order is:", "opts": ["Visit the vendor, then work out what you're supposed to do", "Prepare yourself, your information, your tools and your questions \u2014 then visit", "Prepare your tools only; the rest can be improvised"], "correct": 1}, {"q": "The clearer way to say \u201cWe shall facilitate the implementation of an integrated inventory management solution\u201d is:", "opts": ["Keep it as-is \u2014 it sounds more professional", "\u201cAfter we complete and verify the stocktake, we will load the stock information into the POS.\u201d", "Don't explain it at all"], "correct": 1}, {"q": "Instead of saying \u201cGive me your stock list,\u201d you should say:", "opts": ["\u201cYou have to give me your stock list.\u201d", "\u201cCould you please provide the stock list so we can compare it with what we're collecting?\u201d", "Nothing \u2014 just wait for them to offer it"], "correct": 1}, {"q": "A vendor asks something you don't know the answer to. You should say:", "opts": ["\u201cI don't know.\u201d", "\u201cLet me confirm that information and come back to you.\u201d", "Make up an answer so you sound confident"], "correct": 1}, {"q": "If you're not authorized to make a commitment to a vendor, you should:", "opts": ["Promise it anyway to keep them happy", "Say you'll confirm it with Digital Commerce before giving a final answer", "Avoid the topic completely"], "correct": 1}, {"q": "During a stocktake inside a vendor's shop, you should:", "opts": ["Take photos freely for your own records", "Respect their property, handle products carefully, and keep vendor information confidential", "Chat casually with staff to pass the time"], "correct": 1}, {"q": "A good way to end a visit is to:", "opts": ["Leave once the work is done, without saying anything", "Summarize what was done, ask if anything needs clarifying, and thank them", "Immediately bring up the next sale"], "correct": 1}], "5": [{"q": "The strongest opening with a new vendor is usually:", "opts": ["Leading with the price", "Leading with a problem they already have \u2014 running out of stock unnoticed, not knowing the day's real total", "Leading with a long feature list"], "correct": 1}, {"q": "If a vendor seems hesitant, the best move is to:", "opts": ["Push harder on the same point", "Slow down and ask what's actually worrying them", "Move on to the next shop"], "correct": 1}, {"q": "Trust with a vendor is mostly built by:", "opts": ["What you say on the first visit", "Showing up when you said you would, and following through after the sale", "How fast you can talk"], "correct": 1}, {"q": "Mentioning that seiGEN Commerce grows with African and Zimbabwean businesses is useful because:", "opts": ["It sounds impressive but means nothing to the vendor", "It connects the product to something the vendor already cares about \u2014 their own business growing", "It's a legal requirement to say"], "correct": 1}], "6": [{"q": "Before you even open the app with a vendor, you should have already:", "opts": ["Decided nothing \u2014 improvise on the day", "Confirmed their device, browser, and whether they'll be Main or Remote branch", "Told them the price is negotiable"], "correct": 1}, {"q": "During the guided first sale, your hands should be:", "opts": ["On their phone, doing it for them", "Off their phone \u2014 you talk, they tap", "Recording a video instead"], "correct": 1}, {"q": "You know onboarding actually worked when:", "opts": ["You've shown them everything once", "They can complete a sale and an EOD step alone, while you watch", "They say thank you"], "correct": 1}, {"q": "A vendor asks whether their products can be seen by more buyers nearby. The honest answer points them to:", "opts": ["A feature that doesn't exist", "The marketing/catalogue export, which can put their products in front of iTred VPD buyers", "A competitor's app"], "correct": 1}], "7": [{"q": "The Main vs Remote branch decision should be made:", "opts": ["After the vendor has been using the app for a week", "Before you start setup, based on how their business is structured", "By whichever device is available that day"], "correct": 1}, {"q": "A laptop can be:", "opts": ["Only a Main branch, never Remote", "Either Main or Remote \u2014 it depends on its role, not the device", "Not supported at all"], "correct": 1}, {"q": "The app needs an internet connection:", "opts": ["Every time it's opened", "For the very first load, then it works offline", "Never, under any circumstance"], "correct": 1}, {"q": "Setup mistakes matter more than most other mistakes because:", "opts": ["They're impossible to fix", "They're awkward to undo once the vendor is already using the app day to day", "They're the vendor's problem, not yours"], "correct": 1}], "8": [{"q": "End-of-Day (EOD) exists so a vendor can:", "opts": ["Delete the day's sales", "Check what was sold against what's actually in the till", "Export a marketing file"], "correct": 1}, {"q": "A Credit sale is different from a Directory entry because:", "opts": ["It tracks money a customer still owes; the Directory is just a contact list", "They're the same feature", "Only the Directory can be edited"], "correct": 0}, {"q": "The marketing/catalogue export lets a vendor:", "opts": ["Send a set of products, with images, to be considered for the marketplace", "Automatically appear on every marketplace worldwide", "Permanently delete old stock"], "correct": 0}, {"q": "A vendor asks what the Reports section is for. Your best answer is:", "opts": ["\u201cIt's too technical to explain\u201d", "\u201cIt turns your sales and stock activity into plain answers, like what sold best this week\u201d", "\u201cIt's only for Digital Commerce, not for you\u201d"], "correct": 1}], "9": [{"q": "seiGEN Commerce Lite's offline-first design means:", "opts": ["It never needs the internet, even once", "It works without a live connection after its first load, which suits patchy signal areas", "It only works on Wi-Fi"], "correct": 1}, {"q": "Thermal receipt printing in the app works by:", "opts": ["Connecting to a printer over WebUSB or Bluetooth and sending the receipt directly", "Emailing the receipt to a printing service", "Only printing from a desktop computer"], "correct": 0}, {"q": "The Excel inventory import is useful because it lets a vendor:", "opts": ["Bring in their existing product list in bulk, with a preview before anything is committed", "Only add one product at a time", "Automatically delete their old stock list"], "correct": 0}, {"q": "A Stocktake in the app follows this pattern:", "opts": ["A blind count, then a variance report, then an explicit step to apply it to inventory", "Numbers are applied automatically with no review", "It replaces the End-of-Day process"], "correct": 0}, {"q": "The Sales Report drill-through lets a vendor:", "opts": ["Open a specific past transaction in a read-only view, with a watermarked reprint option", "Delete old transactions in bulk", "Edit historical sales figures"], "correct": 0}, {"q": "Vouchers in the app are used for:", "opts": ["Rewarding frequent customers", "Paying staff wages", "Printing marketing flyers"], "correct": 0}], "10": [{"q": "If the app opens to a blank screen, the first thing to try is:", "opts": ["Reinstalling everything", "Opening it in Chrome directly, not inside a WhatsApp preview", "Telling the vendor it's broken"], "correct": 1}, {"q": "A WhatsApp warning that a file \"may be harmful\" is:", "opts": ["A sign it's corrupted", "Normal for this file type, and safe from a trusted sender", "A reason to stop the visit"], "correct": 1}, {"q": "If a vendor has lost their data, you should:", "opts": ["Say it's gone for good", "Restore it from their last exported backup", "Re-type it all from memory"], "correct": 1}, {"q": "If you genuinely can't fix something after working through this manual, you should:", "opts": ["Guess at a fix rather than admit it", "Escalate to Digital Commerce", "Tell the vendor to figure it out"], "correct": 1}], "11": [{"q": "For a full organized stocktake, your job as the RPN is to:", "opts": ["Personally count every product yourself", "Organize and manage the whole exercise, without needing to count everything personally", "Have nothing to do with it once it's booked"], "correct": 1}, {"q": "The current Digital Commerce stocktake charge is:", "opts": ["Free for every vendor", "A day rate (currently US$35/day) that can move depending on the stock, difficulty, location and time needed", "Whatever the RPN personally decides to charge"], "correct": 1}, {"q": "The stocktake team is normally made up of:", "opts": ["Just the RPN, working alone", "A hired stocktake worker plus a vendor staff member who knows the stock", "Two RPNs from different cities"], "correct": 1}, {"q": "Who pays the hired stocktake worker?", "opts": ["Digital Commerce", "The vendor", "The RPN, out of their own commission"], "correct": 0}, {"q": "Product search words captured during a stocktake matter because:", "opts": ["They're a legal requirement", "They help a customer actually find the product later through iTred VPD", "They make the spreadsheet look tidier"], "correct": 1}, {"q": "If you're unsure what a product is during the count, you should:", "opts": ["Guess based on similar-looking items", "Ask the vendor's staff member who knows the stock", "Leave it off the spreadsheet"], "correct": 1}, {"q": "A large stocktake:", "opts": ["Must always be finished in a single sitting", "Can be split into batches, each checked, verified, signed off and uploaded before moving to the next", "Can't use a spreadsheet at all"], "correct": 1}, {"q": "Who personally uploads the final, approved stocktake spreadsheet into the app?", "opts": ["The vendor", "The RPN", "Digital Commerce head office, without the RPN's involvement"], "correct": 1}, {"q": "A cycle stocktake is best described as:", "opts": ["A one-off count that never happens again", "A recurring check &mdash; sometimes only selected products or categories &mdash; for accuracy and audit purposes", "Something that only happens if the app breaks"], "correct": 1}], "12": [{"q": "Regular reporting to your RPN Manager matters because:", "opts": ["It's just paperwork", "It's how the network tracks visits, onboarding and issues so support stays coordinated", "It determines your visit pricing"], "correct": 1}, {"q": "Visit pricing is:", "opts": ["Set by you, per vendor", "Set by Digital Commerce", "Negotiated freely with no guidance"], "correct": 1}]};
+  var CH_TITLES = {"1": "Our Ecosystem", "2": "Welcome To The Field", "3": "Who You Are Out There", "4": "Presenting Yourself, Professionally", "5": "Selling Without Selling", "6": "Onboarding A New Vendor", "7": "Initial Setup, Done Right", "8": "Running The App", "9": "seiGEN Commerce Lite In Depth", "10": "When Something Breaks", "11": "Coordinating Stocktakes", "12": "Staying Accountable"};
+  var REFLECTION_DATA = {"1": ["In your own words, explain how RPN fits between Digital Commerce ZW and seiGEN Commerce Infrastructure.", "How would you explain the connection between seiGEN Commerce Lite and iTred VPD to a curious vendor?"], "2": ["What's one situation from your own experience so far that this manual didn't fully cover?"], "3": ["Describe, in your own words, the line between coordinating a stocktake and doing one yourself."], "4": ["Rewrite this in plain, respectful English you'd actually say to a vendor: \u201cYou have to give me your stock list right now.\u201d", "Write out how you'd personally open and close a first visit with a brand-new vendor, start to finish."], "5": ["Write a short opening line you'd personally use with a new vendor, based on a problem they likely have."], "6": ["Explain why letting the vendor do the tapping during onboarding matters more than doing it quickly."], "7": ["Explain, in your own words, how you'd decide whether a vendor needs one branch or several."], "8": ["In your own words, explain the difference between a Credit sale and the Directory, as you'd say it to a vendor."], "9": ["Pick one feature from this chapter and explain, in your own words, a real situation where it would help a vendor.", "Explain how the Stocktake module's three steps (count, variance, apply) protect a vendor from mistakes."], "10": ["Describe a troubleshooting situation you've faced (or expect to face) that isn't in the table in this chapter."], "11": ["Explain, in your own words, why a one-time stocktake isn't enough on its own.", "Walk through what you'd personally say to a vendor to explain the stocktake cost and arrangements before the work begins."], "12": ["What's one thing about your reporting routine you want to check with your RPN Manager?"]};
+  var PROFILES_KEY = 'rpn-field-manual-profiles-v1';
+  var ACTIVE_PROFILE_KEY = 'rpn-field-manual-active-profile-v1';
+  var PROGRESS_PREFIX = 'rpn-field-manual-progress-v1:';
+  var REFLECTION_PREFIX = 'rpn-field-manual-reflection-v1:';
+  var DEFAULT_COUNTRY_CODE = '263'; // Zimbabwe — used when a number is entered without a country code
+
+  function safeGet(key){ try{ var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }catch(e){ return null; } }
+  function safeSet(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+  function safeGetStr(key){ try{ return localStorage.getItem(key) || ''; }catch(e){ return ''; } }
+  function safeSetStr(key, val){ try{ localStorage.setItem(key, val); }catch(e){} }
+  function safeRemove(key){ try{ localStorage.removeItem(key); }catch(e){} }
+
+  function normalizePhone(raw){
+    var digits = (raw || '').replace(/[^0-9]/g, '');
+    if(!digits) return '';
+    if(digits.charAt(0) === '0'){ digits = DEFAULT_COUNTRY_CODE + digits.slice(1); }
+    else if(digits.length <= 9){ digits = DEFAULT_COUNTRY_CODE + digits; }
+    return digits;
+  }
+  function makeProfileId(){ return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  // ---------- profile store ----------
+  var profiles = safeGet(PROFILES_KEY) || [];
+  var activeProfileId = safeGetStr(ACTIVE_PROFILE_KEY);
+  var activeProfile = null;
+  var progress = {};
+  var reflections = {};
+  var editingProfileId = null; // set when the form is opened to edit an existing profile
+
+  function findProfile(id){ for(var i=0;i<profiles.length;i++){ if(profiles[i].id === id) return profiles[i]; } return null; }
+  function saveProfiles(){ safeSet(PROFILES_KEY, profiles); }
+  function loadProgressFor(id){ return safeGet(PROGRESS_PREFIX + id) || {}; }
+  function saveProgressFor(id){ safeSet(PROGRESS_PREFIX + id, progress); }
+  function loadReflectionsFor(id){ return safeGet(REFLECTION_PREFIX + id) || {}; }
+  function saveReflectionsFor(id){ safeSet(REFLECTION_PREFIX + id, reflections); }
+
+  // ---------- gate elements ----------
+  var gate = document.getElementById('name-gate');
+  var pickerView = document.getElementById('gate-picker-view');
+  var formView = document.getElementById('gate-form-view');
+  var profileListEl = document.getElementById('profile-list');
+  var addProfileBtn = document.getElementById('add-profile-btn');
+  var gateBackBtn = document.getElementById('gate-back-btn');
+  var gateFormIntro = document.getElementById('gate-form-intro');
+  var nameInput = document.getElementById('rpn-name-input');
+  var trainerNameInput = document.getElementById('trainer-name-input');
+  var trainerPhoneInput = document.getElementById('trainer-phone-input');
+  var nameSave = document.getElementById('rpn-name-save');
+  var youLabel = document.getElementById('you-label');
+  var editBtn = document.getElementById('edit-trainer-btn');
+
+  function applyLabel(){
+    if(!youLabel) return;
+    if(activeProfile){
+      youLabel.textContent = activeProfile.name + ' \u2192 sends to ' + activeProfile.trainerName;
+    } else {
+      youLabel.textContent = 'Not set up yet';
+    }
+  }
+
+  function renderProfileList(){
+    if(!profileListEl) return;
+    if(!profiles.length){
+      profileListEl.innerHTML = '<p class="field-note" style="margin:0 0 10px 0;">No trainees saved on this device yet.</p>';
+      return;
+    }
+    var html = '';
+    profiles.forEach(function(p){
+      html += '<div class="profile-row">' +
+        '<button type="button" class="profile-row-main" data-select="' + p.id + '">' +
+          '<div class="profile-row-name">' + escapeHtmlLite(p.name) + '</div>' +
+          '<div class="profile-row-sub">sends to ' + escapeHtmlLite(p.trainerName) + '</div>' +
+        '</button>' +
+        '<div class="profile-row-actions">' +
+          '<button type="button" data-edit="' + p.id + '">Edit</button>' +
+          '<button type="button" class="danger" data-delete="' + p.id + '">Remove</button>' +
+        '</div>' +
+      '</div>';
+    });
+    profileListEl.innerHTML = html;
+  }
+  function escapeHtmlLite(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function showPicker(){
+    editingProfileId = null;
+    renderProfileList();
+    pickerView.classList.remove('hidden');
+    formView.classList.add('hidden');
+    gate.classList.remove('hidden');
+  }
+  function showForm(prefillProfile){
+    if(prefillProfile){
+      editingProfileId = prefillProfile.id;
+      nameInput.value = prefillProfile.name;
+      trainerNameInput.value = prefillProfile.trainerName;
+      trainerPhoneInput.value = prefillProfile.trainerPhone;
+      gateFormIntro.textContent = 'Update this trainee\u2019s details.';
+      nameSave.textContent = 'Save changes';
+    } else {
+      editingProfileId = null;
+      nameInput.value = ''; trainerNameInput.value = ''; trainerPhoneInput.value = '';
+      gateFormIntro.textContent = 'Set this up once. Your quiz results will be sent straight to your trainer\u2019s WhatsApp, pre-filled and ready \u2014 you just tap Send.';
+      nameSave.textContent = profiles.length ? 'Save and continue' : 'Start the manual';
+    }
+    gateBackBtn.classList.toggle('hidden', profiles.length === 0);
+    pickerView.classList.add('hidden');
+    formView.classList.remove('hidden');
+    gate.classList.remove('hidden');
+    setTimeout(function(){ nameInput.focus(); }, 30);
+  }
+
+  function activateProfile(id){
+    var p = findProfile(id);
+    if(!p) return;
+    activeProfile = p;
+    activeProfileId = id;
+    safeSetStr(ACTIVE_PROFILE_KEY, id);
+    progress = loadProgressFor(id);
+    reflections = loadReflectionsFor(id);
+    applyLabel();
+    gate.classList.add('hidden');
+    document.querySelectorAll('.quiz').forEach(renderQuiz);
+    document.querySelectorAll('.reflection').forEach(renderReflection);
+    updateSidebarProgress();
+  }
+
+  // initial boot: resume active profile if one is set and still exists, else show gate
+  if(activeProfileId && findProfile(activeProfileId)){
+    activeProfile = findProfile(activeProfileId);
+    progress = loadProgressFor(activeProfileId);
+    reflections = loadReflectionsFor(activeProfileId);
+    gate.classList.add('hidden');
+  } else if(profiles.length){
+    showPicker();
+  } else {
+    showForm(null);
+  }
+  applyLabel();
+
+  if(nameSave){
+    nameSave.addEventListener('click', function(){
+      var n = (nameInput.value || '').trim();
+      var tn = (trainerNameInput.value || '').trim();
+      var tp = normalizePhone(trainerPhoneInput.value);
+      if(!n){ nameInput.focus(); return; }
+      if(!tn){ trainerNameInput.focus(); return; }
+      if(!tp || tp.length < 10){ trainerPhoneInput.focus(); return; }
+
+      if(editingProfileId){
+        var existing = findProfile(editingProfileId);
+        if(existing){ existing.name = n; existing.trainerName = tn; existing.trainerPhone = tp; }
+        saveProfiles();
+        if(activeProfileId === editingProfileId){ activeProfile = existing; applyLabel(); }
+        showPicker();
+      } else {
+        var id = makeProfileId();
+        var newProfile = { id: id, name: n, trainerName: tn, trainerPhone: tp };
+        profiles.push(newProfile);
+        saveProfiles();
+        activateProfile(id);
+      }
+    });
+  }
+  [nameInput, trainerNameInput, trainerPhoneInput].forEach(function(el){
+    if(el) el.addEventListener('keydown', function(e){ if(e.key === 'Enter') nameSave.click(); });
+  });
+  if(editBtn){ editBtn.addEventListener('click', function(){ profiles.length ? showPicker() : showForm(null); }); }
+  if(addProfileBtn){ addProfileBtn.addEventListener('click', function(){ showForm(null); }); }
+  if(gateBackBtn){ gateBackBtn.addEventListener('click', showPicker); }
+  if(profileListEl){
+    profileListEl.addEventListener('click', function(e){
+      var selBtn = e.target.closest('[data-select]');
+      var editBtnEl = e.target.closest('[data-edit]');
+      var delBtn = e.target.closest('[data-delete]');
+      if(selBtn){ activateProfile(selBtn.getAttribute('data-select')); return; }
+      if(editBtnEl){ var p = findProfile(editBtnEl.getAttribute('data-edit')); if(p) showForm(p); return; }
+      if(delBtn){
+        var id = delBtn.getAttribute('data-delete');
+        profiles = profiles.filter(function(p){ return p.id !== id; });
+        saveProfiles();
+        safeRemove(PROGRESS_PREFIX + id);
+        safeRemove(REFLECTION_PREFIX + id);
+        if(activeProfileId === id){
+          activeProfileId = ''; activeProfile = null; safeRemove(ACTIVE_PROFILE_KEY); applyLabel();
+        }
+        if(profiles.length){ renderProfileList(); } else { showForm(null); }
+      }
+    });
+  }
+
+  // ---------- quiz rendering ----------
+  function renderQuiz(container){
+    var ch = container.getAttribute('data-chapter');
+    var qs = QUIZ_DATA[ch];
+    if(!qs) return;
+    var state = progress[ch] || { answered: {} };
+    progress[ch] = state;
+
+    var html = '<div class="quiz-head"><span class="quiz-badge">CHECK YOUR UNDERSTANDING</span>' +
+      '<span class="quiz-score" id="qs-' + ch + '">Score: ' + scoreText(ch, qs) + '</span></div>';
+
+    qs.forEach(function(item, qi){
+      html += '<div class="q" data-qi="' + qi + '">';
+      html += '<p class="q-text"><span class="q-num">' + (qi+1) + '.</span> ' + item.q + '</p>';
+      html += '<div class="opts">';
+      item.opts.forEach(function(opt, oi){
+        var letter = String.fromCharCode(65+oi);
+        html += '<button type="button" class="opt-btn" data-ch="' + ch + '" data-qi="' + qi + '" data-oi="' + oi + '">' +
+          '<span class="opt-letter">' + letter + '</span><span>' + opt + '</span></button>';
+      });
+      html += '</div><div class="q-feedback" id="fb-' + ch + '-' + qi + '"></div>';
+      html += '</div>';
+    });
+
+    html += '<div class="quiz-result" id="result-' + ch + '"></div>';
+    html += '<div class="quiz-actions" id="actions-' + ch + '" style="display:none;">' +
+      '<button type="button" class="wa-btn" id="wa-' + ch + '" title="Send to your trainer">' + "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M12 3a9 9 0 00-7.8 13.5L3 21l4.6-1.2A9 9 0 1012 3z\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/>\n<path d=\"M8.5 8.7c.2-.5.5-.5.8-.5h.5c.2 0 .4 0 .6.4.2.5.6 1.5.7 1.6.1.1.1.3 0 .5-.1.2-.2.3-.4.5-.2.2-.3.3-.1.6.2.3.8 1.2 1.7 1.9 1.1.9 1.9 1.1 2.2 1.2.3.1.5.1.6-.1.2-.2.7-.8.9-1 .2-.2.4-.2.6-.1.2.1 1.5.7 1.7.8.2.1.4.2.4.3 0 .2 0 .9-.3 1.3-.3.5-1.4 1-2 1-.6 0-1.2 0-3.9-1.6-2.7-1.6-3.3-3.4-3.5-3.8-.2-.5-1-1.6-1-2.6 0-1 .5-1.5.7-1.7z\" fill=\"currentColor\"/>\n</svg>" + '</button>' +
+      '<span class="wa-status" id="wa-status-' + ch + '"></span>' +
+      '<span class="wa-hint" id="wa-hint-' + ch + '">Send your result to your trainer</span>' +
+      '</div>';
+    html += '<button type="button" class="retry-btn" id="retry-' + ch + '" style="display:none;">Try again</button>';
+    container.innerHTML = html;
+
+    Object.keys(state.answered || {}).forEach(function(qi){
+      applyAnswer(ch, parseInt(qi,10), state.answered[qi], qs, false);
+    });
+    maybeShowResult(ch, qs);
+
+    if(container.__wired) return;
+    container.__wired = true;
+    container.addEventListener('click', function(e){
+      var curState = progress[ch] || (progress[ch] = { answered: {} });
+      var curQs = QUIZ_DATA[ch];
+      var btn = e.target.closest('.opt-btn');
+      if(btn){
+        var qi = parseInt(btn.getAttribute('data-qi'),10);
+        var oi = parseInt(btn.getAttribute('data-oi'),10);
+        if(curState.answered[qi] !== undefined) return;
+        curState.answered[qi] = oi;
+        if(activeProfileId) saveProgressFor(activeProfileId);
+        applyAnswer(ch, qi, oi, curQs, true);
+        maybeShowResult(ch, curQs);
+        updateSidebarProgress();
+        return;
+      }
+      var retry = e.target.closest('.retry-btn');
+      if(retry){
+        progress[ch] = { answered: {} };
+        if(activeProfileId) saveProgressFor(activeProfileId);
+        renderQuiz(container);
+        updateSidebarProgress();
+        return;
+      }
+      var wa = e.target.closest('.wa-btn');
+      if(wa){
+        sendToWhatsApp(ch, curQs);
+      }
+    });
+  }
+
+  function applyAnswer(ch, qi, oi, qs, animate){
+    var item = qs[qi];
+    var qEl = document.querySelector('#quiz-' + ch + ' .q[data-qi="' + qi + '"]');
+    if(!qEl) return;
+    var btns = qEl.querySelectorAll('.opt-btn');
+    btns.forEach(function(b){
+      var boi = parseInt(b.getAttribute('data-oi'),10);
+      b.disabled = true;
+      if(boi === item.correct){ b.classList.add('correct'); }
+      else if(boi === oi){ b.classList.add('wrong'); }
+    });
+    var fb = document.getElementById('fb-' + ch + '-' + qi);
+    if(fb){
+      if(oi === item.correct){ fb.textContent = 'Correct.'; fb.className = 'q-feedback correct'; }
+      else{ fb.textContent = 'Not quite \u2014 the correct answer is highlighted above.'; fb.className = 'q-feedback wrong'; }
+    }
+  }
+
+  function scoreText(ch, qs){
+    var state = progress[ch] || { answered: {} };
+    var answered = Object.keys(state.answered || {}).length;
+    var correct = 0;
+    Object.keys(state.answered || {}).forEach(function(qi){ if(qs[qi] && state.answered[qi] === qs[qi].correct) correct++; });
+    return correct + ' / ' + qs.length + ' correct (' + answered + ' of ' + qs.length + ' answered)';
+  }
+
+  function maybeShowResult(ch, qs){
+    var state = progress[ch] || { answered: {} };
+    var answered = Object.keys(state.answered || {}).length;
+    var scoreEl = document.getElementById('qs-' + ch);
+    if(scoreEl) scoreEl.textContent = 'Score: ' + scoreText(ch, qs);
+    var resultEl = document.getElementById('result-' + ch);
+    var retryBtn = document.getElementById('retry-' + ch);
+    var actions = document.getElementById('actions-' + ch);
+    if(answered === qs.length){
+      var correct = 0;
+      qs.forEach(function(item, qi){ if(state.answered[qi] === item.correct) correct++; });
+      if(resultEl){
+        resultEl.className = 'quiz-result show';
+        resultEl.textContent = correct === qs.length
+          ? 'All correct \u2014 nice work. This chapter is complete.'
+          : ('You got ' + correct + ' of ' + qs.length + ' right. Review the highlighted answers above, or try again.');
+      }
+      if(retryBtn) retryBtn.style.display = 'inline-block';
+      if(actions) actions.style.display = 'flex';
+      var chk = document.getElementById('check-ch' + ch);
+      if(chk) chk.classList.add('done');
+    } else {
+      if(actions) actions.style.display = 'none';
+      var chk2 = document.getElementById('check-ch' + ch);
+      if(chk2) chk2.classList.remove('done');
+    }
+  }
+
+  // ---------- written reflection rendering ----------
+  function renderReflection(container){
+    var ch = container.getAttribute('data-chapter');
+    var prompts = REFLECTION_DATA[ch];
+    if(!prompts || !prompts.length){ container.innerHTML = ''; return; }
+    var state = reflections[ch] || {};
+    reflections[ch] = state;
+
+    var html = '<div class="reflection-block">' +
+      '<div class="reflection-head"><span class="reflection-badge">IN YOUR OWN WORDS</span></div>' +
+      '<p class="reflection-note">Explain it the way you\u2019d explain it to a vendor. This gets saved with your quiz result when you send it to your trainer.</p>';
+    prompts.forEach(function(p, pi){
+      var val = state[pi] || '';
+      html += '<div class="reflection-prompt">' +
+        '<label for="reflect-' + ch + '-' + pi + '">' + (pi+1) + '. ' + p + '</label>' +
+        '<textarea id="reflect-' + ch + '-' + pi + '" data-ch="' + ch + '" data-pi="' + pi + '" placeholder="Type your answer here&hellip;">' + escapeHtmlLite(val) + '</textarea>' +
+      '</div>';
+    });
+    html += '<span class="reflection-save-note" id="reflect-save-' + ch + '">Saved.</span>';
+    html += '</div>';
+    container.innerHTML = html;
+
+    if(container.__wired) return;
+    container.__wired = true;
+    container.addEventListener('input', function(e){
+      var ta = e.target.closest('textarea[data-pi]');
+      if(!ta) return;
+      var pi = ta.getAttribute('data-pi');
+      var curState = reflections[ch] || (reflections[ch] = {});
+      curState[pi] = ta.value;
+      if(activeProfileId) saveReflectionsFor(activeProfileId);
+      var note = document.getElementById('reflect-save-' + ch);
+      if(note){
+        note.classList.add('show');
+        clearTimeout(note.__t);
+        note.__t = setTimeout(function(){ note.classList.remove('show'); }, 1200);
+      }
+    });
+  }
+
+  function sendToWhatsApp(ch, qs){
+    if(!activeProfile){ showPicker(); return; }
+    var state = progress[ch] || { answered: {} };
+    var correct = 0;
+    var missed = [];
+    qs.forEach(function(item, qi){
+      if(state.answered[qi] === item.correct) correct++;
+      else missed.push(qi+1);
+    });
+    var name = activeProfile.name || 'RPN partner (name not set)';
+    var title = CH_TITLES[ch] || ('Chapter ' + ch);
+    var greeting = activeProfile.trainerName ? ('Hi ' + activeProfile.trainerName + ',') : 'Hi,';
+    var lines = [
+      greeting,
+      'RPN Field Manual \u2014 Quiz Result',
+      'Name: ' + name,
+      'Chapter ' + ch + ': ' + title,
+      'Score: ' + correct + '/' + qs.length,
+    ];
+    if(missed.length){ lines.push('Missed questions: ' + missed.join(', ')); }
+    else { lines.push('All correct.'); }
+
+    var prompts = REFLECTION_DATA[ch];
+    if(prompts && prompts.length){
+      var rState = reflections[ch] || {};
+      lines.push('');
+      lines.push('In their own words:');
+      prompts.forEach(function(p, pi){
+        var answer = (rState[pi] || '').trim();
+        lines.push((pi+1) + ') ' + p);
+        lines.push(answer ? answer : '(not answered)');
+      });
+    }
+
+    var message = lines.join('\n');
+    var waUrl = 'https://wa.me/' + activeProfile.trainerPhone + '?text=' + encodeURIComponent(message);
+
+    function showStatus(){
+      var statusEl = document.getElementById('wa-status-' + ch);
+      var hintEl = document.getElementById('wa-hint-' + ch);
+      if(statusEl){
+        statusEl.textContent = 'Opening WhatsApp \u2014 just tap Send.';
+        statusEl.classList.add('show');
+        if(hintEl) hintEl.style.display = 'none';
+        setTimeout(function(){ statusEl.classList.remove('show'); if(hintEl) hintEl.style.display = ''; }, 4000);
+      }
+    }
+
+    showStatus();
+    window.open(waUrl, '_blank', 'noopener');
+  }
+
+  function updateSidebarProgress(){
+    var total = Object.keys(QUIZ_DATA).length;
+    var done = 0;
+    var summaryHtml = '';
+    Object.keys(QUIZ_DATA).sort(function(a,b){return parseInt(a)-parseInt(b);}).forEach(function(ch){
+      var qs = QUIZ_DATA[ch];
+      var state = progress[ch] || { answered: {} };
+      var answeredCount = Object.keys(state.answered||{}).length;
+      var complete = answeredCount === qs.length;
+      if(complete) done++;
+      var correct = 0;
+      Object.keys(state.answered||{}).forEach(function(qi){ if(qs[qi] && state.answered[qi]===qs[qi].correct) correct++; });
+      summaryHtml += '<div class="score-card"><span class="ch-name">Ch. ' + ch + ' \u2014 ' + (CH_TITLES[ch]||'') + '</span>' +
+        '<span class="score-pill' + (complete ? ' complete':'') + '">' + (complete ? (correct+'/'+qs.length+' \u2713') : (answeredCount+'/'+qs.length+' started')) + '</span></div>';
+    });
+    var fill = document.getElementById('progress-fill');
+    var label = document.getElementById('progress-label');
+    if(fill) fill.style.width = Math.round(done/total*100) + '%';
+    if(label) label.textContent = done + ' of ' + total + ' chapter quizzes complete';
+    var summaryEl = document.getElementById('score-summary');
+    if(summaryEl) summaryEl.innerHTML = summaryHtml || '<p class="small">No quizzes started yet.</p>';
+  }
+
+  document.querySelectorAll('.quiz').forEach(renderQuiz);
+  document.querySelectorAll('.reflection').forEach(renderReflection);
+  updateSidebarProgress();
+
+  // ---------- sidebar: active section + mobile toggle ----------
+  var sidebar = document.getElementById('sidebar');
+  var menuBtn = document.getElementById('menu-btn');
+  var scrim = document.getElementById('scrim');
+  function openMenu(){ sidebar.classList.add('open'); scrim.classList.add('open'); menuBtn.classList.add('hide'); }
+  function closeMenu(){ sidebar.classList.remove('open'); scrim.classList.remove('open'); menuBtn.classList.remove('hide'); }
+  if(menuBtn){ menuBtn.addEventListener('click', function(){ sidebar.classList.contains('open') ? closeMenu() : openMenu(); }); }
+  if(scrim){ scrim.addEventListener('click', closeMenu); }
+  document.querySelectorAll('.nav-link').forEach(function(a){ a.addEventListener('click', function(){ closeMenu(); }); });
+
+  var links = Array.prototype.slice.call(document.querySelectorAll('.nav-link'));
+  var sections = links.map(function(l){ return document.getElementById(l.getAttribute('data-target')); });
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){
+          var id = entry.target.id;
+          links.forEach(function(l){ l.classList.toggle('active', l.getAttribute('data-target') === id); });
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+    sections.forEach(function(s){ if(s) io.observe(s); });
+  }
+
+  // ---------- search ----------
+  var searchFab = document.getElementById('search-fab');
+  var searchOverlay = document.getElementById('search-overlay');
+  var searchInput = document.getElementById('search-input');
+  var searchResultsEl = document.getElementById('search-results');
+  var searchClose = document.getElementById('search-close');
+  var searchIndex = null;
+
+  function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function buildSearchIndex(){
+    var index = [];
+    var chapterSections = document.querySelectorAll('.main .section[id^="ch"]');
+    chapterSections.forEach(function(sec){
+      var headEl = sec.querySelector('.chapter-head h1');
+      var chTitle = headEl ? headEl.textContent.trim() : sec.id;
+      var chNum = sec.id.replace('ch','');
+      // chapter-level entry (jump to top of chapter)
+      index.push({ el: sec, chTitle: chTitle, chNum: chNum, text: chTitle, weight: 3, isHeading: true });
+      var blocks = sec.querySelectorAll('h2, h3, p, li, td');
+      blocks.forEach(function(el){
+        if(el.closest('.quiz')) return;
+        if(el.closest('.reflection')) return;
+        if(el.closest('.chapter-head')) return;
+        var text = el.textContent.replace(/\s+/g,' ').trim();
+        if(text.length < 3) return;
+        var tag = el.tagName.toLowerCase();
+        var weight = (tag === 'h2') ? 2.5 : (tag === 'h3') ? 2 : (tag === 'li' || tag === 'td') ? 1.2 : 1;
+        index.push({ el: el, chTitle: chTitle, chNum: chNum, text: text, weight: weight, isHeading: (tag==='h2'||tag==='h3') });
+      });
+    });
+    return index;
+  }
+
+  function runSearch(query){
+    if(!searchIndex) searchIndex = buildSearchIndex();
+    var tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if(!tokens.length) return [];
+
+    function matches(entry, mode){
+      var lower = entry.text.toLowerCase();
+      if(mode === 'all') return tokens.every(function(t){ return lower.indexOf(t) !== -1; });
+      return tokens.some(function(t){ return lower.indexOf(t) !== -1; });
+    }
+
+    var results = searchIndex.filter(function(e){ return matches(e, 'all'); });
+    if(!results.length){
+      // fall back to partial (any token) match, ranked by how many tokens matched
+      results = searchIndex
+        .map(function(e){
+          var lower = e.text.toLowerCase();
+          var hitCount = tokens.filter(function(t){ return lower.indexOf(t) !== -1; }).length;
+          return { entry: e, hitCount: hitCount };
+        })
+        .filter(function(r){ return r.hitCount > 0; })
+        .sort(function(a,b){ return b.hitCount - a.hitCount || b.entry.weight - a.entry.weight; })
+        .map(function(r){ return r.entry; });
+    } else {
+      results.sort(function(a,b){ return b.weight - a.weight; });
+    }
+
+    // de-duplicate: keep at most 2 results per chapter, prefer highest weight, cap total at 8
+    var perChapter = {};
+    var out = [];
+    for(var i=0; i<results.length && out.length < 8; i++){
+      var r = results[i];
+      perChapter[r.chNum] = (perChapter[r.chNum] || 0) + 1;
+      if(perChapter[r.chNum] > 2) continue;
+      out.push(r);
+    }
+    return out;
+  }
+
+  function buildSnippet(text, tokens){
+    var lower = text.toLowerCase();
+    var firstIdx = -1;
+    tokens.forEach(function(t){
+      var idx = lower.indexOf(t);
+      if(idx !== -1 && (firstIdx === -1 || idx < firstIdx)) firstIdx = idx;
+    });
+    var start = Math.max(0, (firstIdx === -1 ? 0 : firstIdx) - 40);
+    var end = Math.min(text.length, start + 160);
+    var snippet = (start > 0 ? '\u2026' : '') + text.slice(start, end) + (end < text.length ? '\u2026' : '');
+    var escaped = escapeHtml(snippet);
+    tokens.forEach(function(t){
+      if(!t) return;
+      var re = new RegExp('(' + escapeRegex(t) + ')', 'ig');
+      escaped = escaped.replace(re, '<mark>$1</mark>');
+    });
+    return escaped;
+  }
+
+  function renderResults(query){
+    var tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if(!tokens.length){
+      searchResultsEl.innerHTML = '<div class="search-hint-row">Type a few words, in any order &mdash; e.g. "branch main" finds the same thing as "main branch".</div>';
+      return;
+    }
+    var results = runSearch(query);
+    if(!results.length){
+      searchResultsEl.innerHTML = '<div class="search-hint-row">No matches. Try fewer or different words.</div>';
+      return;
+    }
+    var html = '';
+    results.forEach(function(r, i){
+      var tag = 'Ch. ' + r.chNum + ' \u2014 ' + r.chTitle;
+      var snippet = r.isHeading ? escapeHtml(r.text) : buildSnippet(r.text, tokens);
+      html += '<button type="button" class="search-result" data-index="' + i + '"><span class="sr-tag">' + tag + '</span><div class="sr-snippet">' + snippet + '</div></button>';
+    });
+    searchResultsEl.innerHTML = html;
+    searchResultsEl.__results = results;
+  }
+
+  function openSearch(){
+    searchOverlay.classList.remove('hidden');
+    searchInput.value = '';
+    renderResults('');
+    setTimeout(function(){ searchInput.focus(); }, 30);
+  }
+  function closeSearch(){
+    searchOverlay.classList.add('hidden');
+  }
+  function jumpTo(entry){
+    closeSearch();
+    closeMenu();
+    entry.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    entry.el.classList.add('search-flash');
+    setTimeout(function(){ entry.el.classList.remove('search-flash'); }, 1700);
+  }
+
+  if(searchFab) searchFab.addEventListener('click', openSearch);
+  if(searchClose) searchClose.addEventListener('click', closeSearch);
+  if(searchOverlay) searchOverlay.addEventListener('click', function(e){ if(e.target === searchOverlay) closeSearch(); });
+  if(searchInput) searchInput.addEventListener('input', function(){ renderResults(searchInput.value); });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !searchOverlay.classList.contains('hidden')) closeSearch();
+    if(e.key === '/' && searchOverlay.classList.contains('hidden')){
+      var activeTag = document.activeElement && document.activeElement.tagName;
+      if(activeTag !== 'INPUT' && activeTag !== 'TEXTAREA'){ e.preventDefault(); openSearch(); }
+    }
+  });
+  if(searchResultsEl){
+    searchResultsEl.addEventListener('click', function(e){
+      var btn = e.target.closest('.search-result');
+      if(!btn) return;
+      var idx = parseInt(btn.getAttribute('data-index'),10);
+      var results = searchResultsEl.__results || [];
+      if(results[idx]) jumpTo(results[idx]);
+    });
+  }
+})();
+</script>
+
+</body>
+</html>

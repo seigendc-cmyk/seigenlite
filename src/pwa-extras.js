@@ -111,8 +111,14 @@
 
   // Reload only fires once the new worker actually takes control — i.e.
   // only after the shop staff tapped Reload above, never on its own.
+  // A page that opened with no controller is the very first visit: sw.js's
+  // activate calls clients.claim(), which fires controllerchange as soon as
+  // precaching finishes. That's not an update, and reloading there threw a
+  // brand-new shop back to step 1 of Setup with everything they'd typed gone.
+  const hadController = !!navigator.serviceWorker.controller;
   let reloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) return;
     if (reloading) return;
     reloading = true;
     window.location.reload();

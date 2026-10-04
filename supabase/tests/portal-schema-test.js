@@ -14,12 +14,24 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const MIG = fs.readFileSync(`${ROOT}/migrations/20260925150000_publish_portal_staff_tokens.sql`, 'utf8');
+const MIG_RPN = fs.readFileSync(`${ROOT}/migrations/20260926160000_vendor_tokens_rpn_and_payment.sql`, 'utf8');
 const mode = process.argv[2] || 'pglite';
 
+// cl_rpn as it is in the live project (only the columns that matter here).
 const PGLITE_STUB = `
 create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
 grant usage on schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+create table public.cl_rpn (id uuid primary key default gen_random_uuid(), full_name text not null, active boolean not null default true, created_at timestamptz not null default now());
+insert into public.cl_rpn (id, full_name) values ('464a661e-7c51-4b1b-bf4b-9ba56214d031', 'Test RPN');
+`;
+// Tokens recorded before the payment rule, as in the live project: one
+// without an amount (the rule must leave it alone and still let it be voided).
+const PGLITE_LEGACY = `
+insert into public.portal_staff (id, username, display_name, role, password_hash)
+  values ('00000000-0000-4000-8000-00000000000a', 'legacy-admin-zz', 'Legacy', 'admin', 'scrypt$1$1$1$a$b');
+insert into public.vendor_tokens (install_id, starts_on, days, recorded_by)
+  values ('TEST-LEGACY-ZZ', '2026-09-01', 30, '00000000-0000-4000-8000-00000000000a');
 `;
 
 async function connect() {
@@ -34,6 +46,8 @@ async function connect() {
   const db = new PGlite();
   await db.exec(PGLITE_STUB);
   await db.exec(MIG);
+  await db.exec(PGLITE_LEGACY);
+  await db.exec(MIG_RPN);
   return { q: async (sql, p) => (await db.query(sql, p)).rows, multi: sql => db.exec(sql), end: () => db.close() };
 }
 
@@ -75,13 +89,36 @@ function ok(name, cond, extra) {
     // As text: drivers turn a date into a local-midnight Date object (PostgREST, which the portal uses, sends the text).
     ok('ends_on is the last day covered: 30 days from 1 Oct ends 30 Oct', tok.ends_on_text === '2026-10-30', tok.ends_on_text);
     await expectErr('ends_on can\'t be written', `update public.vendor_tokens set ends_on = '2027-01-01' where id = '${tok.id}'`, /generated|ends_on/);
-    await expectErr('days must be 1..366', `insert into public.vendor_tokens (install_id, starts_on, days, recorded_by) values ('TEST-ZZ','2026-10-01',0,'${admin.id}')`, /vendor_tokens_days_check/);
-    await expectErr('a token needs who recorded it', `insert into public.vendor_tokens (install_id, starts_on, days) values ('TEST-ZZ','2026-10-01',30)`, /recorded_by/);
-    await expectErr('recorded_by must be a staff member', `insert into public.vendor_tokens (install_id, starts_on, days, recorded_by) values ('TEST-ZZ','2026-10-01',30,gen_random_uuid())`, /foreign key/);
-    await expectErr('currency is a 3-letter code', `insert into public.vendor_tokens (install_id, starts_on, days, currency, recorded_by) values ('TEST-ZZ','2026-10-01',30,'usd','${admin.id}')`, /vendor_tokens_currency_check/);
+    await expectErr('days must be 1..366', `insert into public.vendor_tokens (install_id, starts_on, days, recorded_by, amount, currency, payment_method) values ('TEST-ZZ','2026-10-01',0,'${admin.id}',10,'USD','Cash')`, /vendor_tokens_days_check/);
+    await expectErr('a token needs who recorded it', `insert into public.vendor_tokens (install_id, starts_on, days, amount, currency, payment_method) values ('TEST-ZZ','2026-10-01',30,10,'USD','Cash')`, /recorded_by/);
+    await expectErr('recorded_by must be a staff member', `insert into public.vendor_tokens (install_id, starts_on, days, recorded_by, amount, currency, payment_method) values ('TEST-ZZ','2026-10-01',30,gen_random_uuid(),10,'USD','Cash')`, /foreign key/);
+    await expectErr('currency is a 3-letter code', `insert into public.vendor_tokens (install_id, starts_on, days, currency, recorded_by, amount, payment_method) values ('TEST-ZZ','2026-10-01',30,'usd','${admin.id}',10,'Cash')`, /3-letter/);
     await expectErr('voiding needs who and why', `update public.vendor_tokens set voided_at = now() where id = '${tok.id}'`, /vendor_tokens_void_consistent/);
     const { e: voidErr } = await guarded(() => db.q(`update public.vendor_tokens set voided_at = now(), voided_by = $1, void_reason = 'entered twice' where id = $2`, [admin.id, tok.id]));
     ok('a token can be voided with who and why', !voidErr, voidErr && voidErr.message);
+
+    // ---- RPN on the token, payment required on new tokens (20260926160000) ----
+    const RPN = (await db.q(`select id from public.cl_rpn order by created_at nulls last limit 1`))[0].id;
+    const ins = (cols, vals) => `insert into public.vendor_tokens (install_id, starts_on, days, recorded_by${cols}) values ('TEST-RPN-ZZ', '2026-10-01', 30, '${admin.id}'${vals})`;
+    await expectErr('a new token without an amount is refused', ins(', currency, payment_method', `, 'USD', 'Cash'`), /amount paid/);
+    await expectErr('an amount of 0 is refused', ins(', amount, currency, payment_method', `, 0, 'USD', 'Cash'`), /amount paid/);
+    await expectErr('a new token without a currency is refused', ins(', amount, payment_method', `, 10, 'Cash'`), /currency/);
+    await expectErr('a new token without a payment method is refused', ins(', amount, currency', `, 10, 'USD'`), /payment method/);
+    await expectErr('a blank payment method is refused', ins(', amount, currency, payment_method', `, 10, 'USD', '   '`), /payment method/);
+    await expectErr('rpn_id must be a real cl_rpn row', ins(', amount, currency, payment_method, rpn_id', `, 10, 'USD', 'Cash', gen_random_uuid()`), /vendor_tokens_rpn_id_fkey/);
+    const [paid] = await db.q(ins(', amount, currency, payment_method, rpn_id', `, 10, 'USD', 'EcoCash', '${RPN}'`) + ' returning rpn_id, reference');
+    ok('a paid token with an RPN and no reference is accepted', paid.rpn_id === RPN && paid.reference === null);
+    const [noRpn] = await db.q(ins(', amount, currency, payment_method', `, 5, 'USD', 'Cash'`) + ' returning rpn_id');
+    ok('"No RPN" (rpn_id null) is allowed', noRpn.rpn_id === null);
+    const legacy = (await db.q(`select id from public.vendor_tokens where amount is null and voided_at is null order by recorded_at limit 1`))[0];
+    ok('tokens recorded before the rule, without an amount, are still there', !!legacy);
+    if (legacy) {
+      const { e } = await guarded(() => db.q(`update public.vendor_tokens set voided_at = now(), voided_by = $1, void_reason = 'schema test' where id = $2`, [admin.id, legacy.id]));
+      ok('...and can still be voided (the rule is for new records only)', !e, e && e.message);
+    }
+    const trg = await db.q(`select tgname, tgtype from pg_trigger where tgrelid = 'public.vendor_tokens'::regclass and not tgisinternal`);
+    ok('the payment rule runs on insert only', trg.length === 1 && trg[0].tgname === 'vendor_tokens_require_payment' && (trg[0].tgtype & 4) === 4 && (trg[0].tgtype & 16) === 0, JSON.stringify(trg));
+    if (mode === 'pglite') await expectErr('an RPN that has tokens can\'t be deleted', `delete from public.cl_rpn where id = '${RPN}'`, /vendor_tokens_rpn_id_fkey/);
 
     // ---- access ----
     for (const role of ['anon', 'authenticated']) {

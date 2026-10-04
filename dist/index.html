@@ -214,6 +214,19 @@
   .modal-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
   .modal-body{padding:14px;}
 
+  /* sync reminder toast (sync.js) — slides in over the left of the header */
+  .sync-toast{
+    position:fixed;top:14px;left:10px;z-index:60;max-width:min(280px,calc(100vw - 80px));
+    display:flex;align-items:center;gap:7px;padding:7px 11px;
+    background:var(--ink);color:#fff;border-radius:8px;font-size:12px;line-height:1.3;
+    box-shadow:0 4px 12px rgba(0,0,0,.2);
+    transform:translateX(calc(-100% - 16px));opacity:0;
+    transition:transform .22s ease-out,opacity .22s ease-out;pointer-events:none;
+  }
+  .sync-toast.show{transform:none;opacity:1;pointer-events:auto;}
+  .sync-toast-dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--orange);}
+  @media (prefers-reduced-motion: reduce){ .sync-toast{transition:opacity .15s;} }
+
   .wa-link{display:inline-flex;align-items:center;gap:5px;color:var(--success);font-weight:700;font-size:12.5px;background:var(--success-bg);padding:4px 9px;border-radius:20px;border:none;}
   .rep-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .rep-title{color:var(--orange);font-weight:800;font-size:15px;margin:0;}
@@ -238,9 +251,11 @@
 
   #printArea{display:none;}
   @media print{
-    body *{visibility:hidden;}
-    #printArea, #printArea *{visibility:visible;}
-    #printArea{display:block;position:absolute;top:0;left:0;width:100%;}
+    /* display:none, not visibility:hidden — a hidden app screen still takes
+       up its full height, and every page of that height printed blank after
+       the report. */
+    body > *:not(#printArea){display:none !important;}
+    #printArea{display:block;width:100%;}
     .receipt{font-family:monospace;font-size:12px;padding:4mm;}
     .receipt .line{display:flex;justify-content:space-between;}
     .receipt hr{border:none;border-top:1px dashed #000;margin:4px 0;}
@@ -653,6 +668,10 @@ const APP_VERSION = "1.09.01";
       "ALTER TABLE sales ADD COLUMN voucher_amount REAL DEFAULT 0",
       "ALTER TABLE sales ADD COLUMN payment_ref TEXT DEFAULT ''",
       "ALTER TABLE sales ADD COLUMN user TEXT DEFAULT ''",
+      // Document Reference No.: optional free text the shop types at the
+      // cart (a PO / delivery note / invoice number the sale relates to).
+      // Never required — '' for every existing row and any sale without one.
+      "ALTER TABLE sales ADD COLUMN doc_ref TEXT DEFAULT ''",
       "ALTER TABLE sale_items ADD COLUMN cost REAL DEFAULT 0",
       // Line-Item Discount: additive column on the existing sale_items row,
       // not a parallel table (same rule sale_payments/tendered_amount
@@ -1333,6 +1352,16 @@ const APP_VERSION = "1.09.01";
   // sale_payments rows (see below): a plain sale just gets a single row
   // mirroring its one method/total, so EOD/credit/report queries never have
   // to special-case "was this split or not".
+  // Optional Document Reference No. (PO / delivery note / invoice number)
+  // typed at the cart. Never required, so there's no rejecting alert — just
+  // basic sanitising: control characters dropped (they'd garble an ESC/POS
+  // printout), runs of whitespace collapsed, and capped at DOC_REF_MAX so a
+  // stray paste can't blow out a receipt line. Blank stays blank.
+  const DOC_REF_MAX = 40;
+  function cleanDocRef(s){
+    return String(s||"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0, DOC_REF_MAX).trim();
+  }
+
   function completeSale(method, payments){
     if(cart.length===0) return;
     // Shift/EOD control (Part 3): the one choke point every payment method,
@@ -1414,6 +1443,9 @@ const APP_VERSION = "1.09.01";
     const paymentRef = refEl? refEl.value.trim() : "";
     if(lines.some(l=>l.method==="EcoCash"||l.method==="Bank") && !paymentRef){ alert("Enter the payment reference number"); return; }
 
+    const docRefEl = document.getElementById("docRef");
+    const docRef = cleanDocRef(docRefEl? docRefEl.value : "");
+
     const customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
     const voucherToRedeem = appliedVoucher;
     const ts = new Date().toISOString();
@@ -1424,9 +1456,9 @@ const APP_VERSION = "1.09.01";
     // was removed (Remove Cart Markup Calculation task); the columns stay
     // in the schema only so historical rows keep whatever was charged
     // before this change (see cartTotals above).
-    run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount]);
+    run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef]);
     const saleId = one("SELECT last_insert_rowid() as id").id;
     lines.forEach(l=>{
       run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
@@ -1453,8 +1485,8 @@ const APP_VERSION = "1.09.01";
     logAudit("Sale", itemsSummary, `Receipt #${saleId} · ${currency}${total.toFixed(2)} · ${methodLabel}`);
     maybeIssueFrequentCustomerVoucher(customerId, branch, ts);
     persist();
-    window._lastReceipt = {saleId,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems};
-    printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines);
+    window._lastReceipt = {saleId,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef};
+    printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef);
     cart = []; drawerOpen=false; appliedVoucher=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
     render();
   }
@@ -1501,9 +1533,9 @@ const APP_VERSION = "1.09.01";
     // the only thing this ever calls.
     const drawerBtn = document.getElementById("openDrawerBtn");
     if(drawerBtn) drawerBtn.onclick=()=> openCashDrawer();
-    if(rp) rp.onclick=()=>{ const r=window._lastReceipt; printReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments); };
-    if(up) up.onclick=()=>{ const r=window._lastReceipt; usbPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments); };
-    if(bp) bp.onclick=()=>{ const r=window._lastReceipt; btPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments); };
+    if(rp) rp.onclick=()=>{ const r=window._lastReceipt; printReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
+    if(up) up.onclick=()=>{ const r=window._lastReceipt; usbPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
+    if(bp) bp.onclick=()=>{ const r=window._lastReceipt; btPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
     if(ivb) ivb.onclick=()=>{ printCreditInvoice(window._lastReceipt.saleId); };
     if(wr) wr.onclick=()=>{
       const r = window._lastReceipt;
@@ -1514,6 +1546,7 @@ const APP_VERSION = "1.09.01";
       totalLines.push(padLine("TOTAL", `${currency}${r.total.toFixed(2)}`));
       if(r.payments && r.payments.length>1) r.payments.forEach(p=> totalLines.push(padLine(`Payment: ${p.method}`, `${currency}${(parseFloat(p.amount)||0).toFixed(2)}`)));
       else totalLines.push(`Payment: ${r.method}`);
+      if(r.docRef) totalLines.push(`Doc Ref: ${r.docRef}`);
       shareWhatsApp(receiptText(`${escapeHtml(getSetting("shop_name",""))} — Receipt #${r.saleId}`, itemLines, totalLines));
     };
   }
@@ -1867,7 +1900,9 @@ const APP_VERSION = "1.09.01";
   }
   // Byte-building is shared between USB and Bluetooth — only the transport
   // call at the end differs, so each format is built once here.
-  function buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments){
+  // docRef: the sale's optional Document Reference No. (sales.doc_ref) —
+  // printed under the receipt number only when non-blank.
+  function buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef){
     const w = escposColWidth();
     const shop = getSetting("shop_name","My Shop");
     const branch = getSetting("branch_name","");
@@ -1877,6 +1912,7 @@ const APP_VERSION = "1.09.01";
     parts.push(escposAlign("left"), escposLine(w));
     parts.push(escposTextBytes(new Date(ts).toLocaleString()+"\n"));
     parts.push(escposTextBytes("Receipt #"+saleId+"\n"));
+    if(docRef) parts.push(escposTextBytes("Doc Ref: "+docRef+"\n"));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
     parts.push(escposLine(w));
@@ -1891,11 +1927,11 @@ const APP_VERSION = "1.09.01";
     parts.push(escposCut());
     return concatBytes(parts);
   }
-  async function usbPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments){
-    await usbPrintBytes(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments));
+  async function usbPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef){
+    await usbPrintBytes(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef));
   }
-  async function btPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments){
-    await btPrintBytes(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments));
+  async function btPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef){
+    await btPrintBytes(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef));
   }
 
   function buildEODBytes(summary){
@@ -1970,8 +2006,8 @@ const APP_VERSION = "1.09.01";
     window.print();
   }
 
-  async function printReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments){
-    const sentDirect = await sendDirect(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments), "Receipt #"+saleId);
+  async function printReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef){
+    const sentDirect = await sendDirect(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef), "Receipt #"+saleId);
     if(sentDirect) return;
     const shop = getSetting("shop_name","My Shop");
     const branch = getSetting("branch_name","");
@@ -1986,6 +2022,7 @@ const APP_VERSION = "1.09.01";
         <hr>
         <div>${new Date(ts).toLocaleString()}</div>
         <div>Receipt #${saleId}</div>
+        ${docRef?`<div>Doc Ref: ${escapeHtml(docRef)}</div>`:""}
         <hr>
         ${lines}
         <hr>
@@ -2100,6 +2137,7 @@ const APP_VERSION = "1.09.01";
     parts.push(escposAlign("left"), escposLine(w));
     parts.push(escposTextBytes(new Date(sale.ts).toLocaleString()+"\n"));
     parts.push(escposTextBytes("Receipt #"+sale.id+"\n"));
+    if(sale.doc_ref) parts.push(escposTextBytes("Doc Ref: "+sale.doc_ref+"\n"));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
     parts.push(escposLine(w));
@@ -2135,6 +2173,7 @@ const APP_VERSION = "1.09.01";
         <hr>
         <div>${new Date(sale.ts).toLocaleString()}</div>
         <div>Receipt #${sale.id}</div>
+        ${sale.doc_ref?`<div>Doc Ref: ${escapeHtml(sale.doc_ref)}</div>`:""}
         <hr>
         ${lines}
         <hr>
@@ -2166,7 +2205,7 @@ const APP_VERSION = "1.09.01";
         <h2>${escapeHtml(shop)}</h2>
         <div class="sub">${escapeHtml(branch)}${contact? ` · ${escapeHtml(contact)}` : ""}</div>
         <h3 class="section">INVOICE</h3>
-        <p>Invoice #: ${sale.id}<br>Date: ${new Date(sale.ts).toLocaleString()}</p>
+        <p>Invoice #: ${sale.id}<br>Date: ${new Date(sale.ts).toLocaleString()}${sale.doc_ref? `<br>Doc Ref: ${escapeHtml(sale.doc_ref)}` : ""}</p>
         <p><b>Bill To:</b><br>${cust? escapeHtml(cust.name) : "—"}${cust && cust.phone? `<br>${escapeHtml(cust.phone)}` : ""}</p>
         <table>
           <tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr>
@@ -2207,6 +2246,7 @@ const APP_VERSION = "1.09.01";
     const wrap = openModal(`Receipt #${sale.id}`, `
       <div class="subline"><span>Date/Time</span><span>${escapeHtml(new Date(sale.ts).toLocaleString())}</span></div>
       <div class="subline"><span>Branch</span><span>${escapeHtml(sale.branch||"")}</span></div>
+      ${sale.doc_ref? `<div class="subline"><span>Doc Ref</span><span>${escapeHtml(sale.doc_ref)}</span></div>` : ""}
       ${methodHtml}
       ${cust? `<div class="subline"><span>Customer</span><span>${escapeHtml(cust.name)}</span></div>` : ""}
       <div class="hr"></div>
@@ -2661,6 +2701,8 @@ const APP_VERSION = "1.09.01";
         </div>
         <label>Payment reference (EcoCash/Bank)</label>
         <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||''}">
+        <label>Document Reference No. (optional)</label>
+        <input class="field" id="docRef" maxlength="40" placeholder="e.g. PO, delivery note or invoice no." value="${escapeHtml(window._docRefVal||'')}">
         <label>Customer name (optional, required for Credit)</label>
         <input class="field" id="custName" placeholder="e.g. Tendai Moyo" value="${window._custNameVal||''}">
         <label>Customer phone (optional)</label>
@@ -2690,12 +2732,13 @@ const APP_VERSION = "1.09.01";
     document.getElementById("discountReason").oninput=(e)=>{ window._discountReasonVal=e.target.value; };
     document.getElementById("discountApprovedBy").oninput=(e)=>{ window._discountApprovedVal=e.target.value; };
     document.getElementById("paymentRef").oninput=(e)=>{ window._paymentRefVal=e.target.value; };
+    document.getElementById("docRef").oninput=(e)=>{ window._docRefVal=e.target.value; };
     document.getElementById("custName").oninput=(e)=>{ window._custNameVal=e.target.value; renderVoucherBox(); };
     document.getElementById("custPhone").oninput=(e)=>{ window._custPhoneVal=e.target.value; };
     renderVoucherBox();
     wireFxPreview(drawer, renderDrawer);
     const resetTemp=()=>{ window._custNameVal=""; window._custPhoneVal="";
-      window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; };
+      window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; window._docRefVal=""; };
     if(splitTender){
       wireSplitTenderPanel(drawer, renderDrawer, (payments)=>{ completeSale(null, payments); resetTemp(); });
     } else {
@@ -8124,7 +8167,7 @@ const APP_VERSION = "1.09.01";
       const b = branchFilter("salesBranch");
       const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
-      const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
+      const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
       // Payment-method breakdown (item 6): sourced from sale_payments via
       // paymentMethodTotals (pos.js) so a split sale's Cash/EcoCash/Credit
@@ -8146,7 +8189,7 @@ const APP_VERSION = "1.09.01";
         ${currencyRows.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
         </table>` : "";
       printReport("Sales Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
-        ["Date/Time","Branch","Method","Subtotal","Discount","Total"], rows,
+        ["Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Total"], rows,
         `<p><b>Grand Total: ${currency}${grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
     };
     document.getElementById("waSales").onclick=()=>{
@@ -9023,9 +9066,9 @@ const APP_VERSION = "1.09.01";
       fetch(b,fromTs,toTs){
         const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                         : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
-        const rows = sales.map(s=>[`<button type="button" class="btn btn-outline btn-sm" data-view-sale="${s.id}" style="padding:4px 10px;font-size:12px">${s.id}</button>`, new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+(s.markup||0).toFixed(2), currency+s.total.toFixed(2)]);
+        const rows = sales.map(s=>[`<button type="button" class="btn btn-outline btn-sm" data-view-sale="${s.id}" style="padding:4px 10px;font-size:12px">${s.id}</button>`, new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+(s.markup||0).toFixed(2), currency+s.total.toFixed(2)]);
         const grand = sales.reduce((s,r)=>s+r.total,0);
-        return { headers:["Receipt#","Date/Time","Branch","Method","Subtotal","Discount","Markup","Total"], rows, footer:`Grand Total: ${currency}${grand.toFixed(2)}` };
+        return { headers:["Receipt#","Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Markup","Total"], rows, footer:`Grand Total: ${currency}${grand.toFixed(2)}` };
       }
     },
     { id:"inventory", label:"Inventory Report", hasDate:false,
@@ -9826,9 +9869,9 @@ const APP_VERSION = "1.09.01";
       const dup = one("SELECT id FROM sales WHERE branch=? AND ts=?",[s.branch,s.ts]);
       if(dup){ saleMap[s.id]=dup.id; return; }
       const newCustId = s.customer_id? (custMap[s.customer_id]||null) : null;
-      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0]);
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||""]);
       saleMap[s.id]=one("SELECT last_insert_rowid() as id").id;
       newSaleImpIds.add(s.id);
     });
@@ -10199,7 +10242,10 @@ const APP_VERSION = "1.09.01";
     if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", syncTick);
   }
 
-  // ---- Sync Reminder Modal (generic, reusable) ----
+  // ---- Sync Reminder (generic, reusable) ----
+  // Shown as a small toast that slides in from the left of the header, not a
+  // modal: it goes away on its own after SYNC_TOAST_MS, or at once on any
+  // click outside it. When and why it shows is unchanged (see below).
   // Not RPN/support-specific: it only ever reads pendingSyncCount()/
   // pendingSyncRows() — the exact same queries the Cloud sync (beta)
   // Settings card already uses — so any future record type (RPN linkage,
@@ -10216,13 +10262,25 @@ const APP_VERSION = "1.09.01";
     if(typeof drawerOpen!=="undefined" && drawerOpen) return false;         // an in-progress sale (cart open)
     return (!isOnline() || !supabaseConfigured()) && pendingSyncCount()>0;
   }
-  // User-dismiss path (✕ / outside click, via openModal's onClose) and the
-  // programmatic one tests use — both just mark it hidden. Nothing here
-  // touches sync_queue, so the very next tick's syncReminderShouldShow()
-  // decides fresh: still unsynced -> it reappears, exactly as specified.
+  const SYNC_TOAST_MS = 4000;
+  let _syncToastTimer = null;
+  function onSyncToastOutsideClick(e){
+    if(_syncReminderEl && !_syncReminderEl.contains(e.target)) dismissSyncReminder();
+  }
+  // User-dismiss path (timeout / outside click) and the programmatic one
+  // tests use — both just mark it hidden. Nothing here touches sync_queue,
+  // so the very next tick's syncReminderShouldShow() decides fresh: still
+  // unsynced -> it reappears, exactly as specified.
   function dismissSyncReminder(){
     _syncReminderVisible = false;
-    if(_syncReminderEl){ try{ _syncReminderEl.remove(); }catch(e){} _syncReminderEl=null; }
+    if(_syncToastTimer){ clearTimeout(_syncToastTimer); _syncToastTimer = null; }
+    if(typeof document!=="undefined" && document.removeEventListener) document.removeEventListener("pointerdown", onSyncToastOutsideClick, true);
+    const el = _syncReminderEl;
+    _syncReminderEl = null;
+    if(el){
+      el.classList.remove("show");               // slide back out, then go
+      setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 250);
+    }
   }
   function checkSyncReminderModal(){
     if(!syncReminderShouldShow()){ if(_syncReminderVisible) dismissSyncReminder(); return; }
@@ -10231,15 +10289,20 @@ const APP_VERSION = "1.09.01";
     // (checkout/discount flow, a product editor, ...) — try again next tick.
     if(typeof document!=="undefined" && document.querySelector && document.querySelector(".modalOverlay")) return;
     _syncReminderVisible = true;
-    if(typeof document==="undefined" || typeof document.createElement!=="function" || typeof openModal!=="function") return; // headless/test context — state above still exercised
-    const pending = pendingSyncRows();
-    const byType = {};
-    pending.forEach(r=>{ byType[r.record_type]=(byType[r.record_type]||0)+1; });
-    const lines = Object.keys(byType).map(k=>`<li>${escapeHtml(k)}: ${byType[k]}</li>`).join("");
-    _syncReminderEl = openModal("Waiting to sync", `
-      <p class="muted">You're offline. ${pending.length} record(s) are saved on this device and will sync automatically once you're back online.</p>
-      <ul style="margin:8px 0 0 18px;padding:0">${lines}</ul>
-    `, dismissSyncReminder);
+    if(typeof document==="undefined" || typeof document.createElement!=="function" || !document.body) return; // headless/test context — state above still exercised
+    const n = pendingSyncCount();
+    const el = document.createElement("div");
+    el.className = "sync-toast";
+    el.setAttribute("role", "status");
+    el.innerHTML = `<span class="sync-toast-dot"></span><span>Offline · ${n} record${n===1?"":"s"} will sync when you reconnect</span>`;
+    document.body.appendChild(el);        // outside #app, so render() never wipes it mid-show
+    _syncReminderEl = el;
+    void el.offsetWidth;                  // commit the off-screen position so the slide-in animates
+    el.classList.add("show");
+    _syncToastTimer = setTimeout(dismissSyncReminder, SYNC_TOAST_MS);
+    // Capture phase: an outside tap closes it even when that tap's own
+    // handler re-renders the screen underneath.
+    document.addEventListener("pointerdown", onSyncToastOutsideClick, true);
   }
 
   // ---- Settings card (Cloud sync) ----

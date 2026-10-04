@@ -23,7 +23,47 @@ node build.js         # dist/       — single-file build
 node build.js --pwa   # dist-pwa/   — installable PWA build
 node build.js --market  # dist-market/market.html — Marketing tab add-on
 node build.js --itred   # dist-itred/index.html  — public iTred Market Place site
+node build.js --rpn     # dist-rpn/              — RPN Field Guide (separate app for RPN agents)
 ```
+
+`dist-rpn/` is the RPN Field Guide: a separate installable app for RPN
+agents (coach, field notes, receipts), not a package of the shop app. Its
+source is `src/fieldguide/` plus `shell/rpn-head.html`; the build inlines
+the app's `styles.css` and the layer's own CSS and script, the way
+`--market` does, and is not obfuscated. Host it on its own subdomain: it
+has its own service worker (`sw.js`, scope = its own origin, cache
+`seigen-rpn-v1`), `manifest.webmanifest` and icons. The build stamps
+`sw.js` with a hash of the shell, so every change shows installed copies
+the "new version" banner.
+
+Its Coach tab teaches the RPN Field Manual. The content is
+`src/fieldguide/content/manual.json`, converted from the manual's HTML
+(kept in `content/source/`) by `node tools/fieldguide-content/convert-manual.js`,
+with no words changed. Each quiz explanation is a pointer into the manual,
+kept in `content/question-sources.json`, which the converter checks. The
+coach's own lines are plain data in `content/coach-lines.json`. Progress
+is stored per learner in the phone's IndexedDB.
+
+Its Field tab takes onboarding notes. Notes are saved on the phone first,
+then sent to the `rpn_onboarding_notes` table once the RPN is online and
+signed in. Sign-in uses the Console's `cl_login`; the app is built with
+the shop app's Supabase URL and anon key, read from
+`src/devicecheckin.js`. Retries use the same backoff as `src/sync.js`.
+The table and the staff functions are in
+`supabase/migrations/20261003120000_rpn_onboarding_notes.sql` (applied
+2026-10-03), with the rollback in `supabase/rollbacks/`. Tests:
+- `supabase/tests/onboarding-notes-test.js`: the migration and its RLS,
+  in PGlite.
+- `test/fieldguide-field.test.js`: the form rules and the outbox, under
+  Node.
+- `test/fieldguide-onboarding-e2e.test.js`: the Field tab in a browser,
+  against a fake Console.
+
+More tests:
+- `test/fieldguide-engine.test.js`: content against the source, and the
+  coach's rules, under Node.
+- `test/fieldguide-coach-e2e.test.js`: the Coach tab in a browser.
+- `test/rpn-shell-e2e.test.js`: the shell (install, offline, update, layout).
 
 `dist-itred/` is the public iTred Market Place website for customers, a
 separate site from the shop app. Its source is `src/itred/index.html`,

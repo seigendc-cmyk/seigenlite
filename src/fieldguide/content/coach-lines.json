@@ -1,0 +1,40 @@
+{
+ "_about": "What the coach says around the manual's content. Plain data: edit freely. These lines must never state a fact about the work itself; every fact the coach teaches is quoted from manual.json. Each key is a list; the coach takes them in turn. {title}, {n}, {score}, {total}, {topics}, {lesson} are filled in by the app.",
+ "open": [
+  "Let's work through {title}. I'll show you one idea at a time, then ask you about it.",
+  "This one is {title}. Short pieces, with a question after each.",
+  "{title}. Read each part the way you'd explain it to a vendor."
+ ],
+ "idea": ["Next idea.", "Here's the next part.", "Have a look at this."],
+ "check": ["Quick check.", "Your turn.", "What do you think?"],
+ "right": ["That's it.", "Correct.", "Exactly right.", "Yes, well done."],
+ "wrong": ["Not quite.", "Not this time.", "Close, but no."],
+ "streak": ["{n} in a row. You know this part.", "That's {n} right in a row."],
+ "stuck": [
+  "This one keeps tripping you up. Tap “I don't understand” and I'll show it another way.",
+  "Let's slow down on this one. “I don't understand” gives you another way into it."
+ ],
+ "simplerTip": ["Here's another way the manual puts it:", "The manual also says:"],
+ "simplerLine": ["In one line, the manual says:"],
+ "simplerNearest": ["That's all the manual says on this. The closest other part is {lesson}."],
+ "simplerNone": ["That's all the manual says on this. Try reading the whole chapter."],
+ "quizStart": ["Now a short quiz on the whole chapter: {n} questions."],
+ "quizPerfect": ["{score} out of {total}. Every one right."],
+ "quizGood": ["{score} out of {total}. Good work."],
+ "quizLow": ["{score} out of {total}. Worth another look."],
+ "nextReview": ["You missed questions on {topics}. I'd review those next."],
+ "nextLesson": ["Next up: {lesson}."],
+ "nextAllDone": ["That's every lesson in the manual. Keep it fresh with the daily practice."],
+ "reviewStart": ["These are the ones you've missed before. The choices are in a different order this time."],
+ "reviewEmpty": ["Nothing to review. You haven't missed anything yet."],
+ "reviewDone": ["{score} out of {total} this time."],
+ "dailyStart": ["{n} quick questions for today."],
+ "dailyEmpty": ["Start a lesson first, then there's something to practise."],
+ "dailyNothingDue": ["Nothing is due today. Everything you've answered is fresh."],
+ "dailyDone": ["Done for today: {score} out of {total}. See you tomorrow."],
+ "practiceStart": ["{n} questions on this. Take your time."],
+ "practiceDone": ["{score} out of {total} on this one."],
+ "searchLead": ["Here's what the manual says, in {lesson}:", "The manual covers this in {lesson}:"],
+ "searchNoMatch": ["The manual doesn't seem to cover that. These lessons are the closest:"],
+ "searchNoWords": ["The manual doesn't seem to cover that, and none of those words are in it. Try other words, or start with one of these lessons:"]
+}

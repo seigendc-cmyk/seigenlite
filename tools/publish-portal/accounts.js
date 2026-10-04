@@ -89,5 +89,59 @@ function tokenBlockMessage(status){
   return "No active token — none has been recorded for this vendor. Record one to continue.";
 }
 
-module.exports = { hashPassword, verifyPassword, DUMMY_HASH, passwordProblem, normalizeUsername, usernameProblem, ROLES,
+// ---------------- reports ----------------
+// Money collected from token purchases, grouped by the RPN recorded on each
+// token, then by period (month "YYYY-MM" or year "YYYY" of the day it was
+// recorded, in Harare) and currency. Currencies are never added together.
+//   tokens: vendor_tokens rows; opts: { year, month (1-12), rpn ("all" |
+//   "none" | an RPN id), by ("month" | "year") }; rpnName(id) -> label.
+// Voided tokens don't count. A token with no amount (only ones recorded
+// before payment was required) counts as 0 and is counted in noAmount.
+// Amounts are summed in cents.
+function reportTotals(tokens, opts, rpnName){
+  opts = opts || {};
+  const by = opts.by === "year" ? "year" : "month";
+  const rpnFilter = opts.rpn || "all";
+  const year = opts.year ? String(opts.year) : "";
+  const month = opts.month ? String(opts.month).padStart(2, "0") : "";
+  const cents = (a)=> a == null ? 0 : Math.round(Number(a) * 100);
+  const groups = new Map(), grand = new Map();
+  let count = 0, noAmount = 0;
+  for(const t of tokens || []){
+    if(t.voided_at) continue;
+    const day = todayLocal(new Date(t.recorded_at));
+    if(year && day.slice(0, 4) !== year) continue;
+    if(month && day.slice(5, 7) !== month) continue;
+    const rpn = t.rpn_id || null;
+    if(rpnFilter === "none" ? rpn !== null : rpnFilter !== "all" && rpn !== rpnFilter) continue;
+    const period = by === "year" ? day.slice(0, 4) : day.slice(0, 7);
+    const currency = t.currency || "";
+    const key = [rpn || "", period, currency].join("|");
+    if(!groups.has(key)) groups.set(key, { rpnId: rpn, rpnName: rpn ? rpnName(rpn) : "No RPN", period, currency, count: 0, noAmount: 0, cents: 0 });
+    const g = groups.get(key);
+    g.count++; count++;
+    if(t.amount == null){ g.noAmount++; noAmount++; }
+    g.cents += cents(t.amount);
+    if(currency) grand.set(currency, (grand.get(currency) || 0) + cents(t.amount));
+  }
+  const rows = [...groups.values()].sort((a, b)=>
+    (a.rpnId ? 0 : 1) - (b.rpnId ? 0 : 1) || a.rpnName.localeCompare(b.rpnName) || a.period.localeCompare(b.period) || a.currency.localeCompare(b.currency));
+  // Subtotal per RPN per currency.
+  const byRpn = new Map();
+  for(const r of rows){
+    const k = r.rpnId || "";
+    if(!byRpn.has(k)) byRpn.set(k, { rpnId: r.rpnId, rpnName: r.rpnName, count: 0, noAmount: 0, totals: new Map() });
+    const s = byRpn.get(k); s.count += r.count; s.noAmount += r.noAmount;
+    if(r.currency) s.totals.set(r.currency, (s.totals.get(r.currency) || 0) + r.cents);
+  }
+  const money = (m)=> [...m.entries()].sort((a, b)=> a[0].localeCompare(b[0])).map(([currency, c])=> ({ currency, total: c / 100 }));
+  return {
+    by, filter: { year: year || null, month: month ? Number(month) : null, rpn: rpnFilter },
+    rows: rows.map(r => ({ rpnId: r.rpnId, rpnName: r.rpnName, period: r.period, currency: r.currency || null, count: r.count, noAmount: r.noAmount, total: r.cents / 100 })),
+    rpns: [...byRpn.values()].map(s => ({ rpnId: s.rpnId, rpnName: s.rpnName, count: s.count, noAmount: s.noAmount, totals: money(s.totals) })),
+    grand: { count, noAmount, totals: money(grand) },
+  };
+}
+
+module.exports = { reportTotals, hashPassword, verifyPassword, DUMMY_HASH, passwordProblem, normalizeUsername, usernameProblem, ROLES,
   MIN_PASSWORD, todayLocal, isDate, addDays, lastDay, tokenStatus, defaultStart, fmtDate, tokenBlockMessage, TIME_ZONE };

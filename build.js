@@ -25,6 +25,7 @@ const DIST_PWA = path.join(ROOT, "dist-pwa");
 const DIST_TAURI = path.join(ROOT, "dist-tauri");
 const DIST_MARKET = path.join(ROOT, "dist-market");
 const DIST_ITRED = path.join(ROOT, "dist-itred");
+const DIST_RPN = path.join(ROOT, "dist-rpn");
 
 // Applied to dist-pwa/ and dist-tauri/ only, as a final pass after each
 // target's own HTML is fully assembled — never to dist/ (the single-file
@@ -302,9 +303,90 @@ function buildItred() {
   console.log("Built dist-itred/index.html (" + html.length + " bytes) from src/itred/index.html.");
 }
 
-const mode = process.argv.includes("--itred") ? "itred" : process.argv.includes("--market") ? "market" : process.argv.includes("--tauri") ? "tauri" : process.argv.includes("--pwa") ? "pwa" : "single";
+// The RPN Field Guide — a separate installable app for RPN agents, not a
+// package of the shop app. Built the way buildMarket builds dist-market:
+// the app's styles.css plus the layer's own CSS inlined, then its own
+// script, inside its own small shell (shell/rpn-head.html). Its source
+// lives in src/fieldguide/. It is hosted on its own subdomain, so it has
+// its own service worker (scope = its own origin), manifest and icons, and
+// its own cache name (seigen-rpn-v1, inside sw-rpn.js). Not obfuscated.
+//
+// sw.js gets a BUILD_ID line on top: a hash of everything the worker
+// precaches. Any change to the app changes sw.js's bytes, so installed
+// copies notice the update and show their "new version" banner, with no
+// hand-bumped comment to forget.
+// One IIFE, in this order (app.js last: it boots). The content files are
+// declared ahead of the scripts as plain consts, so the app carries the
+// whole manual inside index.html and works offline from the first load.
+const RPN_SCRIPTS = [
+  "fieldguide/store.js", "fieldguide/coach-engine.js", "fieldguide/search.js",
+  "fieldguide/console-api.js", "fieldguide/outbox.js",
+  "fieldguide/coach-ui.js", "fieldguide/search-ui.js", "fieldguide/field-ui.js", "fieldguide/app.js",
+];
+const RPN_DATA = {
+  MANUAL: "fieldguide/content/manual.json",
+  COACH_LINES: "fieldguide/content/coach-lines.json",
+  SEARCH_WORDS: "fieldguide/content/synonyms.json",
+};
+const RPN_CSS = ["fieldguide/fieldguide.css"];
+// [published name, source under src/fieldguide/]
+const RPN_FILES = [
+  ["manifest.webmanifest", "manifest.webmanifest"],
+  ["icon.svg", "icons/icon.svg"],
+  ["icon-192.png", "icons/icon-192.png"],
+  ["icon-512.png", "icons/icon-512.png"],
+  ["icon-maskable-512.png", "icons/icon-maskable-512.png"],
+  ["apple-touch-icon.png", "icons/apple-touch-icon.png"],
+];
+function buildRpn() {
+  const crypto = require("crypto");
+  const RPN_SRC = path.join(SRC, "fieldguide");
+  const head = fs.readFileSync(path.join(SHELL, "rpn-head.html"), "utf8");
+  const css = [fs.readFileSync(path.join(SRC, "styles.css"), "utf8")]
+    .concat(RPN_CSS.map((name) => fs.readFileSync(path.join(SRC, name), "utf8")))
+    .join("\n");
+  // The Console's Supabase project: the same URL and publishable anon key
+  // the shop app uses for device check-in, read from src/devicecheckin.js
+  // so there is one copy of them. The anon key is public by design; what an
+  // RPN may do is decided by RLS on their cl_login token.
+  const checkin = fs.readFileSync(path.join(SRC, "devicecheckin.js"), "utf8");
+  const consoleUrl = checkin.match(/const DC_SUPABASE_URL = "([^"]+)";/);
+  const consoleKey = checkin.match(/const DC_ANON_KEY = "([^"]+)";/);
+  if (!consoleUrl || !consoleKey) throw new Error("build --rpn: DC_SUPABASE_URL / DC_ANON_KEY not found in src/devicecheckin.js");
+  // "<" escaped so no text in the data can ever close the <script> tag.
+  const data = "const CONSOLE_URL = " + JSON.stringify(consoleUrl[1]) + ";\nconst CONSOLE_ANON_KEY = " + JSON.stringify(consoleKey[1]) + ";\n" + Object.keys(RPN_DATA)
+    .map((name) => {
+      const value = JSON.parse(fs.readFileSync(path.join(SRC, RPN_DATA[name]), "utf8"));
+      return "const " + name + " = " + JSON.stringify(value).replace(/</g, "\\u003c") + ";\n";
+    })
+    .join("");
+  const js = "const APP_VERSION = " + JSON.stringify(readVersion()) + ";\n" +
+    "(function () {\n\"use strict\";\n" + data +
+    RPN_SCRIPTS.map((name) => fs.readFileSync(path.join(SRC, name), "utf8")).join("\n") +
+    "\n})();\n";
+  const html =
+    head +
+    "<style>\n" + css + "</style>\n" +
+    "</head>\n<body>\n<div id=\"fg\"></div>\n<script>\n" + js + "</script>\n</body>\n</html>\n";
+
+  fs.mkdirSync(DIST_RPN, { recursive: true });
+  fs.writeFileSync(path.join(DIST_RPN, "index.html"), html);
+  const hash = crypto.createHash("sha256").update(html);
+  for (const [out, from] of RPN_FILES) {
+    const bytes = fs.readFileSync(path.join(RPN_SRC, from));
+    hash.update(bytes);
+    fs.writeFileSync(path.join(DIST_RPN, out), bytes);
+  }
+  const buildId = readVersion() + "-" + hash.digest("hex").slice(0, 12);
+  const sw = "// build: " + buildId + "\n" + fs.readFileSync(path.join(RPN_SRC, "sw-rpn.js"), "utf8");
+  fs.writeFileSync(path.join(DIST_RPN, "sw.js"), sw);
+  console.log("Built dist-rpn/ (index.html " + html.length + " bytes, build " + buildId + ") from " + RPN_SCRIPTS.length + " src file(s).");
+}
+
+const mode = process.argv.includes("--rpn") ? "rpn" : process.argv.includes("--itred") ? "itred" : process.argv.includes("--market") ? "market" : process.argv.includes("--tauri") ? "tauri" : process.argv.includes("--pwa") ? "pwa" : "single";
 if (mode === "pwa") buildPWA();
 else if (mode === "tauri") buildTauri();
 else if (mode === "market") buildMarket();
 else if (mode === "itred") buildItred();
+else if (mode === "rpn") buildRpn();
 else buildSingleFile();

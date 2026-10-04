@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed background: the launcher crops this to its own shape. The
+       bubble sits well inside the 80% safe-zone circle (radius 205). -->
+  <rect width="512" height="512" fill="#E8590C"/>
+  <g transform="translate(256 256) scale(0.82) translate(-256 -258)">
+    <path d="M176 144h160a40 40 0 0 1 40 40v96a40 40 0 0 1-40 40H236l-60 52v-52a40 40 0 0 1-40-40v-96a40 40 0 0 1 40-40z" fill="#FFFFFF"/>
+    <path d="M200 232l40 40 76-80" fill="none" stroke="#241C15" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,9 +1,6 @@
-node_modules/
-src-tauri/target/
-lint-report/
-.backup/
-
-# Local secrets (Cloudflare / Supabase service keys) - never commit
+﻿node_modules/
 .env
-.env.*
-!.env.example
+*.env
+*.sqlite
+*.bkp
+*.scl

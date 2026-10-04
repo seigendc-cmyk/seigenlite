@@ -54,25 +54,19 @@ function deploy(buildDir, withMarket=true){
   });
   return new Promise(r=> server.listen(0, "127.0.0.1", ()=> r({ server, base:"http://127.0.0.1:"+server.address().port+"/" })));
 }
-// On a first visit the service worker claims the page and pwa-extras.js
-// reloads it on controllerchange, which would race the setup clicks. The
-// test WANTS the real worker (that's what it's checking), so let that
-// happen first and start from a page it already controls.
+// The test WANTS the real worker (that's what it's checking), so start from
+// a page it controls from the first byte: wait for the first visit's worker
+// to claim the page, then reload. (pwa-extras.js deliberately doesn't reload
+// on that first claim — it used to, and wiped a new shop's half-filled Setup.)
 async function openControlled(page, base){
   await page.goto(base);
-  // Done when the CURRENT document was already controlled when it loaded,
-  // i.e. the app's own reload has happened. Evaluating across that reload
-  // can throw "execution context was destroyed" — just ask again.
   const deadline = Date.now() + 30000;
-  for(;;){
-    try{
-      const ok = await page.evaluate(()=> !!navigator.serviceWorker.controller
-        && performance.getEntriesByType("navigation")[0].type==="reload" && document.readyState==="complete");
-      if(ok) return;
-    }catch(e){ /* mid-reload */ }
+  while(!(await page.evaluate(()=> !!navigator.serviceWorker.controller))){
     if(Date.now() > deadline) throw new Error("service worker never took control of the page");
     await page.waitForTimeout(200);
   }
+  await page.reload();
+  if(!(await page.evaluate(()=> !!navigator.serviceWorker.controller))) throw new Error("reloaded page isn't controlled");
 }
 async function finishSetup(page){
   // On the context so the service worker's requests are caught too.

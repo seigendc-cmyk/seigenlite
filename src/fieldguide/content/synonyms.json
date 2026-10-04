@@ -1,0 +1,37 @@
+{
+ "_about": "Everyday wording for the Field Guide's search. Plain data, no business facts: each group lists different ways people say the same thing, and the search treats them as one word. The first entry in a group is the one the others are read as. Multi-word entries (\"stock take\") are matched as a phrase. filler = words dropped from a question before matching (\"how do I\", \"what is the\"). Words are compared lower-case, without punctuation, and with simple plurals removed (vendors -> vendor), so those forms don't need listing.",
+ "filler": [
+  "a", "about", "actually", "also", "am", "an", "and", "any", "are", "as", "at", "be", "between", "can", "cant", "could", "did", "do", "does", "doesnt", "dont", "for", "from", "get", "got", "has", "have", "he", "her", "his", "how", "i", "if", "im", "in", "into", "is", "it", "its", "just", "know", "let", "me", "more", "my", "myself", "need", "of", "on", "or", "our", "ourselves", "please", "really", "she", "should", "so", "some", "tell", "that", "the", "their", "them", "themselves", "there", "they", "this", "to", "up", "us", "very", "want", "was", "we", "were", "what", "whats", "when", "where", "which", "who", "why", "will", "with", "wont", "would", "you", "your", "yourself"
+ ],
+ "synonyms": [
+  ["stocktake", "stock take", "stock-take", "stock count", "stock counting", "count", "counting", "counted"],
+  ["price", "prices", "pricing", "cost", "costs", "charge", "charges", "charged", "fee", "fees", "rate", "rates", "how much"],
+  ["phone", "cellphone", "cell phone", "mobile", "smartphone", "device"],
+  ["shop", "store", "outlet"],
+  ["vendor", "trader", "shopkeeper", "merchant", "shop owner"],
+  ["customer", "buyer", "client"],
+  ["internet", "connection", "network", "signal", "wifi", "wi-fi", "online"],
+  ["print", "printer", "printing", "printed"],
+  ["problem", "issue", "error", "fault", "broken", "not working", "stopped working", "bug"],
+  ["lost", "missing", "gone", "deleted", "disappeared"],
+  ["backup", "back up", "backed up"],
+  ["spreadsheet", "excel", "sheet", "xlsx"],
+  ["upload", "uploading", "uploaded", "import", "importing", "imported"],
+  ["pay", "paying", "paid", "payment"],
+  ["staff", "employee", "employees", "cashier"],
+  ["start", "begin", "starting", "beginning"],
+  ["credit", "debt", "owe", "owes", "owed", "owing"],
+  ["eod", "end of day", "end-of-day", "day end", "cash up"],
+  ["activation", "activate", "activated", "licence", "license", "unlock"],
+  ["onboarding", "onboard", "onboarded", "sign up", "signing up"],
+  ["setup", "set up", "setting up", "install", "installing", "installation"],
+  ["dress", "dressing", "clothes", "clothing", "wear", "outfit"],
+  ["search words", "search word", "keywords", "keyword", "search terms", "tags"],
+  ["whatsapp", "whats app"],
+  ["explain", "explaining", "describe", "describing"],
+  ["blank", "white screen", "empty screen"],
+  ["add", "adding", "added"],
+  ["fast", "faster", "quick", "quickly", "quicker"],
+  ["different", "difference", "differ"]
+ ]
+}

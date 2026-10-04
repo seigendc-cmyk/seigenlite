@@ -203,7 +203,10 @@
     if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", syncTick);
   }
 
-  // ---- Sync Reminder Modal (generic, reusable) ----
+  // ---- Sync Reminder (generic, reusable) ----
+  // Shown as a small toast that slides in from the left of the header, not a
+  // modal: it goes away on its own after SYNC_TOAST_MS, or at once on any
+  // click outside it. When and why it shows is unchanged (see below).
   // Not RPN/support-specific: it only ever reads pendingSyncCount()/
   // pendingSyncRows() — the exact same queries the Cloud sync (beta)
   // Settings card already uses — so any future record type (RPN linkage,
@@ -220,13 +223,25 @@
     if(typeof drawerOpen!=="undefined" && drawerOpen) return false;         // an in-progress sale (cart open)
     return (!isOnline() || !supabaseConfigured()) && pendingSyncCount()>0;
   }
-  // User-dismiss path (✕ / outside click, via openModal's onClose) and the
-  // programmatic one tests use — both just mark it hidden. Nothing here
-  // touches sync_queue, so the very next tick's syncReminderShouldShow()
-  // decides fresh: still unsynced -> it reappears, exactly as specified.
+  const SYNC_TOAST_MS = 4000;
+  let _syncToastTimer = null;
+  function onSyncToastOutsideClick(e){
+    if(_syncReminderEl && !_syncReminderEl.contains(e.target)) dismissSyncReminder();
+  }
+  // User-dismiss path (timeout / outside click) and the programmatic one
+  // tests use — both just mark it hidden. Nothing here touches sync_queue,
+  // so the very next tick's syncReminderShouldShow() decides fresh: still
+  // unsynced -> it reappears, exactly as specified.
   function dismissSyncReminder(){
     _syncReminderVisible = false;
-    if(_syncReminderEl){ try{ _syncReminderEl.remove(); }catch(e){} _syncReminderEl=null; }
+    if(_syncToastTimer){ clearTimeout(_syncToastTimer); _syncToastTimer = null; }
+    if(typeof document!=="undefined" && document.removeEventListener) document.removeEventListener("pointerdown", onSyncToastOutsideClick, true);
+    const el = _syncReminderEl;
+    _syncReminderEl = null;
+    if(el){
+      el.classList.remove("show");               // slide back out, then go
+      setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 250);
+    }
   }
   function checkSyncReminderModal(){
     if(!syncReminderShouldShow()){ if(_syncReminderVisible) dismissSyncReminder(); return; }
@@ -235,15 +250,20 @@
     // (checkout/discount flow, a product editor, ...) — try again next tick.
     if(typeof document!=="undefined" && document.querySelector && document.querySelector(".modalOverlay")) return;
     _syncReminderVisible = true;
-    if(typeof document==="undefined" || typeof document.createElement!=="function" || typeof openModal!=="function") return; // headless/test context — state above still exercised
-    const pending = pendingSyncRows();
-    const byType = {};
-    pending.forEach(r=>{ byType[r.record_type]=(byType[r.record_type]||0)+1; });
-    const lines = Object.keys(byType).map(k=>`<li>${escapeHtml(k)}: ${byType[k]}</li>`).join("");
-    _syncReminderEl = openModal("Waiting to sync", `
-      <p class="muted">You're offline. ${pending.length} record(s) are saved on this device and will sync automatically once you're back online.</p>
-      <ul style="margin:8px 0 0 18px;padding:0">${lines}</ul>
-    `, dismissSyncReminder);
+    if(typeof document==="undefined" || typeof document.createElement!=="function" || !document.body) return; // headless/test context — state above still exercised
+    const n = pendingSyncCount();
+    const el = document.createElement("div");
+    el.className = "sync-toast";
+    el.setAttribute("role", "status");
+    el.innerHTML = `<span class="sync-toast-dot"></span><span>Offline · ${n} record${n===1?"":"s"} will sync when you reconnect</span>`;
+    document.body.appendChild(el);        // outside #app, so render() never wipes it mid-show
+    _syncReminderEl = el;
+    void el.offsetWidth;                  // commit the off-screen position so the slide-in animates
+    el.classList.add("show");
+    _syncToastTimer = setTimeout(dismissSyncReminder, SYNC_TOAST_MS);
+    // Capture phase: an outside tap closes it even when that tap's own
+    // handler re-renders the screen underneath.
+    document.addEventListener("pointerdown", onSyncToastOutsideClick, true);
   }
 
   // ---- Settings card (Cloud sync) ----
