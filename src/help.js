@@ -28,7 +28,8 @@
         <div class="card" id="helpCard">
           <p><b>Setup:</b> On first open, enter your shop name, branch, branch type (Main or Remote), contact number and banner image. This needs internet the very first time (to load the database engine) — after that it works fully offline.</p>
           <p><b>If the app won't open on a phone:</b> make sure it's opened in Chrome (not a preview inside WhatsApp — tap "Open with" → Chrome) and that there's an internet connection the first time. After that first successful open, it no longer needs one.</p>
-          <p><b>Who's working:</b> each time the app opens, it asks who's working today. That name is recorded against sales, stock changes, receiving, and discount approvals. Tap your name in the top bar any time to switch, e.g. at a shift change.</p>
+          <p><b>Who's working:</b> each time the app opens, tap Sign in on the Start screen and it asks who's working today. That name is recorded against sales, stock changes, receiving, and discount approvals. Tap your name in the top bar any time to switch, e.g. at a shift change.</p>
+          <p><b>Log out:</b> the door icon next to your name ends your session and returns to the Start screen, where the next person taps Sign in. It works only when the cart is empty. Logging out doesn't close the shift.</p>
           <p><b>Selling:</b> Search a product by name, SKU, or hidden search keywords, tap Add. Open the cart with the orange cart icon, adjust quantities, add a discount if needed. Customer name/phone is optional for Cash and EcoCash and required for Credit.</p>
           <p><b>Payment methods:</b> Cash, EcoCash, Bank, or Credit. EcoCash and Bank both require a payment reference number before the sale completes.</p>
           <p><b>Discounts:</b> Any discount above zero requires a reason, and an optional approver's name — left blank, it's recorded as Pending; filled in, it's Approved. Both show up on the Discount Report.</p>

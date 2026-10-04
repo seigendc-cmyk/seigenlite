@@ -26,7 +26,7 @@
     const status = activationStatus();
     if(status==="no_setup"){ route="setup"; renderSetup(); return; }
     if(status==="locked"){ route="lock"; renderLock(); return; }
-    renderWhoAmI();
+    renderStart(); // Start screen → Sign in → "Who's working today?" (staff.js)
   }
   // Only registers when actually served over http(s)/localhost — this
   // silently does nothing when the file is just double-clicked (file://),

@@ -52,14 +52,25 @@
   }
   .topbar .brand-mark{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:none;background:var(--orange-light);}
   .topbar .brand-mark.placeholder{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--orange);border:1px solid var(--border);}
-  .topbar .names{flex:1;min-width:0;}
+  .topbar .names{flex:0 1 auto;min-width:0;}   /* sized to its text so Log out sits right beside the user name */
   .topbar .shop{font-weight:700;font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .topbar .branch{font-size:12px;color:var(--ink-soft);}
   .topbar .cart-btn{
     position:relative;background:var(--orange);color:#fff;border:none;
     width:42px;height:42px;border-radius:50%;font-size:19px;
     display:flex;align-items:center;justify-content:center;flex:none;
+    margin-left:auto;   /* pushed to the right edge, as before */
   }
+  /* Log out (staff.js logoutSession): outline icon button beside the user name */
+  .topbar .logout-btn{
+    width:40px;height:40px;border-radius:50%;flex:none;padding:0;
+    background:none;border:1px solid var(--border);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .topbar .logout-btn:hover,.topbar .logout-btn:focus-visible{background:var(--orange-light);color:var(--orange-dark);border-color:var(--orange);}
+  /* Start screen (staff.js renderStart): the app's storefront mark, as in icon-192.png */
+  .start-mark{width:88px;height:88px;border-radius:22px;background:var(--orange-light);color:var(--orange);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .cart-badge{
     position:absolute;top:-4px;right:-4px;background:var(--ink);color:#fff;
     font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;
@@ -2468,6 +2479,9 @@ const APP_VERSION = "1.09.01";
   const ICON_NAV_CREDIT = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 12 8 9a2 2 0 0 0-3 3l4 4"/><path d="M9.5 15.5 7 18a1.5 1.5 0 0 1-2.5-1.7"/><path d="m13 12 3-3a2 2 0 0 1 3 3l-4 4"/><path d="m14.5 15.5 2.5 2.5a1.5 1.5 0 0 0 2.5-1.7"/><path d="m11 12 2 2"/></svg>`;
   const ICON_NAV_REPORTS = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="15"/><line x1="12" y1="20" x2="12" y2="9"/><line x1="18" y1="20" x2="18" y2="4"/></svg>`;
   const ICON_NAV_MARKETING = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1Z"/><path d="M16 9a3 3 0 0 1 0 6"/><path d="M19 6.5a7 7 0 0 1 0 11"/></svg>`;
+  // Top bar Log out (staff.js logoutSession): outline door with an arrow,
+  // same 24-grid / stroke-width 2 / currentColor style as the icons above.
+  const ICON_LOGOUT = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`;
   const ICON_NAV_MORE =`<svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>`;
 
   function skuNameCell(sku,name){
@@ -2617,6 +2631,7 @@ const APP_VERSION = "1.09.01";
   function render(){
     if(route==="setup") return renderSetup();
     if(route==="lock") return renderLock();
+    if(route==="start") return renderStart();
     const desktop = isDesktopBuild();
     $app.innerHTML = `
       <div class="topbar">
@@ -2626,6 +2641,7 @@ const APP_VERSION = "1.09.01";
           <div class="shop">${escapeHtml(getSetting("shop_name","Shop"))}</div>
           <div class="branch">${escapeHtml(getSetting("branch_name",""))} · <span id="userChip" style="text-decoration:underline;cursor:pointer">${escapeHtml(sessionUser||"set name")}</span></div>
         </div>
+        <button class="logout-btn" id="logoutBtn" aria-label="Log out" title="Log out">${ICON_LOGOUT}</button>
         <button class="cart-btn" id="cartBtn">🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
       </div>
       <main id="main"></main>
@@ -2651,6 +2667,7 @@ const APP_VERSION = "1.09.01";
     document.getElementById("overlay").onclick = ()=>{ drawerOpen=false; render(); };
     document.getElementById("reqOverlay").onclick = ()=>{ reqDrawerOpen=false; render(); };
     document.getElementById("userChip").onclick = changeSessionUser;
+    document.getElementById("logoutBtn").onclick = logoutSession;
     if(desktop){
       document.getElementById("hamburgerBtn").onclick = ()=>{ navDrawerOpen=true; render(); };
       document.getElementById("navOverlay").onclick = ()=>{ navDrawerOpen=false; render(); };
@@ -9500,7 +9517,8 @@ const APP_VERSION = "1.09.01";
         <div class="card" id="helpCard">
           <p><b>Setup:</b> On first open, enter your shop name, branch, branch type (Main or Remote), contact number and banner image. This needs internet the very first time (to load the database engine) — after that it works fully offline.</p>
           <p><b>If the app won't open on a phone:</b> make sure it's opened in Chrome (not a preview inside WhatsApp — tap "Open with" → Chrome) and that there's an internet connection the first time. After that first successful open, it no longer needs one.</p>
-          <p><b>Who's working:</b> each time the app opens, it asks who's working today. That name is recorded against sales, stock changes, receiving, and discount approvals. Tap your name in the top bar any time to switch, e.g. at a shift change.</p>
+          <p><b>Who's working:</b> each time the app opens, tap Sign in on the Start screen and it asks who's working today. That name is recorded against sales, stock changes, receiving, and discount approvals. Tap your name in the top bar any time to switch, e.g. at a shift change.</p>
+          <p><b>Log out:</b> the door icon next to your name ends your session and returns to the Start screen, where the next person taps Sign in. It works only when the cart is empty. Logging out doesn't close the shift.</p>
           <p><b>Selling:</b> Search a product by name, SKU, or hidden search keywords, tap Add. Open the cart with the orange cart icon, adjust quantities, add a discount if needed. Customer name/phone is optional for Cash and EcoCash and required for Credit.</p>
           <p><b>Payment methods:</b> Cash, EcoCash, Bank, or Credit. EcoCash and Bank both require a payment reference number before the sale completes.</p>
           <p><b>Discounts:</b> Any discount above zero requires a reason, and an optional approver's name — left blank, it's recorded as Pending; filled in, it's Approved. Both show up on the Discount Report.</p>
@@ -11613,6 +11631,48 @@ const APP_VERSION = "1.09.01";
   }
 
 
+  // ---- Start screen + Log out ----
+  // The first screen once setup and activation are out of the way (boot,
+  // main.js), and where Log out returns to. One job: Sign in, which is the
+  // unchanged "Who's working today?" flow below. Shows the app's own mark
+  // (the storefront drawn in icon-192.png, as inline SVG so it works from a
+  // lone index.html too), the shop, branch, and the till code once
+  // multi-terminal registration has given one.
+  function renderStart(){
+    route="start";
+    const shop = getSetting("shop_name","") || "seiGEN Commerce Lite";
+    const place = [getSetting("branch_name",""), getSetting("till_code","")].filter(Boolean).join(" · ");
+    const mark = ICON_STOREFRONT.replace('width="22" height="22"', 'width="52" height="52"');
+    $app.innerHTML = `<div class="center-screen"><div class="setup-card center" id="startCard">
+      <div class="start-mark" aria-hidden="true">${mark}</div>
+      <h2 id="startShop" style="margin:0 0 4px">${escapeHtml(shop)}</h2>
+      ${place? `<p class="muted" id="startPlace" style="margin:0">${escapeHtml(place)}</p>` : ""}
+      <button class="btn btn-primary" id="startSignIn" style="margin-top:20px">Sign in</button>
+      <p class="muted" style="font-size:11.5px;margin:14px 0 0">seiGEN Commerce Lite</p>
+    </div></div>`;
+    document.getElementById("startSignIn").onclick = ()=> renderWhoAmI();
+  }
+  // Top bar Log out. Refused while the cart holds anything (the cart is left
+  // exactly as it is). Otherwise ends this session only: the operator is
+  // cleared and logged, Settings re-lock, and the app goes back to the Start
+  // screen. The shift/EOD, settings, data, activation, the sync worker and
+  // the device check-in are all untouched — none of them depends on who is
+  // signed in. Returns true when logged out (tests use it).
+  const LOGOUT_CART_MESSAGE = "Clear the cart or finish the sale first.";
+  function logoutSession(){
+    if(cart.length>0){ alert(LOGOUT_CART_MESSAGE); return false; }
+    logAudit("Logout", "", sessionUser||"");               // written while sessionUser still names who left
+    sessionUser = ""; sessionStaffId = null;
+    accessStep=1; accessSelectedStaffId=null; accessPinDigits=""; accessError="";
+    settingsUnlocked = false;
+    drawerOpen = false;
+    if(typeof reqDrawerOpen!=="undefined") reqDrawerOpen = false;
+    if(typeof navDrawerOpen!=="undefined") navDrawerOpen = false;
+    persist();
+    renderStart();
+    return true;
+  }
+
   // ---- Who's-working access screen ----
   function renderWhoAmI(){
     route="whoami";
@@ -12303,7 +12363,7 @@ const APP_VERSION = "1.09.01";
     const status = activationStatus();
     if(status==="no_setup"){ route="setup"; renderSetup(); return; }
     if(status==="locked"){ route="lock"; renderLock(); return; }
-    renderWhoAmI();
+    renderStart(); // Start screen → Sign in → "Who's working today?" (staff.js)
   }
   // Only registers when actually served over http(s)/localhost — this
   // silently does nothing when the file is just double-clicked (file://),

@@ -39,6 +39,7 @@
   function render(){
     if(route==="setup") return renderSetup();
     if(route==="lock") return renderLock();
+    if(route==="start") return renderStart();
     const desktop = isDesktopBuild();
     $app.innerHTML = `
       <div class="topbar">
@@ -48,6 +49,7 @@
           <div class="shop">${escapeHtml(getSetting("shop_name","Shop"))}</div>
           <div class="branch">${escapeHtml(getSetting("branch_name",""))} · <span id="userChip" style="text-decoration:underline;cursor:pointer">${escapeHtml(sessionUser||"set name")}</span></div>
         </div>
+        <button class="logout-btn" id="logoutBtn" aria-label="Log out" title="Log out">${ICON_LOGOUT}</button>
         <button class="cart-btn" id="cartBtn">🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
       </div>
       <main id="main"></main>
@@ -73,6 +75,7 @@
     document.getElementById("overlay").onclick = ()=>{ drawerOpen=false; render(); };
     document.getElementById("reqOverlay").onclick = ()=>{ reqDrawerOpen=false; render(); };
     document.getElementById("userChip").onclick = changeSessionUser;
+    document.getElementById("logoutBtn").onclick = logoutSession;
     if(desktop){
       document.getElementById("hamburgerBtn").onclick = ()=>{ navDrawerOpen=true; render(); };
       document.getElementById("navOverlay").onclick = ()=>{ navDrawerOpen=false; render(); };

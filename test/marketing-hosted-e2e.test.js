@@ -118,7 +118,11 @@ async function gotoRoute(page, route, desktop){
 
       await context.setOffline(true);
       await page.reload();
-      // A new session starts at "Who's working today?".
+      // A new session starts at the Start screen; Sign in leads to "Who's working today?".
+      await page.waitForSelector("#startSignIn", { timeout: 20000 }).catch(async ()=>{
+        throw new Error("after the offline reload the app showed: "+JSON.stringify((await page.textContent("#app")).replace(/\s+/g," ").slice(0,400)));
+      });
+      await page.click("#startSignIn");
       await page.waitForSelector("#whoContinue", { timeout: 20000 }).catch(async ()=>{
         throw new Error("after the offline reload the app showed: "+JSON.stringify((await page.textContent("#app")).replace(/\s+/g," ").slice(0,400)));
       });

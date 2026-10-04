@@ -37,14 +37,25 @@
   }
   .topbar .brand-mark{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:none;background:var(--orange-light);}
   .topbar .brand-mark.placeholder{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--orange);border:1px solid var(--border);}
-  .topbar .names{flex:1;min-width:0;}
+  .topbar .names{flex:0 1 auto;min-width:0;}   /* sized to its text so Log out sits right beside the user name */
   .topbar .shop{font-weight:700;font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .topbar .branch{font-size:12px;color:var(--ink-soft);}
   .topbar .cart-btn{
     position:relative;background:var(--orange);color:#fff;border:none;
     width:42px;height:42px;border-radius:50%;font-size:19px;
     display:flex;align-items:center;justify-content:center;flex:none;
+    margin-left:auto;   /* pushed to the right edge, as before */
   }
+  /* Log out (staff.js logoutSession): outline icon button beside the user name */
+  .topbar .logout-btn{
+    width:40px;height:40px;border-radius:50%;flex:none;padding:0;
+    background:none;border:1px solid var(--border);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .topbar .logout-btn:hover,.topbar .logout-btn:focus-visible{background:var(--orange-light);color:var(--orange-dark);border-color:var(--orange);}
+  /* Start screen (staff.js renderStart): the app's storefront mark, as in icon-192.png */
+  .start-mark{width:88px;height:88px;border-radius:22px;background:var(--orange-light);color:var(--orange);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .cart-badge{
     position:absolute;top:-4px;right:-4px;background:var(--ink);color:#fff;
     font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;

@@ -150,6 +150,48 @@
   }
 
 
+  // ---- Start screen + Log out ----
+  // The first screen once setup and activation are out of the way (boot,
+  // main.js), and where Log out returns to. One job: Sign in, which is the
+  // unchanged "Who's working today?" flow below. Shows the app's own mark
+  // (the storefront drawn in icon-192.png, as inline SVG so it works from a
+  // lone index.html too), the shop, branch, and the till code once
+  // multi-terminal registration has given one.
+  function renderStart(){
+    route="start";
+    const shop = getSetting("shop_name","") || "seiGEN Commerce Lite";
+    const place = [getSetting("branch_name",""), getSetting("till_code","")].filter(Boolean).join(" · ");
+    const mark = ICON_STOREFRONT.replace('width="22" height="22"', 'width="52" height="52"');
+    $app.innerHTML = `<div class="center-screen"><div class="setup-card center" id="startCard">
+      <div class="start-mark" aria-hidden="true">${mark}</div>
+      <h2 id="startShop" style="margin:0 0 4px">${escapeHtml(shop)}</h2>
+      ${place? `<p class="muted" id="startPlace" style="margin:0">${escapeHtml(place)}</p>` : ""}
+      <button class="btn btn-primary" id="startSignIn" style="margin-top:20px">Sign in</button>
+      <p class="muted" style="font-size:11.5px;margin:14px 0 0">seiGEN Commerce Lite</p>
+    </div></div>`;
+    document.getElementById("startSignIn").onclick = ()=> renderWhoAmI();
+  }
+  // Top bar Log out. Refused while the cart holds anything (the cart is left
+  // exactly as it is). Otherwise ends this session only: the operator is
+  // cleared and logged, Settings re-lock, and the app goes back to the Start
+  // screen. The shift/EOD, settings, data, activation, the sync worker and
+  // the device check-in are all untouched — none of them depends on who is
+  // signed in. Returns true when logged out (tests use it).
+  const LOGOUT_CART_MESSAGE = "Clear the cart or finish the sale first.";
+  function logoutSession(){
+    if(cart.length>0){ alert(LOGOUT_CART_MESSAGE); return false; }
+    logAudit("Logout", "", sessionUser||"");               // written while sessionUser still names who left
+    sessionUser = ""; sessionStaffId = null;
+    accessStep=1; accessSelectedStaffId=null; accessPinDigits=""; accessError="";
+    settingsUnlocked = false;
+    drawerOpen = false;
+    if(typeof reqDrawerOpen!=="undefined") reqDrawerOpen = false;
+    if(typeof navDrawerOpen!=="undefined") navDrawerOpen = false;
+    persist();
+    renderStart();
+    return true;
+  }
+
   // ---- Who's-working access screen ----
   function renderWhoAmI(){
     route="whoami";
