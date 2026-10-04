@@ -13,3 +13,6 @@ assets/brand/preview/
 
 # Cloudflare preview deploy folders (assembled from dist-pwa/ and dist-tauri/)
 deploy/
+
+# ESLint output, regenerated outside these sessions — not tracked
+lint-report/
