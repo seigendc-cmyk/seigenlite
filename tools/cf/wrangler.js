@@ -20,7 +20,10 @@ if(missing.length){ console.error("Missing in .env: " + missing.join(", ")); pro
 const secrets = KEYS.map(k => env[k]).filter(v => v.length >= 6);
 const redact = (s) => secrets.reduce((acc, v) => acc.split(v).join("[REDACTED]"), s);
 
-const child = spawn("npx", ["--yes", "wrangler", ...process.argv.slice(2)], {
+// npx needs a shell on Windows, so quote every argument for it (a --message
+// with spaces must stay one argument).
+const q = (a) => /^[A-Za-z0-9_\-.\/:=@]+$/.test(a) ? a : '"' + String(a).replace(/"/g, '\\"') + '"';
+const child = spawn("npx", ["--yes", "wrangler", ...process.argv.slice(2)].map(q), {
   cwd: process.cwd(), shell: true,
   env: Object.assign({}, process.env, env, { WRANGLER_SEND_METRICS: "false", CI: "true" }),
 });
