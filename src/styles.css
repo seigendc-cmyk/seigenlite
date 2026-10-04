@@ -53,7 +53,10 @@
     display:flex;align-items:center;justify-content:center;
   }
   .topbar .logout-btn:hover,.topbar .logout-btn:focus-visible{background:var(--orange-light);color:var(--orange-dark);border-color:var(--orange);}
-  /* Start screen (staff.js renderStart): the app's storefront mark, as in icon-192.png */
+  /* Start screen (staff.js renderStart): the brand globe, square so it never distorts */
+  .start-globe{display:block;width:180px;height:180px;object-fit:contain;margin:0 auto 14px;}
+  @media (min-width:900px){ .start-globe{width:240px;height:240px;} }
+  /* fallback when the globe image isn't beside index.html: the storefront mark, as in the old icon */
   .start-mark{width:88px;height:88px;border-radius:22px;background:var(--orange-light);color:var(--orange);
     display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .cart-badge{

@@ -8,7 +8,8 @@
 
 // build: v2 — PWA live update test (bumped so this file's bytes differ,
 // which is what actually triggers the browser's updatefound check).
-const CACHE_NAME = "seigen-lite-pwa-v1";
+// v2: marble-globe icons (tools/icons/build-icons.js) — new name so installed apps fetch them.
+const CACHE_NAME = "seigen-lite-pwa-v2";
 
 // App shell: everything dist-pwa/ ships. CDN deps: the exact files the app
 // loads at runtime — sql.js's loader script + its wasm binary (initDB's
@@ -21,7 +22,16 @@ const PRECACHE_URLS = [
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
+  "./icon-maskable-192.png",
+  "./icon-maskable-512.png",
+  "./apple-touch-icon.png",
+  "./favicon.svg",
+  "./favicon-32.png",
+  "./favicon-16.png",
   "./icon.ico",
+  // Start screen globe (src/staff.js renderStart)
+  "./globe-transparent-512.png",
+  "./globe-transparent-1024.png",
   "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js",
   "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.wasm",
   "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",

@@ -106,7 +106,11 @@ async function runFor(browser, build){
     await page.waitForSelector("#startSignIn", { timeout: 20000 });
     assert.strictEqual((await page.textContent("#startShop")).trim(), "Gentronix");
     assert.strictEqual((await page.textContent("#startPlace")).trim(), "Harare CBD");
-    assert.ok(await page.$("#startCard .start-mark svg"), "the app's storefront mark");
+    // the brand globe loads from the build folder, square and undistorted (180px phone, 240px desktop)
+    await page.waitForFunction(()=>{ const g = document.getElementById("startGlobe"); return g && g.complete && g.naturalWidth>0; });
+    const g = await page.evaluate(()=>{ const r = document.getElementById("startGlobe").getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; });
+    assert.deepStrictEqual(g, desktop? { w:240, h:240 } : { w:180, h:180 });
+    assert.ok(await page.$("#startCard .start-mark svg"), "the storefront fallback is still there (hidden)");
     assert.strictEqual(await page.$("#whoName"), null, "Start comes BEFORE Who's working");
     if(SHOTS) await page.screenshot({ path: path.join(SHOTS, build+"-start.png") });
     await signInSingle(page, "Tendai");

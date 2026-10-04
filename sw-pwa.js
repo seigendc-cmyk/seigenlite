@@ -13,7 +13,8 @@
 
 // build: v3 — export scopes, doc-numbered filenames, Excel item export, app-log send, row menus (bumped so this file's bytes differ,
 // which is what actually triggers the browser's updatefound check).
-const CACHE_NAME = "seigen-lite-pwa-v1";
+// v2: marble-globe icons (tools/icons/build-icons.js) — new name so installed apps fetch them.
+const CACHE_NAME = "seigen-lite-pwa-v2";
 
 // App shell: everything dist-pwa/ ships. CDN deps: the exact files the app
 // loads at runtime — sql.js's loader script + its wasm binary (initDB's
@@ -26,7 +27,16 @@ const PRECACHE_URLS = [
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
+  "./icon-maskable-192.png",
+  "./icon-maskable-512.png",
+  "./apple-touch-icon.png",
+  "./favicon.svg",
+  "./favicon-32.png",
+  "./favicon-16.png",
   "./icon.ico",
+  // Start screen globe (src/staff.js renderStart)
+  "./globe-transparent-512.png",
+  "./globe-transparent-1024.png",
   // Marketing add-on (build.js --market). Optional: only there if it was
   // deployed next to index.html; if not, the best-effort add below just
   // skips it and the Marketing tab shows "not installed" as it should.

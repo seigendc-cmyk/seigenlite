@@ -56,6 +56,29 @@ function logObfuscationSize(before, after) {
 // The one source of truth for "what build is this" — edited by hand
 // before each release, read fresh on every build, and unrelated to
 // activation.js's per-device install_id/device_code/30-day cycle.
+// App icons: generated from assets/brand/globe-master.png by
+// tools/icons/build-icons.js (never hand-edited). Copied next to index.html
+// in dist/, dist-pwa/ and dist-tauri/.
+const BRAND_DIR = path.join(ROOT, "assets", "brand", "generated");
+const BRAND_FILES = ["icon.ico", "icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png",
+  "apple-touch-icon.png", "favicon.svg", "favicon-32.png", "favicon-16.png",
+  "globe-transparent-512.png", "globe-transparent-1024.png"];
+function copyBrand(destDir) {
+  for (const f of BRAND_FILES) fs.copyFileSync(path.join(BRAND_DIR, f), path.join(destDir, f));
+}
+// dist/ is meant to work as one forwarded file: the favicon and the
+// apple-touch icon become data URIs there instead of sibling files.
+function inlineIcons(html) {
+  const start = html.indexOf("<!-- icons:start"), end = html.indexOf("<!-- icons:end -->");
+  if (start < 0 || end < 0) throw new Error("shell/head-top.html: icons:start/icons:end block missing");
+  const svg = fs.readFileSync(path.join(BRAND_DIR, "favicon.svg"));
+  const apple = fs.readFileSync(path.join(BRAND_DIR, "apple-touch-icon.png"));
+  const block =
+    '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,' + svg.toString("base64") + '">\n' +
+    '<link rel="apple-touch-icon" href="data:image/png;base64,' + apple.toString("base64") + '">';
+  return html.slice(0, start) + block + html.slice(end + "<!-- icons:end -->".length);
+}
+
 function readVersion() {
   return fs.readFileSync(path.join(ROOT, "VERSION"), "utf8").trim();
 }
@@ -184,14 +207,15 @@ function buildHTML(scriptOrder, extraCssFiles, opts) {
 // no sibling files required. manifest.json/sw.js/icons are copied alongside
 // only for the case where this same file is also served over http(s).
 function buildSingleFile() {
-  const { html } = buildHTML(SCRIPT_ORDER); // never obfuscated — see OBFUSCATOR_OPTIONS comment above
+  const html = inlineIcons(buildHTML(SCRIPT_ORDER).html); // never obfuscated — see OBFUSCATOR_OPTIONS comment above
 
   fs.mkdirSync(DIST, { recursive: true });
   fs.writeFileSync(path.join(DIST, "index.html"), html);
 
-  for (const f of ["manifest.json", "sw.js", "icon.ico", "icon-192.png", "icon-512.png"]) {
+  for (const f of ["manifest.json", "sw.js"]) {
     fs.copyFileSync(path.join(ROOT, f), path.join(DIST, f));
   }
+  copyBrand(DIST);
 
   console.log("Built dist/index.html (" + html.length + " bytes) from " + SCRIPT_ORDER.length + " src files.");
 }
@@ -210,9 +234,8 @@ function buildPWA() {
   fs.mkdirSync(DIST_PWA, { recursive: true });
   fs.writeFileSync(path.join(DIST_PWA, "index.html"), html);
 
-  for (const f of ["manifest.json", "icon.ico", "icon-192.png", "icon-512.png"]) {
-    fs.copyFileSync(path.join(ROOT, f), path.join(DIST_PWA, f));
-  }
+  fs.copyFileSync(path.join(ROOT, "manifest.json"), path.join(DIST_PWA, "manifest.json"));
+  copyBrand(DIST_PWA);
   fs.copyFileSync(path.join(ROOT, "sw-pwa.js"), path.join(DIST_PWA, "sw.js"));
 
   console.log("Built dist-pwa/index.html (" + html.length + " bytes) from " + scriptOrder.length + " src files.");
@@ -248,9 +271,8 @@ function buildTauri() {
   fs.mkdirSync(DIST_TAURI, { recursive: true });
   fs.writeFileSync(path.join(DIST_TAURI, "index.html"), html);
 
-  for (const f of ["manifest.json", "icon.ico", "icon-192.png", "icon-512.png"]) {
-    fs.copyFileSync(path.join(ROOT, f), path.join(DIST_TAURI, f));
-  }
+  fs.copyFileSync(path.join(ROOT, "manifest.json"), path.join(DIST_TAURI, "manifest.json"));
+  copyBrand(DIST_TAURI);
   fs.copyFileSync(path.join(ROOT, "sw-pwa.js"), path.join(DIST_TAURI, "sw.js"));
 
   console.log("Built dist-tauri/index.html (" + html.length + " bytes) from " + scriptOrder.length + " src files.");

@@ -7,3 +7,6 @@
 
 # Local backups of live data taken before migrations (contain secret phrases) — never commit
 docs/multi-terminal/live-backup-*/
+
+# Icon contact sheets from tools/icons/build-icons.js (regenerated on demand)
+assets/brand/preview/
