@@ -10,3 +10,6 @@ docs/multi-terminal/live-backup-*/
 
 # Icon contact sheets from tools/icons/build-icons.js (regenerated on demand)
 assets/brand/preview/
+
+# Cloudflare preview deploy folders (assembled from dist-pwa/ and dist-tauri/)
+deploy/

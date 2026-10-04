@@ -46,6 +46,16 @@ const PRECACHE_URLS = [
   "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
 ];
 
+const PRECACHE_TIMEOUT_MS = 20000;
+function precacheOne(cache, url) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), PRECACHE_TIMEOUT_MS);
+  return cache
+    .add(new Request(url, { cache: "reload", signal: ctrl.signal }))
+    .catch(() => {})
+    .finally(() => clearTimeout(timer));
+}
+
 self.addEventListener("install", (event) => {
   // Deliberately no self.skipWaiting() here. On a shop's very first
   // install there's no previous worker to supersede, so this still
@@ -62,7 +72,13 @@ self.addEventListener("install", (event) => {
             // Precache best-effort per-URL: one CDN hiccup during install
             // shouldn't fail the whole install and leave the app shell
             // itself (the part that matters most) uncached.
-            cache.add(new Request(url, { cache: "reload" })).catch(() => {})
+            // Each download is also time-boxed (PRECACHE_TIMEOUT_MS): install
+            // waits for every one of these, so a single stalled CDN request
+            // used to keep the worker installing — and the page without
+            // offline support — for as long as the network hung. A file cut
+            // off here isn't lost: the fetch handler below caches it the next
+            // time the app requests it (sql.js loads on every start).
+            precacheOne(cache, url)
           )
         )
       )
