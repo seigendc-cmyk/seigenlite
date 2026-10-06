@@ -47,12 +47,13 @@
       const key = e.dn_branch_id+"|"+e.dn_no;
       let r = map.get(key);
       if(!r){
-        r = { key, dnBranchId:e.dn_branch_id, dnNo:e.dn_no, dnDisplay:formatDocNo("DN",e.dn_no), from:"", to:"",
+        r = { key, dnBranchId:e.dn_branch_id, dnNo:e.dn_no, dnDisplay:"", dnTill:"", grvTill:"", from:"", to:"",
               dispatchedTs:"", hasReceived:false, hasVariance:false, grvNo:null, receivedIso:"", varianceTs:"",
               varianceLines:0, varianceFlags:[], varianceNote:"", varianceBy:"", createdHint:"",
               pending:null, posted:null, aborted:false, receiverCancelled:false, replacedBy:null, replaces:null, cancelKind:"" };
         map.set(key, r);
       }
+      if(e.dn_till_code && !r.dnTill) r.dnTill = e.dn_till_code;
       if(e.dn_from_name && !r.from) r.from = e.dn_from_name;
       if(e.dn_to_name && !r.to) r.to = e.dn_to_name;
       const d = dnEventDetail(e);
@@ -62,7 +63,7 @@
       else if(e.event_type==="cancel_posted"){ r.posted = { kind:d.kind, override:!!d.override, caseNo:d.case_no, ts:e.event_ts, via:d.via||"" }; r.cancelKind = d.kind; if(Number.isInteger(d.replaced_by)) r.replacedBy = d.replaced_by; }
       else if(e.event_type==="cancelled"){ r.receiverCancelled = true; }
       else if(e.event_type==="cancel_aborted"){ r.aborted = true; }                    // a GRV ended the cancel: the DN was received after all
-      else if(e.event_type==="received"){ r.hasReceived = true; r.grvNo = e.grv_no; r.receivedIso = e.event_ts; }
+      else if(e.event_type==="received"){ r.hasReceived = true; r.grvNo = e.grv_no; r.receivedIso = e.event_ts; if(e.grv_till_code) r.grvTill = e.grv_till_code; }
       else if(e.event_type==="variance"){
         r.hasVariance = true;
         const t = dnMs(e.event_ts)||0, cur = r.varianceTs? (dnMs(r.varianceTs)||0) : -1;
@@ -76,6 +77,15 @@
       }
     });
     const rows = [...map.values()];
+    // Display numbers carry the till code when an event knows it. A replacement
+    // is numbered on the same device as the DN it replaces, so either's till stands in.
+    const tillOf = (r, n)=>{ const o = map.get(r.dnBranchId+"|"+n); return (o && o.dnTill) || r.dnTill; };
+    rows.forEach(r=>{
+      r.dnDisplay = docDisplay("DN", r.dnNo, r.dnTill);
+      r.grvDisplay = r.grvNo==null? "" : docDisplay("GRV", r.grvNo, r.grvTill);
+      r.replacedByDisplay = r.replacedBy? docDisplay("DN", r.replacedBy, tillOf(r, r.replacedBy)) : "";
+      r.replacesDisplay = r.replaces? docDisplay("DN", r.replaces, tillOf(r, r.replaces)) : "";
+    });
     rows.forEach(r=>{
       if(!r.dispatchedTs && r.createdHint) r.dispatchedTs = r.createdHint;     // known only from the receiver's copy
       r.status = computeDnStatus(r, nowMs, awaitingDays);
@@ -113,8 +123,8 @@
   // "superseded by DN0015", "replaces DN0012", "written off ..." for the chain column.
   function chainText(r){
     const parts = [];
-    if(r.replacedBy && (r.status==="superseded" || r.cancelPending)) parts.push((r.status==="superseded"? "superseded by " : "to be replaced by ")+formatDocNo("DN",r.replacedBy));
-    if(r.replaces) parts.push("replaces "+formatDocNo("DN",r.replaces));
+    if(r.replacedBy && (r.status==="superseded" || r.cancelPending)) parts.push((r.status==="superseded"? "superseded by " : "to be replaced by ")+(r.replacedByDisplay||formatDocNo("DN",r.replacedBy)));
+    if(r.replaces) parts.push("replaces "+(r.replacesDisplay||formatDocNo("DN",r.replaces)));
     if(r.unconfirmed) parts.push("cancelled WITHOUT the receiver's confirmation");
     if(r.status==="conflict") parts.push("cancelled here but a receipt (GRV) exists: check stock");
     return parts.join("; ");

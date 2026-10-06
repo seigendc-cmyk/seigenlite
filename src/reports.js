@@ -268,7 +268,7 @@
                       : all("SELECT * FROM sales WHERE discount>0 AND ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]));
       const rows = sales.map(s=>{
         const cust = s.customer_id? one("SELECT name FROM customers WHERE id=?",[s.customer_id]) : null;
-        return [new Date(s.ts).toLocaleString(), s.id, escapeHtml(cust?cust.name:"—"), currency+s.subtotal.toFixed(2),
+        return [new Date(s.ts).toLocaleString(), escapeHtml(String(s.receipt_no||s.id)), escapeHtml(cust?cust.name:"—"), currency+s.subtotal.toFixed(2),
           currency+s.discount.toFixed(2), currency+s.total.toFixed(2), escapeHtml(s.discount_reason||""),
           escapeHtml(s.discount_status||"")];
       });

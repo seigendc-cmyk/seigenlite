@@ -95,6 +95,7 @@
       ${isRemote()? "" : branchRegisterCardHtml()}
       ${backupMergeSectionHtml()}
       ${cloudSyncSectionHtml()}
+      ${diagnosticsSectionHtml()}
     `;
     document.getElementById("printTestLine").onclick=()=>printTestLine();
     document.getElementById("saveSettings").onclick=()=>{
@@ -147,4 +148,28 @@
     if(!isRemote()) wireBranchRegisterCard();
     wireBackupMergeSection();
     wireCloudSyncSection();
+    wireDiagnosticsSection();
+  }
+  // Settings -> Diagnostics: read-only. Every product of this branch should
+  // hold exactly the sum of its stock movements (Phase 2 ledger).
+  function diagnosticsBodyHtml(){
+    const r = stockLedgerCheck();
+    if(!r.mismatches.length)
+      return `<p class="diag-ok" style="margin:0;color:#067647;font-weight:600">Stock ledger: all ${r.checked} product${r.checked===1?"":"s"} match their stock movements.</p>`;
+    return `<p class="diag-bad" style="margin:0 0 6px;color:#b42318;font-weight:600">Stock ledger: ${r.mismatches.length} of ${r.checked} product${r.checked===1?"":"s"} don't match their stock movements.</p>
+      <table class="table"><tr><th>Item</th><th>Stock</th><th>Movements</th><th>Difference</th></tr>
+      ${r.mismatches.map(m=>`<tr><td>${skuNameCell(m.sku,m.name)}</td><td>${m.stock}</td><td>${m.ledger}</td><td>${m.diff>0?"+"+m.diff:m.diff}</td></tr>`).join("")}</table>
+      <p class="muted" style="margin-top:6px">Nothing has been changed. Send a backup to support so this can be looked at.</p>`;
+  }
+  function diagnosticsSectionHtml(){
+    return `<div class="card" id="diagCard">
+        <h3>Diagnostics</h3>
+        <p class="muted" style="margin-top:-4px">Checks only. Nothing here changes your data.</p>
+        <div id="diagBody">${diagnosticsBodyHtml()}</div>
+        <button class="btn btn-outline btn-sm" id="diagRecheck" style="margin-top:10px">Check again</button>
+      </div>`;
+  }
+  function wireDiagnosticsSection(){
+    const b = document.getElementById("diagRecheck");
+    if(b) b.onclick=()=>{ document.getElementById("diagBody").innerHTML = diagnosticsBodyHtml(); };
   }

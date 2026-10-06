@@ -109,6 +109,14 @@
     }));
   }
   function fetchBusinessBranches(){ return terminalRpc("cl_branch_list", terminalAuth()); }
+  // Main-branch tills only, never their own row (the server decides).
+  function setTerminalActive(terminalId, active){
+    return terminalRpc("cl_terminal_set_active", Object.assign(terminalAuth(), { p_terminal_id: terminalId, p_active: !!active }));
+  }
+  // Phase 2: set from check-in's terminal_active, or a TERMINAL_INACTIVE refusal.
+  function isTerminalInactive(){ return getSetting("terminal_inactive","")==="1"; }
+  const TERMINAL_INACTIVE_TEXT = "This till was deactivated by your main branch. Selling still works. Ask main to reactivate it.";
+  function noteTerminalRefusal(r){ if(r && r.code==="TERMINAL_INACTIVE") setSetting("terminal_inactive", "1"); }
 
   // Plain-English line for any failed call.
   function terminalProblemText(r, ctx){
@@ -123,10 +131,14 @@
     if(c==="BRANCH_NAME_MISMATCH") return "The branch name doesn't match: this code is for \""+((r.data&&r.data.branch_name)||"another branch")+"\", but this device's branch is \""+(ctx.ownBranchName||currentBranch())+"\". Ask your main branch to check the branch name. Your code can still be used.";
     if(c==="ALREADY_JOINED") return "This device is already a till in another branch.";
     if(c==="OTHER_BUSINESS") return "This device already belongs to a different business.";
+    if(c==="TERMINAL_INACTIVE") return TERMINAL_INACTIVE_TEXT;
     const m = String(r.message||"");
     if(/JOIN_LOCKED/.test(m)) return "Too many wrong codes. Wait an hour, then try again.";
     if(/secret phrase does not match/i.test(m)) return "This device's activation phrase doesn't match what Digital Commerce has. Check it in Settings → Activation secret phrase.";
     if(/registered to another device/i.test(m)) return "Digital Commerce has this install ID registered to another device. Contact Digital Commerce to re-admit this device.";
+    if(/cannot deactivate itself/i.test(m)) return "A till can't deactivate itself. Use another till on the main branch.";
+    if(/Terminal not found in this business/i.test(m)) return "That till isn't part of this business any more. Refresh the list.";
+    if(/can change terminals/i.test(m)) return "Only an active till on the main branch can deactivate or reactivate tills.";
     if(/main-branch terminal/i.test(m)) return "Only a till on the main branch can add terminals.";
     if(/not the main branch|already linked to a business/i.test(m)) return "This device already belongs to a branch. It can't register a new business.";
     return "Digital Commerce couldn't do that ("+(m||"unknown reason")+"). Try again, or contact Digital Commerce.";
@@ -142,6 +154,7 @@
       return `
       <div class="card" id="terminalCard" data-registered="0">
         <h3>Business &amp; Terminals</h3>
+        ${isTerminalInactive()? `<p class="term-inactive" style="color:var(--danger);font-weight:600">${escapeHtml(TERMINAL_INACTIVE_TEXT)}</p>` : `
         <p class="muted">Not registered yet. Registering links this device to your business on Digital Commerce, so more tills can join it later. It needs the internet once; selling offline works either way.</p>
         ${remote? `
           <p class="muted" style="margin-top:6px">This is a remote branch. Ask your main branch for a join code (Settings → Business &amp; Terminals → Add a terminal on the main branch's device).</p>
@@ -150,21 +163,23 @@
           <label>Join code</label>
           <input class="field" id="termJoinCode" autocomplete="off" placeholder="ABCD-EFGH" style="letter-spacing:2px;text-transform:uppercase">
           <button class="btn btn-primary" id="termJoinBtn" style="margin-top:12px">Join your business</button>`
-        : `<button class="btn btn-primary" id="termRegisterBtn" style="margin-top:8px">Register this branch</button>`}
+        : `<button class="btn btn-primary" id="termRegisterBtn" style="margin-top:8px">Register this branch</button>`}`}
         ${status}
       </div>`;
     }
+    const inactive = isTerminalInactive();
     return `
-      <div class="card" id="terminalCard" data-registered="1">
+      <div class="card" id="terminalCard" data-registered="1"${inactive? ` data-inactive="1"` : ""}>
         <h3>Business &amp; Terminals</h3>
         <table class="simple">
           <tr><td class="muted">Business</td><td>${escapeHtml(id.businessName||"—")}</td></tr>
           <tr><td class="muted">Branch</td><td>${escapeHtml(id.branchName||currentBranch())}${id.isMain? ` <span class="pill">Main</span>` : ""}</td></tr>
           <tr><td class="muted">Till</td><td><b id="termTill">${escapeHtml(id.tillCode)}</b>${id.label? " · "+escapeHtml(id.label) : ""}</td></tr>
           <tr><td class="muted">Terminal ID</td><td style="font-size:11.5px;word-break:break-all">${escapeHtml(id.terminalId)}</td></tr>
-          <tr><td class="muted">Status</td><td><span class="pill ok">Registered</span></td></tr>
+          <tr><td class="muted">Status</td><td>${inactive? `<span class="pill low">Deactivated</span>` : `<span class="pill ok">Registered</span>`}</td></tr>
         </table>
-        ${id.isMain? `
+        ${inactive? `<p class="term-inactive" style="color:var(--danger);font-weight:600;margin:10px 0 0">${escapeHtml(TERMINAL_INACTIVE_TEXT)}</p>` : ""}
+        ${id.isMain && !inactive? `
           <button class="btn btn-primary" id="termAddBtn" style="margin-top:12px">+ Add a terminal</button>
           <div class="hr"></div>
           <h4 style="margin:0 0 6px">Terminals</h4>
@@ -182,6 +197,8 @@
       reg.disabled = true; reg.textContent = "Registering…"; setTermStatus("");
       const r = await registerMainBranch(null);
       if(r.ok){ logAudit("Branch registered", "", "Till "+r.data.till_code+" of "+r.data.branch_name); await persist(); render(); return; }
+      noteTerminalRefusal(r);
+      if(r.code==="TERMINAL_INACTIVE"){ await persist(); render(); return; }
       reg.disabled = false; reg.textContent = "Register this branch";
       setTermStatus(terminalProblemText(r), true);
     };
@@ -194,6 +211,8 @@
       const own = getSetting("branch_name","") || currentBranch();
       const r = await joinBusiness({ phrase, code, expectedBranchName: own, devicePhrase: getSetting("secret_phrase",""), legacyBranchId: getBranchId() });
       if(r.ok){ logAudit("Joined business", "", "Till "+r.data.till_code+" of "+r.data.branch_name); await persist(); render(); return; }
+      noteTerminalRefusal(r);
+      if(r.code==="TERMINAL_INACTIVE"){ await persist(); render(); return; }
       join.disabled = false; join.textContent = "Join your business";
       setTermStatus(terminalProblemText(r, { ownBranchName: own }), true);
     };
@@ -207,12 +226,30 @@
     if(!box) return;                                   // left the screen meanwhile
     if(!r.ok){ box.innerHTML = `<p class="muted">${escapeHtml(terminalProblemText(r))}</p>`; return; }
     const branches = r.data.branches||[];
+    const own = getSetting("terminal_id","");
+    const byId = {};
     box.innerHTML = branches.map(b=>`
       <div style="margin-bottom:8px" data-term-branch="${escapeHtml(b.name)}">
         <div style="font-weight:700">${escapeHtml(b.name)}${b.is_main? ` <span class="pill">Main</span>` : ""}</div>
-        ${(b.terminals||[]).length? (b.terminals||[]).map(t=>`<div class="muted" style="font-size:12.5px">${escapeHtml(t.till_code)}${t.label? " · "+escapeHtml(t.label) : ""}${t.last_seen_ts? " · last seen "+escapeHtml(new Date(t.last_seen_ts).toLocaleString()) : ""}${t.active? "" : " · inactive"}</div>`).join("")
+        ${(b.terminals||[]).length? (b.terminals||[]).map(t=>{ byId[t.id] = { till:t.till_code, branch:b.name };
+          return `<div class="term-row" data-term-id="${escapeHtml(t.id)}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0">
+            <span class="muted" style="font-size:12.5px">${escapeHtml(t.till_code)}${t.label? " · "+escapeHtml(t.label) : ""}${t.last_seen_ts? " · last seen "+escapeHtml(new Date(t.last_seen_ts).toLocaleString()) : ""}${t.active? "" : ` · <b style="color:var(--danger)">deactivated</b>`}${t.id===own? " · this till" : ""}</span>
+            ${t.id===own? "" : `<button class="btn btn-sm btn-outline" style="flex:none" data-term-active="${t.active? "0" : "1"}" data-term="${escapeHtml(t.id)}">${t.active? "Deactivate" : "Reactivate"}</button>`}
+          </div>`; }).join("")
           : `<div class="muted" style="font-size:12.5px">No tills yet</div>`}
       </div>`).join("") || `<p class="muted">No branches yet.</p>`;
+    box.querySelectorAll("[data-term]").forEach(btn=>btn.onclick = async ()=>{
+      const t = byId[btn.dataset.term] || { till:"this till", branch:"" }, active = btn.dataset.termActive==="1";
+      const label = t.till+(t.branch? " ("+t.branch+")" : "");
+      if(!active && !confirm("Deactivate "+t.till+"? It can still sell offline, but it can't add itself to the business again until reactivated.")) return;
+      btn.disabled = true; btn.textContent = active? "Reactivating…" : "Deactivating…"; setTermStatus("");
+      const res = await setTerminalActive(btn.dataset.term, active);
+      if(!res.ok){ btn.disabled = false; btn.textContent = active? "Reactivate" : "Deactivate"; setTermStatus(terminalProblemText(res), true); return; }
+      logAudit(active? "Till reactivated" : "Till deactivated", "", label);
+      await persist();
+      setTermStatus((active? "Reactivated " : "Deactivated ")+label+".");
+      loadTerminalList();
+    });
   }
   // Main: pick which branch the new till is for, get a one-time code.
   function openAddTerminalModal(){

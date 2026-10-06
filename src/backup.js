@@ -202,7 +202,7 @@
     try{
       const run2 = (sql,p=[])=>{ try{ copy.run(sql,p); }catch(e){} };
       ["products","sales","eod_sessions","payouts","credit_payments","stock_received","audit_log",
-       "stock_requests","purchases","staff","vouchers","stocktakes","stock_adjustments"].forEach(t=>
+       "stock_requests","purchases","staff","vouchers","stocktakes","stock_adjustments","stock_movements"].forEach(t=>
         run2(`DELETE FROM ${t} WHERE branch<>?`,[scope]));
       run2("DELETE FROM stock_transfers WHERE from_branch<>? AND to_branch<>?",[scope,scope]);
       run2("DELETE FROM dispatch_docs WHERE dispatch_branch_name<>? AND receive_branch_name<>?",[scope,scope]);
@@ -356,9 +356,9 @@
       const dup = byUid("sales",s.uid) || one("SELECT id FROM sales WHERE branch=? AND ts=?",[s.branch,s.ts]);
       if(dup){ saleMap[s.id]=dup.id; return; }
       const newCustId = s.customer_id? (custMap[s.customer_id]||null) : null;
-      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,uid,terminal_id,branch_uuid)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||"",s.uid||null,tid(s),buid(s)]);
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,uid,terminal_id,branch_uuid,receipt_no)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||"",s.uid||null,tid(s),buid(s),s.receipt_no||null]);
       saleMap[s.id]=one("SELECT last_insert_rowid() as id").id;
       newSaleImpIds.add(s.id);
     });
@@ -403,9 +403,9 @@
         : one("SELECT id FROM stock_received WHERE branch=? AND ts=?",[r.branch,r.ts]));
       if(dup) return;
       const newProdId = prodMap[r.product_id]||null;
-      run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,grv_no,adj_branch_id,adj_no,uid,terminal_id,branch_uuid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,grv_no,adj_branch_id,adj_no,uid,terminal_id,branch_uuid,till_code) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         [r.ts,newProdId,r.name,r.qty,r.note,r.branch,r.user||"",linked?r.dn_branch_id:null,linked?r.dn_no:null,r.grv_no==null?null:r.grv_no,
-         isAdj?r.adj_branch_id:null,isAdj?r.adj_no:null,r.uid||null,tid(r),buid(r)]);
+         isAdj?r.adj_branch_id:null,isAdj?r.adj_no:null,r.uid||null,tid(r),buid(r),r.till_code||null]);
     });
 
     // Stock adjustments (Phase 4b): additive, one row per (branch_id, adj_no), never updated.
@@ -413,10 +413,21 @@
     allX(impDb,"SELECT * FROM stock_adjustments").forEach(a=>{
       if(!a.branch_id || a.adj_no==null) return;
       if(byUid("stock_adjustments",a.uid) || one("SELECT id FROM stock_adjustments WHERE branch_id=? AND adj_no=?",[a.branch_id,a.adj_no])) return;
-      run(`INSERT INTO stock_adjustments(branch,branch_id,adj_no,product_code,product_name,qty_delta,reason,note,by_user,authorised_by,ts,dn_branch_id,dn_no,uid,terminal_id,branch_uuid)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      run(`INSERT INTO stock_adjustments(branch,branch_id,adj_no,product_code,product_name,qty_delta,reason,note,by_user,authorised_by,ts,dn_branch_id,dn_no,uid,terminal_id,branch_uuid,till_code)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [a.branch||"",a.branch_id,a.adj_no,a.product_code||"",a.product_name||"",a.qty_delta,a.reason||"",a.note||"",a.by_user||"",a.authorised_by||"",a.ts,
-         a.dn_branch_id||null,a.dn_no==null?null:a.dn_no,a.uid||null,tid(a),buid(a)]);
+         a.dn_branch_id||null,a.dn_no==null?null:a.dn_no,a.uid||null,tid(a),buid(a),a.till_code||null]);
+    });
+
+    // Stock movements (Phase 2): additive, one row per uid, never updated.
+    // products.stock is never touched by the merge; the source's movements
+    // come with its product snapshot (outside this device's integrity check).
+    allX(impDb,"SELECT * FROM stock_movements").forEach(m=>{
+      if(!m.uid || byUid("stock_movements",m.uid)) return;
+      run(`INSERT INTO stock_movements(uid,terminal_id,branch_uuid,product_id,product_uid,product_code,product_name,branch,qty_delta,kind,doc_type,doc_uid,doc_no,ts,user,note)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [m.uid,tid(m),buid(m),prodMap[m.product_id]||null,m.product_uid||null,m.product_code||"",m.product_name||"",m.branch||"",m.qty_delta,m.kind,
+         m.doc_type||"",m.doc_uid||null,m.doc_no||"",m.ts,m.user||"",m.note||""]);
     });
 
     allX(impDb,"SELECT * FROM credit_payments").forEach(cp=>{
@@ -483,7 +494,8 @@
     allX(impDb,"SELECT * FROM dn_events").forEach(e=>{
       if(byUid("dn_events",e.uid)) return;
       recordDnEvent({ dnBranchId:e.dn_branch_id, dnNo:e.dn_no, type:e.event_type, actorBranchId:e.actor_branch_id, actorName:e.actor_branch_name,
-        fromName:e.dn_from_name, toName:e.dn_to_name, ts:e.event_ts, grvNo:e.grv_no, detail:e.detail_json||"", uid:e.uid||null });
+        fromName:e.dn_from_name, toName:e.dn_to_name, ts:e.event_ts, grvNo:e.grv_no, detail:e.detail_json||"", uid:e.uid||null,
+        dnTill:e.dn_till_code||null, grvTill:e.grv_till_code||null });
     });
 
     // Destination register: main's list of branches (and WhatsApp numbers)

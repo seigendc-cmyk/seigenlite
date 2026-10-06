@@ -31,9 +31,9 @@
   // opts: { override:boolean, via:string, now:Date }
   function postCaseSync(c, opts){
     const branchId = getBranchId(), h = one("SELECT * FROM dispatch_docs WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[branchId,c.dn_no]);
-    if(!h) throw new Error(formatDocNo("DN",c.dn_no)+" is not a Delivery Note of this device.");
+    if(!h) throw new Error(ownDnDisplay(c.dn_no)+" is not a Delivery Note of this device.");
     if(c.state!=="pending") throw new Error("This cancellation is already "+c.state+".");
-    const ts = (opts.now||new Date()).toISOString(), plan = planOf(c), dn = formatDocNo("DN",c.dn_no), admin = c.authorised_by||"";
+    const ts = (opts.now||new Date()).toISOString(), plan = planOf(c), dn = ownDnDisplay(c.dn_no), admin = c.authorised_by||"";
     const products = plan.map(l=>{
       const p = findProductForLine(l);
       if(!p) throw new Error((l.code? l.code+" " : "")+l.name+" is no longer a product in this branch, so stock can't be restored. Nothing was changed.");
@@ -45,14 +45,15 @@
     // 2. a reissue sends the corrected quantities again, on the replacement DN
     if(c.kind==="reissue"){
       const nh = one("SELECT * FROM dispatch_docs WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[branchId,c.replaced_by]);
-      if(!nh) throw new Error("The replacement Delivery Note "+formatDocNo("DN",c.replaced_by)+" is missing.");
+      if(!nh) throw new Error("The replacement Delivery Note "+ownDnDisplay(c.replaced_by)+" is missing.");
       plan.forEach((l,i)=>{
         if(!(l.nw>0)) return;
         const cur = one("SELECT stock FROM products WHERE id=?",[products[i].id]);
         if(!cur || cur.stock<l.nw) throw new Error(l.name+": only "+(cur?cur.stock:0)+" in stock for the replacement. Nothing was changed.");
-        run("UPDATE products SET stock=stock-? WHERE id=?",[l.nw,products[i].id]);
-        run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no) VALUES(?,?,?,?,?,?,?,?,?)",
-          [ts,products[i].id,l.name,-l.nw,"Dispatched to "+h.receive_branch_name+" ("+formatDocNo("DN",c.replaced_by)+")",currentBranch(),String(sessionUser||""),branchId,c.replaced_by]);
+        const nhText = docDisplay("DN",c.replaced_by,nh.till_code);
+        moveStock({ productId:products[i].id, delta:-l.nw, kind:"dispatch", docType:"dn", docUid:nh.uid||null, docNo:nhText, ts, note:"To "+h.receive_branch_name+" (replacement)" });
+        run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,till_code) VALUES(?,?,?,?,?,?,?,?,?,?)",
+          [ts,products[i].id,l.name,-l.nw,"Dispatched to "+h.receive_branch_name+" ("+nhText+")",currentBranch(),String(sessionUser||""),branchId,c.replaced_by,nh.till_code||null]);
       });
       run("UPDATE dispatch_docs SET stock_posted=1 WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[branchId,c.replaced_by]);
     }
@@ -65,7 +66,7 @@
     run("UPDATE dispatch_docs SET status=?, cancel_kind=?, cancelled_ts=? WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[status,c.kind,ts,branchId,c.dn_no]);
     recordDnEvent({ dnBranchId:branchId, dnNo:c.dn_no, type:"cancel_posted", actorBranchId:branchId, actorName:currentBranch(), fromName:h.dispatch_branch_name, toName:h.receive_branch_name, ts:localIso(opts.now||new Date()),
       detail:{ kind:c.kind, replaced_by:c.replaced_by||null, override:!!opts.override, case_no:c.case_no, via:opts.via||"" } });
-    logAudit("Cancel posted", "", dn+": "+CANCEL_KIND_LABEL[c.kind]+(c.replaced_by? " (replaced by "+formatDocNo("DN",c.replaced_by)+")" : "")+", "+(opts.override? "WITHOUT receiver confirmation" : "confirmed")+", authorised by "+admin);
+    logAudit("Cancel posted", "", dn+": "+CANCEL_KIND_LABEL[c.kind]+(c.replaced_by? " (replaced by "+ownDnDisplay(c.replaced_by)+")" : "")+", "+(opts.override? "WITHOUT receiver confirmation" : "confirmed")+", authorised by "+admin);
   }
 
   // ---- start ----
@@ -80,7 +81,7 @@
     const branchId = getBranchId(), now = o.now || new Date(), ts = now.toISOString();
     const h = one("SELECT * FROM dispatch_docs WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[branchId,o.dnNo]);
     if(!h) throw new Error("That Delivery Note was not dispatched from this device.");
-    const dn = formatDocNo("DN",o.dnNo), status = derivedDnStatus(o.dnNo);
+    const dn = ownDnDisplay(o.dnNo), status = derivedDnStatus(o.dnNo);
     if(pendingCaseFor(o.dnNo)) throw new Error(dn+" already has a cancellation in progress.");
     if(!canStartCancel(status)) throw new Error(dn+" is "+(DN_STATUS_LABEL[status]||status).toLowerCase()+", so it can't be cancelled. Only dispatched, awaiting or variance Delivery Notes can.");
     if(h.status==="received" || DN_CLOSED_STATUSES.includes(h.status)) throw new Error(dn+" is already "+h.status+".");
@@ -98,21 +99,22 @@
         const nd = reserveDocNumber("DN"); newNo = nd.n;
         const send = norm.lines.filter(l=>l.nw>0), units = send.reduce((s,l)=>s+l.nw,0);
         const ok = insertDispatchDoc({ dispatchBranchId:branchId, dispatchBranchName:h.dispatch_branch_name, dnNo:nd.n, receiveBranchName:h.receive_branch_name, direction:"out",
-          createdTs:ts, createdIso:localIso(now), lineCount:send.length, unitTotal:units, status:"dispatched", fileName:dnFileName(nd.n, h.dispatch_branch_name, now) });
+          createdTs:ts, createdIso:localIso(now), lineCount:send.length, unitTotal:units, status:"dispatched", fileName:dnFileName(nd.n, h.dispatch_branch_name, now, nd.till),
+          tillCode:nd.till, internalRef:h.internal_ref||null });
         if(!ok) throw new Error("Delivery Note "+nd.text+" already exists.");
         run("UPDATE dispatch_docs SET replaces_dn_no=?, stock_posted=0 WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[o.dnNo,branchId,nd.n]);
         send.forEach(l=>run(`INSERT INTO stock_transfers(ts,from_branch,to_branch,product_name,sku,qty,note,user,status,dn_no,dn_branch_id) VALUES(?,?,?,?,?,?,?,?,'Dispatched',?,?)`,
           [ts,h.dispatch_branch_name,h.receive_branch_name,l.name,l.code,l.nw,nd.text+" (replaces "+dn+")",String(sessionUser||""),nd.n,branchId]));
         recordDnEvent({ dnBranchId:branchId, dnNo:nd.n, type:"dispatched", actorBranchId:branchId, actorName:h.dispatch_branch_name, fromName:h.dispatch_branch_name, toName:h.receive_branch_name, ts,
-          detail:{ dn_created_iso:localIso(now), lines:send.length, units, replaces:o.dnNo } });
+          detail:{ dn_created_iso:localIso(now), lines:send.length, units, replaces:o.dnNo }, dnTill:nd.till||null });
       }
-      run(`INSERT INTO dn_cases(case_no,dn_branch_id,dn_no,kind,state,nonce,plan_json,replaced_by,override,note,started_ts,started_by,authorised_by)
-           VALUES(?,?,?,?,'pending',?,?,?,0,?,?,?,?)`,
-        [cx.n,branchId,o.dnNo,o.kind,nonce,JSON.stringify({ lines:norm.lines }),newNo,String(o.note).trim(),ts,String(sessionUser||""),admin.name]);
+      run(`INSERT INTO dn_cases(case_no,dn_branch_id,dn_no,kind,state,nonce,plan_json,replaced_by,override,note,started_ts,started_by,authorised_by,till_code)
+           VALUES(?,?,?,?,'pending',?,?,?,0,?,?,?,?,?)`,
+        [cx.n,branchId,o.dnNo,o.kind,nonce,JSON.stringify({ lines:norm.lines }),newNo,String(o.note).trim(),ts,String(sessionUser||""),admin.name,cx.till||null]);
       run("UPDATE dispatch_docs SET cancel_no=?, replaced_by=?, cancel_kind=? WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[cx.n,newNo,o.kind,branchId,o.dnNo]);
       recordDnEvent({ dnBranchId:branchId, dnNo:o.dnNo, type:"cancel_pending", actorBranchId:branchId, actorName:currentBranch(), fromName:h.dispatch_branch_name, toName:h.receive_branch_name, ts,
         detail:{ kind:o.kind, cancel_no:cx.n, replaced_by:newNo } });
-      logAudit("Cancel started", "", dn+": "+CANCEL_KIND_LABEL[o.kind]+" ("+cx.text+")"+(newNo? ", replacement "+formatDocNo("DN",newNo) : "")+", "+String(o.note).trim()+" (authorised by "+admin.name+")");
+      logAudit("Cancel started", "", dn+": "+CANCEL_KIND_LABEL[o.kind]+" ("+cx.text+")"+(newNo? ", replacement "+ownDnDisplay(newNo) : "")+", "+String(o.note).trim()+" (authorised by "+admin.name+")");
       if(o.override) postCaseSync(one("SELECT * FROM dn_cases WHERE dn_branch_id=? AND case_no=?",[branchId,cx.n]), { override:true, via:"override", now });
       db.run("COMMIT");
       return { caseNo:cx.n, caseText:cx.text, kind:o.kind, newDnNo:newNo, overridden:!!o.override };
@@ -130,8 +132,8 @@
     const admin = findAdmin(o.passcode);
     if(!admin) throw new Error("Incorrect Admin passcode.");
     const c = pendingCaseFor(o.dnNo);
-    if(!c) throw new Error(formatDocNo("DN",o.dnNo)+" has no cancellation waiting for a confirmation.");
-    if(String(o.typed||"").trim()!=="CANCEL "+formatDocNo("DN",o.dnNo)) throw new Error("Type CANCEL "+formatDocNo("DN",o.dnNo)+" exactly to cancel without the receiver's confirmation.");
+    if(!c) throw new Error(ownDnDisplay(o.dnNo)+" has no cancellation waiting for a confirmation.");
+    if(String(o.typed||"").trim()!=="CANCEL "+ownDnDisplay(o.dnNo)) throw new Error("Type CANCEL "+ownDnDisplay(o.dnNo)+" exactly to cancel without the receiver's confirmation.");
     db.run("BEGIN");
     try{
       run("UPDATE dn_cases SET authorised_by=? WHERE id=?",[admin.name,c.id]);
@@ -159,7 +161,7 @@
       const h = one("SELECT * FROM dispatch_docs WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[getBranchId(),ack.dn_no]);
       let posted = false;
       if(c.state==="pending"){
-        if(h.status==="received") throw new Error(formatDocNo("DN",ack.dn_no)+" is recorded as received. Nothing was changed.");
+        if(h.status==="received") throw new Error(ownDnDisplay(ack.dn_no)+" is recorded as received. Nothing was changed.");
         postCaseSync(c, { override:false, via:"confirmation", now });
         posted = true;
       } else if(c.state==="posted" && c.override && !c.acked_ts){ /* upgrade only */ }
@@ -173,15 +175,15 @@
   }
 
   // ---- files the dispatcher sends ----
-  function cancelNoticeFileName(caseNo, receiverName, date){
-    return formatDocNo("CXL",caseNo)+"-"+sanitizeBranchName(receiverName)+"-"+fileDatePart(date)+"-"+fileTimePart(date)+"-cancel"+DOC_FILE_EXT;
+  function cancelNoticeFileName(caseNo, receiverName, date, tillCode){
+    return docDisplay("CXL",caseNo,tillCode)+"-"+sanitizeBranchName(receiverName)+"-"+fileDatePart(date)+"-"+fileTimePart(date)+"-cancel"+DOC_FILE_EXT;
   }
   async function cancelNoticeFor(c){
     const h = one("SELECT * FROM dispatch_docs WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[getBranchId(),c.dn_no]);
     const items = dnStoredLines(h).map(l=>({ code:l.sku||"", name:l.product_name, qty:l.qty }));
     const doc = await buildCancel({ cancelNo:c.case_no, nonce:c.nonce, kind:c.kind, dnNo:c.dn_no, fromBranchId:getBranchId(), fromName:h.dispatch_branch_name, toName:h.receive_branch_name,
-      replacedBy:c.replaced_by||null, cancelledIso:localIso(new Date(c.started_ts)), items });
-    return { doc, text:serializeCancel(doc), fileName:cancelNoticeFileName(c.case_no, h.receive_branch_name, new Date(c.started_ts)), header:h };
+      replacedBy:c.replaced_by||null, cancelledIso:localIso(new Date(c.started_ts)), items, tillCode:c.till_code||"", dnTillCode:h.till_code||"" });
+    return { doc, text:serializeCancel(doc), fileName:cancelNoticeFileName(c.case_no, h.receive_branch_name, new Date(c.started_ts), c.till_code), header:h };
   }
   async function shareCancelNotice(c){
     const n = await cancelNoticeFor(c);
@@ -203,8 +205,8 @@
     const h = dnHeaderFor(dnNo);
     if(!h){ alert("That Delivery Note was not dispatched from this device."); return; }
     const status = derivedDnStatus(dnNo);
-    if(!canStartCancel(status)){ alert(formatDocNo("DN",dnNo)+" is "+(DN_STATUS_LABEL[status]||status).toLowerCase()+". Only dispatched, awaiting or variance Delivery Notes can be cancelled."); return; }
-    const dn = formatDocNo("DN",dnNo), lines = dnStoredLines(h).map(l=>({ code:l.sku||"", name:l.product_name, qty:l.qty }));
+    if(!canStartCancel(status)){ alert(ownDnDisplay(dnNo)+" is "+(DN_STATUS_LABEL[status]||status).toLowerCase()+". Only dispatched, awaiting or variance Delivery Notes can be cancelled."); return; }
+    const dn = ownDnDisplay(dnNo), lines = dnStoredLines(h).map(l=>({ code:l.sku||"", name:l.product_name, qty:l.qty }));
     const mv = dnStatusMap().get(getBranchId()+"|"+dnNo);
     const counted = (l)=>{ const f = mv && mv.varianceFlags.find(x=>(x.code||"")===(l.code||"") && x.name===l.name); return f? Math.min(f.counted, l.qty) : null; };
     const wrap = openModal("Cancel or reissue "+dn, "");
@@ -268,7 +270,7 @@
       started(r);
     }
     function started(r){
-      const nd = r.newDnNo? formatDocNo("DN",r.newDnNo) : "";
+      const nd = r.newDnNo? ownDnDisplay(r.newDnNo) : "";
       body.innerHTML = `<div class="box" style="margin-bottom:10px"><p style="font-weight:700;margin:0 0 4px">${escapeHtml(r.caseText)} started for ${escapeHtml(dn)}</p>
         <p class="muted" style="margin:0">Nothing has changed in your stock yet. It is posted when ${escapeHtml(receiver)}'s confirmation is imported${nd? " (or when the receipt voucher for "+escapeHtml(nd)+" arrives)" : ""}. Send them the file now.</p></div>
         ${nd? `<button class="btn btn-primary" id="cwShareNew" style="width:100%;margin-bottom:8px">${isTauriApp()? "📁 " : "📲 "}Send replacement ${escapeHtml(nd)} to ${escapeHtml(receiver)}</button>` : ""}
@@ -287,12 +289,12 @@
   // For a DN with a cancel waiting for the receiver: re-share, or post it WITHOUT the receiver's confirmation.
   function openPendingCancelModal(dnNo, onDone){
     const c = pendingCaseFor(dnNo);
-    if(!c){ alert("No cancellation is waiting on "+formatDocNo("DN",dnNo)+"."); return; }
-    const h = dnHeaderFor(dnNo), dn = formatDocNo("DN",dnNo), receiver = h.receive_branch_name;
+    if(!c){ alert("No cancellation is waiting on "+ownDnDisplay(dnNo)+"."); return; }
+    const h = dnHeaderFor(dnNo), dn = ownDnDisplay(dnNo), receiver = h.receive_branch_name;
     const wrap = openModal(dn+": cancel pending", `
-      <p style="margin:0 0 6px">${escapeHtml(formatDocNo("CXL",c.case_no))} (${escapeHtml(CANCEL_KIND_LABEL[c.kind])}) is waiting for <b>${escapeHtml(receiver)}</b> to confirm. Your stock changes only when it does.</p>
+      <p style="margin:0 0 6px">${escapeHtml(docDisplay("CXL",c.case_no,c.till_code))} (${escapeHtml(CANCEL_KIND_LABEL[c.kind])}) is waiting for <b>${escapeHtml(receiver)}</b> to confirm. Your stock changes only when it does.</p>
       <button class="btn btn-outline" id="pcShare" style="width:100%;margin-bottom:6px">${isTauriApp()? "📁 " : "📲 "}Send the cancellation again</button>
-      ${c.replaced_by? `<button class="btn btn-outline" id="pcShareNew" style="width:100%;margin-bottom:6px">Send replacement ${escapeHtml(formatDocNo("DN",c.replaced_by))} again</button>` : ""}
+      ${c.replaced_by? `<button class="btn btn-outline" id="pcShareNew" style="width:100%;margin-bottom:6px">Send replacement ${escapeHtml(ownDnDisplay(c.replaced_by))} again</button>` : ""}
       <div id="pcMsg" class="muted" style="font-size:12.5px;margin-bottom:8px"></div>
       <div class="box" style="border-color:#b42318">
         <b>Cancel without confirmation</b>

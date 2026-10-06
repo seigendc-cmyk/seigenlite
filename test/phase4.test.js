@@ -393,9 +393,13 @@ const movements = (app, b, status)=>app.api.REPORT_CONFIGS.find(c=>c.id==="movem
   await t("existing remotes are not modified by the upgrade (no staff, settings or data added)", ()=>{
     const R = makeApp({ branch_name:"CBD", branch_type:"remote", setup_complete:"1", branch_id:"B-KEEPME12" });
     addProduct(R,"CBD",{name:"Rice",sku:"SK1",stock:5});
+    // Multi-terminal Phase 2: the upgrade's ONE addition is the stock ledger's
+    // opening balance (one movement per product = its stock). Nothing else changes.
+    const without = (s)=> JSON.stringify(JSON.parse(s).filter(([t])=>t!=="stock_movements"));
     const before = snapshot(R);
     R.api.migrate(R.db);
-    assert.strictEqual(snapshot(R),before);
+    assert.strictEqual(without(snapshot(R)), without(before));
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(R.api.all("SELECT kind, qty_delta, product_code FROM stock_movements"))), [{ kind:"opening", qty_delta:5, product_code:"SK1" }]);
     assert.strictEqual(R.api.all("SELECT * FROM staff").length,0);
     assert.strictEqual(R.api.hasAdminPasscode(),false,"an existing remote with none is offered the create-passcode form on the locked screen");
   });

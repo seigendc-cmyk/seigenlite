@@ -8,7 +8,7 @@
       fetch(b,fromTs,toTs){
         const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                         : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
-        const rows = sales.map(s=>[`<button type="button" class="btn btn-outline btn-sm" data-view-sale="${s.id}" style="padding:4px 10px;font-size:12px">${s.id}</button>`, new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+(s.markup||0).toFixed(2), currency+s.total.toFixed(2)]);
+        const rows = sales.map(s=>[`<button type="button" class="btn btn-outline btn-sm" data-view-sale="${s.id}" style="padding:4px 10px;font-size:12px">${escapeHtml(String(s.receipt_no||s.id))}</button>`, new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+(s.markup||0).toFixed(2), currency+s.total.toFixed(2)]);
         const grand = sales.reduce((s,r)=>s+r.total,0);
         return { headers:["Receipt#","Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Markup","Total"], rows, footer:`Grand Total: ${currency}${grand.toFixed(2)}` };
       }
@@ -62,7 +62,7 @@
                         : all("SELECT * FROM sales WHERE discount>0 AND ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
         const rows = sales.map(s=>{
           const cust = s.customer_id? one("SELECT name FROM customers WHERE id=?",[s.customer_id]) : null;
-          return [new Date(s.ts).toLocaleString(), s.id, escapeHtml(cust?cust.name:"—"), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2), escapeHtml(s.discount_reason||""), escapeHtml(s.discount_status||"")];
+          return [new Date(s.ts).toLocaleString(), escapeHtml(String(s.receipt_no||s.id)), escapeHtml(cust?cust.name:"—"), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2), escapeHtml(s.discount_reason||""), escapeHtml(s.discount_status||"")];
         });
         const totalDisc = sales.reduce((s,r)=>s+r.discount,0);
         return { headers:["Date","Receipt#","Customer","Amount","Discount","Cash Paid","Reason","Status"], rows, footer:`Total discounts given: ${currency}${totalDisc.toFixed(2)}` };
@@ -166,7 +166,7 @@
         const statusOf = (t)=>{
           if(t.dn_no==null) return t.status;
           const r = (t.dn_branch_id && mv.get(t.dn_branch_id+"|"+t.dn_no)) || byName.get(String(t.from_branch).toLowerCase()+"|"+t.dn_no);
-          return r? (DN_STATUS_LABEL[r.status]+(r.grvNo? " ("+formatDocNo("GRV",r.grvNo)+")" : "")) : "Dispatched";
+          return r? (DN_STATUS_LABEL[r.status]+(r.grvNo? " ("+(r.grvDisplay||formatDocNo("GRV",r.grvNo))+")" : "")) : "Dispatched";
         };
         const rows = transfers.map(t=>[new Date(t.ts).toLocaleString(), escapeHtml(t.from_branch), escapeHtml(t.to_branch), skuNameCell(t.sku,t.product_name), t.qty, escapeHtml(statusOf(t)), escapeHtml(t.user||"")]);
         return { headers:["Date","From","To","Item","Qty","Status","By"], rows, footer:"" };
@@ -189,7 +189,7 @@
         const out = rows.map(r=>[escapeHtml(r.dnDisplay), escapeHtml(r.from), escapeHtml(r.to),
           r.dispatchedTs? escapeHtml(new Date(r.dispatchedTs).toLocaleDateString()) : "—",
           dnStatusBadge(r.status)+(r.cancelPending && r.status!=="cancel_pending"? " <span style='font-size:11px;color:#b54708'>+ cancel pending</span>" : ""),
-          r.grvNo? escapeHtml(formatDocNo("GRV",r.grvNo)) : "", escapeHtml(varianceText(r)), escapeHtml(chainText(r)),
+          r.grvNo? escapeHtml(r.grvDisplay||formatDocNo("GRV",r.grvNo)) : "", escapeHtml(varianceText(r)), escapeHtml(chainText(r)),
           loss.has(r.key)? currency+loss.get(r.key).toFixed(2) : ""]);
         const n = (st)=>rows.filter(r=>r.status===st).length;
         return { headers:["DN","From","To","Dispatched","Status","GRV","Variance","Chain / notes","Loss (main cost)"], rows:out,

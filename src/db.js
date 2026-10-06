@@ -223,6 +223,23 @@
       exported_ts TEXT NOT NULL,
       sent_ts TEXT DEFAULT ''
     );
+    -- Stock movement ledger (multi-terminal Phase 2): one row per change to
+    -- products.stock, written by moveStock()/recordStockMovement() below in
+    -- the same step as the change itself, so SUM(qty_delta) per product
+    -- always equals products.stock (stockLedgerCheck). products.stock stays
+    -- the cached on-hand figure every screen reads. Reports still read
+    -- stock_received etc. as before; they move to this table in Phase 4.
+    CREATE TABLE IF NOT EXISTS stock_movements(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      uid TEXT, terminal_id TEXT, branch_uuid TEXT,
+      product_id INTEGER, product_uid TEXT, product_code TEXT DEFAULT '', product_name TEXT DEFAULT '',
+      branch TEXT DEFAULT '',
+      qty_delta INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      doc_type TEXT DEFAULT '', doc_uid TEXT, doc_no TEXT DEFAULT '',
+      ts TEXT NOT NULL, user TEXT DEFAULT '', note TEXT DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS ix_stock_movements_product ON stock_movements(product_id);
     CREATE TABLE IF NOT EXISTS print_queue(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT DEFAULT '',
@@ -350,7 +367,22 @@
       // equivalent) that EOD/credit/report queries already rely on.
       "ALTER TABLE sale_payments ADD COLUMN currency TEXT DEFAULT 'BASE'",
       "ALTER TABLE sale_payments ADD COLUMN rate REAL DEFAULT 1",
-      "ALTER TABLE sale_payments ADD COLUMN tendered_amount REAL"
+      "ALTER TABLE sale_payments ADD COLUMN tendered_amount REAL",
+      // Multi-terminal Phase 2: per-till document numbers. The till code is
+      // stored with each document at the moment it was numbered, so a
+      // document shows the same number forever (docDisplay, docnum.js).
+      // NULL on every older row = numbered before tills existed.
+      "ALTER TABLE sales ADD COLUMN receipt_no TEXT",
+      "ALTER TABLE dispatch_docs ADD COLUMN till_code TEXT",
+      "ALTER TABLE dispatch_docs ADD COLUMN grv_till_code TEXT",
+      "ALTER TABLE dispatch_docs ADD COLUMN internal_ref TEXT",
+      "ALTER TABLE dispatch_docs ADD COLUMN grv_internal_ref TEXT",
+      "ALTER TABLE dispatch_docs ADD COLUMN cancel_till_code TEXT",
+      "ALTER TABLE dn_events ADD COLUMN dn_till_code TEXT",
+      "ALTER TABLE dn_events ADD COLUMN grv_till_code TEXT",
+      "ALTER TABLE dn_cases ADD COLUMN till_code TEXT",
+      "ALTER TABLE stock_adjustments ADD COLUMN till_code TEXT",
+      "ALTER TABLE stock_received ADD COLUMN till_code TEXT"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -390,8 +422,76 @@
     // recorded tendered amount.
     try{ t.run("UPDATE sale_payments SET tendered_amount=amount WHERE tendered_amount IS NULL"); }catch(e){}
     migrateSyncIdentity(t);
+    migrateStockLedger(t);
     if(typeof pauseSyncBacklog==="function") pauseSyncBacklog(t);   // sync.js; absent in partial test loads
   }
+  // Opening balance: one 'opening' movement per product equal to its stock
+  // when the ledger started, so SUM(qty_delta) = products.stock from day one.
+  // Its uid is 'open-<product uid>', and it is only written for a product with
+  // no movements at all and some stock: running this again (every boot, every
+  // database opened for merge) inserts nothing new, and a product created
+  // after the ledger started (which has its own 'product_created' movement)
+  // never gets one.
+  function migrateStockLedger(t){
+    try{ t.run(`INSERT OR IGNORE INTO stock_movements(uid,product_id,product_uid,product_code,product_name,branch,qty_delta,kind,doc_type,ts,note)
+      SELECT 'open-'||p.uid, p.id, p.uid, COALESCE(p.sku,''), p.name, COALESCE(p.branch,''), p.stock, 'opening', '', ?, 'Stock on hand when the ledger started'
+      FROM products p WHERE p.uid IS NOT NULL AND p.stock<>0
+        AND NOT EXISTS (SELECT 1 FROM stock_movements m WHERE m.product_id=p.id)`, [new Date().toISOString()]); }catch(e){}
+  }
+
+  // ---- stock ledger (multi-terminal Phase 2) ----
+  // The ONE way products.stock changes. Writes the change and its movement
+  // together inside a SAVEPOINT, which works both inside a caller's own
+  // BEGIN…COMMIT (dispatch, receive, adjust, cancel) and on its own (sale,
+  // restock, purchase, import, stocktake): either both land or neither does.
+  // o: { productId, delta | setTo, kind, docType?, docUid?, docNo?, ts?, note? } -> the delta applied
+  // setTo is for the two overwrite paths (import "apply qty", stocktake): the
+  // movement records the true change from the stock at that moment.
+  function moveStock(o){
+    const p = one("SELECT id,uid,sku,name,branch,stock FROM products WHERE id=?",[o.productId]);
+    if(!p) throw new Error("Product not found.");
+    const delta = (o.setTo!==undefined && o.setTo!==null)? (o.setTo - p.stock) : o.delta;
+    if(!Number.isInteger(delta)) throw new Error("A stock change must be a whole number.");
+    if(delta===0) return 0;
+    run("SAVEPOINT move_stock");
+    try{
+      run("UPDATE products SET stock=stock+? WHERE id=?",[delta,p.id]);
+      insertStockMovement(p, delta, o);
+      run("RELEASE move_stock");
+    }catch(e){
+      try{ run("ROLLBACK TO move_stock"); run("RELEASE move_stock"); }catch(_){}
+      throw e;
+    }
+    return delta;
+  }
+  // For the paths that INSERT a product with its starting stock: the stock is
+  // already on the row, so only the movement is written.
+  function recordStockMovement(productId, delta, o){
+    if(!delta) return;
+    const p = one("SELECT id,uid,sku,name,branch,stock FROM products WHERE id=?",[productId]);
+    if(p) insertStockMovement(p, delta, o||{});
+  }
+  function insertStockMovement(p, delta, o){
+    run(`INSERT INTO stock_movements(product_id,product_uid,product_code,product_name,branch,qty_delta,kind,doc_type,doc_uid,doc_no,ts,user,note)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [p.id, p.uid||null, p.sku||"", p.name||"", p.branch||"", delta, o.kind||"other", o.docType||"", o.docUid||null, o.docNo||"",
+       o.ts||new Date().toISOString(), String(sessionUser||""), o.note||""]);
+  }
+  // Products of this branch whose stock doesn't equal the sum of their
+  // movements. Other branches' products are excluded: on a main device they
+  // are snapshots a merge never updates (backup.js), so no sum is expected.
+  function stockLedgerCheck(branch){
+    branch = branch===undefined? currentBranch() : branch;
+    const rows = all(`SELECT p.id, p.name, p.sku, p.stock,
+        COALESCE((SELECT SUM(m.qty_delta) FROM stock_movements m WHERE m.product_id=p.id),0) AS ledger
+      FROM products p WHERE p.branch=? ORDER BY p.name`,[branch]);
+    return { checked: rows.length, mismatches: rows.filter(r=>r.ledger!==r.stock).map(r=>({ id:r.id, name:r.name, sku:r.sku, stock:r.stock, ledger:r.ledger, diff:r.stock-r.ledger })) };
+  }
+  // A receipt's number as printed: the per-till number when it has one,
+  // otherwise today's "#<id>" (every receipt from before tills, and every
+  // receipt from an unregistered device).
+  function receiptLabel(saleId, receiptNo){ return receiptNo? String(receiptNo) : "#"+saleId; }
+  function receiptDisplay(sale){ return receiptLabel(sale.id, sale.receipt_no); }
   // Multi-terminal Phase 1: every row that will one day sync gets a stable
   // uid, and rows written on this device carry which terminal and branch
   // (server ids, see terminal.js) wrote them. Integer primary keys stay the
@@ -403,8 +503,8 @@
   // registered, and on rows from before this version ("pre-terminal").
   const SYNC_UID_TABLES = ["sales","sale_items","sale_payments","products","customers","payouts","credit_payments",
     "stock_received","stock_adjustments","stock_transfers","purchases","eod_sessions","staff","vouchers","stock_requests",
-    "stocktakes","stocktake_counts","dispatch_docs","dn_events","dn_cases","audit_log"];
-  const TERMINAL_STAMP_TABLES = ["sales","payouts","credit_payments","stock_received","stock_adjustments","eod_sessions","purchases"];
+    "stocktakes","stocktake_counts","dispatch_docs","dn_events","dn_cases","audit_log","stock_movements"];
+  const TERMINAL_STAMP_TABLES = ["sales","payouts","credit_payments","stock_received","stock_adjustments","eod_sessions","purchases","stock_movements"];
   const NEW_UID_SQL = "lower(hex(randomblob(16)))";
   function migrateSyncIdentity(t){
     TERMINAL_STAMP_TABLES.forEach(tbl=>{

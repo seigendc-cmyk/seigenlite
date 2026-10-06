@@ -310,7 +310,7 @@
   // call at the end differs, so each format is built once here.
   // docRef: the sale's optional Document Reference No. (sales.doc_ref) —
   // printed under the receipt number only when non-blank.
-  function buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef){
+  function buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
     const w = escposColWidth();
     const shop = getSetting("shop_name","My Shop");
     const branch = getSetting("branch_name","");
@@ -319,7 +319,7 @@
     if(branch) parts.push(escposTextBytes(branch+"\n"));
     parts.push(escposAlign("left"), escposLine(w));
     parts.push(escposTextBytes(new Date(ts).toLocaleString()+"\n"));
-    parts.push(escposTextBytes("Receipt #"+saleId+"\n"));
+    parts.push(escposTextBytes("Receipt "+receiptLabel(saleId, receiptNo)+"\n"));
     if(docRef) parts.push(escposTextBytes("Doc Ref: "+docRef+"\n"));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
@@ -335,11 +335,11 @@
     parts.push(escposCut());
     return concatBytes(parts);
   }
-  async function usbPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef){
-    await usbPrintBytes(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef));
+  async function usbPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
+    await usbPrintBytes(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo));
   }
-  async function btPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef){
-    await btPrintBytes(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef));
+  async function btPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
+    await btPrintBytes(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo));
   }
 
   function buildEODBytes(summary){
@@ -414,8 +414,8 @@
     window.print();
   }
 
-  async function printReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef){
-    const sentDirect = await sendDirect(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef), "Receipt #"+saleId);
+  async function printReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
+    const sentDirect = await sendDirect(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo), "Receipt "+receiptLabel(saleId, receiptNo));
     if(sentDirect) return;
     const shop = getSetting("shop_name","My Shop");
     const branch = getSetting("branch_name","");
@@ -429,7 +429,7 @@
         ${contact?`<div style="text-align:center">${escapeHtml(contact)}</div>`:""}
         <hr>
         <div>${new Date(ts).toLocaleString()}</div>
-        <div>Receipt #${saleId}</div>
+        <div>Receipt ${escapeHtml(receiptLabel(saleId, receiptNo))}</div>
         ${docRef?`<div>Doc Ref: ${escapeHtml(docRef)}</div>`:""}
         <hr>
         ${lines}
@@ -544,7 +544,7 @@
     if(branch) parts.push(escposTextBytes(branch+"\n"));
     parts.push(escposAlign("left"), escposLine(w));
     parts.push(escposTextBytes(new Date(sale.ts).toLocaleString()+"\n"));
-    parts.push(escposTextBytes("Receipt #"+sale.id+"\n"));
+    parts.push(escposTextBytes("Receipt "+receiptDisplay(sale)+"\n"));
     if(sale.doc_ref) parts.push(escposTextBytes("Doc Ref: "+sale.doc_ref+"\n"));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
@@ -580,7 +580,7 @@
         ${contact?`<div style="text-align:center">${escapeHtml(contact)}</div>`:""}
         <hr>
         <div>${new Date(sale.ts).toLocaleString()}</div>
-        <div>Receipt #${sale.id}</div>
+        <div>Receipt ${escapeHtml(receiptDisplay(sale))}</div>
         ${sale.doc_ref?`<div>Doc Ref: ${escapeHtml(sale.doc_ref)}</div>`:""}
         <hr>
         ${lines}
@@ -613,7 +613,7 @@
         <h2>${escapeHtml(shop)}</h2>
         <div class="sub">${escapeHtml(branch)}${contact? ` · ${escapeHtml(contact)}` : ""}</div>
         <h3 class="section">INVOICE</h3>
-        <p>Invoice #: ${sale.id}<br>Date: ${new Date(sale.ts).toLocaleString()}${sale.doc_ref? `<br>Doc Ref: ${escapeHtml(sale.doc_ref)}` : ""}</p>
+        <p>${sale.receipt_no? `Invoice: ${escapeHtml(sale.receipt_no)}` : `Invoice #: ${sale.id}`}<br>Date: ${new Date(sale.ts).toLocaleString()}${sale.doc_ref? `<br>Doc Ref: ${escapeHtml(sale.doc_ref)}` : ""}</p>
         <p><b>Bill To:</b><br>${cust? escapeHtml(cust.name) : "—"}${cust && cust.phone? `<br>${escapeHtml(cust.phone)}` : ""}</p>
         <table>
           <tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr>
@@ -651,7 +651,7 @@
           return `<div class="subline"><span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`;
         }).join("")
       : `<div class="subline"><span>Method</span><span>${escapeHtml(sale.method)}</span></div>`;
-    const wrap = openModal(`Receipt #${sale.id}`, `
+    const wrap = openModal(`Receipt ${receiptDisplay(sale)}`, `
       <div class="subline"><span>Date/Time</span><span>${escapeHtml(new Date(sale.ts).toLocaleString())}</span></div>
       <div class="subline"><span>Branch</span><span>${escapeHtml(sale.branch||"")}</span></div>
       ${sale.doc_ref? `<div class="subline"><span>Doc Ref</span><span>${escapeHtml(sale.doc_ref)}</span></div>` : ""}

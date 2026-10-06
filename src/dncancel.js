@@ -8,42 +8,64 @@
   const CANCEL_FORMAT = "seigen-dn-cancel";
   const ACK_FORMAT = "seigen-dn-cancel-ack";
   const CANCEL_FORMAT_VERSION = 1;
+  // Multi-terminal Phase 2: a notice/confirmation whose cancel number or DN
+  // number carries a till code (CXL-T1-0002, DN-T1-0012) also carries those
+  // codes so the numbers can be checked. Written ONLY then; otherwise v1.
+  const CANCEL_FORMAT_VERSION_TILL = 2;
+  // Shared by notice and confirmation: version + the till fields.
+  function cancelTillErrors(d, label){
+    if(!Number.isInteger(d.format_version) || d.format_version<1) return [damagedVersionMessage(label)];
+    if(d.format_version!==CANCEL_FORMAT_VERSION && d.format_version!==CANCEL_FORMAT_VERSION_TILL) return [newerAppMessage(label, d.format_version, CANCEL_FORMAT_VERSION_TILL)];
+    const e = [];
+    const bad = (k)=> d[k]!==undefined && (typeof d[k]!=="string" || !TILL_CODE_RE.test(d[k]));
+    if(d.format_version===CANCEL_FORMAT_VERSION_TILL){
+      if(bad("till_code") || bad("dn_till_code")) e.push("The till code on this "+label+" is invalid.");
+      if(d.till_code===undefined && d.dn_till_code===undefined) e.push("This "+label+" says it has a till number, but has none.");
+    } else ["till_code","dn_till_code"].forEach(k=>{ if(d[k]!==undefined) e.push("Unexpected field \""+k+"\"."); });
+    return e;
+  }
+  const cxDisplay = (d)=> docDisplay("CXL", d.cancel_no, typeof d.till_code==="string"? d.till_code : "");
+  const cxDnDisplay = (d)=> docDisplay("DN", d.dn_no, typeof d.dn_till_code==="string"? d.dn_till_code : "");
   const CANCEL_KINDS = ["cancel","reissue","loss"];
   const CANCEL_KIND_LABEL = { cancel:"Cancelled", reissue:"Cancelled and reissued", loss:"Closed as a loss" };
   const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)$/;
   const NONCE_RE = /^[A-Za-z0-9]{12,40}$/;
 
-  function cxNo(n){ return formatDocNo("CXL", n); }
 
   // ---- notice ----
   function canonicalCancel(d, withChecksum){
     const out = {
       format: d.format, format_version: d.format_version,
-      cancel_no: d.cancel_no, cancel_display: d.cancel_display, nonce: d.nonce, kind: d.kind,
-      dn_no: d.dn_no, dn_display: d.dn_display,
-      from: { branch_id: d.from && d.from.branch_id, name: d.from && d.from.name },
-      to: { name: d.to && d.to.name },
-      replaced_by: d.replaced_by===undefined? null : d.replaced_by,
-      cancelled_iso: d.cancelled_iso,
-      items: (d.items||[]).map(it=>({ code:it.code, name:it.name, unit:it.unit, qty:it.qty })),
-      totals: { lines: d.totals && d.totals.lines, units: d.totals && d.totals.units }
+      cancel_no: d.cancel_no, cancel_display: d.cancel_display
     };
+    if(d.till_code) out.till_code = d.till_code;                         // v2 only
+    out.nonce = d.nonce; out.kind = d.kind;
+    out.dn_no = d.dn_no; out.dn_display = d.dn_display;
+    if(d.dn_till_code) out.dn_till_code = d.dn_till_code;                // v2 only
+    out.from = { branch_id: d.from && d.from.branch_id, name: d.from && d.from.name };
+    out.to = { name: d.to && d.to.name };
+    out.replaced_by = d.replaced_by===undefined? null : d.replaced_by;
+    out.cancelled_iso = d.cancelled_iso;
+    out.items = (d.items||[]).map(it=>({ code:it.code, name:it.name, unit:it.unit, qty:it.qty }));
+    out.totals = { lines: d.totals && d.totals.lines, units: d.totals && d.totals.units };
     if(withChecksum) out.checksum = d.checksum;
     return out;
   }
-  const CANCEL_TOP_KEYS = ["format","format_version","cancel_no","cancel_display","nonce","kind","dn_no","dn_display","from","to","replaced_by","cancelled_iso","items","totals","checksum"];
+  const CANCEL_TOP_KEYS = ["format","format_version","cancel_no","cancel_display","till_code","nonce","kind","dn_no","dn_display","dn_till_code","from","to","replaced_by","cancelled_iso","items","totals","checksum"];
   function cancelStructureErrors(d){
     const e = [];
     if(!isObj(d)) return ["This is not a cancellation file."];
     if(d.format!==CANCEL_FORMAT) return ["This is not a seiGEN cancellation notice (wrong file type)."];
-    if(d.format_version!==CANCEL_FORMAT_VERSION) return [newerAppMessage("cancellation notice", d.format_version, CANCEL_FORMAT_VERSION)];
+    const ve = cancelTillErrors(d, "cancellation notice");
+    if(ve.length===1 && /newer version|no valid format version/.test(ve[0])) return ve;
+    e.push(...ve);
     Object.keys(d).forEach(k=>{ if(!CANCEL_TOP_KEYS.includes(k)) e.push("Unexpected field \""+k+"\"."); });
     if(!Number.isInteger(d.cancel_no) || d.cancel_no<1) e.push("The cancellation number is missing or invalid.");
-    else if(d.cancel_display!==cxNo(d.cancel_no)) e.push("The cancellation number does not match its display number.");
+    else if(d.cancel_display!==cxDisplay(d)) e.push("The cancellation number does not match its display number.");
     if(typeof d.nonce!=="string" || !NONCE_RE.test(d.nonce)) e.push("The cancellation code is missing or invalid.");
     if(!CANCEL_KINDS.includes(d.kind)) e.push("The kind of cancellation is missing or invalid.");
     if(!Number.isInteger(d.dn_no) || d.dn_no<1) e.push("The Delivery Note number is missing or invalid.");
-    else if(d.dn_display!==formatDocNo("DN",d.dn_no)) e.push("The Delivery Note number does not match its display number.");
+    else if(d.dn_display!==cxDnDisplay(d)) e.push("The Delivery Note number does not match its display number.");
     if(!isObj(d.from) || !isNonEmptyStr(d.from.branch_id) || !isNonEmptyStr(d.from.name)) e.push("The dispatching branch (id and name) is missing.");
     if(!isObj(d.to) || !isNonEmptyStr(d.to.name)) e.push("The receiving branch is missing.");
     if(d.replaced_by!==null && !(Number.isInteger(d.replaced_by) && d.replaced_by>d.dn_no)) e.push("The replacement Delivery Note number is invalid.");
@@ -66,19 +88,22 @@
     }
     return e;
   }
-  // input: { cancelNo, nonce, kind, dnNo, fromBranchId, fromName, toName, replacedBy?, cancelledIso, items:[{code,name,unit?,qty}] }
+  // input: { cancelNo, nonce, kind, dnNo, fromBranchId, fromName, toName, replacedBy?, cancelledIso, tillCode?, dnTillCode?, items:[{code,name,unit?,qty}] }
   async function buildCancel(input, hashFn){
     const items = (input.items||[]).map(it=>({ code:String(it.code==null?"":it.code).trim(), name:String(it.name==null?"":it.name).trim(),
       unit:String(it.unit||DN_DEFAULT_UNIT).trim()||DN_DEFAULT_UNIT, qty:it.qty }));
+    const till = input.tillCode? String(input.tillCode) : "", dnTill = input.dnTillCode? String(input.dnTillCode) : "";
     const doc = {
-      format:CANCEL_FORMAT, format_version:CANCEL_FORMAT_VERSION,
-      cancel_no:input.cancelNo, cancel_display:Number.isInteger(input.cancelNo)&&input.cancelNo>=0? cxNo(input.cancelNo) : "",
+      format:CANCEL_FORMAT, format_version:(till || dnTill)? CANCEL_FORMAT_VERSION_TILL : CANCEL_FORMAT_VERSION,
+      cancel_no:input.cancelNo, cancel_display:Number.isInteger(input.cancelNo)&&input.cancelNo>=0? docDisplay("CXL",input.cancelNo,till) : "",
       nonce:input.nonce, kind:input.kind, dn_no:input.dnNo,
-      dn_display:Number.isInteger(input.dnNo)&&input.dnNo>=0? formatDocNo("DN",input.dnNo) : "",
+      dn_display:Number.isInteger(input.dnNo)&&input.dnNo>=0? docDisplay("DN",input.dnNo,dnTill) : "",
       from:{ branch_id:input.fromBranchId, name:input.fromName }, to:{ name:input.toName },
       replaced_by:input.replacedBy==null? null : input.replacedBy, cancelled_iso:input.cancelledIso, items,
       totals:{ lines:items.length, units:items.reduce((s,i)=>s+(Number.isInteger(i.qty)?i.qty:0),0) }
     };
+    if(till) doc.till_code = till;
+    if(dnTill) doc.dn_till_code = dnTill;
     const errs = cancelStructureErrors(doc);
     if(errs.length) throw new Error("Cannot build cancellation notice: "+errs.join("; "));
     const out = canonicalCancel(doc,false);
@@ -102,42 +127,50 @@
   function canonicalAck(d, withChecksum){
     const out = {
       format:d.format, format_version:d.format_version,
-      cancel_no:d.cancel_no, cancel_display:d.cancel_display, nonce:d.nonce,
-      dn_no:d.dn_no, dn_display:d.dn_display,
-      from:{ branch_id:d.from && d.from.branch_id, name:d.from && d.from.name },
-      to:{ branch_id:d.to && d.to.branch_id, name:d.to && d.to.name },
-      variance_seen:d.variance_seen, confirmed_iso:d.confirmed_iso
+      cancel_no:d.cancel_no, cancel_display:d.cancel_display
     };
+    if(d.till_code) out.till_code = d.till_code;                         // v2 only (the dispatcher's till)
+    out.nonce = d.nonce;
+    out.dn_no = d.dn_no; out.dn_display = d.dn_display;
+    if(d.dn_till_code) out.dn_till_code = d.dn_till_code;                // v2 only
+    out.from = { branch_id:d.from && d.from.branch_id, name:d.from && d.from.name };
+    out.to = { branch_id:d.to && d.to.branch_id, name:d.to && d.to.name };
+    out.variance_seen = d.variance_seen; out.confirmed_iso = d.confirmed_iso;
     if(withChecksum) out.checksum = d.checksum;
     return out;
   }
-  const ACK_TOP_KEYS = ["format","format_version","cancel_no","cancel_display","nonce","dn_no","dn_display","from","to","variance_seen","confirmed_iso","checksum"];
+  const ACK_TOP_KEYS = ["format","format_version","cancel_no","cancel_display","till_code","nonce","dn_no","dn_display","dn_till_code","from","to","variance_seen","confirmed_iso","checksum"];
   function ackStructureErrors(d){
     const e = [];
     if(!isObj(d)) return ["This is not a cancellation confirmation."];
     if(d.format!==ACK_FORMAT) return ["This is not a seiGEN cancellation confirmation (wrong file type)."];
-    if(d.format_version!==CANCEL_FORMAT_VERSION) return [newerAppMessage("cancellation confirmation", d.format_version, CANCEL_FORMAT_VERSION)];
+    const ve = cancelTillErrors(d, "cancellation confirmation");
+    if(ve.length===1 && /newer version|no valid format version/.test(ve[0])) return ve;
+    e.push(...ve);
     Object.keys(d).forEach(k=>{ if(!ACK_TOP_KEYS.includes(k)) e.push("Unexpected field \""+k+"\"."); });
     if(!Number.isInteger(d.cancel_no) || d.cancel_no<1) e.push("The cancellation number is missing or invalid.");
-    else if(d.cancel_display!==cxNo(d.cancel_no)) e.push("The cancellation number does not match its display number.");
+    else if(d.cancel_display!==cxDisplay(d)) e.push("The cancellation number does not match its display number.");
     if(typeof d.nonce!=="string" || !NONCE_RE.test(d.nonce)) e.push("The cancellation code is missing or invalid.");
     if(!Number.isInteger(d.dn_no) || d.dn_no<1) e.push("The Delivery Note number is missing or invalid.");
-    else if(d.dn_display!==formatDocNo("DN",d.dn_no)) e.push("The Delivery Note number does not match its display number.");
+    else if(d.dn_display!==cxDnDisplay(d)) e.push("The Delivery Note number does not match its display number.");
     if(!isObj(d.from) || !isNonEmptyStr(d.from.branch_id) || !isNonEmptyStr(d.from.name)) e.push("The dispatching branch (id and name) is missing.");
     if(!isObj(d.to) || !isNonEmptyStr(d.to.branch_id) || !isNonEmptyStr(d.to.name)) e.push("The receiving branch (id and name) is missing.");
     if(typeof d.variance_seen!=="boolean") e.push("The confirmation is incomplete.");
     if(!isNonEmptyStr(d.confirmed_iso) || !ISO_RE.test(d.confirmed_iso)) e.push("The confirmation date and time is missing or invalid.");
     return e;
   }
-  // input: { cancelNo, nonce, dnNo, fromBranchId, fromName, toBranchId, toName, varianceSeen, confirmedIso }
+  // input: { cancelNo, nonce, dnNo, fromBranchId, fromName, toBranchId, toName, varianceSeen, confirmedIso, tillCode?, dnTillCode? }
   async function buildAck(input, hashFn){
+    const till = input.tillCode? String(input.tillCode) : "", dnTill = input.dnTillCode? String(input.dnTillCode) : "";
     const doc = {
-      format:ACK_FORMAT, format_version:CANCEL_FORMAT_VERSION,
-      cancel_no:input.cancelNo, cancel_display:Number.isInteger(input.cancelNo)&&input.cancelNo>=0? cxNo(input.cancelNo) : "", nonce:input.nonce,
-      dn_no:input.dnNo, dn_display:Number.isInteger(input.dnNo)&&input.dnNo>=0? formatDocNo("DN",input.dnNo) : "",
+      format:ACK_FORMAT, format_version:(till || dnTill)? CANCEL_FORMAT_VERSION_TILL : CANCEL_FORMAT_VERSION,
+      cancel_no:input.cancelNo, cancel_display:Number.isInteger(input.cancelNo)&&input.cancelNo>=0? docDisplay("CXL",input.cancelNo,till) : "", nonce:input.nonce,
+      dn_no:input.dnNo, dn_display:Number.isInteger(input.dnNo)&&input.dnNo>=0? docDisplay("DN",input.dnNo,dnTill) : "",
       from:{ branch_id:input.fromBranchId, name:input.fromName }, to:{ branch_id:input.toBranchId, name:input.toName },
       variance_seen:!!input.varianceSeen, confirmed_iso:input.confirmedIso
     };
+    if(till) doc.till_code = till;
+    if(dnTill) doc.dn_till_code = dnTill;
     const errs = ackStructureErrors(doc);
     if(errs.length) throw new Error("Cannot build cancellation confirmation: "+errs.join("; "));
     const out = canonicalAck(doc,false);
@@ -172,7 +205,7 @@
       return { ok:false, stage:"destination", message:"This cancellation is for \""+doc.to.name+"\", but this branch is \""+ctx.ownBranchName+"\". Nothing was changed.", doc };
     const rec = ctx.lookup(doc.from.branch_id, doc.dn_no) || null;
     if(rec && rec.status==="received")
-      return { ok:false, stage:"received", message:doc.dn_display+" was already received here as "+formatDocNo("GRV",rec.grv_no)+", so it can't be cancelled. Send that voucher to "+doc.from.name+".", doc, record:rec };
+      return { ok:false, stage:"received", message:doc.dn_display+" was already received here as "+docDisplay("GRV",rec.grv_no,rec.grv_till_code)+", so it can't be cancelled. Send that voucher to "+doc.from.name+".", doc, record:rec };
     if(rec && rec.status==="cancelled") return { ok:true, doc, record:rec, already:true };
     return { ok:true, doc, record:rec, already:false };
   }
@@ -194,7 +227,7 @@
     if(c.state==="aborted")
       return { ok:false, stage:"aborted", message:"This cancellation was ended because "+doc.dn_display+" had been received. Nothing was changed.", doc, header:h, case:c };
     if(h.status==="received" && c.state!=="posted")
-      return { ok:false, stage:"received", message:doc.dn_display+" is recorded here as received ("+formatDocNo("GRV",h.grv_no)+"), but the receiver says it was not. Nothing was changed. Check with "+doc.to.name+".", doc, header:h, case:c };
+      return { ok:false, stage:"received", message:doc.dn_display+" is recorded here as received ("+docDisplay("GRV",h.grv_no,h.grv_till_code)+"), but the receiver says it was not. Nothing was changed. Check with "+doc.to.name+".", doc, header:h, case:c };
     if(!sameBranchName(doc.to.name, h.receive_branch_name))
       return { ok:false, stage:"receiver", message:"This confirmation is from \""+doc.to.name+"\", but "+doc.dn_display+" was sent to \""+h.receive_branch_name+"\". Nothing was changed.", doc, header:h, case:c };
     return { ok:true, doc, header:h, case:c };

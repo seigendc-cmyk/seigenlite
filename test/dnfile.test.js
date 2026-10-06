@@ -88,9 +88,10 @@ const rejects = async(mutate, re)=>{
     await rejects(d=>{ d.format="something-else"; }, /wrong file type/);
   });
   await t("rejects unknown format_version", async ()=>{
-    await rejects(d=>{ d.format_version=3; }, /newer version of seiGEN Commerce Lite \(file version 3, this app reads up to 2\).*Nothing was changed/);
+    // version 3 became valid with per-till numbering (Phase 2); 4 is from a newer build than this one
+    await rejects(d=>{ d.format_version=4; }, /^This file was made by a newer version\. Tap Reload on the update banner \(or close and reopen the app while online\), then import it again\.$/);
     await rejects(d=>{ d.format_version=2; }, /replaces/, "version 2 without a replaces field is invalid");
-    await rejects(d=>{ delete d.format_version; }, /version undefined/);
+    await rejects(d=>{ delete d.format_version; }, /no valid format version/);   // damaged, not newer
   });
   await t("rejects missing fields", async ()=>{
     await rejects(d=>{ delete d.dn_no; }, /number is missing/);

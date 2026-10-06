@@ -141,6 +141,11 @@
       // registering/joining (terminal.js) is what sets the full identity.
       if(data.business_id && !getSetting("business_id","")) setSetting("business_id", String(data.business_id));
       if(data.terminal_id && !getSetting("terminal_id","")) setSetting("terminal_id", String(data.terminal_id));
+      // Phase 2: main can deactivate a till. Selling is unaffected; Settings
+      // says so and hides register/join. Only a true/false answer changes it
+      // (null = this install isn't a till, or an older server).
+      if(data.terminal_active===false) setSetting("terminal_inactive", "1");
+      else if(data.terminal_active===true) setSetting("terminal_inactive", "");
       setSetting("dc_checkin_error", "");
       setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);

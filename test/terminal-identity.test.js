@@ -47,10 +47,11 @@ const REG = { business_id:"b-1", business_name:"Boka General", branch_id:"br-1",
 
 (async()=>{
   // ================= schema =================
-  await t("every syncable table has uid; the 7 transaction tables also have terminal_id and branch_uuid", ()=>{
+  await t("every syncable table has uid; the 8 transaction tables also have terminal_id and branch_uuid", ()=>{
     const A = rig();
     const cols = (tbl)=> A.api.all(`PRAGMA table_info(${tbl})`).map(c=>c.name);
-    assert.strictEqual(A.api.SYNC_UID_TABLES.length, 21);
+    assert.strictEqual(A.api.SYNC_UID_TABLES.length, 22);   // Phase 2 added stock_movements
+    assert.ok(A.api.TERMINAL_STAMP_TABLES.includes("stock_movements"), "stock movements are stamped (Phase 2)");
     assert.ok(A.api.SYNC_UID_TABLES.includes("audit_log"), "audit_log included (approved)");
     A.api.SYNC_UID_TABLES.forEach(tbl=> assert.ok(cols(tbl).includes("uid"), tbl+".uid"));
     A.api.TERMINAL_STAMP_TABLES.forEach(tbl=>{ assert.ok(cols(tbl).includes("terminal_id"), tbl); assert.ok(cols(tbl).includes("branch_uuid"), tbl); });
@@ -84,6 +85,7 @@ const REG = { business_id:"b-1", business_name:"Boka General", branch_id:"br-1",
       dn_events:"INSERT INTO dn_events(event_key,dn_branch_id,dn_no,event_type,event_ts) VALUES('k#','B-X',#,'dispatched','t')",
       dn_cases:"INSERT INTO dn_cases(case_no,dn_branch_id,dn_no) VALUES(#,'B-X',1)",
       audit_log:"INSERT INTO audit_log(ts,action) VALUES('t','a')",
+      stock_movements:"INSERT INTO stock_movements(product_id,qty_delta,kind,ts) VALUES(1,#,'restock','t')",
     };
     assert.deepStrictEqual(Object.keys(ins).sort(), plain(A.api.SYNC_UID_TABLES).sort(), "the test covers every table");
     Object.values(ins).forEach(sql=>{ old.run(sql.split("#").join("1")); old.run(sql.split("#").join("2")); });   // two rows each (# = a key that must differ)
@@ -93,7 +95,8 @@ const REG = { business_id:"b-1", business_name:"Boka General", branch_id:"br-1",
     A.api.SYNC_UID_TABLES.forEach(tbl=>{
       const uids = A.api.all(`SELECT uid FROM ${tbl}`).map(r=>r.uid);
       assert.ok(uids.length >= 2, tbl);   // sale_payments gains one more: the existing split-tender backfill gives sale 2 its payment row
-      uids.forEach(u=> assert.match(u, /^[0-9a-f]{32}$/, tbl));
+      // Phase 2: an opening-balance movement's uid is 'open-' + its product's uid, so two devices' copies are one row
+      uids.forEach(u=> assert.match(u, tbl==="stock_movements"? /^(open-)?[0-9a-f]{32}$/ : /^[0-9a-f]{32}$/, tbl));
       assert.strictEqual(new Set(uids).size, uids.length, tbl+": unique");
       snapshot[tbl] = uids;
     });

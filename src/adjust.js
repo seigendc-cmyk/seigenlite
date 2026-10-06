@@ -92,12 +92,14 @@
   function writeAdjustment(o){
     const branch = currentBranch(), branchId = getBranchId(), p = o.product;
     const adj = reserveDocNumber("ADJ");
-    run("UPDATE products SET stock=stock+? WHERE id=?",[o.delta,p.id]);                 // quantity only: never price or cost
-    run(`INSERT INTO stock_adjustments(branch,branch_id,adj_no,product_code,product_name,qty_delta,reason,note,by_user,authorised_by,ts,dn_branch_id,dn_no)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [branch,branchId,adj.n,p.sku||"",p.name,o.delta,o.reason,o.note,String(sessionUser||""),o.admin,o.ts,o.dnBranchId||null,o.dnNo==null?null:o.dnNo]);
-    run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,adj_branch_id,adj_no) VALUES(?,?,?,?,?,?,?,?,?)",
-      [o.ts,p.id,p.name,o.delta,"Adjustment "+adj.text+": "+o.reason+" - "+o.note,branch,String(sessionUser||""),branchId,adj.n]);
+    run(`INSERT INTO stock_adjustments(branch,branch_id,adj_no,product_code,product_name,qty_delta,reason,note,by_user,authorised_by,ts,dn_branch_id,dn_no,till_code)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [branch,branchId,adj.n,p.sku||"",p.name,o.delta,o.reason,o.note,String(sessionUser||""),o.admin,o.ts,o.dnBranchId||null,o.dnNo==null?null:o.dnNo,adj.till||null]);
+    const adjUid = (one("SELECT uid FROM stock_adjustments WHERE branch_id=? AND adj_no=?",[branchId,adj.n])||{}).uid || null;
+    // quantity only: never price or cost. moveStock (db.js) also writes the ledger movement.
+    moveStock({ productId:p.id, delta:o.delta, kind:"adjustment", docType:"adj", docUid:adjUid, docNo:adj.text, ts:o.ts, note:o.reason });
+    run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,adj_branch_id,adj_no,till_code) VALUES(?,?,?,?,?,?,?,?,?,?)",
+      [o.ts,p.id,p.name,o.delta,"Adjustment "+adj.text+": "+o.reason+" - "+o.note,branch,String(sessionUser||""),branchId,adj.n,adj.till||null]);
     return adj;
   }
   function commitAdjustment(o){

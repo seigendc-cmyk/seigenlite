@@ -125,6 +125,7 @@
         run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,shelf) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
           [name,price,stock,low,sku,branch,image,cost,new Date().toISOString(),description,shelf]);
         const pid = one("SELECT last_insert_rowid() as id").id;
+        recordStockMovement(pid, stock, { kind:"product_created", note:"Initial stock" });
         if(stock>0) run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
           [new Date().toISOString(), pid, name, stock, "Initial stock", branch, sessionUser||""]);
         logAudit("Add Product", name, `Price: ${currency}${price.toFixed(2)}, Cost: ${currency}${cost.toFixed(2)}, Starting stock: ${stock}`);
@@ -180,9 +181,11 @@
     const n = parseInt(prompt("Add how many units?"));
     if(!n) return;
     const prod = one("SELECT * FROM products WHERE id=?",[pid]);
-    run("UPDATE products SET stock=stock+? WHERE id=?",[n,pid]);
+    if(!prod) return;
+    const ts = new Date().toISOString();
+    moveStock({ productId:pid, delta:n, kind:"restock", ts, note:"Restock" });
     run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
-      [new Date().toISOString(), pid, prod.name, n, "Restock", currentBranch(), sessionUser||""]);
+      [ts, pid, prod.name, n, "Restock", currentBranch(), sessionUser||""]);
     persist(); render();
   }
   function wireProductRowButtons(scope, remote){

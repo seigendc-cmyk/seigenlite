@@ -12,9 +12,21 @@
   const DN_FORMAT = "seigen-dn";
   const DN_FORMAT_VERSION = 1;            // ordinary Delivery Notes: unchanged, byte for byte
   const DN_FORMAT_VERSION_REPLACES = 2;   // a reissued DN (carries "replaces"); older apps reject it with the "update the app" message
-  // One wording for every file family: a file from a newer build than this app reads.
+  // Multi-terminal Phase 2: a DN numbered by a till (DN-T1-0012) and/or carrying
+  // an internal ref. Written ONLY then; every other DN is still v1/v2 byte for
+  // byte, so unregistered shops and older receivers see no change. A v3 DN may
+  // also carry "replaces" (a reissue from a till).
+  const DN_FORMAT_VERSION_TILL = 3;
+  const DN_FORMAT_MAX = DN_FORMAT_VERSION_TILL;
+  // One wording for every file family: a file from a newer build than this app
+  // reads. Says exactly what to do (approved 2026-10-04). what/fileVersion/
+  // maxVersion are kept for callers and logs; the shop sees the plain steps.
   function newerAppMessage(what, fileVersion, maxVersion){
-    return "This "+what+" needs a newer version of seiGEN Commerce Lite (file version "+String(fileVersion)+", this app reads up to "+maxVersion+"). Update the app, then import it again. Nothing was changed.";
+    return "This file was made by a newer version. Tap Reload on the update banner (or close and reopen the app while online), then import it again.";
+  }
+  // A file with no usable version number isn't from a newer app: it's damaged.
+  function damagedVersionMessage(what){
+    return "This "+what+" file has no valid format version — it may be damaged. Ask the sender to send it again. Nothing was changed.";
   }
   const DN_DEFAULT_UNIT = "pcs";
   const DN_MAX_QTY = 1000000;
@@ -107,12 +119,14 @@
       format: d.format,
       format_version: d.format_version,
       dn_no: d.dn_no,
-      dn_display: d.dn_display,
-      from: { branch_id: d.from && d.from.branch_id, name: d.from && d.from.name },
-      to: { name: d.to && d.to.name },
-      created_iso: d.created_iso
+      dn_display: d.dn_display
     };
-    if(d.replaces!==undefined && d.replaces!==null){                                 // only reissued DNs (version 2)
+    if(d.till_code) out.till_code = d.till_code;                                      // v3 only
+    out.from = { branch_id: d.from && d.from.branch_id, name: d.from && d.from.name };
+    out.to = { name: d.to && d.to.name };
+    out.created_iso = d.created_iso;
+    if(d.internal_ref) out.internal_ref = d.internal_ref;                             // v3 only
+    if(d.replaces!==undefined && d.replaces!==null){                                 // only reissued DNs (version 2, or 3 from a till)
       out.replaces = d.replaces;
       out.cancel_no = d.cancel_no;            // the cancel case it belongs to, so a receiver can confirm the old DN's cancellation
       out.cancel_nonce = d.cancel_nonce;
@@ -130,7 +144,7 @@
     return await (hashFn||sha256Hex)(JSON.stringify(canonicalDN(d,false)));
   }
 
-  // input: { dnNo, fromBranchId, fromName, toName, createdIso, replaces?, items:[{code,name,unit?,qty,thumb?}] }
+  // input: { dnNo, fromBranchId, fromName, toName, createdIso, replaces?, tillCode?, internalRef?, items:[{code,name,unit?,qty,thumb?}] }
   // Throws on input that could never form a valid DN (so a bad DN is never written).
   async function buildDN(input, hashFn){
     const items = (input.items||[]).map(it=>({
@@ -141,17 +155,21 @@
       thumb: it.thumb||undefined
     }));
     const hasReplaces = input.replaces!==undefined && input.replaces!==null;
+    const till = input.tillCode? String(input.tillCode) : "";
+    const ref = cleanInternalRef(input.internalRef);
     const doc = {
       format: DN_FORMAT,
-      format_version: hasReplaces? DN_FORMAT_VERSION_REPLACES : DN_FORMAT_VERSION,
+      format_version: (till || ref)? DN_FORMAT_VERSION_TILL : hasReplaces? DN_FORMAT_VERSION_REPLACES : DN_FORMAT_VERSION,
       dn_no: input.dnNo,
-      dn_display: Number.isInteger(input.dnNo) && input.dnNo>=0 ? formatDocNo("DN",input.dnNo) : "",
+      dn_display: Number.isInteger(input.dnNo) && input.dnNo>=0 ? docDisplay("DN",input.dnNo,till) : "",
       from: { branch_id: input.fromBranchId, name: input.fromName },
       to: { name: input.toName },
       created_iso: input.createdIso,
       items,
       totals: { lines: items.length, units: items.reduce((s,i)=>s+(Number.isInteger(i.qty)?i.qty:0),0) }
     };
+    if(till) doc.till_code = till;
+    if(ref) doc.internal_ref = ref;
     if(hasReplaces){ doc.replaces = input.replaces; doc.cancel_no = input.cancelNo; doc.cancel_nonce = input.cancelNonce; }
     const errs = dnStructureErrors(doc);
     if(errs.length) throw new Error("Cannot build Delivery Note: "+errs.join("; "));
@@ -162,7 +180,15 @@
   // The exact bytes that go into the file.
   function serializeDN(doc){ return JSON.stringify(canonicalDN(doc,true)); }
 
-  const DN_TOP_KEYS = ["format","format_version","dn_no","dn_display","from","to","created_iso","replaces","cancel_no","cancel_nonce","items","totals","checksum"];
+  const DN_TOP_KEYS = ["format","format_version","dn_no","dn_display","till_code","from","to","created_iso","internal_ref","replaces","cancel_no","cancel_nonce","items","totals","checksum"];
+  // Shared by the DN, GRV and cancel files: the optional v3/v2 fields.
+  function tillFieldErrors(d, label){
+    const e = [];
+    if(d.till_code!==undefined && (typeof d.till_code!=="string" || !TILL_CODE_RE.test(d.till_code))) e.push("The till code on this "+label+" is invalid.");
+    if(d.internal_ref!==undefined && (typeof d.internal_ref!=="string" || !d.internal_ref.trim() || d.internal_ref.length>INTERNAL_REF_MAX || cleanInternalRef(d.internal_ref)!==d.internal_ref))
+      e.push("The internal reference on this "+label+" is invalid.");
+    return e;
+  }
   const isObj = (x)=>x!==null && typeof x==="object" && !Array.isArray(x);
   const isNonEmptyStr = (x)=>typeof x==="string" && x.trim().length>0;
 
@@ -171,12 +197,19 @@
     const e = [];
     if(!isObj(d)) return ["This is not a Delivery Note file."];
     if(d.format!==DN_FORMAT) return ["This is not a seiGEN Delivery Note (wrong file type)."];
-    if(d.format_version!==DN_FORMAT_VERSION && d.format_version!==DN_FORMAT_VERSION_REPLACES)
-      return [newerAppMessage("Delivery Note", d.format_version, DN_FORMAT_VERSION_REPLACES)];
+    if(!Number.isInteger(d.format_version) || d.format_version<1) return [damagedVersionMessage("Delivery Note")];
+    if(d.format_version!==DN_FORMAT_VERSION && d.format_version!==DN_FORMAT_VERSION_REPLACES && d.format_version!==DN_FORMAT_VERSION_TILL)
+      return [newerAppMessage("Delivery Note", d.format_version, DN_FORMAT_MAX)];
     Object.keys(d).forEach(k=>{ if(!DN_TOP_KEYS.includes(k)) e.push("Unexpected field \""+k+"\" in the Delivery Note."); });
+    const v3 = d.format_version===DN_FORMAT_VERSION_TILL;
+    if(v3){
+      e.push(...tillFieldErrors(d, "Delivery Note"));
+      if(d.till_code===undefined && d.internal_ref===undefined) e.push("This Delivery Note says it has a till number or reference, but has neither.");
+    } else ["till_code","internal_ref"].forEach(k=>{ if(d[k]!==undefined) e.push("Unexpected field \""+k+"\" in the Delivery Note."); });
     if(!Number.isInteger(d.dn_no) || d.dn_no<1) e.push("The Delivery Note number is missing or invalid.");
-    else if(d.dn_display!==formatDocNo("DN",d.dn_no)) e.push("The Delivery Note number does not match its display number.");
-    if(d.format_version===DN_FORMAT_VERSION_REPLACES){
+    else if(d.dn_display!==docDisplay("DN",d.dn_no,typeof d.till_code==="string"? d.till_code : "")) e.push("The Delivery Note number does not match its display number.");
+    const replacesExpected = d.format_version===DN_FORMAT_VERSION_REPLACES || (v3 && d.replaces!==undefined);
+    if(replacesExpected){
       if(!Number.isInteger(d.replaces) || d.replaces<1 || (Number.isInteger(d.dn_no) && d.replaces>=d.dn_no)) e.push("The Delivery Note it replaces is missing or invalid.");
       if(!Number.isInteger(d.cancel_no) || d.cancel_no<1 || typeof d.cancel_nonce!=="string" || !/^[A-Za-z0-9]{12,40}$/.test(d.cancel_nonce)) e.push("The cancellation reference on this replacement is missing or invalid.");
     } else ["replaces","cancel_no","cancel_nonce"].forEach(k=>{ if(d[k]!==undefined) e.push("Unexpected field \""+k+"\" in the Delivery Note."); });

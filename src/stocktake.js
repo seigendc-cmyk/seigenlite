@@ -220,9 +220,12 @@
       if(toApply.length===0){ alert("No counted items differ from system stock — nothing to apply."); return; }
       if(!confirm(`Apply ${toApply.length} counted quantities to live stock? This can't be undone.`)) return;
       toApply.forEach(r=>{
-        run("UPDATE products SET stock=? WHERE id=?",[r.counted, r.product.id]);
+        const ts = new Date().toISOString();
+        // The movement records the real change (counted − stock now), which can
+        // differ from the count-time variance if sales happened since counting.
+        moveStock({ productId:r.product.id, setTo:r.counted, kind:"stocktake", docType:"stocktake", docUid:take.uid||null, docNo:"Stocktake #"+take.id, ts, note:"Stocktake adjustment" });
         run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
-          [new Date().toISOString(), r.product.id, r.product.name, r.variance, "Stocktake adjustment", take.branch, sessionUser||""]);
+          [ts, r.product.id, r.product.name, r.variance, "Stocktake adjustment", take.branch, sessionUser||""]);
       });
       logAudit("Apply Stocktake", "", `${toApply.length} products adjusted (stocktake #${take.id})`);
       persist();

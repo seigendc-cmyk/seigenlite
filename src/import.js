@@ -224,8 +224,7 @@
           fields.map(f=>r.update[f]).concat([existing.id]));
         // A blank Qty cell is "no figure given", never "set stock to 0".
         if(applyQty && r.hasQty){
-          const delta = r.qty - existing.stock;
-          run("UPDATE products SET stock=? WHERE id=?",[r.qty, existing.id]);
+          const delta = moveStock({ productId:existing.id, setTo:r.qty, kind:"import", docType:"import", ts, note:"Import adjustment" });
           run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
             [ts, existing.id, r.name, delta, "Import adjustment", branch, sessionUser||""]);
         }
@@ -237,6 +236,7 @@
         run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,category,shelf) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
           [r.name, r.price, r.qty, r.threshold, r.sku, branch, "", r.cost, ts, r.keywords, r.category, r.shelf]);
         const pid = one("SELECT last_insert_rowid() as id").id;
+        recordStockMovement(pid, r.qty, { kind:"import", docType:"import", ts, note:"Import — initial stock" });
         run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
           [ts, pid, r.name, r.qty, "Import — initial stock", branch, sessionUser||""]);
         created++;

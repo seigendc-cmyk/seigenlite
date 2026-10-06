@@ -116,8 +116,9 @@
           prod = one("SELECT * FROM products WHERE branch=? AND lower(sku)=lower(?)",[branch,typed])
                || one("SELECT * FROM products WHERE branch=? AND lower(name)=lower(?)",[branch,typed]);
         }
+        const existed = !!prod;
         if(prod){
-          run("UPDATE products SET stock=stock+?, cost=? WHERE id=?",[qty,unitCost,prod.id]);
+          run("UPDATE products SET cost=? WHERE id=?",[unitCost,prod.id]);
         } else {
           run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description) VALUES(?,?,?,?,?,?,?,?,?,?)",
             [typed,0,qty,5,"",branch,"",unitCost,ts,""]);
@@ -126,6 +127,10 @@
         }
         run("INSERT INTO purchases(ts,branch,user,supplier,product_id,product_name,sku,qty,unit_cost,total_cost,note) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
           [ts,branch,sessionUser||"",supplier,prod.id,prod.name,prod.sku||"",qty,unitCost,totalCost,note]);
+        const pu = one("SELECT uid FROM purchases WHERE id=last_insert_rowid()");
+        const mv = { kind:"purchase", docType:"purchase", docUid:pu? pu.uid : null, docNo:supplier, ts, note:"Purchased from "+supplier };
+        if(existed) moveStock(Object.assign({ productId:prod.id, delta:qty }, mv));
+        else recordStockMovement(prod.id, qty, mv);
         run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
           [ts,prod.id,prod.name,qty,`Purchased from ${supplier}`,branch,sessionUser||""]);
       });

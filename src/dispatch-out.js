@@ -91,6 +91,7 @@
         <table class="dn-meta">
           <tr><td>From</td><td><b>${escapeHtml(doc.from.name)}</b></td><td>To</td><td><b>${escapeHtml(doc.to.name)}</b></td></tr>
           <tr><td>Date</td><td>${escapeHtml(when.toLocaleDateString())}</td><td>Time</td><td>${escapeHtml(when.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))}</td></tr>
+          ${doc.internal_ref? `<tr><td>Internal ref.</td><td colspan="3"><b class="dn-internal-ref">${escapeHtml(doc.internal_ref)}</b></td></tr>` : ""}
         </table>
         <table class="dn-items">
           <thead><tr><th></th><th>Code</th><th>Item</th><th style="text-align:right">Qty</th></tr></thead>
@@ -124,6 +125,7 @@
     const doc = await buildDN({
       dnNo: h.dn_no, fromBranchId: h.dispatch_branch_id, fromName: h.dispatch_branch_name, toName: h.receive_branch_name,
       createdIso: h.created_iso || localIso(new Date(h.created_ts)),
+      tillCode: h.till_code||"", internalRef: h.internal_ref||"",
       replaces: rc? h.replaces_dn_no : undefined, cancelNo: rc? rc.case_no : undefined, cancelNonce: rc? rc.nonce : undefined,
       items: lines.map((l,i)=>({ code:l.sku||"", name:l.product_name, qty:l.qty, thumb:thumbs[i]||undefined }))
     });
@@ -185,7 +187,9 @@
       db.run("BEGIN");
       dn = reserveDocNumber("DN");
       const ts = o.now.toISOString();
+      const internalRef = cleanInternalRef(o.internalRef) || null;          // Phase 2: the shop's own optional reference
       let units = 0;
+      // 1. check every line before anything is written
       o.lines.forEach(l=>{
         const qty = l.qty;
         const codeErr = dnProductCodeProblem(l.product);
@@ -194,20 +198,26 @@
         const cur = one("SELECT stock FROM products WHERE id=?",[l.product.id]);
         if(!cur || qty>cur.stock) throw new Error(`${l.product.name}: only ${cur?cur.stock:0} in stock.`);
         units += qty;
-        run("UPDATE products SET stock=stock-? WHERE id=?",[qty,l.product.id]);
-        run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no) VALUES(?,?,?,?,?,?,?,?,?)",
-          [ts,l.product.id,l.product.name,-qty,`Dispatched to ${o.toBranch} (${dn.text})`,o.branch,sessionUser||"",branchId,dn.n]);
+      });
+      if(o.lines.length===0) throw new Error("Add at least one product.");
+      // 2. the DN header first, so each stock movement can name the DN it belongs to
+      const ok = insertDispatchDoc({ dispatchBranchId:branchId, dispatchBranchName:o.branch, dnNo:dn.n, receiveBranchName:o.toBranch,
+        direction:"out", createdTs:ts, createdIso:localIso(o.now), lineCount:o.lines.length, unitTotal:units,
+        status:"dispatched", fileName:dnFileName(dn.n, o.branch, o.now, dn.till), tillCode:dn.till, internalRef });
+      if(!ok) throw new Error("Delivery Note "+dn.text+" already exists.");
+      const dnUid = (one("SELECT uid FROM dispatch_docs WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[branchId,dn.n])||{}).uid || null;
+      // 3. the lines: stock + ledger (moveStock), the old stock_received row, the transfer line
+      o.lines.forEach(l=>{
+        const qty = l.qty;
+        moveStock({ productId:l.product.id, delta:-qty, kind:"dispatch", docType:"dn", docUid:dnUid, docNo:dn.text, ts, note:"To "+o.toBranch });
+        run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,till_code) VALUES(?,?,?,?,?,?,?,?,?,?)",
+          [ts,l.product.id,l.product.name,-qty,`Dispatched to ${o.toBranch} (${dn.text})`,o.branch,sessionUser||"",branchId,dn.n,dn.till||null]);
         run(`INSERT INTO stock_transfers(ts,from_branch,to_branch,product_name,sku,qty,note,user,status,dn_no,dn_branch_id)
              VALUES(?,?,?,?,?,?,?,?,'Dispatched',?,?)`,
           [ts,o.branch,o.toBranch,l.product.name,l.product.sku||"",qty,dn.text,sessionUser||"",dn.n,branchId]);
       });
-      if(o.lines.length===0) throw new Error("Add at least one product.");
-      const ok = insertDispatchDoc({ dispatchBranchId:branchId, dispatchBranchName:o.branch, dnNo:dn.n, receiveBranchName:o.toBranch,
-        direction:"out", createdTs:ts, createdIso:localIso(o.now), lineCount:o.lines.length, unitTotal:units,
-        status:"dispatched", fileName:dnFileName(dn.n, o.branch, o.now) });
-      if(!ok) throw new Error("Delivery Note "+dn.text+" already exists.");
       recordDnEvent({ dnBranchId:branchId, dnNo:dn.n, type:"dispatched", actorBranchId:branchId, actorName:o.branch, fromName:o.branch, toName:o.toBranch, ts,
-        detail:{ dn_created_iso:localIso(o.now), lines:o.lines.length, units } });
+        detail:{ dn_created_iso:localIso(o.now), lines:o.lines.length, units }, dnTill:dn.till||null });
       logAudit("Dispatch Stock", "", `${dn.text}: ${o.lines.length} item${o.lines.length===1?"":"s"} to ${o.toBranch}`);
       db.run("COMMIT");
       return dn;
@@ -230,6 +240,7 @@
     const wrap = openModal("Dispatch Stock", "");
     const body = wrap.querySelector(".modal-body");
     let toName = "";
+    let internalRef = "";                    // Phase 2: the shop's own optional reference ("Internal ref.")
 
     function thumbImg(p){ return p.image? `<img src="${p.image}" style="width:34px;height:34px;object-fit:cover;border-radius:4px;flex:none">` : `<span style="width:34px;height:34px;border-radius:4px;background:var(--border);flex:none"></span>`; }
     function addProduct(p){
@@ -267,6 +278,8 @@
           <option value="">Choose a branch…</option>
           ${dests.map(b=>`<option value="${escapeHtml(b.name)}" ${b.name===toName?"selected":""}>${escapeHtml(b.name)}</option>`).join("")}
         </select>
+        <label>Internal ref. (optional)</label>
+        <input class="field" id="doRef" maxlength="${INTERNAL_REF_MAX}" value="${escapeHtml(internalRef)}" placeholder="Your own reference, e.g. a PO or order number" autocomplete="off">
         ${dests.length? "" : `<p class="muted" style="font-size:12px">No destination branches are set up yet. Main adds them under Settings → Destination branches, and a remote receives the list with its catalogue.</p>`}
         <div class="hr"></div>
         <label style="margin-top:0">Add product — search, or scan a barcode/SKU and press Enter</label>
@@ -289,6 +302,8 @@
         <button class="btn btn-primary" id="doReview" style="margin-top:8px">Review</button>`;
       const dest = body.querySelector("#doDest"), search = body.querySelector("#doSearch");
       dest.onchange = ()=>{ toName = dest.value; };
+      const refEl = body.querySelector("#doRef");
+      refEl.oninput = ()=>{ internalRef = refEl.value; };
       search.oninput = ()=>{ query = search.value; renderEdit(true); };
       search.onkeydown = (e)=>{
         if(e.key!=="Enter") return;
@@ -316,6 +331,7 @@
       const units = lines.reduce((s,l)=>s+Number(l.qty),0);
       body.innerHTML = `
         <p style="margin:0 0 8px">Dispatch from <b>${escapeHtml(branch)}</b> to <b>${escapeHtml(toName)}</b></p>
+        ${cleanInternalRef(internalRef)? `<p class="muted" style="margin:-4px 0 8px">Internal ref.: <b id="doRefShown">${escapeHtml(cleanInternalRef(internalRef))}</b></p>` : ""}
         ${lines.map(l=>`<div class="product-row" style="align-items:center"><div style="display:flex;gap:8px;align-items:center">${thumbImg(l.product)}<div><div class="pname">${escapeHtml(l.product.name)}</div><div class="pmeta">${escapeHtml(l.product.sku||"no SKU")}</div></div></div><b style="flex:none">${Number(l.qty)}</b></div>`).join("")}
         <p style="margin:10px 0"><b>${lines.length}</b> line${lines.length===1?"":"s"} · <b>${units}</b> unit${units===1?"":"s"}. Stock is deducted as soon as you confirm.</p>
         <div style="display:flex;gap:8px"><button class="btn btn-outline" id="doBack">Back</button><button class="btn btn-primary" id="doConfirm" style="flex:1">Dispatch</button></div>`;
@@ -340,7 +356,7 @@
       const now = new Date(), branchId = getBranchId(), toBranch = toName.trim();
       let dn;
       try{
-        dn = dnCommitDispatch({ branch, toBranch, now, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })) });
+        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })) });
       }catch(e){
         alert("Dispatch was not completed and no stock was changed: "+(e.message||e));
         stage = "review"; renderReview();
@@ -355,6 +371,7 @@
         const thumbs = await getThumbs(lines.map(l=>l.product), (i,n)=>{ const el=body.querySelector("#doWork"); if(el) el.textContent = n>3? `Preparing pictures ${i} / ${n}…` : "Preparing pictures…"; });
         working("Building the Delivery Note file…");
         const doc = await buildDN({ dnNo:dn.n, fromBranchId:branchId, fromName:branch, toName:toBranch, createdIso:header.created_iso,
+          tillCode:header.till_code||"", internalRef:header.internal_ref||"",
           items: lines.map((l,i)=>({ code:l.product.sku||"", name:l.product.name, qty:Number(l.qty), thumb:thumbs[i]||undefined })) });
         const text = serializeDN(doc);
         await dnfPut(branchId, dn.n, { text, file_name:header.file_name, saved_ts:new Date().toISOString() });
@@ -425,7 +442,7 @@
     const when = isoDateText(lock.ts) || String(lock.ts||"").slice(0,10);
     return lock.by==="catalogue"
       ? "This name is locked: a catalogue was generated for \""+name+"\" on "+when+"."
-      : "This name is locked: a Delivery Note ("+formatDocNo("DN",lock.dnNo)+") has been dispatched to \""+name+"\" on "+when+".";
+      : "This name is locked: a Delivery Note ("+ownDnDisplay(lock.dnNo)+") has been dispatched to \""+name+"\" on "+when+".";
   }
   // Main only. Renames one register entry; refuses once a DN has been dispatched to it.
   function renameRegisterBranch(id, newName){
@@ -464,23 +481,33 @@
   function openDispatchHistory(){
     const wrap = openModal("Dispatch history", "");
     const body = wrap.querySelector(".modal-body");
+    let query = "";
+    body.innerHTML = `<div id="dhMsg"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn btn-sm btn-primary" id="dhImport">📥 Import GRV / reply</button><span class="muted" style="font-size:12px">Confirm delivery with the receiver's GRV, or a cancellation confirmation.</span></div>
+      <input class="field" id="dhSearch" type="search" placeholder="Search number, branch or internal ref." autocomplete="off" style="margin-bottom:8px">
+      <div id="dhList"></div>`;
+    body.querySelector("#dhImport").onclick=()=>{ openGrvImportScreen(null, ()=>{ renderList(); render(); }); };
+    body.querySelector("#dhSearch").oninput=(e)=>{ query = e.target.value; renderList(); };
     function renderList(msg){
       const rows = all("SELECT * FROM dispatch_docs WHERE direction='out' AND dispatch_branch_id=? ORDER BY dn_no DESC",[getBranchId()]);
+      const shown = rows.filter(h=>matchesAnyOrder(query, dnSearchText(h)));
       const mv = dnStatusMap();
       const statusOf = (h)=>{ const r = mv.get(h.dispatch_branch_id+"|"+h.dn_no); return r? r.status : (h.status==="received"? "received" : "dispatched"); };
-      body.innerHTML = (msg? `<div class="box" style="margin-bottom:8px;font-size:12.5px">${escapeHtml(msg)}</div>` : "")
-        + `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn btn-sm btn-primary" id="dhImport">📥 Import GRV / reply</button><span class="muted" style="font-size:12px">Confirm delivery with the receiver's GRV, or a cancellation confirmation.</span></div>`
-        + (rows.length===0? `<p class="muted">No dispatches yet.</p>` : rows.map(h=>{
+      body.querySelector("#dhMsg").innerHTML = msg? `<div class="box" style="margin-bottom:8px;font-size:12.5px">${escapeHtml(msg)}</div>` : "";
+      body.querySelector("#dhList").innerHTML = rows.length===0? `<p class="muted">No dispatches yet.</p>`
+        : shown.length===0? `<p class="muted">No Delivery Note matches “${escapeHtml(query.trim())}”.</p>` : shown.map(h=>{
           const st = statusOf(h), mr = mv.get(h.dispatch_branch_id+"|"+h.dn_no);
           return `
         <div class="card" style="padding:10px;margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <b>${escapeHtml(formatDocNo("DN",h.dn_no))}</b>
+            <b>${escapeHtml(docDisplay("DN",h.dn_no,h.till_code))}</b>
             ${dnStatusBadge(st)}
           </div>
           <div class="pmeta">To ${escapeHtml(h.receive_branch_name)} · ${escapeHtml(new Date(h.created_ts).toLocaleString())}</div>
           <div class="pmeta">${h.line_count||0} line${h.line_count===1?"":"s"} · ${h.unit_total||0} unit${h.unit_total===1?"":"s"}</div>
-          ${st==="received" && mr && mr.grvNo? `<div class="pmeta">Confirmed as ${escapeHtml(formatDocNo("GRV",mr.grvNo))} on ${escapeHtml(isoDateText(mr.receivedIso)||"")}</div>` : ""}
+          ${h.internal_ref? `<div class="pmeta dh-ref">Internal ref.: <b>${escapeHtml(h.internal_ref)}</b></div>` : ""}
+          ${h.grv_internal_ref? `<div class="pmeta dh-their-ref">Their internal ref.: <b>${escapeHtml(h.grv_internal_ref)}</b></div>` : ""}
+          ${st==="received" && mr && mr.grvNo? `<div class="pmeta">Confirmed as ${escapeHtml(mr.grvDisplay)} on ${escapeHtml(isoDateText(mr.receivedIso)||"")}</div>` : ""}
           ${mr && mr.hasVariance? `<div class="pmeta" style="color:#b42318">${escapeHtml(varianceText(mr))}</div>` : ""}
           ${st==="awaiting"? `<div class="pmeta" style="color:#b54708">No GRV after ${awaitingDays()} days.</div>` : ""}
           ${mr && chainText(mr)? `<div class="pmeta" style="color:#b54708">${escapeHtml(chainText(mr))}</div>` : ""}
@@ -490,8 +517,7 @@
             ${DN_CLOSED_STATUSES.includes(st)? "" : `<button class="btn btn-sm btn-outline" data-share="${h.dn_no}">${dnShareLabel()}</button>`}
             ${mr && mr.cancelPending? `<button class="btn btn-sm btn-outline" data-pending="${h.dn_no}">Cancel pending…</button>` : (cancelEnabled() && canStartCancel(st)? `<button class="btn btn-sm btn-outline" data-cancel="${h.dn_no}">Cancel / reissue…</button>` : "")}
           </div>
-        </div>`; }).join(""));
-      body.querySelector("#dhImport").onclick=()=>{ openGrvImportScreen(null, ()=>{ renderList(); render(); }); };
+        </div>`; }).join("");
       body.querySelectorAll("[data-cancel]").forEach(b=>b.onclick=()=>openCancelWizard(+b.dataset.cancel, ()=>{ renderList(); render(); }));
       body.querySelectorAll("[data-pending]").forEach(b=>b.onclick=()=>openPendingCancelModal(+b.dataset.pending, ()=>{ renderList(); render(); }));
       body.querySelectorAll("[data-view]").forEach(b=>b.onclick=async ()=>{
@@ -512,7 +538,7 @@
   function openDNVoucherModal(doc, status){
     const wrap = openModal("Dispatch voucher — "+doc.dn_display, `
       ${DN_CLOSED_STATUSES.includes(status)? `<div class="box" style="margin-bottom:8px;border-color:#b42318;color:#b42318;font-weight:700">${escapeHtml((DN_STATUS_LABEL[status]||"").toUpperCase())}: this Delivery Note is no longer valid.</div>` : ""}
-      ${doc.replaces? `<div class="box" style="margin-bottom:8px"><b>Replaces ${escapeHtml(formatDocNo("DN",doc.replaces))}</b></div>` : ""}
+      ${doc.replaces? `<div class="box" style="margin-bottom:8px"><b>Replaces ${escapeHtml(dnDisplayFor(doc.from.branch_id,doc.replaces,doc.till_code))}</b></div>` : ""}
       <div class="card" style="max-height:60vh;overflow:auto;padding:6px">${dnVoucherHtml(doc)}</div>
       <button class="btn btn-primary" id="dvPrint" style="margin-top:10px">🖨️ Print voucher</button>`);
     wrap.querySelector("#dvPrint").onclick=()=>printDNVoucher(doc);

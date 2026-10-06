@@ -218,6 +218,8 @@ function rig(){
   });
   await t("migration is safe to repeat and leaves data alone", ()=>{
     const { R, r1 } = rig(); adj(R,r1,"Damaged","-1","x");
+    // the first migrate after these raw inserts is the Phase 2 upgrade (it opens the stock ledger); repeating it changes nothing
+    R.api.migrate(R.db);
     const before = snapshot(R); R.api.migrate(R.db); R.api.migrate(R.db);
     assert.strictEqual(snapshot(R),before);
   });

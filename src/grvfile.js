@@ -5,28 +5,35 @@
   // the receiver never edits a quantity.
   const GRV_FORMAT = "seigen-grv";
   const GRV_FORMAT_VERSION = 1;
+  // Multi-terminal Phase 2: the GRV's own till code, the DN's till code (so its
+  // DN-T1-0012 number can be checked) and/or the receiving shop's internal ref.
+  // Written ONLY when one of those is present; otherwise v1 byte for byte.
+  const GRV_FORMAT_VERSION_TILL = 2;
 
   function canonicalGRV(d, withChecksum){
     const out = {
       format: d.format,
       format_version: d.format_version,
       grv_no: d.grv_no,
-      grv_display: d.grv_display,
-      dn_no: d.dn_no,
-      dn_display: d.dn_display,
-      from: { branch_id: d.from && d.from.branch_id, name: d.from && d.from.name },
-      to: { branch_id: d.to && d.to.branch_id, name: d.to && d.to.name },
-      received_iso: d.received_iso,
-      items: (d.items||[]).map(it=>({ code:it.code, name:it.name, unit:it.unit, qty:it.qty })),
-      totals: { lines: d.totals && d.totals.lines, units: d.totals && d.totals.units }
+      grv_display: d.grv_display
     };
+    if(d.till_code) out.till_code = d.till_code;                    // v2 only
+    out.dn_no = d.dn_no;
+    out.dn_display = d.dn_display;
+    if(d.dn_till_code) out.dn_till_code = d.dn_till_code;           // v2 only
+    out.from = { branch_id: d.from && d.from.branch_id, name: d.from && d.from.name };
+    out.to = { branch_id: d.to && d.to.branch_id, name: d.to && d.to.name };
+    out.received_iso = d.received_iso;
+    if(d.internal_ref) out.internal_ref = d.internal_ref;           // v2 only
+    out.items = (d.items||[]).map(it=>({ code:it.code, name:it.name, unit:it.unit, qty:it.qty }));
+    out.totals = { lines: d.totals && d.totals.lines, units: d.totals && d.totals.units };
     if(withChecksum) out.checksum = d.checksum;
     return out;
   }
   async function grvChecksum(d, hashFn){
     return await (hashFn||sha256Hex)(JSON.stringify(canonicalGRV(d,false)));
   }
-  // input: { grvNo, dnNo, fromBranchId, fromName, toBranchId, toName, receivedIso, items:[{code,name,unit?,qty}] }
+  // input: { grvNo, dnNo, fromBranchId, fromName, toBranchId, toName, receivedIso, tillCode?, dnTillCode?, internalRef?, items:[{code,name,unit?,qty}] }
   async function buildGRV(input, hashFn){
     const items = (input.items||[]).map(it=>({
       code: String(it.code==null?"":it.code).trim(),
@@ -34,18 +41,23 @@
       unit: String(it.unit||DN_DEFAULT_UNIT).trim()||DN_DEFAULT_UNIT,
       qty: it.qty
     }));
+    const till = input.tillCode? String(input.tillCode) : "", dnTill = input.dnTillCode? String(input.dnTillCode) : "";
+    const ref = cleanInternalRef(input.internalRef);
     const doc = {
-      format: GRV_FORMAT, format_version: GRV_FORMAT_VERSION,
+      format: GRV_FORMAT, format_version: (till || dnTill || ref)? GRV_FORMAT_VERSION_TILL : GRV_FORMAT_VERSION,
       grv_no: input.grvNo,
-      grv_display: Number.isInteger(input.grvNo) && input.grvNo>=0 ? formatDocNo("GRV",input.grvNo) : "",
+      grv_display: Number.isInteger(input.grvNo) && input.grvNo>=0 ? docDisplay("GRV",input.grvNo,till) : "",
       dn_no: input.dnNo,
-      dn_display: Number.isInteger(input.dnNo) && input.dnNo>=0 ? formatDocNo("DN",input.dnNo) : "",
+      dn_display: Number.isInteger(input.dnNo) && input.dnNo>=0 ? docDisplay("DN",input.dnNo,dnTill) : "",
       from: { branch_id: input.fromBranchId, name: input.fromName },
       to: { branch_id: input.toBranchId, name: input.toName },
       received_iso: input.receivedIso,
       items,
       totals: { lines: items.length, units: items.reduce((s,i)=>s+(Number.isInteger(i.qty)?i.qty:0),0) }
     };
+    if(till) doc.till_code = till;
+    if(dnTill) doc.dn_till_code = dnTill;
+    if(ref) doc.internal_ref = ref;
     const errs = grvStructureErrors(doc);
     if(errs.length) throw new Error("Cannot build Goods Received Voucher: "+errs.join("; "));
     const out = canonicalGRV(doc,false);
@@ -54,18 +66,24 @@
   }
   function serializeGRV(doc){ return JSON.stringify(canonicalGRV(doc,true)); }
 
-  const GRV_TOP_KEYS = ["format","format_version","grv_no","grv_display","dn_no","dn_display","from","to","received_iso","items","totals","checksum"];
+  const GRV_TOP_KEYS = ["format","format_version","grv_no","grv_display","till_code","dn_no","dn_display","dn_till_code","from","to","received_iso","internal_ref","items","totals","checksum"];
   function grvStructureErrors(d){
     const e = [];
     if(!isObj(d)) return ["This is not a Goods Received Voucher file."];
     if(d.format!==GRV_FORMAT) return ["This is not a seiGEN Goods Received Voucher (wrong file type)."];
-    if(d.format_version!==GRV_FORMAT_VERSION)
-      return [newerAppMessage("Goods Received Voucher", d.format_version, GRV_FORMAT_VERSION)];
+    if(!Number.isInteger(d.format_version) || d.format_version<1) return [damagedVersionMessage("Goods Received Voucher")];
+    if(d.format_version!==GRV_FORMAT_VERSION && d.format_version!==GRV_FORMAT_VERSION_TILL)
+      return [newerAppMessage("Goods Received Voucher", d.format_version, GRV_FORMAT_VERSION_TILL)];
     Object.keys(d).forEach(k=>{ if(!GRV_TOP_KEYS.includes(k)) e.push("Unexpected field \""+k+"\"."); });
+    if(d.format_version===GRV_FORMAT_VERSION_TILL){
+      e.push(...tillFieldErrors(d, "Goods Received Voucher"));
+      if(d.dn_till_code!==undefined && (typeof d.dn_till_code!=="string" || !TILL_CODE_RE.test(d.dn_till_code))) e.push("The Delivery Note's till code on this voucher is invalid.");
+      if(d.till_code===undefined && d.dn_till_code===undefined && d.internal_ref===undefined) e.push("This voucher says it has a till number or reference, but has none.");
+    } else ["till_code","dn_till_code","internal_ref"].forEach(k=>{ if(d[k]!==undefined) e.push("Unexpected field \""+k+"\"."); });
     if(!Number.isInteger(d.grv_no) || d.grv_no<1) e.push("The GRV number is missing or invalid.");
-    else if(d.grv_display!==formatDocNo("GRV",d.grv_no)) e.push("The GRV number does not match its display number.");
+    else if(d.grv_display!==docDisplay("GRV",d.grv_no,typeof d.till_code==="string"? d.till_code : "")) e.push("The GRV number does not match its display number.");
     if(!Number.isInteger(d.dn_no) || d.dn_no<1) e.push("The Delivery Note number is missing or invalid.");
-    else if(d.dn_display!==formatDocNo("DN",d.dn_no)) e.push("The Delivery Note number does not match its display number.");
+    else if(d.dn_display!==docDisplay("DN",d.dn_no,typeof d.dn_till_code==="string"? d.dn_till_code : "")) e.push("The Delivery Note number does not match its display number.");
     if(!isObj(d.from) || !isNonEmptyStr(d.from.branch_id) || !isNonEmptyStr(d.from.name)) e.push("The dispatching branch (id and name) is missing.");
     if(!isObj(d.to) || !isNonEmptyStr(d.to.branch_id) || !isNonEmptyStr(d.to.name)) e.push("The receiving branch (id and name) is missing.");
     if(!isNonEmptyStr(d.received_iso) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)$/.test(d.received_iso)) e.push("The date and time received is missing or invalid.");

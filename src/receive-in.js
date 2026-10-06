@@ -28,41 +28,50 @@
   // The synchronous, all-or-nothing Accept: re-check, reserve the GRV number,
   // add quantities, write the header and link the lines — one transaction, no
   // persist. Any throw rolls everything back, including the number.
-  function commitReceive(doc, now){
+  // internalRef (optional, Phase 2): the receiving shop's own reference for this GRV.
+  function commitReceive(doc, now, internalRef){
     requireSignedIn();
     const branch = currentBranch(), ts = now.toISOString(), iso = localIso(now);
+    const grvRef = cleanInternalRef(internalRef) || null;
     db.run("BEGIN");
     try{
       if(doc.from.branch_id===getBranchId()) throw new Error("This Delivery Note was dispatched by this branch.");
       if(!sameBranchName(doc.to.name, branch)) throw new Error("This Delivery Note is for \""+doc.to.name+"\", not this branch.");
       const rec = incomingHeader(doc.from.branch_id, doc.dn_no);
-      if(rec && rec.status==="received") throw new Error("Already received as "+formatDocNo("GRV",rec.grv_no)+".");
+      if(rec && rec.status==="received") throw new Error("Already received as "+docDisplay("GRV",rec.grv_no,rec.grv_till_code)+".");
       if(rec && rec.status==="cancelled") throw new Error("This Delivery Note was cancelled by "+doc.from.name+". Nothing was received.");
       if(doc.replaces) closeReplacedDN(doc, now);                       // the DN it replaces can no longer be received here
       const r = resolveLines(doc.items, all("SELECT id,name,sku FROM products WHERE branch=?",[branch]));
       if(r.problems.length) throw new Error("Some lines no longer match a product in this branch: "+r.problems.map(problemLineText).join("; "));
       const grv = reserveDocNumber("GRV");
-      let units = 0;
-      r.lines.forEach(l=>{
-        units += l.item.qty;
-        run("UPDATE products SET stock=stock+? WHERE id=?",[l.item.qty,l.product.id]);      // quantity only — never cost or price
-        run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,grv_no) VALUES(?,?,?,?,?,?,?,?,?,?)",
-          [ts,l.product.id,l.product.name,l.item.qty,grv.text+" from "+doc.from.name+" ("+doc.dn_display+")",branch,sessionUser,doc.from.branch_id,doc.dn_no,grv.n]);
-      });
-      const fileName = grvFileName(grv.n, doc.from.name, now);
+      const units = r.lines.reduce((s,l)=>s+l.item.qty,0);
+      const dnTill = doc.till_code||null, dnRef = doc.internal_ref||null;
+      // the header first, so each stock movement can name the receipt it belongs to
+      const fileName = grvFileName(grv.n, doc.from.name, now, grv.till);
       if(rec){
-        run("UPDATE dispatch_docs SET status='received', grv_no=?, received_ts=?, received_iso=?, received_by=?, file_name=? WHERE dispatch_branch_id=? AND dn_no=? AND direction='in'",
-          [grv.n,ts,iso,sessionUser,fileName,doc.from.branch_id,doc.dn_no]);
+        run(`UPDATE dispatch_docs SET status='received', grv_no=?, received_ts=?, received_iso=?, received_by=?, file_name=?,
+               till_code=?, internal_ref=?, grv_till_code=?, grv_internal_ref=? WHERE dispatch_branch_id=? AND dn_no=? AND direction='in'`,
+          [grv.n,ts,iso,sessionUser,fileName,dnTill,dnRef,grv.till||null,grvRef,doc.from.branch_id,doc.dn_no]);
       } else {
-        run(`INSERT INTO dispatch_docs(dispatch_branch_id,dispatch_branch_name,dn_no,receive_branch_name,direction,grv_no,created_ts,status,file_name,line_count,unit_total,created_iso,imported_ts,received_ts,received_iso,received_by)
-             VALUES(?,?,?,?,'in',?,?,'received',?,?,?,?,?,?,?,?)`,
-          [doc.from.branch_id,doc.from.name,doc.dn_no,branch,grv.n,ts,fileName,doc.items.length,units,doc.created_iso,ts,ts,iso,sessionUser]);
+        run(`INSERT INTO dispatch_docs(dispatch_branch_id,dispatch_branch_name,dn_no,receive_branch_name,direction,grv_no,created_ts,status,file_name,line_count,unit_total,created_iso,imported_ts,received_ts,received_iso,received_by,
+               till_code,internal_ref,grv_till_code,grv_internal_ref)
+             VALUES(?,?,?,?,'in',?,?,'received',?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [doc.from.branch_id,doc.from.name,doc.dn_no,branch,grv.n,ts,fileName,doc.items.length,units,doc.created_iso,ts,ts,iso,sessionUser,
+           dnTill,dnRef,grv.till||null,grvRef]);
       }
+      const inUid = (incomingHeader(doc.from.branch_id, doc.dn_no)||{}).uid || null;
+      r.lines.forEach(l=>{
+        // quantity only — never cost or price; moveStock (db.js) also writes the ledger movement
+        moveStock({ productId:l.product.id, delta:l.item.qty, kind:"receive", docType:"grv", docUid:inUid, docNo:grv.text, ts, note:"From "+doc.from.name+" ("+doc.dn_display+")" });
+        run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,grv_no,till_code) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+          [ts,l.product.id,l.product.name,l.item.qty,grv.text+" from "+doc.from.name+" ("+doc.dn_display+")",branch,sessionUser,doc.from.branch_id,doc.dn_no,grv.n,grv.till||null]);
+      });
       recordDnEvent({ dnBranchId:doc.from.branch_id, dnNo:doc.dn_no, type:"received", actorBranchId:getBranchId(), actorName:branch,
-        fromName:doc.from.name, toName:branch, ts:iso, grvNo:grv.n, detail:{ dn_created_iso:doc.created_iso, received_by:sessionUser, units } });
-      logAudit("Receive Stock", "", grv.text+": "+doc.items.length+" line"+(doc.items.length===1?"":"s")+", "+units+" unit"+(units===1?"":"s")+" from "+doc.from.name+" ("+doc.dn_display+")");
+        fromName:doc.from.name, toName:branch, ts:iso, grvNo:grv.n, detail:{ dn_created_iso:doc.created_iso, received_by:sessionUser, units },
+        dnTill, grvTill:grv.till||null });
+      logAudit("Receive Stock", "", grv.text+": "+doc.items.length+" line"+(doc.items.length===1?"":"s")+", "+units+" unit"+(units===1?"":"s")+" from "+doc.from.name+" ("+doc.dn_display+")"+(grvRef? " · ref "+grvRef : ""));
       db.run("COMMIT");
-      return { grv, header:incomingHeader(doc.from.branch_id, doc.dn_no), fileName, receivedIso:iso };
+      return { grv, header:incomingHeader(doc.from.branch_id, doc.dn_no), fileName, receivedIso:iso, internalRef:grvRef };
     }catch(e){
       try{ db.run("ROLLBACK"); }catch(_){}
       throw e;
@@ -77,17 +86,19 @@
     db.run("BEGIN");
     try{
       const rec = incomingHeader(doc.from.branch_id, doc.dn_no);
-      if(rec && rec.status==="received") throw new Error("Already received as "+formatDocNo("GRV",rec.grv_no)+".");
+      if(rec && rec.status==="received") throw new Error("Already received as "+docDisplay("GRV",rec.grv_no,rec.grv_till_code)+".");
       if(rec && rec.status==="cancelled") throw new Error("This Delivery Note was cancelled by "+doc.from.name+". No variance can be reported.");
       const json = JSON.stringify({ flags:report.flags, note:report.note, reported_by:sessionUser });
       const units = doc.items.reduce((s,i)=>s+i.qty,0);
-      if(rec) run("UPDATE dispatch_docs SET variance_json=?, variance_ts=?, status='variance' WHERE dispatch_branch_id=? AND dn_no=? AND direction='in'",[json,ts,doc.from.branch_id,doc.dn_no]);
-      else run(`INSERT INTO dispatch_docs(dispatch_branch_id,dispatch_branch_name,dn_no,receive_branch_name,direction,created_ts,status,line_count,unit_total,created_iso,imported_ts,variance_json,variance_ts)
-                VALUES(?,?,?,?,'in',?,'variance',?,?,?,?,?,?)`,
-        [doc.from.branch_id,doc.from.name,doc.dn_no,currentBranch(),ts,doc.items.length,units,doc.created_iso,ts,json,ts]);
+      if(rec) run("UPDATE dispatch_docs SET variance_json=?, variance_ts=?, status='variance', till_code=?, internal_ref=? WHERE dispatch_branch_id=? AND dn_no=? AND direction='in'",
+        [json,ts,doc.till_code||null,doc.internal_ref||null,doc.from.branch_id,doc.dn_no]);
+      else run(`INSERT INTO dispatch_docs(dispatch_branch_id,dispatch_branch_name,dn_no,receive_branch_name,direction,created_ts,status,line_count,unit_total,created_iso,imported_ts,variance_json,variance_ts,till_code,internal_ref)
+                VALUES(?,?,?,?,'in',?,'variance',?,?,?,?,?,?,?,?)`,
+        [doc.from.branch_id,doc.from.name,doc.dn_no,currentBranch(),ts,doc.items.length,units,doc.created_iso,ts,json,ts,doc.till_code||null,doc.internal_ref||null]);
       recordDnEvent({ dnBranchId:doc.from.branch_id, dnNo:doc.dn_no, type:"variance", actorBranchId:getBranchId(), actorName:currentBranch(),
         fromName:doc.from.name, toName:currentBranch(), ts,
-        detail:{ dn_created_iso:doc.created_iso, flags:report.flags.map(f=>({ code:f.code, name:f.name, dn:f.dn, counted:f.counted, diff:f.diff })), note:report.note, reported_by:sessionUser } });
+        detail:{ dn_created_iso:doc.created_iso, flags:report.flags.map(f=>({ code:f.code, name:f.name, dn:f.dn, counted:f.counted, diff:f.diff })), note:report.note, reported_by:sessionUser },
+        dnTill:doc.till_code||null });
       logAudit("Variance Report","",doc.dn_display+" from "+doc.from.name+": "+report.flags.length+" line"+(report.flags.length===1?"":"s")+" flagged, stock not received");
       db.run("COMMIT");
     }catch(e){
@@ -100,27 +111,27 @@
   // A cancelled DN is a TERMINAL state here: received XOR cancelled. The row is kept (a tombstone) even if the DN
   // was never imported, so a forwarded copy of the file can never be received afterwards.
   // Synchronous, no transaction of its own (the caller owns BEGIN/COMMIT). Idempotent.
-  // o: { fromBranchId, fromName, dnNo, cancelNo, nonce, replacedBy, kind, lineCount, unitTotal, createdIso, now }
+  // o: { fromBranchId, fromName, dnNo, cancelNo, nonce, replacedBy, kind, lineCount, unitTotal, createdIso, now, dnTill?, cancelTill? }
   function tombstoneDN(o){
     const rec = incomingHeader(o.fromBranchId, o.dnNo);
-    if(rec && rec.status==="received") throw new Error(formatDocNo("DN",o.dnNo)+" was already received here as "+formatDocNo("GRV",rec.grv_no)+", so it can't be cancelled.");
+    if(rec && rec.status==="received") throw new Error(dnDisplayFor(o.fromBranchId,o.dnNo,o.dnTill)+" was already received here as "+docDisplay("GRV",rec.grv_no,rec.grv_till_code)+", so it can't be cancelled.");
     if(rec && rec.status==="cancelled") return rec;
     const ts = o.now.toISOString(), branch = currentBranch();
     const varianceSeen = !!(rec && rec.variance_json);
-    if(rec) run("UPDATE dispatch_docs SET status='cancelled', cancel_no=?, cancel_nonce=?, cancelled_ts=?, replaced_by=?, cancel_kind=? WHERE dispatch_branch_id=? AND dn_no=? AND direction='in'",
-      [o.cancelNo==null?null:o.cancelNo,o.nonce||"",ts,o.replacedBy==null?null:o.replacedBy,o.kind||"",o.fromBranchId,o.dnNo]);
-    else run(`INSERT INTO dispatch_docs(dispatch_branch_id,dispatch_branch_name,dn_no,receive_branch_name,direction,created_ts,status,line_count,unit_total,created_iso,imported_ts,cancel_no,cancel_nonce,cancelled_ts,replaced_by,cancel_kind)
-              VALUES(?,?,?,?,'in',?,'cancelled',?,?,?,?,?,?,?,?,?)`,
-      [o.fromBranchId,o.fromName,o.dnNo,branch,ts,o.lineCount||0,o.unitTotal||0,o.createdIso||"",ts,o.cancelNo==null?null:o.cancelNo,o.nonce||"",ts,o.replacedBy==null?null:o.replacedBy,o.kind||""]);
+    if(rec) run("UPDATE dispatch_docs SET status='cancelled', cancel_no=?, cancel_nonce=?, cancelled_ts=?, replaced_by=?, cancel_kind=?, cancel_till_code=?, till_code=COALESCE(till_code,?) WHERE dispatch_branch_id=? AND dn_no=? AND direction='in'",
+      [o.cancelNo==null?null:o.cancelNo,o.nonce||"",ts,o.replacedBy==null?null:o.replacedBy,o.kind||"",o.cancelTill||null,o.dnTill||null,o.fromBranchId,o.dnNo]);
+    else run(`INSERT INTO dispatch_docs(dispatch_branch_id,dispatch_branch_name,dn_no,receive_branch_name,direction,created_ts,status,line_count,unit_total,created_iso,imported_ts,cancel_no,cancel_nonce,cancelled_ts,replaced_by,cancel_kind,till_code,cancel_till_code)
+              VALUES(?,?,?,?,'in',?,'cancelled',?,?,?,?,?,?,?,?,?,?,?)`,
+      [o.fromBranchId,o.fromName,o.dnNo,branch,ts,o.lineCount||0,o.unitTotal||0,o.createdIso||"",ts,o.cancelNo==null?null:o.cancelNo,o.nonce||"",ts,o.replacedBy==null?null:o.replacedBy,o.kind||"",o.dnTill||null,o.cancelTill||null]);
     recordDnEvent({ dnBranchId:o.fromBranchId, dnNo:o.dnNo, type:"cancelled", actorBranchId:getBranchId(), actorName:branch, fromName:o.fromName, toName:branch, ts:localIso(o.now),
       detail:{ cancel_no:o.cancelNo==null?null:o.cancelNo, replaced_by:o.replacedBy==null?null:o.replacedBy, variance_seen:varianceSeen, kind:o.kind||"" } });
-    logAudit("Cancel confirmed", "", formatDocNo("DN",o.dnNo)+" from "+o.fromName+" cancelled"+(o.replacedBy? " (replaced by "+formatDocNo("DN",o.replacedBy)+")" : ""));
+    logAudit("Cancel confirmed", "", dnDisplayFor(o.fromBranchId,o.dnNo,o.dnTill)+" from "+o.fromName+" cancelled"+(o.replacedBy? " (replaced by "+dnDisplayFor(o.fromBranchId,o.replacedBy,o.dnTill)+")" : ""));
     return incomingHeader(o.fromBranchId, o.dnNo);
   }
   // A reissued DN closes the DN it replaces (a tombstone), unless that one was already received.
   function closeReplacedDN(doc, now){
     return tombstoneDN({ fromBranchId:doc.from.branch_id, fromName:doc.from.name, dnNo:doc.replaces, cancelNo:doc.cancel_no, nonce:doc.cancel_nonce,
-      replacedBy:doc.dn_no, kind:"reissue", now });
+      replacedBy:doc.dn_no, kind:"reissue", now, dnTill:doc.till_code||null, cancelTill:doc.till_code||null });
   }
   // Receiver confirms a cancellation notice. One transaction; the caller awaits persist().
   function commitCancelNotice(doc, now){
@@ -128,7 +139,8 @@
     db.run("BEGIN");
     try{
       const rec = tombstoneDN({ fromBranchId:doc.from.branch_id, fromName:doc.from.name, dnNo:doc.dn_no, cancelNo:doc.cancel_no, nonce:doc.nonce,
-        replacedBy:doc.replaced_by, kind:doc.kind, lineCount:doc.items.length, unitTotal:doc.totals.units, now });
+        replacedBy:doc.replaced_by, kind:doc.kind, lineCount:doc.items.length, unitTotal:doc.totals.units, now,
+        dnTill:doc.dn_till_code||null, cancelTill:doc.till_code||null });
       db.run("COMMIT");
       return rec;
     }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
@@ -148,15 +160,16 @@
     if(!h.cancel_no || !h.cancel_nonce) throw new Error("This cancellation has no reference to confirm against.");
     const varied = !!h.variance_json;
     return await buildAck({ cancelNo:h.cancel_no, nonce:h.cancel_nonce, dnNo:h.dn_no, fromBranchId:h.dispatch_branch_id, fromName:h.dispatch_branch_name,
-      toBranchId:getBranchId(), toName:currentBranch(), varianceSeen:varied, confirmedIso:localIso(new Date(h.cancelled_ts||Date.now())) });
+      toBranchId:getBranchId(), toName:currentBranch(), varianceSeen:varied, confirmedIso:localIso(new Date(h.cancelled_ts||Date.now())),
+      tillCode:h.cancel_till_code||"", dnTillCode:h.till_code||"" });
   }
-  function cancelAckFileName(cancelNo, dispatcherName, date){
-    return formatDocNo("CXL",cancelNo)+"-"+sanitizeBranchName(dispatcherName)+"-"+fileDatePart(date)+"-"+fileTimePart(date)+"-confirmed"+DOC_FILE_EXT;
+  function cancelAckFileName(cancelNo, dispatcherName, date, tillCode){
+    return docDisplay("CXL",cancelNo,tillCode)+"-"+sanitizeBranchName(dispatcherName)+"-"+fileDatePart(date)+"-"+fileTimePart(date)+"-confirmed"+DOC_FILE_EXT;
   }
   async function cancelAckShare(h){
     const ack = await buildAckFromRow(h), text = serializeAck(ack);
     const msg = "Cancellation confirmed for "+ack.dn_display+" ("+ack.cancel_display+"): "+ack.to.name+" did not receive it and will not. In seiGEN Commerce Lite open Dispatch history \u2192 Import and choose the attached file.";
-    return shareDocFile({ fileName:cancelAckFileName(h.cancel_no, h.dispatch_branch_name, new Date(h.cancelled_ts||Date.now())), text, folder:"Cancellations", title:ack.cancel_display,
+    return shareDocFile({ fileName:cancelAckFileName(h.cancel_no, h.dispatch_branch_name, new Date(h.cancelled_ts||Date.now()), h.cancel_till_code), text, folder:"Cancellations", title:ack.cancel_display,
       phone:dnPhoneFor(h.dispatch_branch_name), shareText:msg, whatsappText:msg+" (Attach the file from the folder that just opened.)" });
   }
 
@@ -164,6 +177,7 @@
   async function buildGRVFromCommit(doc, c){
     return await buildGRV({ grvNo:c.grv.n, dnNo:doc.dn_no, fromBranchId:doc.from.branch_id, fromName:doc.from.name,
       toBranchId:getBranchId(), toName:currentBranch(), receivedIso:c.receivedIso,
+      tillCode:c.grv.till||"", dnTillCode:doc.till_code||"", internalRef:c.internalRef||"",
       items:doc.items.map(i=>({ code:i.code, name:i.name, unit:i.unit, qty:i.qty })) });
   }
   const grvKey = (dnNo)=> "GRV:"+dnNo;
@@ -188,6 +202,7 @@
                       WHERE sr.dn_branch_id=? AND sr.dn_no=? AND sr.grv_no=? AND sr.branch=? ORDER BY sr.id`,[h.dispatch_branch_id,h.dn_no,h.grv_no,currentBranch()]);
     const doc = await buildGRV({ grvNo:h.grv_no, dnNo:h.dn_no, fromBranchId:h.dispatch_branch_id, fromName:h.dispatch_branch_name,
       toBranchId:getBranchId(), toName:h.receive_branch_name, receivedIso:h.received_iso || localIso(new Date(h.received_ts)),
+      tillCode:h.grv_till_code||"", dnTillCode:h.till_code||"", internalRef:h.grv_internal_ref||"",
       items:rows.map(r=>({ code:r.code||"", name:r.name, qty:r.qty })) });
     const text = serializeGRV(doc);
     try{ await dnfPut(h.dispatch_branch_id, grvKey(h.dn_no), { text, file_name:h.file_name, saved_ts:new Date().toISOString() }); }catch(e){}
@@ -209,6 +224,7 @@
         <table class="dn-meta">
           <tr><td>Received from</td><td><b>${escapeHtml(doc.from.name)}</b></td><td>Received at</td><td><b>${escapeHtml(doc.to.name)}</b></td></tr>
           <tr><td>Date</td><td>${escapeHtml(when.toLocaleDateString())}</td><td>Time</td><td>${escapeHtml(when.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))}</td></tr>
+          ${doc.internal_ref? `<tr><td>Internal ref.</td><td colspan="3"><b class="grv-internal-ref">${escapeHtml(doc.internal_ref)}</b></td></tr>` : ""}
         </table>
         <table class="dn-items">
           <thead><tr><th></th><th>Code</th><th>Item</th><th style="text-align:right">Qty</th></tr></thead>
@@ -301,7 +317,7 @@
     body.innerHTML = `
       <div class="box" style="margin-bottom:8px;border-color:#b42318">
         <div style="font-size:15px;font-weight:700">${escapeHtml(doc.cancel_display)}: ${escapeHtml(doc.dn_display)} cancelled</div>
-        <div class="pmeta">By <b>${escapeHtml(doc.from.name)}</b> · ${escapeHtml(CANCEL_KIND_LABEL[doc.kind]||"")}${doc.replaced_by? " · replaced by "+escapeHtml(formatDocNo("DN",doc.replaced_by)) : ""}</div>
+        <div class="pmeta">By <b>${escapeHtml(doc.from.name)}</b> · ${escapeHtml(CANCEL_KIND_LABEL[doc.kind]||"")}${doc.replaced_by? " · replaced by "+escapeHtml(dnDisplayFor(doc.from.branch_id,doc.replaced_by,doc.dn_till_code||"")) : ""}</div>
         ${res.record && res.record.status==="variance"? `<div class="pmeta" style="color:#b42318">You reported a variance on this Delivery Note. It stays on record.</div>` : ""}
       </div>
       <p style="margin:0 0 6px">This Delivery Note was cancelled. If you have not received the goods, confirm below. It can then never be received here. Lines that were on it:</p>
@@ -348,9 +364,10 @@
       <div class="box" style="margin-bottom:8px">
         <div style="font-size:15px;font-weight:700">${escapeHtml(doc.dn_display)}</div>
         <div class="pmeta">From <b>${escapeHtml(doc.from.name)}</b> · ${escapeHtml(when.toLocaleDateString())} ${escapeHtml(when.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))}</div>
+        ${doc.internal_ref? `<div class="pmeta">Their internal ref.: <b id="rcDnRef">${escapeHtml(doc.internal_ref)}</b></div>` : ""}
       </div>
-      ${res.replaces? `<div class="box" style="margin-bottom:8px"><b>Replaces ${escapeHtml(formatDocNo("DN",res.replaces.dnNo))}</b>: that Delivery Note is now closed for this branch and can't be received. Check what you counted against this one.
-        <div style="margin-top:6px"><button class="btn btn-sm btn-outline" id="rcSendCancelAck">Send cancellation confirmation for ${escapeHtml(formatDocNo("DN",res.replaces.dnNo))}</button></div></div>` : ""}
+      ${res.replaces? `<div class="box" style="margin-bottom:8px"><b>Replaces ${escapeHtml(dnDisplayFor(doc.from.branch_id,res.replaces.dnNo,doc.till_code))}</b>: that Delivery Note is now closed for this branch and can't be received. Check what you counted against this one.
+        <div style="margin-top:6px"><button class="btn btn-sm btn-outline" id="rcSendCancelAck">Send cancellation confirmation for ${escapeHtml(dnDisplayFor(doc.from.branch_id,res.replaces.dnNo,doc.till_code))}</button></div></div>` : ""}
       ${res.resume? `<div class="box" style="margin-bottom:8px;color:#b42318;font-weight:600">A variance was already reported for this Delivery Note${res.record&&res.record.variance_ts? " on "+escapeHtml(new Date(res.record.variance_ts).toLocaleDateString()) : ""}. No stock has been received. After a recount you can Accept it as-is or report again.</div>` : ""}
       <div style="max-height:42vh;overflow:auto">${rcItemsHtml(doc)}</div>
       <p style="margin:10px 0"><b>${doc.totals.lines}</b> line${doc.totals.lines===1?"":"s"} · <b>${doc.totals.units}</b> unit${doc.totals.units===1?"":"s"}</p>
@@ -362,19 +379,22 @@
       body.innerHTML = `
         <p style="margin:0 0 6px;font-weight:700">Accept ${escapeHtml(doc.dn_display)}?</p>
         <p style="margin:0 0 12px">Stock will be added exactly as shown. Quantities cannot be edited.</p>
+        <label style="margin-top:0">Internal ref. (optional)</label>
+        <input class="field" id="rcRef" maxlength="${INTERNAL_REF_MAX}" placeholder="Your own reference for this receipt" autocomplete="off">
+        <p class="muted" style="font-size:12px;margin:4px 0 12px">Goes on your Goods Received Voucher and back to ${escapeHtml(doc.from.name)}. It doesn't change any quantity.</p>
         <div style="display:flex;gap:8px"><button class="btn btn-outline" id="rcNo" style="flex:1">Back</button><button class="btn btn-primary" id="rcYes" style="flex:1">Yes, add the stock</button></div>`;
       body.querySelector("#rcNo").onclick=()=>rcReview(wrap, body, res, text);
       const yes = body.querySelector("#rcYes");
       yes.onclick=async ()=>{
         if(busy) return; busy = true; yes.disabled = true;               // double-tap guard
-        await rcAccept(wrap, body, res, text);
+        await rcAccept(wrap, body, res, text, body.querySelector("#rcRef").value);
       };
     };
   }
-  async function rcAccept(wrap, body, res, text){
+  async function rcAccept(wrap, body, res, text, internalRef){
     const doc = res.doc;
     let c;
-    try{ c = commitReceive(doc, new Date()); }
+    try{ c = commitReceive(doc, new Date(), internalRef); }
     catch(e){
       body.innerHTML = `<p style="margin:0 0 10px"><b>Nothing was received.</b> ${escapeHtml(e.message||String(e))}</p><button class="btn btn-outline" id="rcClose">Close</button>`;
       body.querySelector("#rcClose").onclick=()=>{ wrap.remove(); render(); };
@@ -473,20 +493,30 @@
   function openReceiptsHistory(){
     const wrap = openModal("Receipts history", "");
     const body = wrap.querySelector(".modal-body");
+    let query = "";
+    body.innerHTML = `<div id="rhMsg"></div>
+      <input class="field" id="rhSearch" type="search" placeholder="Search number, branch or internal ref." autocomplete="off" style="margin-bottom:8px">
+      <div id="rhList"></div>`;
+    body.querySelector("#rhSearch").oninput=(e)=>{ query = e.target.value; list(); };
     function list(msg){
       const rows = all("SELECT * FROM dispatch_docs WHERE direction='in' ORDER BY imported_ts DESC, dn_no DESC");
-      body.innerHTML = (msg? `<div class="box" style="margin-bottom:8px;font-size:12.5px">${escapeHtml(msg)}</div>` : "") + (rows.length===0? `<p class="muted">Nothing received yet.</p>` : rows.map(h=>{
+      const shown = rows.filter(h=>matchesAnyOrder(query, dnSearchText(h)));
+      body.querySelector("#rhMsg").innerHTML = msg? `<div class="box" style="margin-bottom:8px;font-size:12.5px">${escapeHtml(msg)}</div>` : "";
+      body.querySelector("#rhList").innerHTML = rows.length===0? `<p class="muted">Nothing received yet.</p>`
+        : shown.length===0? `<p class="muted">No Delivery Note matches “${escapeHtml(query.trim())}”.</p>` : shown.map(h=>{
         const received = h.status==="received", cancelled = h.status==="cancelled";
         return `<div class="card" style="padding:10px;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;align-items:center"><b>${escapeHtml(formatDocNo("DN",h.dn_no))}</b>
-            <span style="font-size:12px;font-weight:600;${received?"":"color:#b42318"}">${received? "Received · "+escapeHtml(formatDocNo("GRV",h.grv_no)) : cancelled? "Cancelled"+(h.replaced_by? " · replaced by "+escapeHtml(formatDocNo("DN",h.replaced_by)) : "") : "Variance pending"}</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><b>${escapeHtml(docDisplay("DN",h.dn_no,h.till_code))}</b>
+            <span style="font-size:12px;font-weight:600;${received?"":"color:#b42318"}">${received? "Received · "+escapeHtml(docDisplay("GRV",h.grv_no,h.grv_till_code)) : cancelled? "Cancelled"+(h.replaced_by? " · replaced by "+escapeHtml(dnDisplayFor(h.dispatch_branch_id,h.replaced_by,h.cancel_till_code||h.till_code)) : "") : "Variance pending"}</span></div>
           <div class="pmeta">From ${escapeHtml(h.dispatch_branch_name)} · ${escapeHtml(new Date(received? h.received_ts : cancelled? (h.cancelled_ts||h.imported_ts) : (h.variance_ts||h.imported_ts)).toLocaleString())}</div>
           <div class="pmeta">${h.line_count||0} line${h.line_count===1?"":"s"} · ${h.unit_total||0} unit${h.unit_total===1?"":"s"}</div>
+          ${h.grv_internal_ref? `<div class="pmeta rh-ref">Internal ref.: <b>${escapeHtml(h.grv_internal_ref)}</b></div>` : ""}
+          ${h.internal_ref? `<div class="pmeta rh-their-ref">Their internal ref.: <b>${escapeHtml(h.internal_ref)}</b></div>` : ""}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             ${received? `<button class="btn btn-sm btn-outline" data-view="${h.dispatch_branch_id}|${h.dn_no}">View voucher</button><button class="btn btn-sm btn-outline" data-share="${h.dispatch_branch_id}|${h.dn_no}">${escapeHtml(grvSendLabel(h.dispatch_branch_name))}</button>`
                       : cancelled? (h.cancel_no? `<button class="btn btn-sm btn-outline" data-cxack="${h.dispatch_branch_id}|${h.dn_no}">Send confirmation</button>` : "")
                       : `<button class="btn btn-sm btn-primary" data-reopen="${h.dispatch_branch_id}|${h.dn_no}">Reopen</button>`}
-          </div></div>`; }).join(""));
+          </div></div>`; }).join("");
       const hdr = (k)=>{ const [b,n] = k.split("|"); return incomingHeader(b,+n); };
       body.querySelectorAll("[data-cxack]").forEach(b=>b.onclick=async ()=>{
         try{ const s = await cancelAckShare(hdr(b.dataset.cxack)); list(dnShareMessage(s)); }catch(e){ list("Couldn't share: "+(e.message||e)); }

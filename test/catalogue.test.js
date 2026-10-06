@@ -109,7 +109,7 @@ const priceOf = (app, code)=>app.api.one("SELECT price FROM products WHERE lower
     const rej = async(mut, re)=>{ const d = json(b.doc); mut(d); const r = await A.api.validateCatalogue(d); assert.strictEqual(r.ok,false); assert.ok(r.errors.some(m=>re.test(m)), r.errors.join("|")); };
     for(const bad of [null,"x",[],42]) assert.strictEqual((await A.api.validateCatalogue(bad)).ok,false);
     await rej(d=>{d.format="seigen-dn";}, /wrong file type/);
-    await rej(d=>{d.format_version=2;}, /version 2/);
+    await rej(d=>{d.format_version=2;}, /^This file was made by a newer version\./);   // shared wording since Phase 2
     await rej(d=>{d.price_mode="whatever";}, /price policy/);
     await rej(d=>{delete d.management_whatsapp;}, /management number/);
     await rej(d=>{delete d.register;}, /branch list/);

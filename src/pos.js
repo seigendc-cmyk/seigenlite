@@ -516,10 +516,17 @@
     // was removed (Remove Cart Markup Calculation task); the columns stay
     // in the schema only so historical rows keep whatever was charged
     // before this change (see cartTotals above).
-    run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef]);
+    // Multi-terminal Phase 2: a registered till numbers its receipts T2-0045
+    // (its own counter); an unregistered device keeps "#<sales.id>" exactly as
+    // before, so receipt_no stays NULL there.
+    // (getSetting first: an unregistered device never needs docnum.js here)
+    const receiptNo = getSetting("till_code","") && currentTillCode()? reserveDocNumber("RCT").text : null;
+    run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo]);
     const saleId = one("SELECT last_insert_rowid() as id").id;
+    const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
+    const label = receiptLabel(saleId, receiptNo);
     lines.forEach(l=>{
       run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
         [saleId,l.method,l.amount,l.currency,l.rate,l.tenderedAmount]);
@@ -534,7 +541,7 @@
       const prod = one("SELECT cost FROM products WHERE id=?",[c.product_id]);
       run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount) VALUES(?,?,?,?,?,?,?)",
         [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount]);
-      run("UPDATE products SET stock = stock - ? WHERE id=?",[c.qty,c.product_id]);
+      moveStock({ productId:c.product_id, delta:-c.qty, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
     });
     if(voucherToRedeem){
       run("UPDATE vouchers SET status='Redeemed', redeemed_ts=?, redeemed_sale_id=? WHERE id=?",[ts,saleId,voucherToRedeem.id]);
@@ -542,11 +549,11 @@
     const itemNames = cart.map(c=>c.name);
     const itemsSummary = itemNames.length<=3? itemNames.join(", ") : `${itemNames[0]} +${itemNames.length-1} more`;
     const methodLabel = lines.length>1? `Split (${lines.map(l=>l.method).join("+")})` : saleMethod;
-    logAudit("Sale", itemsSummary, `Receipt #${saleId} · ${currency}${total.toFixed(2)} · ${methodLabel}`);
+    logAudit("Sale", itemsSummary, `Receipt ${label} · ${currency}${total.toFixed(2)} · ${methodLabel}`);
     maybeIssueFrequentCustomerVoucher(customerId, branch, ts);
     persist();
-    window._lastReceipt = {saleId,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef};
-    printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef);
+    window._lastReceipt = {saleId,receiptNo,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef};
+    printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef, receiptNo);
     cart = []; drawerOpen=false; appliedVoucher=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
     render();
   }
@@ -558,7 +565,7 @@
       ${shiftBlockBannerHtml()}
       ${dcMessagesBannerHtml()}
       ${window._lastReceipt? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <div class="muted">Receipt #${window._lastReceipt.saleId} · ${currency}${window._lastReceipt.total.toFixed(2)}</div>
+        <div class="muted">Receipt ${escapeHtml(receiptLabel(window._lastReceipt.saleId, window._lastReceipt.receiptNo))} · ${currency}${window._lastReceipt.total.toFixed(2)}</div>
         <div class="row" style="flex:none;width:auto;gap:6px">
           <button class="btn btn-sm btn-outline" id="reprintBtn">🖨️</button>
           <button class="btn btn-sm btn-ghost" id="waReceiptBtn">📲</button>
@@ -593,9 +600,9 @@
     // the only thing this ever calls.
     const drawerBtn = document.getElementById("openDrawerBtn");
     if(drawerBtn) drawerBtn.onclick=()=> openCashDrawer();
-    if(rp) rp.onclick=()=>{ const r=window._lastReceipt; printReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
-    if(up) up.onclick=()=>{ const r=window._lastReceipt; usbPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
-    if(bp) bp.onclick=()=>{ const r=window._lastReceipt; btPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef); };
+    if(rp) rp.onclick=()=>{ const r=window._lastReceipt; printReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef,r.receiptNo); };
+    if(up) up.onclick=()=>{ const r=window._lastReceipt; usbPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef,r.receiptNo); };
+    if(bp) bp.onclick=()=>{ const r=window._lastReceipt; btPrintReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef,r.receiptNo); };
     if(ivb) ivb.onclick=()=>{ printCreditInvoice(window._lastReceipt.saleId); };
     if(wr) wr.onclick=()=>{
       const r = window._lastReceipt;
@@ -607,7 +614,7 @@
       if(r.payments && r.payments.length>1) r.payments.forEach(p=> totalLines.push(padLine(`Payment: ${p.method}`, `${currency}${(parseFloat(p.amount)||0).toFixed(2)}`)));
       else totalLines.push(`Payment: ${r.method}`);
       if(r.docRef) totalLines.push(`Doc Ref: ${r.docRef}`);
-      shareWhatsApp(receiptText(`${escapeHtml(getSetting("shop_name",""))} — Receipt #${r.saleId}`, itemLines, totalLines));
+      shareWhatsApp(receiptText(`${escapeHtml(getSetting("shop_name",""))} — Receipt ${receiptLabel(r.saleId, r.receiptNo)}`, itemLines, totalLines));
     };
   }
   function productListHtml(results){

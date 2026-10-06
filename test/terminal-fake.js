@@ -36,12 +36,13 @@ async function stubTerminals(target, opts){
       if(norm(v.phrase)!==norm(b.p_shop_secret_phrase)) throw err("Shop secret phrase does not match this install");
       const t = state.terminals.find(x=>x.install===b.p_install_id);
       return { vendor_id:"v-"+b.p_install_id, status:"onboarding", lock_cart:false, lock_add_product:false, lock_reason:null,
-        cycle_start_date:null, messages:[], business_id: v.business, terminal_id: t? t.id : null };
+        cycle_start_date:null, messages:[], business_id: v.business, terminal_id: t? t.id : null,
+        terminal_active: t? t.active!==false : null };   // Phase 2
     },
     cl_branch_register(b){
       vendor(b, true);
       const have = state.terminals.find(x=>x.install===b.p_install_id);
-      if(have) return termJson(have);
+      if(have) return have.active===false? { error:"TERMINAL_INACTIVE" } : termJson(have);   // Phase 2
       const bz = { id:id("biz"), name:b.p_business_name, phrase:norm(b.p_secret_phrase) }; state.businesses.push(bz);
       const br = { id:id("br"), business:bz.id, name:b.p_branch_name, is_main:true }; state.branches.push(br);
       const t = { id:id("term"), business:bz.id, branch:br.id, install:b.p_install_id, till:"T1", label:b.p_label||null }; state.terminals.push(t);
@@ -66,6 +67,7 @@ async function stubTerminals(target, opts){
       const br = state.branches.find(x=>x.id===c.branch), bz = state.businesses.find(x=>x.id===br.business);
       if(norm(b.p_secret_phrase)!==bz.phrase) return { error:"PHRASE_MISMATCH" };
       const have = state.terminals.find(x=>x.install===b.p_install_id);
+      if(have && have.active===false) return { error:"TERMINAL_INACTIVE" };   // Phase 2
       if(have) return have.branch===br.id? termJson(have) : { error:"ALREADY_JOINED" };
       if(c.used) return { error:"JOIN_CODE_USED" };
       if(b.p_expected_branch_name && key(b.p_expected_branch_name)!==key(br.name)) return { error:"BRANCH_NAME_MISMATCH", branch_name:br.name };
@@ -73,6 +75,17 @@ async function stubTerminals(target, opts){
       const t = { id:id("term"), business:bz.id, branch:br.id, install:b.p_install_id, till:nextTill(br.id), label:b.p_label||null };
       state.terminals.push(t); c.used = true; v.business = bz.id;
       return termJson(t);
+    },
+    // Phase 2: a main-branch till deactivates/reactivates another till (never itself).
+    cl_terminal_set_active(b){
+      vendor(b, false);
+      const me = state.terminals.find(x=>x.install===b.p_install_id && x.active!==false);
+      if(!me || !state.branches.find(x=>x.id===me.branch).is_main) throw err("Only a main-branch terminal can change terminals");
+      const t = state.terminals.find(x=>x.id===b.p_terminal_id && x.business===me.business);
+      if(!t) throw err("Terminal not found in this business");
+      if(t.id===me.id && !b.p_active) throw err("A till cannot deactivate itself");
+      t.active = !!b.p_active;
+      return Object.assign(termJson(t), { active:t.active });
     },
     cl_branch_list(b){
       vendor(b, false);
@@ -83,7 +96,7 @@ async function stubTerminals(target, opts){
       return { business_id:bz.id, business_name:bz.name, branches: state.branches.filter(x=>x.business===bz.id)
         .sort((a,c)=> (c.is_main-a.is_main) || a.name.localeCompare(c.name))
         .map(x=>({ id:x.id, name:x.name, is_main:x.is_main, terminals: isMain? state.terminals.filter(t=>t.branch===x.id)
-          .map(t=>({ id:t.id, till_code:t.till, label:t.label, active:true, registered_ts:new Date().toISOString(), last_seen_ts:null })) : null })) };
+          .map(t=>({ id:t.id, till_code:t.till, label:t.label, active:t.active!==false, registered_ts:new Date().toISOString(), last_seen_ts:null })) : null })) };
     },
   };
   await target.route(DC_HOST, async route=>{

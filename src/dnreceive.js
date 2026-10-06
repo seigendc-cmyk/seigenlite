@@ -60,10 +60,10 @@
     let resume = false;
     if(rec){
       if(rec.status==="received")
-        return { ok:false, stage:"duplicate", message:"Already received on "+(isoDateText(rec.received_iso)||String(rec.received_ts||"").slice(0,10))+" as "+formatDocNo("GRV",rec.grv_no)+".", doc, record:rec };
+        return { ok:false, stage:"duplicate", message:"Already received on "+(isoDateText(rec.received_iso)||String(rec.received_ts||"").slice(0,10))+" as "+docDisplay("GRV",rec.grv_no,rec.grv_till_code)+".", doc, record:rec };
       if(rec.status==="cancelled")
         return { ok:false, stage:"cancelled", message:"This Delivery Note was cancelled by "+doc.from.name+(rec.cancelled_ts? " on "+(isoDateText(rec.cancelled_ts)||String(rec.cancelled_ts).slice(0,10)) : "")
-          +(rec.replaced_by? " and replaced by "+formatDocNo("DN",rec.replaced_by) : "")+". Do not receive it.", doc, record:rec };
+          +(rec.replaced_by? " and replaced by "+dnDisplayFor(doc.from.branch_id,rec.replaced_by,rec.till_code||doc.till_code) : "")+". Do not receive it.", doc, record:rec };
       if(rec.status==="variance") resume = true;
     }
     // 4b. a reissued DN replaces an earlier one. If that one was already received here, this one can't be.
@@ -71,7 +71,7 @@
     if(doc.replaces){
       const old = ctx.lookup(doc.from.branch_id, doc.replaces) || null;
       if(old && old.status==="received")
-        return { ok:false, stage:"replaces-received", message:doc.dn_display+" replaces "+formatDocNo("DN",doc.replaces)+", which was already received here as "+formatDocNo("GRV",old.grv_no)
+        return { ok:false, stage:"replaces-received", message:doc.dn_display+" replaces "+dnDisplayFor(doc.from.branch_id,doc.replaces,doc.till_code)+", which was already received here as "+docDisplay("GRV",old.grv_no,old.grv_till_code)
           +". This replacement can't be received. Send that voucher to "+doc.from.name+".", doc, record:old };
       replaces = { dnNo:doc.replaces, record:old };
     }

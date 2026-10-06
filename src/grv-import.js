@@ -27,10 +27,12 @@
       return { ok:false, stage:"branch", message:"This Goods Received Voucher is for "+doc.dn_display+" dispatched by \""+doc.from.name+"\", not by this branch. Nothing was changed.", doc };
     // 3. and must exist here as an outgoing DN
     const h = ctx.lookup(doc.dn_no);
-    if(!h) return { ok:false, stage:"unknown", message:doc.dn_display+" was not dispatched from this device, so this voucher can't be matched. Nothing was changed.", doc };
+    // A GRV can only be matched on the till that dispatched the DN (only that device holds the dispatch record).
+    if(!h) return { ok:false, stage:"unknown", message:doc.dn_display+" was not dispatched from this device, so this voucher can't be matched."
+      +(doc.dn_till_code? " Import it on till "+doc.dn_till_code+", which dispatched it." : "")+" Nothing was changed.", doc };
     // 4. only once
     if(h.status==="received")
-      return { ok:false, stage:"duplicate", message:"Already confirmed on "+(isoDateText(h.received_iso)||String(h.received_ts||"").slice(0,10))+" as "+formatDocNo("GRV",h.grv_no)+".", doc, header:h };
+      return { ok:false, stage:"duplicate", message:"Already confirmed on "+(isoDateText(h.received_iso)||String(h.received_ts||"").slice(0,10))+" as "+docDisplay("GRV",h.grv_no,h.grv_till_code)+".", doc, header:h };
     // 4b. a DN cancelled here can't be received: record that the two facts disagree (the screen does), change no stock
     if(["cancelled","superseded","loss_closed"].includes(h.status))
       return { ok:false, stage:"conflict", message:doc.dn_display+" was "+({ cancelled:"cancelled", superseded:"cancelled and reissued", loss_closed:"closed as a loss" }[h.status])+" on this device, but this voucher ("+doc.grv_display+") says "+doc.to.name
@@ -60,7 +62,7 @@
     try{
       const h = one("SELECT * FROM dispatch_docs WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[getBranchId(),doc.dn_no]);
       if(!h) throw new Error(doc.dn_display+" was not dispatched from this device.");
-      if(h.status==="received") throw new Error("Already confirmed as "+formatDocNo("GRV",h.grv_no)+".");
+      if(h.status==="received") throw new Error("Already confirmed as "+docDisplay("GRV",h.grv_no,h.grv_till_code)+".");
       const ts = now.toISOString();
       let aborted = null, posted = null;
       // A cancel still waiting on this DN ends here: the receiver had accepted it, so nothing is restored.
@@ -87,11 +89,12 @@
           posted = { dnNo:oc.dn_no, caseNo:oc.case_no };
         }
       }
-      run("UPDATE dispatch_docs SET status='received', grv_no=?, received_ts=?, received_iso=?, received_by=? WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",
-        [doc.grv_no, ts, doc.received_iso, String(sessionUser||""), getBranchId(), doc.dn_no]);
+      run(`UPDATE dispatch_docs SET status='received', grv_no=?, received_ts=?, received_iso=?, received_by=?, grv_till_code=?, grv_internal_ref=?
+           WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'`,
+        [doc.grv_no, ts, doc.received_iso, String(sessionUser||""), doc.till_code||null, doc.internal_ref||null, getBranchId(), doc.dn_no]);
       recordDnEvent({ dnBranchId:getBranchId(), dnNo:doc.dn_no, type:"received", actorBranchId:doc.to.branch_id, actorName:doc.to.name,
         fromName:h.dispatch_branch_name, toName:h.receive_branch_name, ts:doc.received_iso, grvNo:doc.grv_no,
-        detail:{ dn_created_iso:h.created_iso, imported_at:ts, imported_by:String(sessionUser||"") } });
+        detail:{ dn_created_iso:h.created_iso, imported_at:ts, imported_by:String(sessionUser||"") }, dnTill:h.till_code||null, grvTill:doc.till_code||null });
       logAudit("Import GRV","",doc.grv_display+" confirms "+doc.dn_display+" received by "+doc.to.name);
       db.run("COMMIT");
       return { header:one("SELECT * FROM dispatch_docs WHERE dispatch_branch_id=? AND dn_no=? AND direction='out'",[getBranchId(),doc.dn_no]), aborted, posted };
@@ -144,7 +147,7 @@
       try{ await persist(); }catch(e){}
       const c = r.case, kindText = c? CANCEL_KIND_LABEL[c.kind] : "Cancelled";
       body.innerHTML = `<div class="box" style="text-align:center;margin-bottom:10px"><p style="font-size:16px;font-weight:700;margin:0 0 4px">${escapeHtml(ack.dn_display)}: ${escapeHtml(kindText.toLowerCase())}</p>
-        <p class="muted" style="margin:0">${r.upgraded? escapeHtml(ack.to.name+" has now confirmed the cancellation you posted earlier without confirmation. Nothing else changed.") : escapeHtml("Confirmed by "+ack.to.name+". Your stock was restored"+(c && c.kind==="reissue"? ", the replacement "+formatDocNo("DN",c.replaced_by)+" was posted" : "")+(c && c.kind==="loss"? " and the loss was written off" : "")+".")}</p></div>
+        <p class="muted" style="margin:0">${r.upgraded? escapeHtml(ack.to.name+" has now confirmed the cancellation you posted earlier without confirmation. Nothing else changed.") : escapeHtml("Confirmed by "+ack.to.name+". Your stock was restored"+(c && c.kind==="reissue"? ", the replacement "+ownDnDisplay(c.replaced_by)+" was posted" : "")+(c && c.kind==="loss"? " and the loss was written off" : "")+".")}</p></div>
         <button class="btn btn-primary" id="giDone">Done</button>`;
       body.querySelector("#giDone").onclick=close;
     }
@@ -170,8 +173,8 @@
       try{ await persist(); }catch(e){}
       try{ await dnfPut(getBranchId(), "GRV:"+doc.dn_no, { text:out.text, file_name:f.name||"", saved_ts:new Date().toISOString() }); }catch(e){}
       body.innerHTML = `<div class="box" style="text-align:center;margin-bottom:10px"><p style="font-size:16px;font-weight:700;margin:0 0 4px">${escapeHtml(doc.dn_display)} confirmed</p>
-        <p class="muted" style="margin:0">Received by ${escapeHtml(doc.to.name)} on ${escapeHtml(isoDateText(doc.received_iso))} as ${escapeHtml(doc.grv_display)}. ${cr && cr.posted? "This also confirms the cancellation of "+escapeHtml(formatDocNo("DN",cr.posted.dnNo))+": your stock was restored and this replacement was posted." : "Your stock was not changed."}</p>
-        ${cr && cr.aborted? `<p style="margin:8px 0 0;color:#b54708">The cancellation in progress on this Delivery Note was ended, because the goods were received. Nothing was restored${cr.aborted.replacement? " and the replacement "+escapeHtml(formatDocNo("DN",cr.aborted.replacement))+" is void" : ""}.</p>` : ""}</div>
+        <p class="muted" style="margin:0">Received by ${escapeHtml(doc.to.name)} on ${escapeHtml(isoDateText(doc.received_iso))} as ${escapeHtml(doc.grv_display)}. ${cr && cr.posted? "This also confirms the cancellation of "+escapeHtml(ownDnDisplay(cr.posted.dnNo))+": your stock was restored and this replacement was posted." : "Your stock was not changed."}</p>
+        ${cr && cr.aborted? `<p style="margin:8px 0 0;color:#b54708">The cancellation in progress on this Delivery Note was ended, because the goods were received. Nothing was restored${cr.aborted.replacement? " and the replacement "+escapeHtml(ownDnDisplay(cr.aborted.replacement))+" is void" : ""}.</p>` : ""}</div>
         <button class="btn btn-primary" id="giDone">Done</button>`;
       body.querySelector("#giDone").onclick=close;
     }

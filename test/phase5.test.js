@@ -76,7 +76,8 @@ const plan = (...p)=>p.map(x=>({ nw:x[0], writeoff:x[1]||0, reason:x[2]||"" }));
     assert.ok(/not a readable/.test((await A.api.parseCancel("nope")).errors[0]));
     assert.ok(/wrong file type/.test((await A.api.parseCancel(J({format:"seigen-dn"}))).errors[0]));
     const v9 = J(Object.assign(JSON.parse(text),{ format_version:9 }));
-    assert.ok(/needs a newer version of seiGEN Commerce Lite \(file version 9, this app reads up to 1\).*Nothing was changed/.test((await A.api.parseCancel(v9)).errors[0]));
+    // approved wording (Phase 2): says exactly what to do
+    assert.strictEqual((await A.api.parseCancel(v9)).errors[0], "This file was made by a newer version. Tap Reload on the update banner (or close and reopen the app while online), then import it again.");
     const ack = A.api.serializeAck(await A.api.buildAck({ cancelNo:1, nonce:p.doc.nonce, dnNo:d.n, fromBranchId:A.api.getBranchId(), fromName:"Boka", toBranchId:B.api.getBranchId(), toName:"CBD", varianceSeen:false, confirmedIso:"2026-09-05T10:00:00+02:00" }));
     assert.strictEqual((await A.api.parseAck(ack)).ok,true);
     assert.strictEqual((await A.api.parseAck(ack.replace('"variance_seen":false','"variance_seen":true'))).ok,false);
@@ -87,7 +88,7 @@ const plan = (...p)=>p.map(x=>({ nw:x[0], writeoff:x[1]||0, reason:x[2]||"" }));
     assert.strictEqual(J(Object.keys(v2)),J(["format","format_version","dn_no","dn_display","from","to","created_iso","replaces","cancel_no","cancel_nonce","items","totals","checksum"]));
     assert.strictEqual((await A.api.parseDN(A.api.serializeDN(v2))).ok,true);
     await assert.rejects(()=>A.api.buildDN({ dnNo:5, fromBranchId:"B-X", fromName:"Boka", toName:"CBD", createdIso:"2026-09-04T08:00:00+02:00", replaces:9, cancelNo:1, cancelNonce:p.doc.nonce, items:[{code:"SK1",name:"Rice",qty:2}] }), /replaces/);
-    assert.ok(/needs a newer version/.test(A.api.newerAppMessage("Delivery Note",3,2)));
+    assert.ok(/^This file was made by a newer version\. Tap Reload on the update banner/.test(A.api.newerAppMessage("Delivery Note",4,3)));
     // a truncated, pretty-printed file is still recognised by content
     assert.strictEqual(A.api.sniffJsonFormat(bytesOf('{\n  "format": "seigen-dn-cancel",\n  "format_ver')),"seigen-dn-cancel");
   });

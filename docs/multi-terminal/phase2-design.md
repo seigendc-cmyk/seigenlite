@@ -1,6 +1,6 @@
 # Multi-terminal sync — Phase 2 design: per-till numbering, stock ledger, internal references
 
-Status: **Stage A (design only). Nothing implemented. Waiting for "go Phase 2B".**
+Status: **Stage B implemented locally (2026-10-06), not pushed or deployed.** App changes and tests are in the working tree of this branch. The server migration (`supabase/migrations/20261004180000_multi_terminal_phase2.sql`) is tested in PGlite only and waits for the owner's "apply"; live objects were backed up read-only to `docs/multi-terminal/live-backup-phase2-2026-10-04T16-25-36-250Z/` (not committed).
 Branch: `phase2-numbering-ledger` from `main` at `96cacab` (identical to what is live on mobilepos/desktoppos). The only commit so far untracks `lint-report/` (`7be5e1a`).
 Status words: VERIFIED (read in code or the live database, read-only), PROPOSED (design), ASSUMED.
 
@@ -25,7 +25,15 @@ Goal: make the local data safe for several tills before any sync is built. Nothi
 | D11 | **Deactivate a till** with a new RPC `cl_terminal_set_active` (main-branch tills only, phrase + device_key, logged, can't deactivate itself). Check-in reports `terminal_active`, so a deactivated till shows a message, keeps selling and can't register again. | SQL in §4.1 for review; it's applied only after your "apply". |
 | D12 | **Server branch-name key = the app's `sanitizeBranchName()` rule:** NFKD accent folding, letters and digits only, 24-character cap, case-insensitive. **No live collisions** (read-only check, §4.2). | Correction to the brief: the app function that folds accents and caps at 24 is **`sanitizeBranchName`** (`src/docnum.js:24-27`), not `sanitizeFilenamePart` (`src/utils.js:139`), which only swaps `\/:*?"<>|` for `-`. |
 
-**Needs your decision (Q1):** should per-till numbering (and so DN v3 / GRV v2 files) switch on **automatically** for registered tills, or behind a **Settings switch** "turn on after every branch has updated", like the existing cancel/reissue switch (`src/settings.js:56-57`)? The trade-off: an un-updated receiving device can't read a v3 DN until it updates; it sees the clear "update the app" message and nothing is changed. **My recommendation is automatic.** All 5 registered tills on live are on the Phase 1 build or newer, every device in a business updates from the same Workers through the update banner, and a switch adds a state a shop can forget to flip.
+**Q1, decided 2026-10-04: automatic, no Settings switch.** Approved otherwise as designed, including deleting the dead legacy dispatch screen.
+
+**The "newer file" message, approved wording.** Every file family (DN, GRV, cancel notice, cancellation confirmation, catalogue) uses one shared message, `newerAppMessage` (`src/dnfile.js:16`). From this version on it reads:
+
+> This file was made by a newer version. Tap Reload on the update banner (or close and reopen the app while online), then import it again.
+
+Limit: an app only shows the wording built into *its own* version. Devices still on a pre-Phase-2 build keep their current text ("This Delivery Note needs a newer version of seiGEN Commerce Lite (file version 3, this app reads up to 2). Update the app, then import it again. Nothing was changed."). Both tell the user to update and import again, and both change nothing. The new wording applies to every later format bump.
+
+**Question as originally asked (Q1):** should per-till numbering (and so DN v3 / GRV v2 files) switch on **automatically** for registered tills, or behind a **Settings switch** "turn on after every branch has updated", like the existing cancel/reissue switch (`src/settings.js:56-57`)? The trade-off: an un-updated receiving device can't read a v3 DN until it updates; it sees the clear "update the app" message and nothing is changed. **My recommendation is automatic.** All 5 registered tills on live are on the Phase 1 build or newer, every device in a business updates from the same Workers through the update banner, and a switch adds a state a shop can forget to flip.
 
 ---
 
@@ -190,6 +198,7 @@ create or replace function public.cl_branch_key(p text) returns text language sq
   select coalesce(nullif(lower(left(regexp_replace(normalize(coalesce(p, ''), NFKD), '[^A-Za-z0-9]', '', 'g'), 24)), ''), 'branch') $$;
 reindex index public.cl_branches_name_uidx;   -- the unique (business_id, cl_branch_key(name)) index
 ```
+**Changed in Stage B:** the migration drops the index before replacing the function and creates it again afterwards, instead of `reindex`. The PGlite test showed that a `reindex` in the same session rebuilds the index with the **old** function body: the session caches the index expression with the SQL function inlined. The index then accepted `ZURICH-CAFE` beside `Zürich Café`. A newly created index reads the new body. The rollback does the same.
 Read-only evidence (live, 2026-10-04):
 - `normalize()` exists and is **immutable** (`provolatile = 'i'`), so it's valid in an index.
 - The database encoding is **UTF8**.
@@ -198,7 +207,7 @@ Read-only evidence (live, 2026-10-04):
 - PGlite (the local test database) supports the same function inside a unique index and refuses the folded duplicate.
 - Live data: 2 businesses, 3 branches, 5 tills (all active). **0 collisions** under the new key, and **0 of the 3 names** get a different key than today. `unaccent` isn't needed; core `normalize` is enough.
 - The migration's preflight re-checks for collisions and aborts if any exist.
-- **Rollback:** restore the Phase 1 `cl_branch_key` body and reindex.
+- **Rollback:** restore the Phase 1 `cl_branch_key` body and recreate the index (it aborts first if two names would collide under the old key).
 
 ---
 
@@ -254,7 +263,9 @@ CREATE INDEX IF NOT EXISTS ix_stock_movements_product ON stock_movements(product
 ---
 
 ## 6. Tests
-**New (Stage B):**
+**Written in Stage B:** `test/phase2-tills-ledger.test.js` (numbering, files, internal refs, ledger, deactivation refusals; the "old app" cases load the live build's validators from commit `96cacab`), `test/terminal-deactivate-e2e.test.js` (Playwright, against `test/terminal-fake.js`, which now answers `cl_terminal_set_active` and `terminal_active`), and `supabase/tests/multi-terminal-phase2-test.js` (PGlite).
+
+**Planned (Stage A):**
 - **Numbering:**
   - two tills in one branch (two harness devices with T1/T2) issue receipts and DNs offline, then merge into a third: no number or key collisions;
   - an unregistered device keeps `#id`, `DN0001`, today's file names and v1 bytes exactly;
