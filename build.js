@@ -82,6 +82,14 @@ function inlineIcons(html) {
 function readVersion() {
   return fs.readFileSync(path.join(ROOT, "VERSION"), "utf8").trim();
 }
+// The app build number tills report at check-in (the server's shared-stock
+// build guard reads it). One source: sw-pwa.js's "// build: vN" line, which
+// is bumped for every release anyway.
+function readBuild() {
+  const m = /^\/\/ build: v(\d+)\b/m.exec(fs.readFileSync(path.join(ROOT, "sw-pwa.js"), "utf8"));
+  if (!m) throw new Error("sw-pwa.js: '// build: vN' line missing");
+  return Number(m[1]);
+}
 
 // Explicit load order. Everything below is concatenated into one IIFE, so
 // only two things actually matter for correctness: state.js must come
@@ -181,7 +189,8 @@ function buildHTML(scriptOrder, extraCssFiles, opts) {
   // else. It sits in headMid's <script> tag ahead of state.js's IIFE, so
   // every function inside that IIFE (renderAbout, renderSettings, ...)
   // can read it as a normal outer-scope variable.
-  const versionDecl = "const APP_VERSION = " + JSON.stringify(readVersion()) + ";\n";
+  const versionDecl = "const APP_VERSION = " + JSON.stringify(readVersion()) + ";\n" +
+    "const APP_BUILD = " + readBuild() + ";\n";
 
   let appJS = versionDecl + scriptParts.join("\n");
   const jsBytesBefore = Buffer.byteLength(appJS, "utf8");

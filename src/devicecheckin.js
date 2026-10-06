@@ -118,7 +118,8 @@
           p_city: "",                 // no shop-city setting exists today — see summary
           p_location: getSetting("branch_name",""), // closest existing concept to a free-text location
           p_rpn_hint_id: null,        // RPN linkage (rpn.js) is stored as free text, no UUID tracked locally — see summary
-          p_device_key: (typeof deviceKey==="function")? deviceKey() : null   // terminal.js: tells this device apart from another with the same install ID
+          p_device_key: (typeof deviceKey==="function")? deviceKey() : null,  // terminal.js: tells this device apart from another with the same install ID
+          p_app_build: (typeof APP_BUILD!=="undefined")? APP_BUILD : null      // build.js (sw-pwa.js "build: vN"): shared stock waits until every till runs v7+
         })
       });
       if(!res.ok){

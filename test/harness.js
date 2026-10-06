@@ -7,6 +7,8 @@ const fs = require("fs"), path = require("path"), vm = require("vm");
 const { DatabaseSync } = require("node:sqlite");
 
 const src = (f)=>fs.readFileSync(path.join(__dirname,"..","src",f),"utf8");
+// build.js declares APP_BUILD from sw-pwa.js's "// build: vN" line; same here.
+const APP_BUILD = Number(/^\/\/ build: v(\d+)\b/m.exec(fs.readFileSync(path.join(__dirname,"..","sw-pwa.js"),"utf8"))[1]);
 
 // Minimal sql.js-compatible surface used by the app.
 class Compat {
@@ -51,7 +53,8 @@ function makeApp(settings){
     escapeHtmlStub:null, SQLctor:sqlCtor, __db:db, persistCount:0,
   };
   vm.createContext(ctx);
-  const prelude = `let SQL={Database:SQLctor}, db=__db, sessionUser="Tester", currency="$";
+  const prelude = `const APP_BUILD = ${APP_BUILD};
+    let SQL={Database:SQLctor}, db=__db, sessionUser="Tester", currency="$";
     const IDB_NAME="x",IDB_STORE="x",IDB_KEY="x"; let route="", cart=[];
     let sessionStaffId=null, accessStep=1, accessSelectedStaffId=null, accessPinDigits="", accessError="";
     let moreTab="help", settingsUnlocked=false, drawerOpen=false, appliedVoucher=null;
@@ -80,7 +83,7 @@ function makeApp(settings){
         catQueuePrice, catPicsEnabled, catPicsNeeded, catDownloadPictures, catPicHtml, catPicLoadKeys, catPicClear, catPicGet, catProductsWithoutCode, catEffectivePrice,
         catProblemText, getCatState:()=>catState, tillStockPending, tillStockNoteHtml, setBranchPrice, setBranchPriceMode, applyRemotePriceEdit, catalogueImportPreflight, catalogueSyncCardHtml,
         catBranchOnServer, catalogueRegisterExtras, changeQty, searchProducts,
-        sharedStockTill, sellableNow, stockLineText, allowanceValid, allowanceValidUntil, stockSyncNow, sharedStockCheckout, sharedStockStart, sharedStockMerge,
+        APP_BUILD, sharedStockTill, sellableNow, stockLineText, allowanceValid, allowanceValidUntil, stockSyncNow, sharedStockCheckout, sharedStockStart, sharedStockMerge,
         sharedStockPreApply, sharedStockDone, sharedStockUndo, sharedStockStocktake, sharedStockBalance, branchOnlyProducts, sharedStockStatusHtml, sharedStockOfflineBadgeHtml,
         ssPending:()=>ssPending(), ssPendingTakes:()=>Object.fromEntries(ssPendingTakes()),
         moveStock, recordStockMovement, stockLedgerCheck, docDisplay, formatDocNo, currentTillCode, cleanInternalRef, INTERNAL_REF_MAX, receiptLabel, receiptDisplay,

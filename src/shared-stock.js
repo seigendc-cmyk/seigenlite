@@ -312,6 +312,13 @@
     const own = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[currentBranch()]);
     return { linked: own.filter(p=>p.cat_uid && p.cat_seq!=null), unlinked: own.filter(p=>!(p.cat_uid && p.cat_seq!=null)) };
   }
+  // Server build guard: every other active till must report build v7+ first.
+  function ssTillNeedsUpdateText(d){
+    d = d || {};
+    const till = (d.till_code||"another till") + (d.label? " ("+d.label+")" : "");
+    return "Till "+till+" must update the app first: shared stock needs build v"+(d.min_build||7)+" or later on every till, and it "
+      + (d.app_build? "runs build v"+d.app_build : "hasn't reported its build yet") + ". Open the app on that till while online (it updates and checks in), then try again.";
+  }
   async function sharedStockStart(passcode){
     if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode.");
     if(typeof catalogueSyncNow==="function"){ const c = await catalogueSyncNow({}); if(c && c.needsReport) throw new Error("Finish the first catalogue sync first (Settings → Business & Terminals)."); }
@@ -320,7 +327,8 @@
     const r = await ssRpc("cl_stock_start_shared", { p_op_id:op, p_rows: plan.linked.map(p=>({ product_uid:p.cat_uid, qty:Math.max(0,p.stock) })) });
     ssNote(r);
     if(!r.ok) throw new Error(r.code==="NOT_HOLDER"? "Only the till that holds the branch's stock can start shared stock."
-      : r.code==="SINGLE_TILL"? "Shared stock needs at least two active tills in the branch." : r.code==="ALREADY_SHARED"? "This branch already uses shared stock." : ssProblemText(r));
+      : r.code==="SINGLE_TILL"? "Shared stock needs at least two active tills in the branch." : r.code==="ALREADY_SHARED"? "This branch already uses shared stock."
+      : r.code==="TILL_NEEDS_UPDATE"? ssTillNeedsUpdateText(r.data) : ssProblemText(r));
     db.run("BEGIN");
     try{
       plan.linked.forEach(p=>{ if(p.stock) moveStock({ productId:p.id, setTo:0, kind:"shared_opening", note:"Stock handed to the branch (shared stock)", ssLocal:true }); });
