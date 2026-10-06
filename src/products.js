@@ -184,7 +184,7 @@
             <td>${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}${escapeHtml(p.name)}${p.active===0? ` <span class="pill">Deactivated</span>` : ""}</td>
             <td>${escapeHtml(p.shelf||"—")}</td>
             <td>${currency}${p.price.toFixed(2)}</td>
-            <td>${p.stock<0? `<span class="pill neg">${p.stock} below zero</span>` : p.stock+(p.stock<=p.low_threshold?` <span class="pill low">low</span>`:"")}</td>
+            <td>${(typeof stockLineText==="function" && stockLineText(p))? `<span class="ss-stock">${escapeHtml(stockLineText(p))}</span>` : p.stock<0? `<span class="pill neg">${p.stock} below zero</span>` : p.stock+(p.stock<=p.low_threshold?` <span class="pill low">low</span>`:"")}</td>
             <td><button class="btn btn-sm btn-outline dots-btn" data-rowmenu="${p.id}" data-actions="${rowActions.join(" ")}" title="Actions">⋮</button></td>
           </tr>`).join("")}
       </table>`;

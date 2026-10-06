@@ -10,24 +10,36 @@
   // never sells below zero stock, registered or not. Multi-till branches get
   // shared branch stock and offline allowances in Phase 3b
   // (docs/multi-terminal/phase3a-design.md, "Phase 3b decisions").
+  // What may be sold of a product now: its stock, or on a shared-stock till
+  // (Phase 3b, shared-stock.js) branch stock online / this till's allowance offline.
+  function sellable(p){ return typeof sellableNow==="function"? sellableNow(p) : p.stock; }
   function addToCart(p){
+    if(typeof window!=="undefined" && window._stockChecking) return;   // a shared-stock sale is being checked
+    const max = sellable(p);
     const existing = cart.find(c=>c.product_id===p.id);
-    if(existing){ if(existing.qty < p.stock) existing.qty++; }
-    else { if(p.stock>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:p.stock}); }
+    if(existing){ existing.stock = max; if(existing.qty < max) existing.qty++; }
+    else { if(max>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:max}); }
     render();
   }
-  // A till that joined a branch which already had one (T2, T3…) receives the
-  // catalogue with zero stock; its stock comes from the branch in Phase 3b.
-  // Single-till branches (T1) keep their own local stock as before.
+  // A till in a multi-till branch whose stock isn't shared yet, and that
+  // doesn't hold the branch's stock itself, has nothing to sell (Phase 3a
+  // note). Phase 3b decides it from the server's answer (stock holder), so a
+  // branch whose T1 was deactivated and runs on a single T2 is handled; before
+  // the first stock sync it falls back to the till code.
   const TILL_STOCK_NOTE = "Stock for this till isn't set up yet — coming in the next update.";
   function tillStockPending(){
+    if(!getSetting("terminal_id","")) return false;
+    const mode = getSetting("stock_mode","");
+    if(mode==="shared") return getSetting("stock_init","")!=="1";
+    if(mode==="local") return getSetting("stock_holder","")!=="1";
     const t = getSetting("till_code","");
-    return !!getSetting("terminal_id","") && /^T[0-9]+$/.test(t) && t!=="T1";
+    return /^T[0-9]+$/.test(t) && t!=="T1";
   }
   function tillStockNoteHtml(){
     return tillStockPending()? `<div class="box till-stock-note" style="margin:0 0 10px;padding:10px 12px;border:1px solid #b54708;border-radius:8px;background:#fff8f0;color:#b54708;font-weight:600">${escapeHtml(TILL_STOCK_NOTE)}</div>` : "";
   }
   function changeQty(pid, delta){
+    if(typeof window!=="undefined" && window._stockChecking) return;
     const item = cart.find(c=>c.product_id===pid);
     if(!item) return;
     if(delta>0 && item.qty>=item.stock) return;
@@ -438,7 +450,11 @@
     return String(s||"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0, DOC_REF_MAX).trim();
   }
 
-  function completeSale(method, payments){
+  // stockPlan (Phase 3b, shared-stock.js): set when a shared-stock till's sale
+  // comes back from the server check: { saleUid, alloc:{productId: units from
+  // this till's allowance}, mode, inputs }. Every other till never passes it,
+  // and the sale is exactly as before.
+  function completeSale(method, payments, stockPlan){
     if(cart.length===0) return;
     // Shift/EOD control (Part 3): the one choke point every payment method,
     // on both the mobile cart drawer (router.js) and the desktop Sales
@@ -495,14 +511,15 @@
     // else removed) is stored exactly like a normal single-method sale.
     const saleMethod = lines.length>1? "Split" : lines[0].method;
 
-    const nameEl = document.getElementById("custName");
-    const phoneEl = document.getElementById("custPhone");
+    const inp = stockPlan && stockPlan.inputs;                             // the checkout fields as they were before the stock check
+    const nameEl = inp? { value:inp.custName } : document.getElementById("custName");
+    const phoneEl = inp? { value:inp.custPhone } : document.getElementById("custPhone");
     const custName = nameEl? nameEl.value.trim() : "";
     const custPhone = phoneEl? phoneEl.value.trim() : "";
     if(lines.some(l=>l.method==="Credit") && !custName){ alert("Enter the customer's name for a credit sale"); return; }
 
-    const reasonEl = document.getElementById("discountReason");
-    const approvedEl = document.getElementById("discountApprovedBy");
+    const reasonEl = inp? { value:inp.discountReason } : document.getElementById("discountReason");
+    const approvedEl = inp? { value:inp.discountApprovedBy } : document.getElementById("discountApprovedBy");
     const discountReason = reasonEl? reasonEl.value.trim() : "";
     const discountApprovedBy = approvedEl? approvedEl.value.trim() : "";
     // Gated once per cart/checkout, not once per discounted line: this is
@@ -515,13 +532,19 @@
     // below) — unchanged from before this feature.
     if(discount>0 && !discountReason){ alert("Enter a reason for the discount"); return; }
 
-    const refEl = document.getElementById("paymentRef");
+    const refEl = inp? { value:inp.paymentRef } : document.getElementById("paymentRef");
     const paymentRef = refEl? refEl.value.trim() : "";
     if(lines.some(l=>l.method==="EcoCash"||l.method==="Bank") && !paymentRef){ alert("Enter the payment reference number"); return; }
 
-    const docRefEl = document.getElementById("docRef");
+    const docRefEl = inp? { value:inp.docRef } : document.getElementById("docRef");
     const docRef = cleanDocRef(docRefEl? docRefEl.value : "");
 
+    // Multi-terminal Phase 3b: a shared-stock till asks the server first; the
+    // sale is written only when that comes back (or from this till's allowance).
+    if(!stockPlan && typeof sharedStockTill==="function" && sharedStockTill()){
+      return sharedStockCheckout(cart.map(c=>({ product_id:c.product_id, qty:c.qty })), (plan)=>completeSale(method, payments, plan),
+        { custName, custPhone, discountReason, discountApprovedBy, paymentRef, docRef });
+    }
     const customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
     const voucherToRedeem = appliedVoucher;
     const ts = new Date().toISOString();
@@ -541,6 +564,7 @@
          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo]);
     const saleId = one("SELECT last_insert_rowid() as id").id;
+    if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
     const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
     const label = receiptLabel(saleId, receiptNo);
     lines.forEach(l=>{
@@ -557,7 +581,9 @@
       const prod = one("SELECT cost FROM products WHERE id=?",[c.product_id]);
       run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount) VALUES(?,?,?,?,?,?,?)",
         [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount]);
-      moveStock({ productId:c.product_id, delta:-c.qty, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
+      // shared-stock till: only the part of the line taken from this till's own allowance changes its stock
+      const fromHere = stockPlan && Object.prototype.hasOwnProperty.call(stockPlan.alloc, c.product_id)? stockPlan.alloc[c.product_id] : c.qty;
+      if(fromHere) moveStock({ productId:c.product_id, delta:-fromHere, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
     });
     if(voucherToRedeem){
       run("UPDATE vouchers SET status='Redeemed', redeemed_ts=?, redeemed_sale_id=? WHERE id=?",[ts,saleId,voucherToRedeem.id]);
@@ -581,6 +607,7 @@
       ${shiftBlockBannerHtml()}
       ${dcMessagesBannerHtml()}
       ${tillStockNoteHtml()}
+      ${typeof sharedStockOfflineBadgeHtml==="function"? sharedStockOfflineBadgeHtml() : ""}
       ${window._lastReceipt? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div class="muted">Receipt ${escapeHtml(receiptLabel(window._lastReceipt.saleId, window._lastReceipt.receiptNo))} · ${currency}${window._lastReceipt.total.toFixed(2)}</div>
         <div class="row" style="flex:none;width:auto;gap:6px">
@@ -644,10 +671,10 @@
             <div style="min-width:0">
               ${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}
               <div class="pname">${escapeHtml(p.name)}</div>
-              <div class="pmeta">${currency}${p.price.toFixed(2)} · ${p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
+              <div class="pmeta">${currency}${p.price.toFixed(2)} · ${(typeof stockLineText==="function" && stockLineText(p))? `<span class="ss-stock">${escapeHtml(stockLineText(p))}</span>` : p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
             </div>
           </div>
-          <button class="add-chip" data-add="${p.id}" ${p.stock<=0?"disabled":""}>${p.stock<=0?"Out":"Add"}</button>
+          <button class="add-chip" data-add="${p.id}" ${sellable(p)<=0?"disabled":""}>${sellable(p)<=0?"Out":"Add"}</button>
         </div>`).join("");
   }
   function wireProductAdds(scope){

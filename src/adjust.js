@@ -113,7 +113,8 @@
     try{
       const p = one("SELECT * FROM products WHERE id=? AND branch=?",[o.productId,branch]);
       if(!p) throw new Error("That product is not in this branch.");
-      const bad = adjustmentProblem({ reason:o.reason, qty:o.qty, note:o.note, stock:p.stock });
+      // shared-stock till (Phase 3b): what the branch can give, not just this till's allowance
+      const bad = adjustmentProblem({ reason:o.reason, qty:o.qty, note:o.note, stock: typeof sellableNow==="function"? sellableNow(p) : p.stock });
       if(bad) throw new Error(bad);
       const q = parseAdjustQty(o.qty), note = String(o.note).trim();
       const adj = writeAdjustment({ product:p, delta:q, reason:o.reason, note, admin:admin.name, ts });
@@ -164,9 +165,20 @@
     let busy = false;
     $q("#aSave").onclick=async ()=>{
       if(busy) return; busy = true;
+      // Multi-terminal Phase 3b: on a shared-stock till a reduction is taken
+      // from branch stock on the server first; the record is written after.
+      const q = parseAdjustQty($q("#aQty").value);
+      let pre = null;
+      if(typeof sharedStockTill==="function" && sharedStockTill() && p.cat_uid && q!==null && q<0 && findAdmin($q("#aPass").value)
+         && !adjustmentProblem({ reason:$q("#aReason").value, qty:$q("#aQty").value, note:$q("#aNote").value, stock:sellableNow(p) })){
+        $q("#aErr").textContent = "Checking branch stock…";
+        pre = await sharedStockPreApply([{ product:p, delta:q, kind:"adjust" }]);
+        if(!pre.ok){ $q("#aErr").textContent = pre.message; busy = false; return; }
+      }
       try{
         commitAdjustment({ productId:p.id, reason:$q("#aReason").value, qty:$q("#aQty").value, note:$q("#aNote").value, passcode:$q("#aPass").value });
-      }catch(e){ $q("#aErr").textContent = e.message||String(e); busy = false; return; }
+        if(pre) sharedStockDone(pre);
+      }catch(e){ if(pre) await sharedStockUndo(pre.moves); $q("#aErr").textContent = e.message||String(e); busy = false; return; }
       try{ await persist(); }catch(e){}
       wrap.remove(); render();
     };

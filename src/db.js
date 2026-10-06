@@ -250,6 +250,13 @@
       price REAL, mode TEXT, op_id TEXT NOT NULL, created_ts TEXT NOT NULL, error TEXT DEFAULT '',
       PRIMARY KEY(kind, dest_name, cat_uid)
     );
+    -- Shared branch stock (Phase 3b, shared-stock.js): what this till did
+    -- offline (sales from its allowance, stock movements), reported to the
+    -- server on reconnect by uid, so nothing counts twice. Local only.
+    CREATE TABLE IF NOT EXISTS stock_outbox(
+      uid TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL,
+      created_ts TEXT NOT NULL, sent_ts TEXT DEFAULT '', result_json TEXT DEFAULT ''
+    );
     -- This till's own branch prices as pulled (cat_uid -> price; NULL = removed).
     CREATE TABLE IF NOT EXISTS cat_branch_prices(
       cat_uid TEXT PRIMARY KEY, price REAL, seq INTEGER
@@ -410,7 +417,13 @@
       "ALTER TABLE products ADD COLUMN active INTEGER DEFAULT 1",
       "ALTER TABLE products ADD COLUMN image_hash TEXT",
       "ALTER TABLE products ADD COLUMN image_bytes INTEGER DEFAULT 0",
-      "ALTER TABLE products ADD COLUMN cat_main_price REAL"
+      "ALTER TABLE products ADD COLUMN cat_main_price REAL",
+      // Multi-terminal Phase 3b (shared-stock.js): on a shared-stock till
+      // products.stock is this till's offline allowance; these are the
+      // last-known branch figures and stock received offline, not yet synced.
+      "ALTER TABLE products ADD COLUMN branch_avail INTEGER",
+      "ALTER TABLE products ADD COLUMN branch_total INTEGER",
+      "ALTER TABLE products ADD COLUMN stock_pending_in INTEGER DEFAULT 0"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -490,6 +503,9 @@
   // setTo is for the two overwrite paths (import "apply qty", stocktake): the
   // movement records the true change from the stock at that moment.
   function moveStock(o){
+    // Multi-terminal Phase 3b: on a shared-stock till, movements other than
+    // sales go through the branch (shared-stock.js sharedStockIntercept).
+    if(typeof sharedStockIntercept==="function"){ const h = sharedStockIntercept(o); if(h!==undefined) return h; }
     const p = one("SELECT id,uid,sku,name,branch,stock FROM products WHERE id=?",[o.productId]);
     if(!p) throw new Error("Product not found.");
     const delta = (o.setTo!==undefined && o.setTo!==null)? (o.setTo - p.stock) : o.delta;

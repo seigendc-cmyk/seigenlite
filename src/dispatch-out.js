@@ -357,10 +357,18 @@
       if(errs.length){ renderEdit(); body.querySelector("#doErr").innerHTML = errs.map(escapeHtml).join("<br>"); return; }
       stage = "working";
       const now = new Date(), branchId = getBranchId(), toBranch = toName.trim();
-      let dn;
+      let dn, pre = null;
+      // Multi-terminal Phase 3b: at a shared-stock branch the stock leaves the
+      // branch on the server first; the Delivery Note is written after.
+      if(typeof sharedStockTill==="function" && sharedStockTill()){
+        pre = await sharedStockPreApply(lines.map(l=>({ product:l.product, delta:-Number(l.qty), kind:"dispatch" })));
+        if(!pre.ok){ alert("Dispatch was not completed and no stock was changed: "+pre.message); stage = "review"; renderReview(); return; }
+      }
       try{
         dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })) });
+        if(pre) sharedStockDone(pre);
       }catch(e){
+        if(pre) await sharedStockUndo(pre.moves);
         alert("Dispatch was not completed and no stock was changed: "+(e.message||e));
         stage = "review"; renderReview();
         return;

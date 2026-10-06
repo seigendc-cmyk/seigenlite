@@ -224,6 +224,8 @@ async function installOf(d){ return (await sq("select install_id from cl_vendors
     await waitFor(async()=> !!(await D.page.$("#catPicsPrompt")), "the picture download prompt", 30000);
     assert.strictEqual(await D.page.isChecked("#catPicsSwitch"), true, "pictures on for desktop");
     assert.match(await D.page.textContent("#catPicsPrompt"), /Download 1 product picture \(about \d+ KB\)\?/);
+    // Sync now can join a background sync already running; both redraw the card when they finish
+    await D.page.waitForTimeout(1000);
     await D.page.locator("#catPicsPrompt").scrollIntoViewIfNeeded();
     await shot(D.page, "desktop-pictures-prompt.png");
     await D.page.click("#catPicsYes");

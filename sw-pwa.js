@@ -11,7 +11,8 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v6 — multi-terminal Phase 3a: product catalogue sync, pictures store; tills never sell below zero
+// build: v7 — multi-terminal Phase 3b: shared branch stock + offline allowance
+// v6: multi-terminal Phase 3a: product catalogue sync, pictures store; tills never sell below zero
 // v5: built for Phase 3a with selling at zero on registered tills; never deployed (owner changed Q1)
 // (bumped so this file's bytes differ, which is what actually triggers the browser's updatefound check).
 // v4: multi-terminal Phase 1 + 2: tills, per-till numbering, stock ledger, internal refs, deactivate a till.

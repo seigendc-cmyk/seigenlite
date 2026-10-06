@@ -55,6 +55,7 @@
     main.innerHTML = `
       ${shiftBlockBannerHtml()}
       ${typeof tillStockNoteHtml==="function" && tillStockPending()? `<div style="padding:12px 24px 0">${tillStockNoteHtml()}</div>` : ""}
+      ${typeof sharedStockOfflineBadgeHtml==="function" && sharedStockOfflineBadgeHtml()? `<div style="padding:12px 24px 0">${sharedStockOfflineBadgeHtml()}</div>` : ""}
       ${dcMessagesBannerHtml()}
       <div class="desktop-sales">
         <div class="ds-main">
@@ -97,9 +98,9 @@
             </div>
           </div>
         </td>
-        <td>${p.stock} ${desktopStockLabel(p)}</td>
+        <td>${(typeof stockLineText==="function" && stockLineText(p))? `<span class="ss-stock">${escapeHtml(stockLineText(p))}</span>` : p.stock+" "+desktopStockLabel(p)}</td>
         <td>${currency}${p.price.toFixed(2)}</td>
-        <td><button class="ds-add-btn" data-add="${p.id}" ${p.stock<=0?"disabled":""}>${p.stock<=0?"Out":"Add"}</button></td>
+        <td><button class="ds-add-btn" data-add="${p.id}" ${sellable(p)<=0?"disabled":""}>${sellable(p)<=0?"Out":"Add"}</button></td>
       </tr>`).join("");
   }
 

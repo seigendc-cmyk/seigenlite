@@ -207,6 +207,11 @@
   // branch-scoped, and every INSERT here stamps currentBranch(), same as
   // productModal()'s own Add Product path.
   function runImport(wrap, batch, applyQty){
+    // Multi-terminal Phase 3b (P8): at a shared-stock branch quantities are set by a stocktake.
+    if(applyQty && typeof sharedStockTill==="function" && sharedStockTill()){
+      alert("This branch uses shared stock: quantities are set by a stocktake (More → Stocktake), not by an import. Import again without applying quantities.");
+      return;
+    }
     const branch = currentBranch();
     const ts = new Date().toISOString();
     let created=0, updated=0;

@@ -60,7 +60,7 @@ function makeApp(settings){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","rpn.js","currencies.js","eod.js","stocktake.js","import.js","marketing.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","currencies.js","eod.js","stocktake.js","import.js","marketing.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -80,6 +80,9 @@ function makeApp(settings){
         catQueuePrice, catPicsEnabled, catPicsNeeded, catDownloadPictures, catPicHtml, catPicLoadKeys, catPicClear, catPicGet, catProductsWithoutCode, catEffectivePrice,
         catProblemText, getCatState:()=>catState, tillStockPending, tillStockNoteHtml, setBranchPrice, setBranchPriceMode, applyRemotePriceEdit, catalogueImportPreflight, catalogueSyncCardHtml,
         catBranchOnServer, catalogueRegisterExtras, changeQty, searchProducts,
+        sharedStockTill, sellableNow, stockLineText, allowanceValid, allowanceValidUntil, stockSyncNow, sharedStockCheckout, sharedStockStart, sharedStockMerge,
+        sharedStockPreApply, sharedStockDone, sharedStockUndo, sharedStockStocktake, sharedStockBalance, branchOnlyProducts, sharedStockStatusHtml, sharedStockOfflineBadgeHtml,
+        ssPending:()=>ssPending(), ssPendingTakes:()=>Object.fromEntries(ssPendingTakes()),
         moveStock, recordStockMovement, stockLedgerCheck, docDisplay, formatDocNo, currentTillCode, cleanInternalRef, INTERNAL_REF_MAX, receiptLabel, receiptDisplay,
         dnSearchText, dnDisplayFor, ownDnDisplay, dnTillFor, cancelAckFileName, dnVoucherHtml, setTerminalActive, isTerminalInactive, noteTerminalRefusal, TERMINAL_INACTIVE_TEXT,
         receiveTransfer, startCancelCase, commitAckImport, ackCheckBytes, buildAckFromRow, cancelNoticeFor, dnCaseByNo, dnBuildFromDb, grvImportCheckBytes, commitGrvImport,

@@ -3,6 +3,9 @@
   // Each config's fetch() returns {headers, rows, footer} using the exact
   // same queries as the matching card in the Reports tab, so the on-screen
   // view and the printed PDF are always guaranteed to agree.
+  // Multi-terminal Phase 3b: on a shared-stock till a product's stock is the
+  // branch's (last-known, from the server); products.stock is only this till's allowance.
+  const rptStock = (p)=> (typeof sharedStockTill==="function" && sharedStockTill() && p.cat_uid && p.branch_total!=null)? p.branch_total : p.stock;
   const REPORT_CONFIGS = [
     { id:"sales", label:"Sales Report", hasDate:true,
       fetch(b,fromTs,toTs){
@@ -16,7 +19,7 @@
     { id:"inventory", label:"Inventory Report", hasDate:false,
       fetch(b){
         const products = b? all("SELECT * FROM products WHERE branch=? ORDER BY name",[b]) : all("SELECT * FROM products ORDER BY branch,name");
-        const rows = products.map(p=> b? [skuNameCell(p.sku,p.name), p.stock] : [skuNameCell(p.sku,p.name), escapeHtml(p.branch), p.stock]);
+        const rows = products.map(p=> b? [skuNameCell(p.sku,p.name), rptStock(p)] : [skuNameCell(p.sku,p.name), escapeHtml(p.branch), rptStock(p)]);
         const headers = b? ["Item","Qty"] : ["Item","Branch","Qty"];
         return { headers, rows, footer:"" };
       }
@@ -34,9 +37,9 @@
     },
     { id:"lowstock", label:"Low Stock Report", hasDate:false,
       fetch(b){
-        const lowStock = b? all("SELECT * FROM products WHERE branch=? AND stock<=low_threshold ORDER BY stock",[b])
-                           : all("SELECT * FROM products WHERE stock<=low_threshold ORDER BY branch,stock");
-        const rows = lowStock.map(p=> b? [skuNameCell(p.sku,p.name), p.stock, p.low_threshold] : [skuNameCell(p.sku,p.name), escapeHtml(p.branch), p.stock, p.low_threshold]);
+        const lowStock = (b? all("SELECT * FROM products WHERE branch=? ORDER BY stock",[b]) : all("SELECT * FROM products ORDER BY branch,stock"))
+          .filter(p=>rptStock(p)<=p.low_threshold);
+        const rows = lowStock.map(p=> b? [skuNameCell(p.sku,p.name), rptStock(p), p.low_threshold] : [skuNameCell(p.sku,p.name), escapeHtml(p.branch), rptStock(p), p.low_threshold]);
         const headers = b? ["Item","Current Stock","Alert Level"] : ["Item","Branch","Current Stock","Alert Level"];
         return { headers, rows, footer:"" };
       }
@@ -107,7 +110,7 @@
     { id:"aging", label:"Aging Inventory", hasDate:false,
       fetch(b){
         const products = b? all("SELECT * FROM products WHERE branch=? ORDER BY name",[b]) : all("SELECT * FROM products ORDER BY branch,name");
-        const rows = products.map(p=>{ const days=productAgeDays(p); return b? [skuNameCell(p.sku,p.name), p.stock, days, agingBucket(days)] : [skuNameCell(p.sku,p.name), escapeHtml(p.branch), p.stock, days, agingBucket(days)]; });
+        const rows = products.map(p=>{ const days=productAgeDays(p); return b? [skuNameCell(p.sku,p.name), rptStock(p), days, agingBucket(days)] : [skuNameCell(p.sku,p.name), escapeHtml(p.branch), rptStock(p), days, agingBucket(days)]; });
         const headers = b? ["Item","Stock","Days","Bucket"] : ["Item","Branch","Stock","Days","Bucket"];
         return { headers, rows, footer:"" };
       }

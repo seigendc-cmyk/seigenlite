@@ -519,8 +519,10 @@
         const changed = baselineAdded + pulled.total.added + pulled.total.updated + pulled.total.prices;
         catState.lastChanged = changed;
         const pics = await catDownloadPictures(progress, false);
+        // Phase 3b: shared branch stock follows the catalogue (shared-stock.js)
+        const stock = typeof stockSyncNow==="function"? await stockSyncNow({}) : null;
         await persist();
-        return { ok:true, changed, sent:pushed.sent, refused:pushed.refused, overwrote:pushed.overwrote, picsPrompt:pics.prompt||null,
+        return { ok:true, changed, sent:pushed.sent, refused:pushed.refused, overwrote:pushed.overwrote, picsPrompt:pics.prompt||null, stock,
                  picsFetched:pics.fetched||0, picsError: pics.ok? "" : catProblemText(pics) };
       }catch(e){
         setSetting("cat_last_error", "Catalogue sync stopped: "+(e.message||e)+". It will try again.");
@@ -618,7 +620,9 @@
       </label>
       <p class="muted" style="font-size:12px;margin:2px 0 0">Kept apart from your sales data. Only new or changed pictures are downloaded.
         <button class="btn btn-sm btn-ghost" id="catPicsRemove" style="padding:2px 6px">Remove downloaded pictures</button></p>
-      <div id="catMsg" class="muted" style="font-size:12.5px;margin-top:6px"></div>`;
+      <div id="catMsg" class="muted" style="font-size:12.5px;margin-top:6px"></div>
+      ${s.mainTill && typeof openBranchOnlyProducts==="function"? `<button class="btn btn-sm btn-ghost" id="catBranchOnly" style="margin-top:6px;padding:2px 6px">Products only at branches</button>` : ""}
+      ${typeof sharedStockStatusHtml==="function"? sharedStockStatusHtml() : ""}`;
   }
   function wireCatalogueSyncCard(){
     const btn = document.getElementById("catSyncNow");
@@ -633,6 +637,9 @@
       msg(r.changed? r.changed+" change"+(r.changed===1?"":"s")+" received." : "Up to date."
         +(r.sent? " "+r.sent+" sent." : "")+(r.picsFetched? " "+r.picsFetched+" picture"+(r.picsFetched===1?"":"s")+" downloaded." : ""));
     };
+    const bo = document.getElementById("catBranchOnly");
+    if(bo) bo.onclick = ()=>openBranchOnlyProducts();
+    if(typeof wireSharedStockStatus==="function") wireSharedStockStatus();
     const rep = document.getElementById("catReportBtn");
     if(rep) rep.onclick = ()=>openCatalogueReportSummary();
     const sw = document.getElementById("catPicsSwitch");

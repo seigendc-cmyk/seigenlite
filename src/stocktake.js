@@ -215,7 +215,28 @@
     };
     document.getElementById("backToStocktakes").onclick=()=>{ stocktakeReportId=null; render(); };
     const applyBtn = document.getElementById("applyStocktake");
-    if(applyBtn) applyBtn.onclick=()=>{
+    if(applyBtn) applyBtn.onclick=async ()=>{
+      // Multi-terminal Phase 3b (owner Q4): at a shared-stock branch every
+      // counted product is posted to the server, which sets the branch total;
+      // refused while another till still holds stock to sell offline.
+      let pre = null;
+      if(typeof sharedStockTill==="function" && sharedStockTill()){
+        const counted = rows.filter(r=>r.counted!==null);
+        if(counted.length===0){ alert("Nothing has been counted yet."); return; }
+        if(!confirm(`Post ${counted.length} counted quantities as the branch's stock? This can't be undone.`)) return;
+        pre = await sharedStockStocktake(counted);
+        if(!pre.ok){ alert(pre.message); return; }
+        counted.forEach(r=>{
+          const ts = new Date().toISOString();
+          moveStock({ productId:r.product.id, setTo:r.counted, kind:"stocktake", docType:"stocktake", docUid:take.uid||null, docNo:"Stocktake #"+take.id, ts, note:"Stocktake (branch stock)" });
+          run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
+            [ts, r.product.id, r.product.name, r.variance, "Stocktake adjustment (branch stock)", take.branch, sessionUser||""]);
+        });
+        sharedStockDone(pre);
+        logAudit("Apply Stocktake", "", `${counted.length} products posted as branch stock (stocktake #${take.id})`);
+        persist(); alert("Branch stock updated."); render();
+        return;
+      }
       const toApply = rows.filter(r=>r.counted!==null && r.variance!==0);
       if(toApply.length===0){ alert("No counted items differ from system stock — nothing to apply."); return; }
       if(!confirm(`Apply ${toApply.length} counted quantities to live stock? This can't be undone.`)) return;

@@ -163,7 +163,7 @@
       <p class="muted" style="margin-top:6px">Count them (More → Stocktake) to set the real figure.</p>`;
   }
   function diagnosticsBodyHtml(){
-    return ledgerCheckHtml() + negativeStockHtml();
+    return ledgerCheckHtml() + negativeStockHtml() + (typeof sharedStockDiagHtml==="function"? sharedStockDiagHtml() : "");
   }
   function ledgerCheckHtml(){
     const r = stockLedgerCheck();
@@ -184,5 +184,6 @@
   }
   function wireDiagnosticsSection(){
     const b = document.getElementById("diagRecheck");
-    if(b) b.onclick=()=>{ document.getElementById("diagBody").innerHTML = diagnosticsBodyHtml(); };
+    if(b) b.onclick=()=>{ document.getElementById("diagBody").innerHTML = diagnosticsBodyHtml(); if(typeof wireSharedStockDiag==="function") wireSharedStockDiag(); };
+    if(typeof wireSharedStockDiag==="function") wireSharedStockDiag();
   }

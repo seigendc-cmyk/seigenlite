@@ -60,12 +60,13 @@
   // rejects. reason: "offline" | "network" | "rejected" (server raised) |
   // "refused" (server answered { error: CODE }, e.g. a used join code).
   const TERMINAL_RPC_TIMEOUT_MS = 10000;
-  async function terminalRpc(name, body){
+  // opts.timeoutMs: a shorter limit for calls a cashier waits on (a sale, Phase 3b).
+  async function terminalRpc(name, body, opts){
     if(!isOnline()) return { ok:false, reason:"offline" };
     let timer = null;
     try{
       const ctrl = (typeof AbortController!=="undefined")? new AbortController() : null;
-      if(ctrl) timer = setTimeout(()=>ctrl.abort(), TERMINAL_RPC_TIMEOUT_MS);
+      if(ctrl) timer = setTimeout(()=>ctrl.abort(), (opts && opts.timeoutMs) || TERMINAL_RPC_TIMEOUT_MS);
       const res = await fetch(DC_SUPABASE_URL+"/rest/v1/rpc/"+name, {
         method:"POST", headers:{ "apikey": DC_ANON_KEY, "Content-Type":"application/json" },
         signal: ctrl? ctrl.signal : undefined, body: JSON.stringify(body),
