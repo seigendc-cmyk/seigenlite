@@ -1,6 +1,6 @@
 # Multi-terminal sync — Phase 3b design: shared branch stock + offline allowance
 
-Status: **Stage A (design only). Nothing implemented. Waiting for "go Phase 3B-B".**
+Status: **Approved 2026-10-06 ("go Phase 3B-B") with the owner's answers in §11. Stage B in progress.**
 Branch: `phase3b-shared-stock` from `phase3a-catalogue-sync` at `217e440`. Phase 3a hasn't been promoted (production and `main` are still `04010ff`).
 Baseline (VERIFIED, 2026-10-06): all 65 suites (60 `test/`, 5 `supabase/tests` in PGlite) pass on `217e440`.
 Status words: VERIFIED (read in code or the live database, read-only), PROPOSED, ASSUMED.
@@ -290,3 +290,26 @@ create table cl_stock_events (                       -- every change, once
 - **Q6 – starting shared stock:** an explicit **Start shared stock** by an Admin on the stock holder, with a report (recommended), rather than automatically when a second till joins?
 - **Q7 – other tills' own stock at the switch:** an Admin-confirmed **merge report** on each till (recommended), or discard it?
 - **Q8 – unlinked products** (no catalogue code match) at a shared branch: stay till-local (recommended) or be blocked from sale until main adds them?
+
+---
+
+## 11. Owner's answers (2026-10-06)
+- **Q1 accepted, plus:**
+  - each till's target is **10% of branch total, at least 1, at most 10** per product;
+  - online sales take from the branch's **available pool first**, then this till's own allowance;
+  - **a product whose branch total is below 2 × the number of active tills gets no offline allowance** (online-only), so allowances can never lock up all the stock.
+- **Q2 accepted, plus:**
+  - unused allowance returns after **72 h** without a sync, on the server;
+  - **the allowance also expires on the till** 72 h after it was last granted, measured with the existing trusted clock (`evaluateTrustedTime`, `src/eod.js`; it never moves backwards);
+  - after that the offline till can't sell from it until it reconnects and gets a fresh allowance;
+  - a shortfall should then only be possible with clock tampering, and is still recorded as a `discrepancy` for the manager.
+- **Q3–Q7 accepted** as recommended.
+- **Q8 accepted, plus:** branch-only products (no catalogue link) are reported by each till, and **main sees them listed** (Settings → Business & Terminals → Product catalogue) so they can be added to the catalogue.
+
+## 12. Implementation notes (Stage B)
+- **`moveStock` stays the one choke point.** On a shared-stock till, for a linked product, outside the sale path:
+  - **an increase** (receive, purchase, restock, positive adjustment, legacy receive, opening stock of a new product) doesn't change the till's allowance. It's queued to the server and shown as "pending" until synced (Q3);
+  - **a decrease done inside a flow that can't wait** (a cancellation write-off posted while importing a confirmation) takes what it can from this till's allowance and queues the rest for the server, which takes it from `available`. If even that can't cover it, it's a `discrepancy`, never negative;
+  - **Delivery Note dispatch and manual adjustments ask the server first.** The server decrements, and only then is the local record written. If the local write fails, a compensating move is sent.
+- **On a shared-stock till, Excel import "apply qty" is refused** with a message to use a stocktake (P8).
+- **Allowance on the till** = `products.stock`, set from the server's answer minus whatever this till has taken locally but not yet reported. A sync can never hand back stock that was already sold offline.
