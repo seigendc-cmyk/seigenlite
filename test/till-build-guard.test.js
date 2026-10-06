@@ -56,7 +56,7 @@ const sq = async (sql, p)=> (await pg.query(sql, p)).rows;
   pg = new PGlite({ extensions:{ pgcrypto } });
   await pg.exec(LIVE_STUB);
   for(const f of ["20261004120000_multi_terminal_identity","20261004180000_multi_terminal_phase2","20261006120000_catalogue_sync",
-                  "20261007120000_shared_stock","20261008120000_till_build_guard"])
+                  "20261007120000_shared_stock","20261008120000_till_build_guard","20261008140000_shared_stock_checkin_lock"])
     await pg.exec(MIG(f));
 
   const M1 = device({ branch_name:"Harare", branch_type:"main", install_id:"TIL1" });
@@ -99,6 +99,23 @@ const sq = async (sql, p)=> (await pg.query(sql, p)).rows;
     assert.ok(r.ok, JSON.stringify(r));
     assert.strictEqual((await sq(`select stock_mode from cl_branches where id=$1`,[reg.branch_id]))[0].stock_mode, "shared");
     assert.strictEqual(M1.api.getSetting("stock_mode",""), "shared");
+  });
+
+  await t("shared branch: a till whose check-in sends no build (an older app) gets its cart locked; updating lifts it", async ()=>{
+    const LOCK_MSG = "This branch uses shared stock. Update the app before selling: tap Reload on the update banner, or reopen the app while online.";
+    // the same app, but its check-in body has no p_app_build, as every build before v8 sends it
+    M2.hook("fetch", async (url, opts)=>{
+      const body = JSON.parse(opts.body); delete body.p_app_build;
+      const r = await serverRpc("cl_device_checkin", body);
+      return r.ok? { ok:true, json: async()=>r.data } : { ok:false, status:400, text: async()=>JSON.stringify({ message:r.message }) };
+    });
+    assert.ok((await M2.api.deviceCheckin()).ok);
+    assert.strictEqual(M2.api.dcLockCartReason(), LOCK_MSG, "the cart is locked with the update message");
+    assert.strictEqual(M2.api.dcLockAddProductReason(), "", "adding products is not locked");
+    checkinFetch(M2);
+    assert.ok((await M2.api.deviceCheckin()).ok);
+    assert.strictEqual(M2.api.dcLockCartReason(), "", "the first check-in on this build lifts it");
+    assert.strictEqual(M1.api.getSetting("dc_lock_cart",""), "", "T1 (this build) was never locked");
   });
 
   await pg.close();

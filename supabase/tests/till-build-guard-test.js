@@ -16,6 +16,9 @@ const BEFORE = ['migrations/20261004120000_multi_terminal_identity.sql', 'migrat
   'migrations/20261006120000_catalogue_sync.sql', 'migrations/20261007120000_shared_stock.sql'].map(READ);
 const MIG = READ('migrations/20261008120000_till_build_guard.sql');
 const RB = READ('rollbacks/20261008120000_till_build_guard.rollback.sql');
+const LOCK = READ('migrations/20261008140000_shared_stock_checkin_lock.sql');
+const LOCK_RB = READ('rollbacks/20261008140000_shared_stock_checkin_lock.rollback.sql');
+const LOCK_MSG = 'This branch uses shared stock. Update the app before selling: tap Reload on the update banner, or reopen the app while online.';
 
 let pass = 0, fail = 0;
 function ok(name, cond, extra) {
@@ -48,9 +51,11 @@ const hex = () => crypto.randomBytes(16).toString('hex');
   const t2 = await dev(`select public.cl_terminal_join('TILL0002','Biz Phrase','K-2',$1) j`, [await code()]);
   const t3 = await dev(`select public.cl_terminal_join('TILL0003','Biz Phrase','K-3',$1) j`, [await code()]);
   const t4 = await dev(`select public.cl_terminal_join('TILL0004','Biz Phrase','K-4',$1) j`, [await code()]);
+  const rm = await dev(`select public.cl_terminal_join('REMOTE01','Biz Phrase','K-R',$1) j`,
+    [(await dev(`select public.cl_branch_issue_join_code(p_install_id=>'MAIN0001',p_secret_phrase=>'Biz Phrase',p_device_key=>'K-1',p_branch_id=>null,p_new_branch_name=>'Murehwa') j`)).code]);
   const RICE = hex();
   await dev(`select public.cl_catalogue_push('MAIN0001','Biz Phrase','K-1',$1::jsonb) j`, [JSON.stringify([{ uid: RICE, op_id: hex(), code: 'RICE', name: 'Rice', price: 1 }])]);
-  ok('setup: Harare T1..T4, 1 catalogue product', t4.till_code === 'T4');
+  ok('setup: Harare T1..T4, Murehwa T1, 1 catalogue product', t4.till_code === 'T4' && rm.till_code === 'T1');
 
   // a check-in exactly as PostgREST makes it: named arguments; p_app_build only when the build sends it
   const checkin = (inst, key, build) => dev(`select public.cl_device_checkin(p_install_id=>$1,p_shop_secret_phrase=>'Biz Phrase',p_device_code=>'DC',p_business_name=>'Gentronix',
@@ -125,6 +130,65 @@ const hex = () => crypto.randomBytes(16).toString('hex');
   ok('rollback: shared stock data kept', (await branchMode()) === 'shared');
   await pg.exec(MIG);
   ok('the migration applies again after the rollback', (await checkin('TILL0003', 'K-3', 8)).terminal_id === t3.terminal_id && (await buildOf(t3.terminal_id)) === 8);
+
+  // ==== the shared stock lock (20261008140000_shared_stock_checkin_lock.sql) ====
+  {
+    const bare = await liveDb();
+    let e = null; try { await bare.exec(LOCK); } catch (x) { e = x.message; await bare.exec('rollback'); }
+    ok('lock: without the build guard it aborts in the preflight', /missing .*11 args/.test(e || ''), e);
+    await bare.close();
+  }
+  // replies before the lock, to compare: a local-branch till, and a non-till install
+  const strip = (j) => { const o = { ...j }; delete o.messages; return JSON.stringify(o); };
+  const rmBefore = [await checkin('REMOTE01', 'K-R'), await checkin('REMOTE01', 'K-R', 5), await checkin('REMOTE01', 'K-R', 8)].map(strip);
+  const loneBefore = strip(await checkin('LONE0001', 'K-L'));
+  const vendorLocks = async () => JSON.stringify(await q(`select id, lock_cart, lock_add_product, lock_reason from cl_vendors order by id`));
+  const locksBefore = await vendorLocks();
+  const aclLock = (await q(`select array_to_string(proacl,' ') a from pg_proc where proname='cl_device_checkin'`))[0].a;
+  await pg.exec(LOCK);
+  ok('lock: migration applies; check-in keeps its signature and grants',
+    (await q(`select oid::regprocedure::text f, array_to_string(proacl,' ') a from pg_proc where proname='cl_device_checkin'`)).map(x => x.f + ' ' + x.a).join()
+    === 'cl_device_checkin(text,text,text,text,text,text,text,text,uuid,text,integer) ' + aclLock);
+  {
+    let e = null; try { await pg.exec(LOCK); } catch (x) { e = x.message; await pg.exec('rollback'); }
+    ok('lock: applying twice aborts in the preflight', /already exists: the shared stock lock/.test(e || ''), e);
+  }
+  ok('lock: Harare is shared, Murehwa local', (await branchMode()) === 'shared');
+  r = await checkin('TILL0002', 'K-2');
+  ok('lock: shared branch, no build reported (older build) -> cart locked with the update message', r.lock_cart === true && r.lock_reason === LOCK_MSG, JSON.stringify(r));
+  r = await checkin('TILL0002', 'K-2', 6);
+  ok('lock: shared branch, build v6 -> locked', r.lock_cart === true && r.lock_reason === LOCK_MSG);
+  r = await checkin('TILL0002', 'K-2', 7);
+  ok('lock: shared branch, build v7 -> not locked', r.lock_cart === false && r.lock_reason === null, JSON.stringify(r));
+  r = await checkin('TILL0002', 'K-2', 8);
+  ok('lock: shared branch, build v8 -> not locked', r.lock_cart === false && r.lock_reason === null);
+  ok('lock: T1 (the holder) on an older build is locked too', (await checkin('MAIN0001', 'K-1')).lock_cart === true);
+  ok('lock: T4 (inactive) at the shared branch on an older build is locked too', (await checkin('TILL0004', 'K-4')).lock_cart === true);
+  ok('lock: a local-branch till gets exactly the reply it got before (no build, v5, v8)',
+    JSON.stringify([await checkin('REMOTE01', 'K-R'), await checkin('REMOTE01', 'K-R', 5), await checkin('REMOTE01', 'K-R', 8)].map(strip)) === JSON.stringify(rmBefore), JSON.stringify(rmBefore));
+  ok('lock: an install that is not a till gets exactly the reply it got before', strip(await checkin('LONE0001', 'K-L')) === loneBefore);
+  ok('lock: nothing stored: the vendors\' own locks are unchanged', (await vendorLocks()) === locksBefore);
+  // Digital Commerce's own cart lock keeps its reason
+  await q(`update cl_vendors set lock_cart = true, lock_reason = 'Contact Digital Commerce to reactivate' where install_id = 'TILL0003'`);
+  r = await checkin('TILL0003', 'K-3');
+  ok('lock: a till Digital Commerce already locked keeps DC\'s reason', r.lock_cart === true && r.lock_reason === 'Contact Digital Commerce to reactivate');
+  r = await checkin('TILL0003', 'K-3', 8);
+  ok('lock: ... and stays locked by DC on an up-to-date build', r.lock_cart === true && r.lock_reason === 'Contact Digital Commerce to reactivate');
+  await q(`update cl_vendors set lock_cart = false, lock_reason = null where install_id = 'TILL0003'`);
+  // DC's add-product lock alone: the cart lock still gets the update message
+  await q(`update cl_vendors set lock_add_product = true, lock_reason = 'Add products later' where install_id = 'TILL0003'`);
+  r = await checkin('TILL0003', 'K-3');
+  ok('lock: DC add-product lock + older build: cart locked with the update message, add-product lock kept', r.lock_cart === true && r.lock_add_product === true && r.lock_reason === LOCK_MSG);
+  await q(`update cl_vendors set lock_add_product = false, lock_reason = null where install_id = 'TILL0003'`);
+  ok('lock: lifts at the first check-in from an up-to-date build', (await checkin('TILL0002', 'K-2')).lock_cart === true && (await checkin('TILL0002', 'K-2', 8)).lock_cart === false);
+  // rollback
+  await pg.exec(LOCK_RB);
+  ok('lock rollback: no lock, signature and grants kept', (await checkin('TILL0002', 'K-2')).lock_cart === false
+    && (await q(`select oid::regprocedure::text f, array_to_string(proacl,' ') a from pg_proc where proname='cl_device_checkin'`)).map(x => x.f + ' ' + x.a).join()
+    === 'cl_device_checkin(text,text,text,text,text,text,text,text,uuid,text,integer) ' + aclLock);
+  ok('lock rollback: the builds are still recorded', (await buildOf(t2.terminal_id)) === null && (await checkin('TILL0002', 'K-2', 8)) && (await buildOf(t2.terminal_id)) === 8);
+  await pg.exec(LOCK);
+  ok('lock: applies again after its rollback', (await checkin('TILL0002', 'K-2')).lock_cart === true);
 
   await pg.close();
   console.log(`\n${pass} passed, ${fail} failed`);
