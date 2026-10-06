@@ -54,6 +54,7 @@
     main.className = "desktop-main";
     main.innerHTML = `
       ${shiftBlockBannerHtml()}
+      ${typeof tillStockNoteHtml==="function" && tillStockPending()? `<div style="padding:12px 24px 0">${tillStockNoteHtml()}</div>` : ""}
       ${dcMessagesBannerHtml()}
       <div class="desktop-sales">
         <div class="ds-main">
@@ -98,7 +99,7 @@
         </td>
         <td>${p.stock} ${desktopStockLabel(p)}</td>
         <td>${currency}${p.price.toFixed(2)}</td>
-        <td>${p.stock<=0 && !sellAtZero()? `<button class="ds-add-btn" data-add="${p.id}" disabled>Out</button>` : `<button class="ds-add-btn" data-add="${p.id}">Add</button>`}</td>
+        <td><button class="ds-add-btn" data-add="${p.id}" ${p.stock<=0?"disabled":""}>${p.stock<=0?"Out":"Add"}</button></td>
       </tr>`).join("");
   }
 

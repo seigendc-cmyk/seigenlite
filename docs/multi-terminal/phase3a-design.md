@@ -22,7 +22,7 @@ Goal: main's product catalogue and prices flow through Supabase to every till of
 | P6 | Pull on start, on reconnect, every 5 minutes while open, and **Sync now**. Applied in batches of 200, each its own transaction, yielding between batches. Never touches `stock`. | A sale can run between batches; nothing waits on the network. |
 | P7 | Soft delete everywhere once registered: **Delete Product** on a registered main becomes **Deactivate**. Deactivated products are hidden from Sell and the pick lists, and kept for history and reports. | No till loses history. |
 | P8 | Pictures sync separately and lazily, as **thumbnails (≤ 200 px)**, and are **stored outside the SQLite file**, in their own IndexedDB store keyed by `cat_uid` + picture version. Per-till switch "Download product pictures": on for desktop, off for phones. (Changed by the owner, §10.) | A 6,000-SKU pull stays small, and pictures never make `persist()` heavier. See §5. |
-| P9 | **Recommended for Q1:** on a registered till, allow selling at zero stock ("allow and flag negative"). Negative stock is flagged on Products and in Settings → Diagnostics. Suggest an opening stocktake on a new till. | Owner decision; without it a new till can't sell until 3b. |
+| P9 | **Superseded by the owner (§12):** no till sells below zero. Multi-till branches get shared branch stock with offline allowances in Phase 3b (§13); in 3a a joined till (T2…) shows a stock note. | Owner decision, 2026-10-06. |
 | P10 | First sync shows a **report before anything changes** (like the catalogue-file import preview, which already downloads a backup first). | No silent changes on existing remotes. |
 | P11 | Unregistered devices: no change at all. Every new path checks `isTerminalRegistered()`. | Same rule as Phases 1–2. |
 
@@ -415,7 +415,7 @@ No products, so nothing to report. It pulls everything, and the stock question (
 ---
 
 ## 10. Owner's answers (2026-10-06)
-- **Q1 accepted:** registered tills may sell at zero stock. Negative stock is flagged on Products and in Settings → Diagnostics. Unregistered devices keep the block.
+- **Q1:** first accepted as "allow and flag negative", then **corrected by the owner before apply**: tills never sell below zero (see §12 and §13).
 - **Q2 accepted:** a branch edits its own price only under "this branch edits its own prices", with its Admin passcode. Main-branch tills set any branch's price under "main sets each branch's prices".
 - **Q3 accepted:** no cost price to remote tills (the server returns cost only to main-branch tills).
 - **Q4 changed:** pictures are stored outside SQLite, in their own IndexedDB store keyed by `cat_uid` + picture version. Only new or changed ones are downloaded, in the background after the text sync, with the estimated size shown before the first download. The per-till switch defaults on for desktop and off for phones. Real sizes are measured and reported. See §5.1.
@@ -439,3 +439,26 @@ No products, so nothing to report. It pulls everything, and the stock question (
 - These sizes are well under my Stage A estimate (§1.4).
 - On tills the thumbnails sit in the separate `seigen_cat_pics` IndexedDB store, so the SQLite file and every `persist()` are unaffected.
 - **Text-only first pull:** about 0.3–0.4 KB per product as JSON, so about 2 MB for 6,000 products (ASSUMED from the PGlite test rows, not measured live).
+
+---
+
+## 12. Q1 corrected by the owner (2026-10-06, before "apply")
+This replaces §6's recommendation and the first Q1 answer in §10 ("allow and flag negative").
+
+- **No till ever sells below zero stock,** registered tills included.
+  - The zero-stock block is restored everywhere: `addToCart`, `changeQty`, the mobile Add chip and the desktop Add button.
+  - The sell-at-zero change from the first Phase 3a build is removed. It was never deployed.
+- **The "below zero" indicator stays, read-only,** on Products and in Settings → Diagnostics, as a warning for older data only.
+- **In Phase 3a,** a till that joined a branch which already had a till (T2, T3…) receives the catalogue with zero stock. Its Products and Sell screens show: "Stock for this till isn't set up yet — coming in the next update." (`tillStockNoteHtml`, `src/pos.js`).
+  - The first till of a branch (T1), single-till branches and unregistered shops keep their own local stock exactly as before, with no note.
+- **The migration SQL is unchanged by this correction.** The server never held stock in 3a.
+
+## 13. Phase 3b decisions (owner, 2026-10-06), to be designed in Phase 3b
+- **Shared branch stock on the server** for branches with more than one till.
+  - An online sale decrements it **atomically**, and the server **refuses any sale that would take it below zero.**
+- **Offline allowance per till and product:**
+  - while online, each till reserves an allowance from branch stock;
+  - offline, it can sell only up to that allowance;
+  - on reconnect, it reports its sales and returns any unused allowance.
+- **Single-till branches and single-device shops are unchanged:** local stock, full offline selling, zero-stock block.
+- Built in Phase 3b, not 3a. Until then, multi-till tills show the stock note above.

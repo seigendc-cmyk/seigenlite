@@ -6,22 +6,31 @@
     return all_.filter(p=> matchesAnyOrder(q, p.name+" "+(p.sku||"")+" "+(p.description||"")));
   }
 
-  // Multi-terminal Phase 3a (owner decision): a registered till may sell
-  // what it has no stock of (a new till pulls products with stock 0, and
-  // stock syncs only in Phase 3b); the sale takes stock below zero and the
-  // Products screen and Settings → Diagnostics flag it. Unregistered devices
-  // keep the block exactly as before.
-  function sellAtZero(){ return !!getSetting("terminal_id",""); }
+  // Owner decision (2026-10-06, replaces the first Phase 3a rule): a till
+  // never sells below zero stock, registered or not. Multi-till branches get
+  // shared branch stock and offline allowances in Phase 3b
+  // (docs/multi-terminal/phase3a-design.md, "Phase 3b decisions").
   function addToCart(p){
     const existing = cart.find(c=>c.product_id===p.id);
-    if(existing){ if(sellAtZero() || existing.qty < p.stock) existing.qty++; }
-    else { if(sellAtZero() || p.stock>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:p.stock}); }
+    if(existing){ if(existing.qty < p.stock) existing.qty++; }
+    else { if(p.stock>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:p.stock}); }
     render();
+  }
+  // A till that joined a branch which already had one (T2, T3…) receives the
+  // catalogue with zero stock; its stock comes from the branch in Phase 3b.
+  // Single-till branches (T1) keep their own local stock as before.
+  const TILL_STOCK_NOTE = "Stock for this till isn't set up yet — coming in the next update.";
+  function tillStockPending(){
+    const t = getSetting("till_code","");
+    return !!getSetting("terminal_id","") && /^T[0-9]+$/.test(t) && t!=="T1";
+  }
+  function tillStockNoteHtml(){
+    return tillStockPending()? `<div class="box till-stock-note" style="margin:0 0 10px;padding:10px 12px;border:1px solid #b54708;border-radius:8px;background:#fff8f0;color:#b54708;font-weight:600">${escapeHtml(TILL_STOCK_NOTE)}</div>` : "";
   }
   function changeQty(pid, delta){
     const item = cart.find(c=>c.product_id===pid);
     if(!item) return;
-    if(delta>0 && item.qty>=item.stock && !sellAtZero()) return;
+    if(delta>0 && item.qty>=item.stock) return;
     item.qty += delta;
     if(item.qty<=0) cart = cart.filter(c=>c.product_id!==pid);
     render();
@@ -571,6 +580,7 @@
     main.innerHTML = `
       ${shiftBlockBannerHtml()}
       ${dcMessagesBannerHtml()}
+      ${tillStockNoteHtml()}
       ${window._lastReceipt? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div class="muted">Receipt ${escapeHtml(receiptLabel(window._lastReceipt.saleId, window._lastReceipt.receiptNo))} · ${currency}${window._lastReceipt.total.toFixed(2)}</div>
         <div class="row" style="flex:none;width:auto;gap:6px">
@@ -637,7 +647,7 @@
               <div class="pmeta">${currency}${p.price.toFixed(2)} · ${p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
             </div>
           </div>
-          ${p.stock<=0 && !sellAtZero()? `<button class="add-chip" data-add="${p.id}" disabled>Out</button>` : `<button class="add-chip" data-add="${p.id}">Add</button>`}
+          <button class="add-chip" data-add="${p.id}" ${p.stock<=0?"disabled":""}>${p.stock<=0?"Out":"Add"}</button>
         </div>`).join("");
   }
   function wireProductAdds(scope){

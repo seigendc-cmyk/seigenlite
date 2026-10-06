@@ -232,7 +232,8 @@
     main.innerHTML = `
       <h2>Products</h2>
       ${remote? `<div class="box" style="margin-bottom:12px">This is a <b>remote branch</b> — items, stock levels, and costs are managed by your main branch. ${escapeHtml(remotePriceNote())}${registered? `<div class="remote-sync-line" style="margin-top:6px">Products come from your main branch. ${escapeHtml(catStatusLine(catalogueSyncStatus()))}</div>` : ""}</div>` : ""}
-      ${negatives? `<div class="box neg-box" style="margin-bottom:12px;border-color:#b42318;color:#b42318">${negatives} product${negatives===1?" is":"s are"} below zero stock. Count ${negatives===1?"it":"them"} (More → Stocktake) or check recent sales.</div>` : ""}
+      ${typeof tillStockNoteHtml==="function"? tillStockNoteHtml() : ""}
+      ${negatives? `<div class="box neg-box" style="margin-bottom:12px;border-color:#b42318;color:#b42318">${negatives} product${negatives===1?" is":"s are"} below zero stock (older records). Count ${negatives===1?"it":"them"} (More → Stocktake).</div>` : ""}
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="productsSearch" placeholder="Search products or SKU…" value="${escapeHtml(productsQuery)}">

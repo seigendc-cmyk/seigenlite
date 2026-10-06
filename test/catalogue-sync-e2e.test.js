@@ -173,7 +173,7 @@ async function installOf(d){ return (await sq("select install_id from cl_vendors
   });
 
   let C;
-  await t("a new remote till (phone) joins: products arrive with stock 0; create/edit hidden; Sync now; sells at zero", async ()=>{
+  await t("a new remote till (phone) joins: products arrive with stock 0; create/edit hidden; Sync now; never sells below zero", async ()=>{
     const m = await credentials(mainInstall);
     const code = (await serverCall("cl_branch_issue_join_code", { p_install_id:m.install_id, p_secret_phrase:m.shop_secret_phrase, p_device_key:m.device_key, p_branch_id:null, p_new_branch_name:"Murehwa" })).json;
     murehwa = code.branch_id;
@@ -189,12 +189,13 @@ async function installOf(d){ return (await sq("select install_id from cl_vendors
     assert.ok(await C.page.$("#productsSyncNow"), "Sync now on the Products screen");
     assert.match(await C.page.textContent(".remote-sync-line"), /Products come from your main branch\. Catalogue synced/);
     await shot(C.page, "phone-remote-products.png");
-    // sell a product with no stock here
+    assert.strictEqual(await C.page.$(".till-stock-note"), null, "a single-till branch (T1) has no stock note");
+    // a product with no stock here can't be sold
     await nav(C, "pos");
-    await C.page.fill("#posSearch, #search", "Sugar").catch(()=>{});
     const add = C.page.locator('.product-row:has-text("Sugar 1kg") .add-chip');
     await add.first().waitFor();
-    assert.strictEqual(await add.first().isDisabled(), false, "Add is enabled at zero stock on a registered till");
+    assert.strictEqual(await add.first().isDisabled(), true, "Out at zero stock, registered or not");
+    assert.strictEqual((await add.first().textContent()).trim(), "Out");
     assert.deepStrictEqual(C.pageErrors, []);
   });
 
@@ -230,9 +231,12 @@ async function installOf(d){ return (await sq("select install_id from cl_vendors
     await nav(D, "products");
     await waitFor(async()=> /Rice 2kg/.test(await D.page.textContent("#productsTableArea")), "products");
     assert.strictEqual(await D.page.$("#openAddProduct"), null);
+    assert.match(await D.page.textContent(".till-stock-note"), /Stock for this till isn't set up yet — coming in the next update./, "T2 of Murehwa: note on Products");
     await shot(D.page, "desktop-remote-products.png");
     await nav(D, "pos");
     await waitFor(async()=> (await D.page.$$('img.ds-thumb[data-cat-pic][src^="data:image/"]')).length===1, "the downloaded picture on Sell");
+    assert.match(await D.page.textContent(".till-stock-note"), /Stock for this till isn't set up yet/, "... and on Sell");
+    assert.strictEqual(await D.page.locator('.ds-add-btn').first().isDisabled(), true, "Out at zero stock");
     await shot(D.page, "desktop-remote-sell-pictures.png");
     const inSql = await D.page.evaluate(()=>new Promise(res=>{ const r = indexedDB.open("seigen_cat_pics"); r.onsuccess = ()=>{ const q = r.result.transaction("pics").objectStore("pics").count(); q.onsuccess = ()=>res(q.result); }; }));
     assert.strictEqual(inSql, 1, "the picture is in its own IndexedDB store");

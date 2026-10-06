@@ -1134,22 +1134,31 @@ const APP_VERSION = "1.09.01";
     return all_.filter(p=> matchesAnyOrder(q, p.name+" "+(p.sku||"")+" "+(p.description||"")));
   }
 
-  // Multi-terminal Phase 3a (owner decision): a registered till may sell
-  // what it has no stock of (a new till pulls products with stock 0, and
-  // stock syncs only in Phase 3b); the sale takes stock below zero and the
-  // Products screen and Settings → Diagnostics flag it. Unregistered devices
-  // keep the block exactly as before.
-  function sellAtZero(){ return !!getSetting("terminal_id",""); }
+  // Owner decision (2026-10-06, replaces the first Phase 3a rule): a till
+  // never sells below zero stock, registered or not. Multi-till branches get
+  // shared branch stock and offline allowances in Phase 3b
+  // (docs/multi-terminal/phase3a-design.md, "Phase 3b decisions").
   function addToCart(p){
     const existing = cart.find(c=>c.product_id===p.id);
-    if(existing){ if(sellAtZero() || existing.qty < p.stock) existing.qty++; }
-    else { if(sellAtZero() || p.stock>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:p.stock}); }
+    if(existing){ if(existing.qty < p.stock) existing.qty++; }
+    else { if(p.stock>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:p.stock}); }
     render();
+  }
+  // A till that joined a branch which already had one (T2, T3…) receives the
+  // catalogue with zero stock; its stock comes from the branch in Phase 3b.
+  // Single-till branches (T1) keep their own local stock as before.
+  const TILL_STOCK_NOTE = "Stock for this till isn't set up yet — coming in the next update.";
+  function tillStockPending(){
+    const t = getSetting("till_code","");
+    return !!getSetting("terminal_id","") && /^T[0-9]+$/.test(t) && t!=="T1";
+  }
+  function tillStockNoteHtml(){
+    return tillStockPending()? `<div class="box till-stock-note" style="margin:0 0 10px;padding:10px 12px;border:1px solid #b54708;border-radius:8px;background:#fff8f0;color:#b54708;font-weight:600">${escapeHtml(TILL_STOCK_NOTE)}</div>` : "";
   }
   function changeQty(pid, delta){
     const item = cart.find(c=>c.product_id===pid);
     if(!item) return;
-    if(delta>0 && item.qty>=item.stock && !sellAtZero()) return;
+    if(delta>0 && item.qty>=item.stock) return;
     item.qty += delta;
     if(item.qty<=0) cart = cart.filter(c=>c.product_id!==pid);
     render();
@@ -1699,6 +1708,7 @@ const APP_VERSION = "1.09.01";
     main.innerHTML = `
       ${shiftBlockBannerHtml()}
       ${dcMessagesBannerHtml()}
+      ${tillStockNoteHtml()}
       ${window._lastReceipt? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div class="muted">Receipt ${escapeHtml(receiptLabel(window._lastReceipt.saleId, window._lastReceipt.receiptNo))} · ${currency}${window._lastReceipt.total.toFixed(2)}</div>
         <div class="row" style="flex:none;width:auto;gap:6px">
@@ -1765,7 +1775,7 @@ const APP_VERSION = "1.09.01";
               <div class="pmeta">${currency}${p.price.toFixed(2)} · ${p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
             </div>
           </div>
-          ${p.stock<=0 && !sellAtZero()? `<button class="add-chip" data-add="${p.id}" disabled>Out</button>` : `<button class="add-chip" data-add="${p.id}">Add</button>`}
+          <button class="add-chip" data-add="${p.id}" ${p.stock<=0?"disabled":""}>${p.stock<=0?"Out":"Add"}</button>
         </div>`).join("");
   }
   function wireProductAdds(scope){
@@ -3286,7 +3296,8 @@ const APP_VERSION = "1.09.01";
     main.innerHTML = `
       <h2>Products</h2>
       ${remote? `<div class="box" style="margin-bottom:12px">This is a <b>remote branch</b> — items, stock levels, and costs are managed by your main branch. ${escapeHtml(remotePriceNote())}${registered? `<div class="remote-sync-line" style="margin-top:6px">Products come from your main branch. ${escapeHtml(catStatusLine(catalogueSyncStatus()))}</div>` : ""}</div>` : ""}
-      ${negatives? `<div class="box neg-box" style="margin-bottom:12px;border-color:#b42318;color:#b42318">${negatives} product${negatives===1?" is":"s are"} below zero stock. Count ${negatives===1?"it":"them"} (More → Stocktake) or check recent sales.</div>` : ""}
+      ${typeof tillStockNoteHtml==="function"? tillStockNoteHtml() : ""}
+      ${negatives? `<div class="box neg-box" style="margin-bottom:12px;border-color:#b42318;color:#b42318">${negatives} product${negatives===1?" is":"s are"} below zero stock (older records). Count ${negatives===1?"it":"them"} (More → Stocktake).</div>` : ""}
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="productsSearch" placeholder="Search products or SKU…" value="${escapeHtml(productsQuery)}">
@@ -13221,11 +13232,11 @@ const APP_VERSION = "1.09.01";
   }
   // Settings -> Diagnostics: read-only. Every product of this branch should
   // hold exactly the sum of its stock movements (Phase 2 ledger).
-  // Products sold below zero (Phase 3a: registered tills may sell at zero stock).
+  // Products below zero: a read-only warning for older data (tills never sell below zero).
   function negativeStockHtml(){
     const neg = all("SELECT name, sku, stock FROM products WHERE branch=? AND stock<0 ORDER BY stock, name",[currentBranch()]);
     if(!neg.length) return `<p class="diag-neg-ok" style="margin:8px 0 0;color:#067647;font-weight:600">No products below zero stock.</p>`;
-    return `<p class="diag-neg" style="margin:8px 0 6px;color:#b42318;font-weight:600">${neg.length} product${neg.length===1?" is":"s are"} below zero stock (sold without stock on this till):</p>
+    return `<p class="diag-neg" style="margin:8px 0 6px;color:#b42318;font-weight:600">${neg.length} product${neg.length===1?" is":"s are"} below zero stock (from older records; tills never sell below zero):</p>
       <table class="table"><tr><th>Item</th><th>Stock</th></tr>
       ${neg.slice(0,50).map(n=>`<tr><td>${skuNameCell(n.sku,n.name)}</td><td>${n.stock}</td></tr>`).join("")}</table>
       ${neg.length>50? `<p class="muted">+${neg.length-50} more</p>` : ""}

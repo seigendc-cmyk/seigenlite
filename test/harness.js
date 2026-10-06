@@ -78,7 +78,7 @@ function makeApp(settings){
         newInstallId, deviceKey, terminalIdentity, isTerminalRegistered, storeTerminal, terminalRpc, registerMainBranch, joinBusiness, issueJoinCode, fetchBusinessBranches, terminalProblemText, formatJoinCode, LONG_INSTALL_ID, SYNC_UID_TABLES, TERMINAL_STAMP_TABLES,
         catalogueSyncNow, catPull, catPushProducts, catPushOutbox, catApplyBaseline, catPrepareBaseline, catBaselinePlan, catalogueSyncStatus, catStatusLine,
         catQueuePrice, catPicsEnabled, catPicsNeeded, catDownloadPictures, catPicHtml, catPicLoadKeys, catPicClear, catPicGet, catProductsWithoutCode, catEffectivePrice,
-        catProblemText, getCatState:()=>catState, sellAtZero, setBranchPrice, setBranchPriceMode, applyRemotePriceEdit, catalogueImportPreflight, catalogueSyncCardHtml,
+        catProblemText, getCatState:()=>catState, tillStockPending, tillStockNoteHtml, setBranchPrice, setBranchPriceMode, applyRemotePriceEdit, catalogueImportPreflight, catalogueSyncCardHtml,
         catBranchOnServer, catalogueRegisterExtras, changeQty, searchProducts,
         moveStock, recordStockMovement, stockLedgerCheck, docDisplay, formatDocNo, currentTillCode, cleanInternalRef, INTERNAL_REF_MAX, receiptLabel, receiptDisplay,
         dnSearchText, dnDisplayFor, ownDnDisplay, dnTillFor, cancelAckFileName, dnVoucherHtml, setTerminalActive, isTerminalInactive, noteTerminalRefusal, TERMINAL_INACTIVE_TEXT,

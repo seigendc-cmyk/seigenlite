@@ -93,7 +93,7 @@ function sell(app, product, qty){
     U.hook("terminalRpc", async ()=>{ throw new Error("must not be called"); });
     const r = await U.api.catalogueSyncNow({});
     assert.strictEqual(r.ok, false); assert.match(r.message, /Register this device first/);
-    assert.strictEqual(U.api.sellAtZero(), false);
+    assert.strictEqual(U.api.tillStockPending(), false);
     const p = addProduct(U,{ name:"Zero", sku:"Z", stock:0 });
     U.api.addToCart(p); assert.strictEqual(U.api.getCart().length, 0, "out of stock can't be added");
     assert.strictEqual(U.api.catalogueSyncCardHtml(), "");
@@ -285,16 +285,25 @@ function sell(app, product, qty){
     assert.strictEqual((await sq("select name from cl_catalogue_products where product_uid=$1",[rice.cat_uid]))[0].name, "Rice 2kg (new bag)");
   });
 
-  await t("registered tills may sell at zero; stock goes below zero and is flagged", async ()=>{
+  await t("no till ever sells below zero, registered included; a joined till (T2) shows the stock note", async ()=>{
     M2.api.startShift("0", new Date(`${TODAY}T06:00:00Z`));
     const sugar = P(M2,"SUG1");
-    assert.strictEqual(sugar.stock, 0); assert.strictEqual(M2.api.sellAtZero(), true);
-    M2.api.addToCart(sugar); M2.api.changeQty(sugar.id, 1);
-    assert.strictEqual(M2.api.getCart()[0].qty, 2, "no cap at stock");
+    assert.strictEqual(sugar.stock, 0);
+    M2.api.setCart([]); M2.api.addToCart(sugar);
+    assert.strictEqual(M2.api.getCart().length, 0, "a registered till can't add a product it has no stock of");
+    M2.api.moveStock({ productId:sugar.id, delta:1, kind:"restock" });
+    M2.api.addToCart(P(M2,"SUG1")); M2.api.changeQty(sugar.id, 1); M2.api.changeQty(sugar.id, 1);
+    assert.strictEqual(M2.api.getCart()[0].qty, 1, "capped at the stock it has");
     M2.hook("printReceipt", ()=>{}); M2.api.completeSale("Cash");
-    assert.strictEqual(P(M2,"SUG1").stock, -2);
+    assert.strictEqual(P(M2,"SUG1").stock, 0, "never below zero");
+    assert.strictEqual(M2.api.tillStockPending(), true, "T2 at main: stock comes in Phase 3b");
+    assert.match(M2.api.tillStockNoteHtml(), /Stock for this till isn(&#39;|')t set up yet — coming in the next update./);
+    assert.strictEqual(M1.api.tillStockPending(), false, "T1 keeps its own stock");
+    assert.strictEqual(R.api.tillStockPending(), false, "a single-till branch (Murehwa T1) keeps its own stock");
+    // the below-zero indicator stays, read-only, for older data
+    M2.api.run("UPDATE products SET stock=-2 WHERE id=?",[sugar.id]);
     assert.match(M2.api.productsTableHtml([P(M2,"SUG1")], false), /-2 below zero/);
-    assert.deepStrictEqual(plain(M2.api.stockLedgerCheck().mismatches), [], "the ledger stays exact");
+    M2.api.run("UPDATE products SET stock=0 WHERE id=?",[sugar.id]);
   });
 
   await t("two main tills: the later arrival wins and the other one is told", async ()=>{
