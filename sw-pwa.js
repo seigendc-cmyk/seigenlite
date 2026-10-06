@@ -11,8 +11,9 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v3 — export scopes, doc-numbered filenames, Excel item export, app-log send, row menus (bumped so this file's bytes differ,
-// which is what actually triggers the browser's updatefound check).
+// build: v4 — multi-terminal Phase 1 + 2: tills, per-till numbering, stock ledger, internal refs, deactivate a till
+// (bumped so this file's bytes differ, which is what actually triggers the browser's updatefound check).
+// v3: export scopes, doc-numbered filenames, Excel item export, app-log send, row menus.
 // v2: marble-globe icons (tools/icons/build-icons.js) — new name so installed apps fetch them.
 const CACHE_NAME = "seigen-lite-pwa-v2";
 
