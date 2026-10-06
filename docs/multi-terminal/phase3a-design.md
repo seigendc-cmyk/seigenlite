@@ -147,6 +147,7 @@ alter table public.cl_branches add column price_mode text not null default 'foll
   check (price_mode in ('follow_main','main_sets','branch_edits'));
 alter table public.cl_branches add column price_mode_seq bigint not null default 0;
 ```
+- **Stage B additions:** `cl_catalogue_products.image_bytes` (the thumbnail size, used for the till's download estimate), and a private helper `cl_catalogue_caller()` (not callable by devices) that every RPC uses to identify the till. Final SQL: `supabase/migrations/20261006120000_catalogue_sync.sql`.
 - **Ordering:** every push takes `select … from cl_businesses where id = me.business_id for update` before calling `nextval`. Changes within a business then commit in sequence order, so a pull can't read seq 11 and later miss a seq 10 that committed after it. Pulls filter by business, so this per-business lock is enough.
 
 ### 2.2 RPCs
@@ -421,3 +422,20 @@ No products, so nothing to report. It pulls everything, and the stock question (
 - **Q5 accepted:** "Build catalogue" files are hidden for registered branches and kept for unregistered ones.
 - **Q6 accepted, plus:** main's first-sync report also **lists main's products that have no code**, so codes can be added before remotes sync.
 - **Q7 accepted:** "Delete Product" becomes "Deactivate product" (reversible) on a registered main.
+
+---
+
+## 11. Stage B: real picture sizes (measured 2026-10-06)
+**Method:** the 23 real product photos in the live project's iTred listing bucket (read-only GETs), run through the app's own pipeline in Chromium:
+- **picture:** 300 px square WebP 0.85, as `handleImageFile`, `src/products.js`;
+- **catalogue thumbnail:** longest side 200 px, WebP 0.7, as `makeThumb`, `src/dn-browser.js`.
+
+| As a data URI | min | median | mean | max |
+|---|---|---|---|---|
+| 300 px picture (main's `products.image`) | 3.4 KB | 6.2 KB | 7.5 KB | 19.5 KB |
+| 200 px thumbnail (what syncs) | 1.8 KB | 3.2 KB | 3.6 KB | 8.7 KB |
+
+- **For 6,000 products with pictures:** about **21 MB** of thumbnails at the mean, and at most about 52 MB at the largest size seen. The full pictures would be about 45 MB at the mean.
+- These sizes are well under my Stage A estimate (§1.4).
+- On tills the thumbnails sit in the separate `seigen_cat_pics` IndexedDB store, so the SQLite file and every `persist()` are unaffected.
+- **Text-only first pull:** about 0.3–0.4 KB per product as JSON, so about 2 MB for 6,000 products (ASSUMED from the PGlite test rows, not measured live).

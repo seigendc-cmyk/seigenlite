@@ -1,20 +1,27 @@
   function searchProducts(q, branch){
     branch = branch===undefined ? currentBranch() : branch;
-    const all_ = branch? all("SELECT * FROM products WHERE branch=? ORDER BY name",[branch])
-                        : all("SELECT * FROM products ORDER BY branch,name");
+    // deactivated products (Phase 3a soft delete) are never offered for sale
+    const all_ = branch? all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch])
+                        : all("SELECT * FROM products WHERE COALESCE(active,1)=1 ORDER BY branch,name");
     return all_.filter(p=> matchesAnyOrder(q, p.name+" "+(p.sku||"")+" "+(p.description||"")));
   }
 
+  // Multi-terminal Phase 3a (owner decision): a registered till may sell
+  // what it has no stock of (a new till pulls products with stock 0, and
+  // stock syncs only in Phase 3b); the sale takes stock below zero and the
+  // Products screen and Settings → Diagnostics flag it. Unregistered devices
+  // keep the block exactly as before.
+  function sellAtZero(){ return !!getSetting("terminal_id",""); }
   function addToCart(p){
     const existing = cart.find(c=>c.product_id===p.id);
-    if(existing){ if(existing.qty < p.stock) existing.qty++; }
-    else { if(p.stock>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:p.stock}); }
+    if(existing){ if(sellAtZero() || existing.qty < p.stock) existing.qty++; }
+    else { if(sellAtZero() || p.stock>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:p.stock}); }
     render();
   }
   function changeQty(pid, delta){
     const item = cart.find(c=>c.product_id===pid);
     if(!item) return;
-    if(delta>0 && item.qty>=item.stock) return;
+    if(delta>0 && item.qty>=item.stock && !sellAtZero()) return;
     item.qty += delta;
     if(item.qty<=0) cart = cart.filter(c=>c.product_id!==pid);
     render();
@@ -622,14 +629,15 @@
       results.map(p=>`
         <div class="product-row">
           <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-            ${p.image? `<img class="prod-thumb" src="${p.image}">` : `<div class="prod-thumb-placeholder">${ICON_STOREFRONT}</div>`}
+            ${typeof catPicHtml==="function"? catPicHtml(p, 'class="prod-thumb"', `<div class="prod-thumb-placeholder">${ICON_STOREFRONT}</div>`)
+              : (p.image? `<img class="prod-thumb" src="${p.image}">` : `<div class="prod-thumb-placeholder">${ICON_STOREFRONT}</div>`)}
             <div style="min-width:0">
               ${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}
               <div class="pname">${escapeHtml(p.name)}</div>
-              <div class="pmeta">${currency}${p.price.toFixed(2)} · ${p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
+              <div class="pmeta">${currency}${p.price.toFixed(2)} · ${p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
             </div>
           </div>
-          <button class="add-chip" data-add="${p.id}" ${p.stock<=0?"disabled":""}>${p.stock<=0?"Out":"Add"}</button>
+          ${p.stock<=0 && !sellAtZero()? `<button class="add-chip" data-add="${p.id}" disabled>Out</button>` : `<button class="add-chip" data-add="${p.id}">Add</button>`}
         </div>`).join("");
   }
   function wireProductAdds(scope){

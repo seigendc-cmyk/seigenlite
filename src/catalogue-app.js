@@ -13,10 +13,11 @@
     if(!CAT_PRICE_MODES.includes(mode)) throw new Error("Unknown price policy.");
     if(!registerRow(destName)) throw new Error("That branch is not in the register.");
     run("UPDATE branch_register SET price_mode=? WHERE name=?",[mode,destName]);
+    if(typeof catQueueMode==="function") catQueueMode(destName, mode);   // Phase 3a: to Digital Commerce when registered
   }
 
   // ---- branch prices (main side; only used in 'main_sets') ----
-  function mainProducts(){ return all("SELECT * FROM products WHERE branch=? ORDER BY name",[currentBranch()]); }
+  function mainProducts(){ return all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[currentBranch()]); }
   function getBranchPrices(dest){
     const m = new Map();
     all("SELECT code, price FROM branch_prices WHERE dest_branch_name=?",[dest]).forEach(r=>m.set(catCode(r.code), r.price));
@@ -33,7 +34,7 @@
     const existing = one("SELECT price FROM branch_prices WHERE dest_branch_name=? AND code=?",[dest,code]);
     const ts = new Date().toISOString();
     if(value===null || value===undefined || String(value).trim()===""){
-      if(existing){ run("DELETE FROM branch_prices WHERE dest_branch_name=? AND code=?",[dest,code]); run("UPDATE branch_register SET prices_ts=? WHERE name=?",[ts,dest]); }
+      if(existing){ run("DELETE FROM branch_prices WHERE dest_branch_name=? AND code=?",[dest,code]); run("UPDATE branch_register SET prices_ts=? WHERE name=?",[ts,dest]); catQueueBranchPriceByCode(dest, code, null); }
       return null;
     }
     const p = parsePriceInput(value);
@@ -42,7 +43,14 @@
     run(`INSERT INTO branch_prices(dest_branch_name,code,price,updated_ts) VALUES(?,?,?,?)
          ON CONFLICT(dest_branch_name,code) DO UPDATE SET price=excluded.price, updated_ts=excluded.updated_ts`,[dest,code,p.value,ts]);
     run("UPDATE branch_register SET prices_ts=? WHERE name=?",[ts,dest]);
+    catQueueBranchPriceByCode(dest, code, p.value);
     return p.value;
+  }
+  // Phase 3a: a branch price main set is also sent to Digital Commerce (catalogue-sync.js).
+  function catQueueBranchPriceByCode(dest, code, price){
+    if(typeof catQueuePrice!=="function" || !getSetting("terminal_id","")) return;
+    const p = one("SELECT cat_uid FROM products WHERE branch=? AND lower(trim(sku))=? AND cat_uid IS NOT NULL",[currentBranch(), catCode(code)]);
+    if(p) catQueuePrice(dest, p.cat_uid, price);
   }
   // Every coded product with main price, branch price (or null) and the price the
   // destination would actually get.
@@ -123,6 +131,7 @@
   // -> { ok:false, message } | { ok:true, doc, plan, warning, storedMode }
   async function catalogueImportPreflight(bytes){
     if(!isRemote()) return { ok:false, message:"Catalogues are for remote branches. This is the main branch — build catalogues from Settings → Destination branches." };
+    if(getSetting("terminal_id","")) return { ok:false, message:"This till gets its products from Digital Commerce now. Use Sync now (Settings → Business & Terminals) instead of a catalogue file." };
     const p = await parseCatalogue(decodeBytesUtf8(bytes));
     if(!p.ok) return { ok:false, message:p.errors[0], errors:p.errors };
     const doc = p.doc;
@@ -194,30 +203,41 @@
     const oldPrice = catRound(p.price||0);
     if(parsed.value===oldPrice) throw new Error("That is already the price.");
     run("UPDATE products SET price=? WHERE id=?",[parsed.value,p.id]);
+    // Phase 3a: a registered till sends it as this branch's price, so every till here gets it
+    if(typeof catQueuePrice==="function" && p.cat_uid) catQueuePrice(currentBranch(), p.cat_uid, parsed.value);
     logAudit("Price change", p.name, (p.sku||"no code")+": "+oldPrice.toFixed(2)+" -> "+parsed.value.toFixed(2)+" (authorised by "+admin.name+")");
     return { product:p, old:oldPrice, new:parsed.value, admin:admin.name };
   }
   function remotePriceNote(){
     const m = getSetting("price_mode","follow_main");
+    const when = getSetting("terminal_id","")? "update when the catalogue syncs" : "change when a new catalogue is imported";   // Phase 3a
     return m==="branch_edits" ? (hasAdminPasscode()? "Selling prices can be changed here with the Admin passcode." : NO_ADMIN_PASSCODE_MSG+" before prices can be changed here.")
-      : m==="main_sets" ? "Prices at this branch are set by the main branch (branch prices) and change when a new catalogue is imported."
-      : "Prices at this branch follow the main branch and change when a new catalogue is imported.";
+      : m==="main_sets" ? "Prices at this branch are set by the main branch (branch prices) and "+when+"."
+      : "Prices at this branch follow the main branch and "+when+".";
   }
 
   // ---- screens ----
+  // Branches known on Digital Commerce (names cached at the last catalogue sync on main).
+  function catBranchOnServer(name){
+    if(!getSetting("terminal_id","")) return false;
+    let names = []; try{ names = JSON.parse(getSetting("cat_server_branches","")||"[]"); }catch(e){}
+    return names.some(n=>sameBranchName(n, name));
+  }
   function catalogueRegisterExtras(b){
     const mode = b.price_mode || "follow_main", st = catalogueStatus(b.name);
+    // Phase 3a: a branch already on Digital Commerce gets products and prices by sync, not by file
+    const synced = catBranchOnServer(b.name);
     return `
       <div style="margin-top:6px">
         <label style="margin-top:0;font-size:12px">Prices</label>
         <select class="field" data-reg-mode="${escapeHtml(b.name)}" style="margin-bottom:4px">
           ${CAT_PRICE_MODES.map(m=>`<option value="${m}" ${m===mode?"selected":""}>${escapeHtml(priceModeLabel(m))}</option>`).join("")}
         </select>
-        <div class="pmeta">${st.never? "No catalogue generated yet" : "Catalogue last generated "+escapeHtml(new Date(st.ts).toLocaleString())}</div>
+        ${synced? `<div class="pmeta">On Digital Commerce: products and prices reach this branch by sync.</div>` : `<div class="pmeta">${st.never? "No catalogue generated yet" : "Catalogue last generated "+escapeHtml(new Date(st.ts).toLocaleString())}</div>
         ${st.pricesChanged? `<div class="pmeta" style="color:#b42318;font-weight:600">Prices changed since last catalogue</div>` : ""}
-        ${st.modeChanged? `<div class="pmeta" style="color:#b42318;font-weight:600">Price policy changed since last catalogue</div>` : ""}
+        ${st.modeChanged? `<div class="pmeta" style="color:#b42318;font-weight:600">Price policy changed since last catalogue</div>` : ""}`}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-          <button class="btn btn-sm btn-outline" data-reg-cat="${escapeHtml(b.name)}">Build catalogue</button>
+          ${synced? "" : `<button class="btn btn-sm btn-outline" data-reg-cat="${escapeHtml(b.name)}">Build catalogue</button>`}
           ${mode==="main_sets"? `<button class="btn btn-sm btn-outline" data-reg-prices="${escapeHtml(b.name)}">Branch prices</button>` : ""}
         </div>
       </div>`;

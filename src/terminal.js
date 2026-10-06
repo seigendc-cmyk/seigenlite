@@ -51,6 +51,8 @@
     setSetting("terminal_id", d.terminal_id||"");
     setSetting("till_code", d.till_code||"");
     setSetting("terminal_label", d.label||"");
+    // Phase 3a: a till that just registered or joined fetches the catalogue straight away
+    if(typeof catBackgroundTick==="function") setTimeout(catBackgroundTick, 300);
   }
 
   // ---- the RPC call ----
@@ -184,6 +186,7 @@
           <div class="hr"></div>
           <h4 style="margin:0 0 6px">Terminals</h4>
           <div id="termList"><p class="muted">Loading…</p></div>` : ""}
+        ${typeof catalogueSyncCardHtml==="function"? catalogueSyncCardHtml() : ""}
         ${status}
       </div>`;
   }
@@ -219,6 +222,7 @@
     const add = document.getElementById("termAddBtn");
     if(add) add.onclick = ()=> openAddTerminalModal();
     if(document.getElementById("termList")) loadTerminalList();
+    if(typeof wireCatalogueSyncCard==="function") wireCatalogueSyncCard();
   }
   async function loadTerminalList(){
     const r = await fetchBusinessBranches();

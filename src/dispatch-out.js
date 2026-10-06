@@ -230,7 +230,7 @@
   // ---- dispatch screen ----
   function openDispatchScreen(){
     const branch = currentBranch();
-    const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[branch]);
+    const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
     if(products.length===0){ alert("No products in this branch to dispatch."); return; }
     const dests = branchDestinations();
     let lines = [];            // { product, qty:"" }
@@ -242,7 +242,10 @@
     let toName = "";
     let internalRef = "";                    // Phase 2: the shop's own optional reference ("Internal ref.")
 
-    function thumbImg(p){ return p.image? `<img src="${p.image}" style="width:34px;height:34px;object-fit:cover;border-radius:4px;flex:none">` : `<span style="width:34px;height:34px;border-radius:4px;background:var(--border);flex:none"></span>`; }
+    function thumbImg(p){
+      const ph = `<span style="width:34px;height:34px;border-radius:4px;background:var(--border);flex:none"></span>`, at = 'style="width:34px;height:34px;object-fit:cover;border-radius:4px;flex:none"';
+      return typeof catPicHtml==="function"? catPicHtml(p, at, ph) : (p.image? `<img src="${p.image}" ${at}>` : ph);
+    }
     function addProduct(p){
       if(p.stock<1) return alert(p.name+" has no stock to dispatch.");
       const codeErr = dnProductCodeProblem(p);

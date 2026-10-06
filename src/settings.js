@@ -152,7 +152,20 @@
   }
   // Settings -> Diagnostics: read-only. Every product of this branch should
   // hold exactly the sum of its stock movements (Phase 2 ledger).
+  // Products sold below zero (Phase 3a: registered tills may sell at zero stock).
+  function negativeStockHtml(){
+    const neg = all("SELECT name, sku, stock FROM products WHERE branch=? AND stock<0 ORDER BY stock, name",[currentBranch()]);
+    if(!neg.length) return `<p class="diag-neg-ok" style="margin:8px 0 0;color:#067647;font-weight:600">No products below zero stock.</p>`;
+    return `<p class="diag-neg" style="margin:8px 0 6px;color:#b42318;font-weight:600">${neg.length} product${neg.length===1?" is":"s are"} below zero stock (sold without stock on this till):</p>
+      <table class="table"><tr><th>Item</th><th>Stock</th></tr>
+      ${neg.slice(0,50).map(n=>`<tr><td>${skuNameCell(n.sku,n.name)}</td><td>${n.stock}</td></tr>`).join("")}</table>
+      ${neg.length>50? `<p class="muted">+${neg.length-50} more</p>` : ""}
+      <p class="muted" style="margin-top:6px">Count them (More → Stocktake) to set the real figure.</p>`;
+  }
   function diagnosticsBodyHtml(){
+    return ledgerCheckHtml() + negativeStockHtml();
+  }
+  function ledgerCheckHtml(){
     const r = stockLedgerCheck();
     if(!r.mismatches.length)
       return `<p class="diag-ok" style="margin:0;color:#067647;font-weight:600">Stock ledger: all ${r.checked} product${r.checked===1?"":"s"} match their stock movements.</p>`;

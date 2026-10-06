@@ -1,4 +1,8 @@
   // Reads an image file, crops it to a square, and re-encodes as WebP.
+  // Phase 3a: registered devices deactivate instead of deleting (tills must not lose history).
+  function catSoftDelete(){ return !!getSetting("terminal_id",""); }
+  // Products list: deactivated products are hidden unless "Show deactivated" is on (main).
+  let productsShowInactive = false;
   function handleImageFile(file, cb){
     const reader = new FileReader();
     reader.onload = ()=>{
@@ -94,7 +98,7 @@
       <label>Low stock alert below</label>
       <input class="field" id="pLow" type="number" value="${existing?existing.low_threshold:"5"}">
       <button class="btn btn-primary" id="pConfirm" style="margin-top:12px">${isEdit?"Save Changes":"Add Product"}</button>
-      ${isEdit? `<button class="btn btn-danger" id="pDelete" style="margin-top:8px">Delete Product</button>
+      ${isEdit? `<button class="btn btn-danger" id="pDelete" style="margin-top:8px">${catSoftDelete()? (existing.active===0? "Reactivate product" : "Deactivate product") : "Delete Product"}</button>
       <button class="btn btn-outline" id="pCard" style="margin-top:8px">🖨️ Print Marketing Card</button>` : ""}
     `);
     let newImage = null;
@@ -134,6 +138,16 @@
     };
     if(isEdit){
       wrap.querySelector("#pDelete").onclick=()=>{
+        // Phase 3a: a registered main never hard-deletes (tills keep their history);
+        // the product is deactivated: hidden from selling and pick lists, kept for reports.
+        if(catSoftDelete()){
+          const react = existing.active===0;
+          if(!react && !confirm(`Deactivate ${existing.name}? It disappears from selling on every till. Its history stays, and you can reactivate it.`)) return;
+          run("UPDATE products SET active=? WHERE id=?",[react? 1 : 0, existing.id]);
+          logAudit(react? "Reactivate Product" : "Deactivate Product", existing.name, "");
+          persist(); wrap.remove(); render();
+          return;
+        }
         if(!confirm(`Delete ${existing.name}? This can't be undone.`)) return;
         run("DELETE FROM products WHERE id=?",[existing.id]);
         logAudit("Delete Product", existing.name, "");
@@ -167,10 +181,10 @@
         ${products.map(p=>`
           <tr>
             <td><input type="checkbox" class="catCheck" data-cat="${p.id}"></td>
-            <td>${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}${escapeHtml(p.name)}</td>
+            <td>${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}${escapeHtml(p.name)}${p.active===0? ` <span class="pill">Deactivated</span>` : ""}</td>
             <td>${escapeHtml(p.shelf||"—")}</td>
             <td>${currency}${p.price.toFixed(2)}</td>
-            <td>${p.stock}${p.stock<=p.low_threshold?` <span class="pill low">low</span>`:""}</td>
+            <td>${p.stock<0? `<span class="pill neg">${p.stock} below zero</span>` : p.stock+(p.stock<=p.low_threshold?` <span class="pill low">low</span>`:"")}</td>
             <td><button class="btn btn-sm btn-outline dots-btn" data-rowmenu="${p.id}" data-actions="${rowActions.join(" ")}" title="Actions">⋮</button></td>
           </tr>`).join("")}
       </table>`;
@@ -210,12 +224,15 @@
     wireProductRowButtons(target, remote);
   }
   function renderProducts(main){
-    const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[currentBranch()]);
+    const registered = !!getSetting("terminal_id","");
+    const products = all("SELECT * FROM products WHERE branch=? "+(productsShowInactive? "" : "AND COALESCE(active,1)=1 ")+"ORDER BY name",[currentBranch()]);
+    const negatives = products.filter(p=>p.stock<0).length;
     const remote = isRemote();
     const pendingTransfers = pendingTransfersCount();
     main.innerHTML = `
       <h2>Products</h2>
-      ${remote? `<div class="box" style="margin-bottom:12px">This is a <b>remote branch</b> — items, stock levels, and costs are managed by your main branch. ${escapeHtml(remotePriceNote())}</div>` : ""}
+      ${remote? `<div class="box" style="margin-bottom:12px">This is a <b>remote branch</b> — items, stock levels, and costs are managed by your main branch. ${escapeHtml(remotePriceNote())}${registered? `<div class="remote-sync-line" style="margin-top:6px">Products come from your main branch. ${escapeHtml(catStatusLine(catalogueSyncStatus()))}</div>` : ""}</div>` : ""}
+      ${negatives? `<div class="box neg-box" style="margin-bottom:12px;border-color:#b42318;color:#b42318">${negatives} product${negatives===1?" is":"s are"} below zero stock. Count ${negatives===1?"it":"them"} (More → Stocktake) or check recent sales.</div>` : ""}
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="productsSearch" placeholder="Search products or SKU…" value="${escapeHtml(productsQuery)}">
@@ -225,7 +242,9 @@
         <button class="btn btn-sm btn-outline dots-btn" id="openExcelMenu" title="Excel: import, template, export">⋮</button>
         <button class="btn btn-sm btn-outline" id="openDispatch" title="Dispatch Stock">${ICON_DISPATCH}</button>
         <button class="btn btn-sm btn-outline" id="openDispatchHistory" title="Dispatch history">📋</button>
-        ${remote? `<button class="btn btn-sm btn-outline" id="openGetCatalogue" title="Get catalogue from main">📥 Get catalogue</button>` : ""}
+        ${remote && !registered? `<button class="btn btn-sm btn-outline" id="openGetCatalogue" title="Get catalogue from main">📥 Get catalogue</button>` : ""}
+        ${registered? `<button class="btn btn-sm btn-outline" id="productsSyncNow" title="Sync products with your main branch">🔄 Sync now</button>` : ""}
+        ${registered && !remote? `<button class="btn btn-sm btn-outline" id="productsShowInactive">${productsShowInactive? "Hide deactivated" : "Show deactivated"}</button>` : ""}
         <button class="btn btn-sm btn-outline" id="openReceive" title="Receive stock">${ICON_RECEIVE}</button>
         <button class="btn btn-sm btn-outline" id="openReceipts" title="Receipts history">🧾</button>
         <button class="btn btn-sm btn-outline" id="openAdjustments" title="Adjustments history">${ICON_ADJUST} Adjustments</button>
@@ -259,6 +278,16 @@
     document.getElementById("openDispatchHistory").onclick=()=>openDispatchHistory();
     const getCat = document.getElementById("openGetCatalogue");
     if(getCat) getCat.onclick=()=>openCatalogueImportScreen();
+    const syncBtn = document.getElementById("productsSyncNow");
+    if(syncBtn) syncBtn.onclick=async ()=>{
+      syncBtn.disabled = true; syncBtn.textContent = "Syncing…";
+      const r = await catalogueSyncNow({ onProgress:(t)=>{ syncBtn.textContent = t; } });
+      if(r.needsReport){ render(); openCatalogueBaselineReport(); return; }
+      render();
+      if(!r.ok) alert(r.message);
+    };
+    const inact = document.getElementById("productsShowInactive");
+    if(inact) inact.onclick=()=>{ productsShowInactive = !productsShowInactive; render(); };
     document.getElementById("openReceive").onclick=()=>openReceiveScreen();
     document.getElementById("openReceipts").onclick=()=>openReceiptsHistory();
     document.getElementById("openAdjustments").onclick=()=>openAdjustmentsHistory();

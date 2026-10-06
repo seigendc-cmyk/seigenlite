@@ -26,6 +26,11 @@
     if(prod){
       moveStock(Object.assign({ productId:prod.id, delta:t.qty }, mv));
     } else {
+      // Phase 3a: a registered remote never creates products; main's catalogue is authoritative.
+      if(isRemote() && getSetting("terminal_id","")){
+        alert(t.product_name+" isn't in your products. Ask your main branch to add it, sync, then receive this transfer.");
+        return;
+      }
       run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description) VALUES(?,?,?,?,?,?,?,?,?,?)",
         [t.product_name,0,t.qty,5,t.sku||"",branch,"",0,ts,""]);
       prod = { id: one("SELECT last_insert_rowid() as id").id };

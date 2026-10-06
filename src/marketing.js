@@ -160,7 +160,7 @@
   function marketProductRows(){
     return all(`SELECT id, name, sku, price, stock, category,
                        CASE WHEN image IS NOT NULL AND image<>'' THEN 1 ELSE 0 END AS has_image
-                  FROM products WHERE branch=? ORDER BY name COLLATE NOCASE`,[currentBranch()])
+                  FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name COLLATE NOCASE`,[currentBranch()])
       .map(r=>({ id:r.id, name:r.name||"", sku:r.sku||"", price:Number(r.price)||0, stock:Number(r.stock)||0,
                  category:r.category||"", hasImage:!!r.has_image }));
   }

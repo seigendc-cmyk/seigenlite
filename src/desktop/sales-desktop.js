@@ -36,6 +36,7 @@
   }
 
   function desktopStockLabel(p){
+    if(p.stock<0) return `<span class="ds-stock-label out">Below zero</span>`;
     if(p.stock<=0) return `<span class="ds-stock-label out">Out of Stock</span>`;
     if(p.stock<=p.low_threshold) return `<span class="ds-stock-label low">Low Stock</span>`;
     return `<span class="ds-stock-label ok">In Stock</span>`;
@@ -87,7 +88,8 @@
       <tr>
         <td>
           <div class="ds-prod">
-            ${p.image? `<img class="ds-thumb" src="${p.image}">` : `<div class="ds-thumb-placeholder">${ICON_STOREFRONT}</div>`}
+            ${typeof catPicHtml==="function"? catPicHtml(p, 'class="ds-thumb"', `<div class="ds-thumb-placeholder">${ICON_STOREFRONT}</div>`)
+              : (p.image? `<img class="ds-thumb" src="${p.image}">` : `<div class="ds-thumb-placeholder">${ICON_STOREFRONT}</div>`)}
             <div style="min-width:0">
               <div class="ds-pname">${escapeHtml(p.name)}</div>
               <div class="ds-psub">${p.sku? escapeHtml(p.sku)+" · ":""}${escapeHtml(p.category||"Uncategorized")}</div>
@@ -96,7 +98,7 @@
         </td>
         <td>${p.stock} ${desktopStockLabel(p)}</td>
         <td>${currency}${p.price.toFixed(2)}</td>
-        <td><button class="ds-add-btn" data-add="${p.id}" ${p.stock<=0?"disabled":""}>${p.stock<=0?"Out":"Add"}</button></td>
+        <td>${p.stock<=0 && !sellAtZero()? `<button class="ds-add-btn" data-add="${p.id}" disabled>Out</button>` : `<button class="ds-add-btn" data-add="${p.id}">Add</button>`}</td>
       </tr>`).join("");
   }
 

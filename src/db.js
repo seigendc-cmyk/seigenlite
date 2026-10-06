@@ -240,6 +240,20 @@
       ts TEXT NOT NULL, user TEXT DEFAULT '', note TEXT DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS ix_stock_movements_product ON stock_movements(product_id);
+    -- Catalogue sync (multi-terminal Phase 3a, catalogue-sync.js): price
+    -- changes waiting to be sent to Digital Commerce (branch prices and branch
+    -- price policies on main; this branch's own price under branch_edits on a
+    -- remote), one row per (kind, branch, product), so repeated edits coalesce.
+    -- Local only: mergeDatabase never reads it.
+    CREATE TABLE IF NOT EXISTS cat_outbox(
+      kind TEXT NOT NULL, dest_name TEXT NOT NULL COLLATE NOCASE, cat_uid TEXT NOT NULL DEFAULT '',
+      price REAL, mode TEXT, op_id TEXT NOT NULL, created_ts TEXT NOT NULL, error TEXT DEFAULT '',
+      PRIMARY KEY(kind, dest_name, cat_uid)
+    );
+    -- This till's own branch prices as pulled (cat_uid -> price; NULL = removed).
+    CREATE TABLE IF NOT EXISTS cat_branch_prices(
+      cat_uid TEXT PRIMARY KEY, price REAL, seq INTEGER
+    );
     CREATE TABLE IF NOT EXISTS print_queue(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT DEFAULT '',
@@ -382,7 +396,21 @@
       "ALTER TABLE dn_events ADD COLUMN grv_till_code TEXT",
       "ALTER TABLE dn_cases ADD COLUMN till_code TEXT",
       "ALTER TABLE stock_adjustments ADD COLUMN till_code TEXT",
-      "ALTER TABLE stock_received ADD COLUMN till_code TEXT"
+      "ALTER TABLE stock_received ADD COLUMN till_code TEXT",
+      // Multi-terminal Phase 3a: catalogue sync (catalogue-sync.js). cat_uid =
+      // the catalogue identity (main's product uid; on main's own products it
+      // equals uid). A till's own rows keep their own uid: mergeDatabase matches
+      // products by uid across branches (backup.js), so they must never share one.
+      "ALTER TABLE products ADD COLUMN cat_uid TEXT",
+      "ALTER TABLE products ADD COLUMN cat_seq INTEGER",
+      "ALTER TABLE products ADD COLUMN cat_dirty INTEGER DEFAULT 0",
+      "ALTER TABLE products ADD COLUMN cat_op TEXT",
+      "ALTER TABLE products ADD COLUMN cat_img_sent TEXT",
+      "ALTER TABLE products ADD COLUMN cat_error TEXT DEFAULT ''",
+      "ALTER TABLE products ADD COLUMN active INTEGER DEFAULT 1",
+      "ALTER TABLE products ADD COLUMN image_hash TEXT",
+      "ALTER TABLE products ADD COLUMN image_bytes INTEGER DEFAULT 0",
+      "ALTER TABLE products ADD COLUMN cat_main_price REAL"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -423,7 +451,21 @@
     try{ t.run("UPDATE sale_payments SET tendered_amount=amount WHERE tendered_amount IS NULL"); }catch(e){}
     migrateSyncIdentity(t);
     migrateStockLedger(t);
+    migrateCatalogueSync(t);
     if(typeof pauseSyncBacklog==="function") pauseSyncBacklog(t);   // sync.js; absent in partial test loads
+  }
+  // Catalogue sync (Phase 3a): a change to a catalogue field of a linked
+  // product on a registered main-branch till marks it to be pushed. Pulled
+  // changes are applied with settings.cat_applying='1', so they never bounce
+  // back; stock and the sync columns themselves are not in the list.
+  function migrateCatalogueSync(t){
+    try{ t.run("CREATE INDEX IF NOT EXISTS ix_products_cat_uid ON products(cat_uid)"); }catch(e){}
+    try{ t.run(`CREATE TRIGGER IF NOT EXISTS products_cat_dirty AFTER UPDATE OF name,sku,price,cost,description,category,shelf,low_threshold,image,active ON products
+      WHEN NEW.cat_uid IS NOT NULL
+        AND (SELECT value FROM settings WHERE key='terminal_is_main')='1'
+        AND COALESCE((SELECT value FROM settings WHERE key='cat_applying'),'')<>'1'
+        AND NEW.branch=(SELECT value FROM settings WHERE key='cat_branch')
+      BEGIN UPDATE products SET cat_dirty=1, cat_op=lower(hex(randomblob(16))), cat_error='' WHERE id=NEW.id; END`); }catch(e){}
   }
   // Opening balance: one 'opening' movement per product equal to its stock
   // when the ledger started, so SUM(qty_delta) = products.stock from day one.
