@@ -21,7 +21,43 @@ It writes `docs/database/live-backup-<timestamp>/`:
 
 > **The backup folder holds secrets:** shop secret phrases, device keys, passcode hashes, RPN verification codes and customer details. It is gitignored (`docs/database/live-backup-*/`). Never commit, share or upload it. Keep a copy offline (an encrypted USB drive, for example) and delete old copies you no longer need.
 
-Take one before every live migration, and on a regular schedule (for example weekly) as long as Supabase's own backups are limited (see 3).
+Take one by hand before every live migration. The nightly task (1a) takes one every evening.
+
+`--out <folder>` writes `<folder>/<timestamp>/` instead, for example outside the repo.
+
+## 1a. Nightly backup (this Windows PC)
+
+The Task Scheduler task **"seiGEN nightly DB backup"** runs `tools/db/nightly-backup.ps1` every day at 20:00, as the logged-on user only, with no stored password and not elevated. If the PC was off at 20:00, it runs as soon as possible afterwards. It has a 15-minute limit and at most one retry after 10 minutes.
+
+- **Where backups live:** `C:\seigen-backups\supabase\<timestamp>\` (UTC timestamp). This is outside the repo, so a backup can never be committed. Only your Windows user has access (`icacls C:\seigen-backups`).
+- **Pruning:** after a successful run, the newest 14 complete backups (folders with `manifest.json`) are kept and older ones are deleted. After a failed run nothing is deleted. A half-written folder from a failed run has no `manifest.json` and is left for you to inspect or delete.
+- **The log:** one line per run in `C:\seigen-backups\backup.log`:
+  ```powershell
+  Get-Content C:\seigen-backups\backup.log -Tail 10
+  # 2026-10-07 22:41:41 +02:00 OK folder=C:\seigen-backups\supabase\2026-10-07T20-41-20-737Z size=824KB rows=247 kept=1 pruned=0
+  # ... FAILED exit=1 ERROR: <reason> (nothing pruned)
+  ```
+- **The last run:**
+  ```powershell
+  Get-ScheduledTaskInfo -TaskName 'seiGEN nightly DB backup' | Select-Object LastRunTime, LastTaskResult, NextRunTime
+  ```
+  A `LastTaskResult` of `0` means OK. Anything else means it failed; read the log.
+- **Run it now:** `schtasks /run /tn "seiGEN nightly DB backup"`, or by hand with `powershell -NoProfile -ExecutionPolicy Bypass -File tools\db\nightly-backup.ps1`.
+- **Disable, enable or delete the task:**
+  ```powershell
+  Disable-ScheduledTask -TaskName 'seiGEN nightly DB backup'
+  Enable-ScheduledTask  -TaskName 'seiGEN nightly DB backup'
+  Unregister-ScheduledTask -TaskName 'seiGEN nightly DB backup' -Confirm:$false
+  ```
+  You can also use Task Scheduler (`taskschd.msc`) → Task Scheduler Library.
+- **Copy the newest backup to USB** (replace `E:` with the drive letter):
+  ```powershell
+  $b = Get-ChildItem C:\seigen-backups\supabase -Directory | Where-Object { Test-Path "$($_.FullName)\manifest.json" } | Sort-Object Name | Select-Object -Last 1
+  Copy-Item $b.FullName "E:\seigen-backups\$($b.Name)" -Recurse
+  ```
+  Use an encrypted drive (BitLocker To Go, for example).
+
+> **These folders hold shops' secret phrases, device keys and passcode hashes, and customer details.** Never upload them (no cloud drive, e-mail or chat), never share them, and never copy them into the repo.
 
 ## 2. The schema is in the repo
 
@@ -47,11 +83,7 @@ Live records which files are applied in `supabase_migrations.schema_migrations` 
 
 ## 3. Supabase's own backups
 
-**Status: not yet confirmed.** The token in `.env` (`SUPABASE_ACCESS_TOKEN`) is not a Management API personal access token (those start with `sbp_`), so the API answered 401. Check in the dashboard: **Project → Database → Backups**, and note:
-
-- **Scheduled backups:** are daily backups listed? What is the date of the newest, and how many days back do they go?
-- **Point in Time Recovery:** is it enabled? It is a paid add-on.
-- **The plan** (Organization → Billing): Free, Pro, Team or Enterprise.
+**Status (2026-10-07): the project is on the Free plan, so Supabase keeps no backups for us.** Our own nightly backup (1a) is the only copy. Recheck **Project → Database → Backups** if the plan changes.
 
 What Supabase backups cover, per Supabase's documentation (confirm against your plan):
 

@@ -1,7 +1,7 @@
-// node tools/db/live-backup.js
+// node tools/db/live-backup.js                 -> docs/database/live-backup-<timestamp>/ (gitignored)
+// node tools/db/live-backup.js --out <folder>  -> <folder>/<timestamp>/ (e.g. outside the repo)
 //
-// READ-ONLY logical backup of the live Supabase database into
-// docs/database/live-backup-<timestamp>/ (gitignored):
+// READ-ONLY logical backup of the live Supabase database. Each backup folder holds:
 //   schema.sql     DDL for every object in schema public (tools/db/ddl.js)
 //   catalog.json   the catalogue snapshot it was made from (tools/db/catalog.js)
 //   data/<table>.json   every row of every table in public, as a JSON array
@@ -33,7 +33,9 @@ const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
 
 (async () => {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const dir = path.join(ROOT, 'docs', 'database', 'live-backup-' + stamp);
+  const out = process.argv.indexOf('--out');
+  if (out !== -1 && !process.argv[out + 1]) throw new Error('--out needs a folder');
+  const dir = out === -1 ? path.join(ROOT, 'docs', 'database', 'live-backup-' + stamp) : path.join(path.resolve(process.argv[out + 1]), stamp);
   const c = new Client({ connectionString: URL, ssl: { ca: fs.readFileSync(path.join(ROOT, 'supabase', 'prod-ca-2021.crt'), 'utf8'), rejectUnauthorized: true },
     connectionTimeoutMillis: 20000, statement_timeout: 120000, query_timeout: 180000 });
   c.on('error', (e) => { console.error('ERROR: ' + redact(e.message)); process.exit(1); });
@@ -62,5 +64,6 @@ const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
     warning: 'Contains secrets (shop phrases, device keys, passcode hashes, customer data). Never commit, share or upload.' };
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 1));
   const total = Object.values(files).reduce((a, f) => a + f.bytes, 0);
-  console.log(JSON.stringify({ folder: path.relative(ROOT, dir), bytes: total, tables: rows }, null, 1));
+  const rowsTotal = Object.values(rows).reduce((a, n) => a + n, 0);
+  console.log(JSON.stringify({ folder: out === -1 ? path.relative(ROOT, dir) : dir, bytes: total, rows: rowsTotal, tables: rows }, null, 1));
 })().catch((e) => { console.error('ERROR: ' + redact(e.message)); process.exit(1); });
