@@ -356,6 +356,7 @@
       summary.cashByCurrency.forEach(r=> parts.push(escposTextBytes(padLine(`  ${r.currency} cash`, `${r.symbol}${r.tendered.toFixed(2)}`, w)+"\n")));
     }
     parts.push(escposTextBytes(padLine("Sales EcoCash", `${currency}${summary.ecocash.toFixed(2)}`, w)+"\n"));
+    if(summary.bank>0) parts.push(escposTextBytes(padLine("Sales Bank", `${currency}${summary.bank.toFixed(2)}`, w)+"\n"));
     parts.push(escposTextBytes(padLine("Sales Credit", `${currency}${summary.credit.toFixed(2)}`, w)+"\n"));
     parts.push(escposTextBytes(padLine("Less: Discounts", `-${currency}${summary.discounts.toFixed(2)}`, w)+"\n"));
     parts.push(escposBold(true), escposTextBytes(padLine("Total Sales", `${currency}${summary.totalSales.toFixed(2)}`, w)+"\n"), escposBold(false));
@@ -457,6 +458,7 @@
         <div class="line"><span>Sales Cash</span><span>${currency}${summary.cash.toFixed(2)}</span></div>
         ${(summary.cashByCurrency||[]).length>1? summary.cashByCurrency.map(r=>`<div class="line" style="padding-left:12px;font-size:12px"><span>${escapeHtml(r.currency)} cash</span><span>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</span></div>`).join("") : ""}
         <div class="line"><span>Sales EcoCash</span><span>${currency}${summary.ecocash.toFixed(2)}</span></div>
+        ${summary.bank>0? `<div class="line"><span>Sales Bank</span><span>${currency}${summary.bank.toFixed(2)}</span></div>` : ""}
         <div class="line"><span>Sales Credit</span><span>${currency}${summary.credit.toFixed(2)}</span></div>
         <div class="line"><span>Less: Discounts</span><span>-${currency}${summary.discounts.toFixed(2)}</span></div>
         <div class="line"><b>Total Sales</b><b>${currency}${summary.totalSales.toFixed(2)}</b></div>

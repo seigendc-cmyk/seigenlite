@@ -246,9 +246,12 @@
     const sumMethod = (m)=> dayPayments.filter(p=>p.method===m).reduce((s,r)=>s+r.amount,0);
     const cash = sumMethod("Cash");
     const ecocash = sumMethod("EcoCash");
+    const bank = sumMethod("Bank");
     const credit = sumMethod("Credit");
     const discounts = daySales.reduce((s,r)=>s+(r.discount||0),0);
-    const totalSales = cash+ecocash+credit;
+    // Bank was left out of Total Sales before 3c (expected cash never
+    // included it, and still doesn't: Bank isn't cash in the drawer).
+    const totalSales = cash+ecocash+bank+credit;
     const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[branch,day.fromTs,day.toTs]);
     const payoutsTotal = payouts.reduce((s,r)=>s+r.amount,0);
     const expected = (openingFloat||0) + cash - payoutsTotal; // opening float + cash sales - payouts = expected cash
@@ -271,7 +274,7 @@
       tendered: roundMoney(byCurrency[code].tendered),
       amount: roundMoney(byCurrency[code].amount),
     }));
-    return { cash, ecocash, credit, discounts, totalSales, payouts, payoutsTotal, expected, cashByCurrency };
+    return { cash, ecocash, bank, credit, discounts, totalSales, payouts, payoutsTotal, expected, cashByCurrency };
   }
   // Closes whichever shift is open (today's, or an older unresolved one
   // being caught up on) — idempotent: once closed, oldestOpenShift() no
@@ -300,7 +303,7 @@
   // buildEODBytes/printEOD already expect — only addition is openingFloat.
   function eodPrintSummary(shift, totals, lowStock, counted){
     const c = counted===undefined? (shift.counted_cash||0) : counted;
-    return { date:shift.date, cash:totals.cash, ecocash:totals.ecocash, credit:totals.credit, discounts:totals.discounts,
+    return { date:shift.date, cash:totals.cash, ecocash:totals.ecocash, bank:totals.bank||0, credit:totals.credit, discounts:totals.discounts,
       totalSales:totals.totalSales, payouts:totals.payouts, payoutsTotal:totals.payoutsTotal, openingFloat:shift.opening_float||0,
       expected:totals.expected, counted:c, variance:c-totals.expected, lowStock, cashByCurrency:totals.cashByCurrency||[] };
   }
@@ -314,6 +317,7 @@
         ? summary.cashByCurrency.map(r=>padLine(`  ${r.currency} cash`, `${r.symbol}${r.tendered.toFixed(2)}`))
         : []),
       padLine("Sales EcoCash", `${currency}${summary.ecocash.toFixed(2)}`),
+      ...(summary.bank>0? [padLine("Sales Bank", `${currency}${summary.bank.toFixed(2)}`)] : []),
       padLine("Sales Credit", `${currency}${summary.credit.toFixed(2)}`),
       padLine("Less: Discounts", `-${currency}${summary.discounts.toFixed(2)}`),
       padLine("Payouts", `-${currency}${summary.payoutsTotal.toFixed(2)}`)
@@ -405,6 +409,7 @@
           ${totals.cashByCurrency.map(r=>`<div class="subline" style="font-size:12px"><span>${escapeHtml(r.currency)} cash</span><span>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)} <span class="muted">(≈ ${currency}${r.amount.toFixed(2)})</span></span></div>`).join("")}
         </div>` : ""}
         <div class="subline"><span>Sales EcoCash</span><span>${currency}${totals.ecocash.toFixed(2)}</span></div>
+        ${totals.bank>0? `<div class="subline"><span>Sales Bank</span><span>${currency}${totals.bank.toFixed(2)}</span></div>` : ""}
         <div class="subline"><span>Sales Credit</span><span>${currency}${totals.credit.toFixed(2)}</span></div>
         <div class="subline"><span>Less: Discounts</span><span>-${currency}${totals.discounts.toFixed(2)}</span></div>
         <div class="hr" style="margin:8px 0"></div>
