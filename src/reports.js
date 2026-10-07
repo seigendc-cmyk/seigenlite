@@ -1,5 +1,5 @@
   function renderReports(main){
-    const today = new Date().toISOString().slice(0,10);
+    const today = businessDateOf();   // the business date (utils.js), not the UTC date
     main.innerHTML = `
       <h2>Reports</h2>
 
@@ -142,12 +142,12 @@
     // Quick-access preset menus: sets a card's date range then triggers its
     // own Generate button, so common variants are one tap instead of four.
     function applyPreset(fromId, toId, key){
-      const now = new Date();
+      const now = new Date(businessDateOf()+"T00:00:00");   // today's business date, as a local date
       let from = new Date(now), to = new Date(now);
       if(key==="week"){ from.setDate(now.getDate()-6); }
       else if(key==="month"){ from = new Date(now.getFullYear(), now.getMonth(), 1); }
-      document.getElementById(fromId).value = from.toISOString().slice(0,10);
-      document.getElementById(toId).value = to.toISOString().slice(0,10);
+      document.getElementById(fromId).value = localDateStr(from);
+      document.getElementById(toId).value = localDateStr(to);
     }
     const PRESET_TARGETS = {
       sales:["salesFrom","salesTo","genSales"], stock:["stockFrom","stockTo","genStock"],
@@ -168,7 +168,7 @@
 
 
     document.getElementById("genSales").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("salesFrom","salesTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
       const b = branchFilter("salesBranch");
       const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
@@ -193,17 +193,17 @@
         <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>${currency} Equivalent</th></tr>
         ${currencyRows.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
         </table>` : "";
-      printReport("Sales Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Sales Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Total"], rows,
         `<p><b>Grand Total: ${currency}${grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
     };
     document.getElementById("waSales").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("salesFrom","salesTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
       const b = branchFilter("salesBranch");
       const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
-      const itemLines = sales.slice(0,40).map(s=>padLine(`${s.ts.slice(0,16)} ${s.branch} ${s.method}`, `${currency}${s.total.toFixed(2)}`));
+      const itemLines = sales.slice(0,40).map(s=>padLine(`${localDateTimeStr(s.ts)} ${s.branch} ${s.method}`, `${currency}${s.total.toFixed(2)}`));
       shareWhatsApp(receiptText(`Sales Report (${b||"All branches"})`, itemLines, [padLine("TOTAL", `${currency}${grand.toFixed(2)}`)]));
     };
 
@@ -216,7 +216,7 @@
     };
 
     document.getElementById("genStock").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("stockFrom","stockTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("stockFrom","stockTo");
       const b = branchFilter("stockBranch");
       const recs = b? all("SELECT * FROM stock_received WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                      : all("SELECT * FROM stock_received WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
@@ -224,7 +224,7 @@
                                   : [new Date(r.ts).toLocaleString(), escapeHtml(r.branch), escapeHtml(r.name), r.qty, escapeHtml(r.note||"")]);
       const headers = b? ["Date/Time","Product","Qty","Note"] : ["Date/Time","Branch","Product","Qty","Note"];
       const totalQty = recs.reduce((s,r)=>s+r.qty,0);
-      printReport("Stock Received Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`, headers, rows, `<p><b>Total units received: ${totalQty}</b></p>`);
+      printReport("Stock Received Report", `${b||"All branches"} · ${from} to ${to}`, headers, rows, `<p><b>Total units received: ${totalQty}</b></p>`);
     };
 
     document.getElementById("genLowStock").onclick=()=>{
@@ -237,7 +237,7 @@
     };
 
     document.getElementById("genCredit").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("creditFrom","creditTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("creditFrom","creditTo");
       const b = branchFilter("creditBranch");
       const customers = all("SELECT * FROM customers ORDER BY name");
       const rows = [];
@@ -256,13 +256,13 @@
           totalDebt+=debt; totalPaid+=paid;
         }
       });
-      printReport("Credit Sales Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Credit Sales Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Customer","Credit Given","Payments","Current Balance"], rows,
         `<p><b>Period totals — Credit: ${currency}${totalDebt.toFixed(2)} | Payments: ${currency}${totalPaid.toFixed(2)}</b></p>`);
     };
 
     document.getElementById("genDiscount").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("discFrom","discTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("discFrom","discTo");
       const b = branchFilter("discBranch");
       const sales = (b? all("SELECT * FROM sales WHERE branch=? AND discount>0 AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                       : all("SELECT * FROM sales WHERE discount>0 AND ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]));
@@ -273,14 +273,14 @@
           escapeHtml(s.discount_status||"")];
       });
       const totalDisc = sales.reduce((s,r)=>s+r.discount,0);
-      printReport("Discount Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Discount Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Date","Receipt#","Customer","Amount","Discount","Cash Paid","Reason","Status"], rows,
         `<p><b>Total discounts given: ${currency}${totalDisc.toFixed(2)}</b></p>`);
     };
 
     const marginBtn = document.getElementById("genMargin");
     if(marginBtn) marginBtn.onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("marginFrom","marginTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("marginFrom","marginTo");
       const b = branchFilter("marginBranch");
       const items = b? all(`SELECT si.* FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.branch=? AND s.ts>=? AND s.ts<=?`,[b,fromTs,toTs])
                       : all(`SELECT si.* FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.ts>=? AND s.ts<=?`,[fromTs,toTs]);
@@ -300,7 +300,7 @@
       });
       const totalMargin = totalRev-totalCost;
       const totalPct = totalRev>0? (totalMargin/totalRev*100).toFixed(1)+"%" : "—";
-      printReport("Margin Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Margin Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Item","Qty Sold","Revenue","Cost","Margin","Margin %"], rows,
         `<p><b>Total — Revenue: ${currency}${totalRev.toFixed(2)} | Cost: ${currency}${totalCost.toFixed(2)} | Margin: ${currency}${totalMargin.toFixed(2)} (${totalPct})</b></p>`);
     };
@@ -318,7 +318,7 @@
     };
 
     document.getElementById("genFast").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("fastFrom","fastTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("fastFrom","fastTo");
       const b = branchFilter("fastBranch");
       const items = b? all(`SELECT si.name, si.qty, si.price FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.branch=? AND s.ts>=? AND s.ts<=?`,[b,fromTs,toTs])
                       : all(`SELECT si.name, si.qty, si.price FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.ts>=? AND s.ts<=?`,[fromTs,toTs]);
@@ -326,12 +326,12 @@
       items.forEach(i=>{ if(!byName[i.name]) byName[i.name]={qty:0,revenue:0}; byName[i.name].qty+=i.qty; byName[i.name].revenue+=i.price*i.qty; });
       const rows = Object.keys(byName).map(n=>({name:n,...byName[n]})).sort((a,b2)=>b2.qty-a.qty).slice(0,30)
         .map(r=>[escapeHtml(r.name), r.qty, currency+r.revenue.toFixed(2)]);
-      printReport("Fast Moving Items", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Fast Moving Items", `${b||"All branches"} · ${from} to ${to}`,
         ["Item","Qty Sold","Revenue"], rows, "");
     };
 
     document.getElementById("genPayoutReport").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("payoutFrom","payoutTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("payoutFrom","payoutTo");
       const b = branchFilter("payoutBranch");
       const payouts = b? all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                         : all("SELECT * FROM payouts WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
@@ -339,7 +339,7 @@
                                      : [new Date(p.ts).toLocaleString(), escapeHtml(p.branch), escapeHtml(p.reason||""), currency+p.amount.toFixed(2), escapeHtml(p.user||"")]);
       const headers = b? ["Date/Time","Reason","Amount","By"] : ["Date/Time","Branch","Reason","Amount","By"];
       const total = payouts.reduce((s,r)=>s+r.amount,0);
-      printReport("Payouts Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`, headers, rows,
+      printReport("Payouts Report", `${b||"All branches"} · ${from} to ${to}`, headers, rows,
         `<p><b>Total payouts: ${currency}${total.toFixed(2)}</b></p>`);
     };
 
@@ -352,7 +352,7 @@
 
     document.getElementById("genBranchReport").onclick=()=>{
       const b = branchFilter("brBranch") || currentBranch();
-      const {fromTs,toTs} = dateRangeSQL("brFrom","brTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("brFrom","brTo");
       const stock = all("SELECT * FROM products WHERE branch=? ORDER BY name",[b]);
       const sales = all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs]);
       // Credit portion only (sale_payments), same reasoning as genCredit's
@@ -360,7 +360,7 @@
       const credits = all(`SELECT s.id, s.ts, sp.amount as credit_amount FROM sale_payments sp
                             JOIN sales s ON s.id=sp.sale_id
                             WHERE s.branch=? AND sp.method='Credit' AND s.ts>=? AND s.ts<=? ORDER BY s.ts`,[b,fromTs,toTs]);
-      const eods = all("SELECT * FROM eod_sessions WHERE branch=? AND date>=? AND date<=? ORDER BY date",[b,fromTs.slice(0,10),toTs.slice(0,10)]);
+      const eods = all("SELECT * FROM eod_sessions WHERE branch=? AND date>=? AND date<=? ORDER BY date",[b,from,to]);
       const discSales = sales.filter(s=>s.discount>0);
       const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs]);
       const customersList = all("SELECT * FROM customers WHERE branch=? ORDER BY name",[b]);
@@ -383,7 +383,7 @@
       document.getElementById("printArea").innerHTML = `
         <div class="report-print">
           <h2>${escapeHtml(getSetting("shop_name","My Shop"))} — Branch Report</h2>
-          <div class="sub">${escapeHtml(b)} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}</div>
+          <div class="sub">${escapeHtml(b)} · ${from} to ${to}</div>
 
           <h3 class="section">Stock List</h3>
           <table><tr><th>Item</th><th>Qty</th></tr>

@@ -126,10 +126,53 @@
     return "```\n"+out+"```";
   }
 
+  // ---- dates: local calendar and the business day ----
+  // Timestamps are stored as UTC ISO strings (toISOString). A date the shop
+  // sees or picks is a LOCAL date, and the business day (owner decision
+  // 2026-10-07) ends at the cut-off hour set in Settings (00:00–06:00,
+  // default 00:00): a moment's business date is the local date of
+  // (moment − cut-off hours). Reports, Sales Trend, shifts and End of Day
+  // all use businessDateOf/businessRange, so they always agree.
+  const BUSINESS_DAY_CUTOFF_MAX = 6;
+  const pad2 = (n)=> String(n).padStart(2,"0");
+  // YYYY-MM-DD of d (default now) on this device's local calendar.
+  function localDateStr(d){
+    d = d || new Date();
+    return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate());
+  }
+  function businessCutoffHours(){
+    const h = parseInt(getSetting("business_day_cutoff","0"),10);
+    return (h>=0 && h<=BUSINESS_DAY_CUTOFF_MAX)? h : 0;
+  }
+  // Business date (YYYY-MM-DD) of a moment: a Date, epoch ms or ISO string (default now).
+  function businessDateOf(when){
+    const ms = when==null? Date.now() : (when instanceof Date? when.getTime() : new Date(when).getTime());
+    return localDateStr(new Date(ms - businessCutoffHours()*3600000));
+  }
+  // When business day `date` begins: local midnight of that date + the cut-off, in epoch ms.
+  function businessDayStartMs(date, dayOffset){
+    const [y,m,d] = String(date).split("-").map(Number);
+    return new Date(y, m-1, d+(dayOffset||0)).getTime() + businessCutoffHours()*3600000;
+  }
+  // Business days from..to (YYYY-MM-DD, inclusive) as UTC instants, for
+  // `ts>=fromTs AND ts<=toTs` against stored UTC timestamps. A blank end is open.
+  function businessRange(from, to){
+    return {
+      fromTs: from? new Date(businessDayStartMs(from)).toISOString() : "",
+      toTs: to? new Date(businessDayStartMs(to, 1) - 1).toISOString() : "9999",
+      from: from||"", to: to||""
+    };
+  }
+  // "YYYY-MM-DD HH:MM" in local time, for plain-text lists.
+  function localDateTimeStr(when){
+    const d = new Date(when);
+    return localDateStr(d)+" "+pad2(d.getHours())+":"+pad2(d.getMinutes());
+  }
+
   function dateRangeSQL(fromId, toId){
     const from = document.getElementById(fromId).value;
     const to = document.getElementById(toId).value;
-    return { fromTs: from+"T00:00:00", toTs: to+"T23:59:59" };
+    return businessRange(from, to);
   }
   function listBranches(){
     const rows = all(`SELECT branch FROM products WHERE branch<>''
@@ -145,7 +188,7 @@
   // use this so a file's origin and moment are unambiguous at a glance.
   function exportFilename(baseName, branch){
     const date = new Date();
-    const d = date.toISOString().slice(0,10);
+    const d = localDateStr(date);
     const t = date.toTimeString().slice(0,8).replace(/:/g,'-');
     return `${baseName}-${sanitizeFilenamePart(branch)}-${d}-${t}.sqlite`;
   }

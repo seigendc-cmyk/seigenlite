@@ -190,7 +190,8 @@
     const body = wrap.querySelector(".modal-body");
     let reason = "", from = "", to = "";
     function list(){
-      const f = { reason, fromMs:from? Date.parse(from+"T00:00:00") : null, toMs:to? Date.parse(to+"T23:59:59") : null };
+      const day = businessRange(from, to);   // business days, as in the Adjustments report (utils.js)
+      const f = { reason, fromMs:from? Date.parse(day.fromTs) : null, toMs:to? Date.parse(day.toTs) : null };
       const rows = adjustmentReportData(all("SELECT * FROM stock_adjustments WHERE branch_id=?",[getBranchId()]), [], f).rows.reverse();
       body.innerHTML = `
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">

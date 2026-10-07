@@ -202,7 +202,8 @@ function run(label, desktop){
 
     const d = new Date(sale.ts);
     const day = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-    const rw = JSON.parse(app.exec(`JSON.stringify(REPORT_CONFIGS.find(c=>c.id==="sales").fetch(null, "${day}T00:00:00", "${day}T23:59:59"))`));
+    // the report's own day range (business day as UTC instants), as Report Writer builds it
+    const rw = JSON.parse(app.exec(`JSON.stringify((()=>{ const r = businessRange("${day}","${day}"); return REPORT_CONFIGS.find(c=>c.id==="sales").fetch(null, r.fromTs, r.toTs); })())`));
     const col = rw.headers.indexOf("Doc Ref");
     assert.ok(col>=0, "Report Writer Sales Report has a Doc Ref column");
     assert.strictEqual(rw.rows[0][col], "DN-2231");

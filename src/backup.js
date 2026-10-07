@@ -24,8 +24,8 @@
         <h4 style="margin:0 0 4px">Send app log (for audit)</h4>
         <p class="muted">Sends the activity log for the period and branch chosen above, as a file to share when management or an auditor asks for it.</p>
         <div class="row" style="margin-bottom:8px">
-          <input class="field" type="date" id="logFrom" value="${new Date(Date.now()-30*864e5).toISOString().slice(0,10)}">
-          <input class="field" type="date" id="logTo" value="${new Date().toISOString().slice(0,10)}">
+          <input class="field" type="date" id="logFrom" value="${localDateStr(new Date(Date.now()-30*864e5))}">
+          <input class="field" type="date" id="logTo" value="${localDateStr()}">
         </div>
         <div class="row" style="margin-bottom:${hasFolderPicker?'10px':'0'}">
           <button class="btn btn-outline" id="saveLog">⬇️ Save log</button>
@@ -305,7 +305,8 @@
   }
   async function sendAppLog(scope, from, to, share){
     if(!from || !to) return alert("Choose the From and To dates.");
-    const {bytes, count} = appLogCsvBytes(scope, from+"T00:00:00", to+"T23:59:59");
+    const day = businessRange(from, to);   // same days as the reports (utils.js); the log keeps UTC timestamps
+    const {bytes, count} = appLogCsvBytes(scope, day.fromTs, day.toTs);
     if(count===0) return alert("No activity was logged in that date range.");
     logAudit("Export App Log", "", `${count} entries, ${from} to ${to}, ${scopeLabel(scope)}${share?" (shared)":""}`);
     persist();

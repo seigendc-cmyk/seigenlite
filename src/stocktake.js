@@ -50,7 +50,7 @@
     });
   }
   function startStocktakeModal(){
-    const today = new Date().toISOString().slice(0,10);
+    const today = businessDateOf();   // the business date (utils.js), not the UTC date
     const wrap = openModal("Start Stocktake", `
       <label>Branch</label>${branchSelectHtml("stBranch", currentBranch())}
       <label>Team names</label>

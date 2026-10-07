@@ -11,7 +11,8 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v8 — tills report their build at check-in (shared stock waits until every till runs v7+)
+// build: v9 — business day: local dates everywhere, "Business day ends at" cut-off (reports, Sales Trend, shifts, End of Day agree)
+// v8: tills report their build at check-in (shared stock waits until every till runs v7+)
 // v7: multi-terminal Phase 3b: shared branch stock + offline allowance
 // v6: multi-terminal Phase 3a: product catalogue sync, pictures store; tills never sell below zero
 // v5: built for Phase 3a with selling at zero on registered tills; never deployed (owner changed Q1)

@@ -306,7 +306,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
 <script>
 const APP_VERSION = "1.09.01";
-const APP_BUILD = 8;
+const APP_BUILD = 9;
 /* =========================================================================
    seiGEN Commerce Lite — single-file offline POS
    Storage: SQLite via sql.js (WASM), persisted to IndexedDB as a blob.
@@ -2730,10 +2730,53 @@ const APP_BUILD = 8;
     return "```\n"+out+"```";
   }
 
+  // ---- dates: local calendar and the business day ----
+  // Timestamps are stored as UTC ISO strings (toISOString). A date the shop
+  // sees or picks is a LOCAL date, and the business day (owner decision
+  // 2026-10-07) ends at the cut-off hour set in Settings (00:00–06:00,
+  // default 00:00): a moment's business date is the local date of
+  // (moment − cut-off hours). Reports, Sales Trend, shifts and End of Day
+  // all use businessDateOf/businessRange, so they always agree.
+  const BUSINESS_DAY_CUTOFF_MAX = 6;
+  const pad2 = (n)=> String(n).padStart(2,"0");
+  // YYYY-MM-DD of d (default now) on this device's local calendar.
+  function localDateStr(d){
+    d = d || new Date();
+    return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate());
+  }
+  function businessCutoffHours(){
+    const h = parseInt(getSetting("business_day_cutoff","0"),10);
+    return (h>=0 && h<=BUSINESS_DAY_CUTOFF_MAX)? h : 0;
+  }
+  // Business date (YYYY-MM-DD) of a moment: a Date, epoch ms or ISO string (default now).
+  function businessDateOf(when){
+    const ms = when==null? Date.now() : (when instanceof Date? when.getTime() : new Date(when).getTime());
+    return localDateStr(new Date(ms - businessCutoffHours()*3600000));
+  }
+  // When business day `date` begins: local midnight of that date + the cut-off, in epoch ms.
+  function businessDayStartMs(date, dayOffset){
+    const [y,m,d] = String(date).split("-").map(Number);
+    return new Date(y, m-1, d+(dayOffset||0)).getTime() + businessCutoffHours()*3600000;
+  }
+  // Business days from..to (YYYY-MM-DD, inclusive) as UTC instants, for
+  // `ts>=fromTs AND ts<=toTs` against stored UTC timestamps. A blank end is open.
+  function businessRange(from, to){
+    return {
+      fromTs: from? new Date(businessDayStartMs(from)).toISOString() : "",
+      toTs: to? new Date(businessDayStartMs(to, 1) - 1).toISOString() : "9999",
+      from: from||"", to: to||""
+    };
+  }
+  // "YYYY-MM-DD HH:MM" in local time, for plain-text lists.
+  function localDateTimeStr(when){
+    const d = new Date(when);
+    return localDateStr(d)+" "+pad2(d.getHours())+":"+pad2(d.getMinutes());
+  }
+
   function dateRangeSQL(fromId, toId){
     const from = document.getElementById(fromId).value;
     const to = document.getElementById(toId).value;
-    return { fromTs: from+"T00:00:00", toTs: to+"T23:59:59" };
+    return businessRange(from, to);
   }
   function listBranches(){
     const rows = all(`SELECT branch FROM products WHERE branch<>''
@@ -2749,7 +2792,7 @@ const APP_BUILD = 8;
   // use this so a file's origin and moment are unambiguous at a glance.
   function exportFilename(baseName, branch){
     const date = new Date();
-    const d = date.toISOString().slice(0,10);
+    const d = localDateStr(date);
     const t = date.toTimeString().slice(0,8).replace(/:/g,'-');
     return `${baseName}-${sanitizeFilenamePart(branch)}-${d}-${t}.sqlite`;
   }
@@ -6851,7 +6894,8 @@ const APP_BUILD = 8;
     const body = wrap.querySelector(".modal-body");
     let reason = "", from = "", to = "";
     function list(){
-      const f = { reason, fromMs:from? Date.parse(from+"T00:00:00") : null, toMs:to? Date.parse(to+"T23:59:59") : null };
+      const day = businessRange(from, to);   // business days, as in the Adjustments report (utils.js)
+      const f = { reason, fromMs:from? Date.parse(day.fromTs) : null, toMs:to? Date.parse(day.toTs) : null };
       const rows = adjustmentReportData(all("SELECT * FROM stock_adjustments WHERE branch_id=?",[getBranchId()]), [], f).rows.reverse();
       body.innerHTML = `
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
@@ -7990,11 +8034,37 @@ const APP_BUILD = 8;
   // a replacement for it.
   function businessDateToday(now){
     now = now || new Date();
-    const deviceDate = now.toISOString().slice(0,10);
+    const deviceDate = businessDateOf(now);   // business day rule (utils.js); the watermark below still never lets it go back
     const hwm = getSetting("business_date_hwm","");
     const date = (hwm && hwm > deviceDate) ? hwm : deviceDate;
     if(date !== hwm){ setSetting("business_date_hwm", date); persist(); }
     return date;
+  }
+
+  // Settings → "Business day ends at" (owner decision 2026-10-07): 0–6 hours
+  // after local midnight. Admin only, and never while a shift is open on
+  // this till, so a shift's business day can't change under it. Nor between
+  // midnight and the later of the two cut-offs, when the old and new rules
+  // disagree on today's date: 00:00 → 03:00 at 01:30 would date the next
+  // shift 7 Oct (the watermark never goes back) while its sales count for
+  // 6 Oct, already closed, so they'd be in no cash-up.
+  function businessCutoffLabel(h){ return String(h).padStart(2,"0")+":00"; }
+  function setBusinessDayCutoff(hours, passcode, now){
+    const h = Number(hours);
+    if(!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX) throw new Error("Choose a time from 00:00 to 06:00.");
+    const open = one("SELECT date, branch FROM eod_sessions WHERE status='open' ORDER BY date LIMIT 1");
+    if(open) throw new Error(`Complete the open shift (${open.date}${open.branch? ", "+open.branch : ""}) in Reports → End of Day first, then change when the business day ends.`);
+    now = now || new Date();
+    const later = Math.max(h, businessCutoffHours());
+    if(localDateStr(new Date(now.getTime() - h*3600000)) !== businessDateToday(now))
+      throw new Error(`Change this after ${businessCutoffLabel(later)}: until then the new time would move today's business date.`);
+    if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode. The business day was not changed.");
+    const old = businessCutoffHours();
+    if(h===old) return { changed:false };
+    setSetting("business_day_cutoff", String(h));
+    logAudit("Business day end changed", "", businessCutoffLabel(old)+" → "+businessCutoffLabel(h));
+    persist();
+    return { changed:true };
   }
 
   // ================== License anti-rollback: trusted time ==================
@@ -8185,7 +8255,9 @@ const APP_BUILD = 8;
   // pos.js completeSale), so this is exactly equivalent to the old
   // sales.total-based sums for any sale that was never split.
   function eodTotalsFor(branch, date, openingFloat){
-    const daySales = all("SELECT * FROM sales WHERE branch=? AND ts LIKE ?",[branch,date+"%"]);
+    // the shift's business day as UTC instants (utils.js), same rule as the reports
+    const day = businessRange(date, date);
+    const daySales = all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=?",[branch,day.fromTs,day.toTs]);
     const saleIds = daySales.map(s=>s.id);
     const dayPayments = saleIds.length
       ? all(`SELECT * FROM sale_payments WHERE sale_id IN (${saleIds.map(()=>"?").join(",")})`, saleIds)
@@ -8196,7 +8268,7 @@ const APP_BUILD = 8;
     const credit = sumMethod("Credit");
     const discounts = daySales.reduce((s,r)=>s+(r.discount||0),0);
     const totalSales = cash+ecocash+credit;
-    const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts LIKE ? ORDER BY ts",[branch,date+"%"]);
+    const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[branch,day.fromTs,day.toTs]);
     const payoutsTotal = payouts.reduce((s,r)=>s+r.amount,0);
     const expected = (openingFloat||0) + cash - payoutsTotal; // opening float + cash sales - payouts = expected cash
     // Multi-Currency Support (item 5): `cash` above stays the blended
@@ -8442,7 +8514,7 @@ const APP_BUILD = 8;
   const REP_PRESETS = [{label:"Today",key:"today"},{label:"Last 7 days",key:"week"},{label:"This month",key:"month"}];
 
   function renderReports(main){
-    const today = new Date().toISOString().slice(0,10);
+    const today = businessDateOf();   // the business date (utils.js), not the UTC date
     main.innerHTML = `
       <h2>Reports</h2>
 
@@ -8585,12 +8657,12 @@ const APP_BUILD = 8;
     // Quick-access preset menus: sets a card's date range then triggers its
     // own Generate button, so common variants are one tap instead of four.
     function applyPreset(fromId, toId, key){
-      const now = new Date();
+      const now = new Date(businessDateOf()+"T00:00:00");   // today's business date, as a local date
       let from = new Date(now), to = new Date(now);
       if(key==="week"){ from.setDate(now.getDate()-6); }
       else if(key==="month"){ from = new Date(now.getFullYear(), now.getMonth(), 1); }
-      document.getElementById(fromId).value = from.toISOString().slice(0,10);
-      document.getElementById(toId).value = to.toISOString().slice(0,10);
+      document.getElementById(fromId).value = localDateStr(from);
+      document.getElementById(toId).value = localDateStr(to);
     }
     const PRESET_TARGETS = {
       sales:["salesFrom","salesTo","genSales"], stock:["stockFrom","stockTo","genStock"],
@@ -8611,7 +8683,7 @@ const APP_BUILD = 8;
 
 
     document.getElementById("genSales").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("salesFrom","salesTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
       const b = branchFilter("salesBranch");
       const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
@@ -8636,17 +8708,17 @@ const APP_BUILD = 8;
         <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>${currency} Equivalent</th></tr>
         ${currencyRows.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
         </table>` : "";
-      printReport("Sales Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Sales Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Total"], rows,
         `<p><b>Grand Total: ${currency}${grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
     };
     document.getElementById("waSales").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("salesFrom","salesTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
       const b = branchFilter("salesBranch");
       const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
-      const itemLines = sales.slice(0,40).map(s=>padLine(`${s.ts.slice(0,16)} ${s.branch} ${s.method}`, `${currency}${s.total.toFixed(2)}`));
+      const itemLines = sales.slice(0,40).map(s=>padLine(`${localDateTimeStr(s.ts)} ${s.branch} ${s.method}`, `${currency}${s.total.toFixed(2)}`));
       shareWhatsApp(receiptText(`Sales Report (${b||"All branches"})`, itemLines, [padLine("TOTAL", `${currency}${grand.toFixed(2)}`)]));
     };
 
@@ -8659,7 +8731,7 @@ const APP_BUILD = 8;
     };
 
     document.getElementById("genStock").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("stockFrom","stockTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("stockFrom","stockTo");
       const b = branchFilter("stockBranch");
       const recs = b? all("SELECT * FROM stock_received WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                      : all("SELECT * FROM stock_received WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
@@ -8667,7 +8739,7 @@ const APP_BUILD = 8;
                                   : [new Date(r.ts).toLocaleString(), escapeHtml(r.branch), escapeHtml(r.name), r.qty, escapeHtml(r.note||"")]);
       const headers = b? ["Date/Time","Product","Qty","Note"] : ["Date/Time","Branch","Product","Qty","Note"];
       const totalQty = recs.reduce((s,r)=>s+r.qty,0);
-      printReport("Stock Received Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`, headers, rows, `<p><b>Total units received: ${totalQty}</b></p>`);
+      printReport("Stock Received Report", `${b||"All branches"} · ${from} to ${to}`, headers, rows, `<p><b>Total units received: ${totalQty}</b></p>`);
     };
 
     document.getElementById("genLowStock").onclick=()=>{
@@ -8680,7 +8752,7 @@ const APP_BUILD = 8;
     };
 
     document.getElementById("genCredit").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("creditFrom","creditTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("creditFrom","creditTo");
       const b = branchFilter("creditBranch");
       const customers = all("SELECT * FROM customers ORDER BY name");
       const rows = [];
@@ -8699,13 +8771,13 @@ const APP_BUILD = 8;
           totalDebt+=debt; totalPaid+=paid;
         }
       });
-      printReport("Credit Sales Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Credit Sales Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Customer","Credit Given","Payments","Current Balance"], rows,
         `<p><b>Period totals — Credit: ${currency}${totalDebt.toFixed(2)} | Payments: ${currency}${totalPaid.toFixed(2)}</b></p>`);
     };
 
     document.getElementById("genDiscount").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("discFrom","discTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("discFrom","discTo");
       const b = branchFilter("discBranch");
       const sales = (b? all("SELECT * FROM sales WHERE branch=? AND discount>0 AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                       : all("SELECT * FROM sales WHERE discount>0 AND ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]));
@@ -8716,14 +8788,14 @@ const APP_BUILD = 8;
           escapeHtml(s.discount_status||"")];
       });
       const totalDisc = sales.reduce((s,r)=>s+r.discount,0);
-      printReport("Discount Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Discount Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Date","Receipt#","Customer","Amount","Discount","Cash Paid","Reason","Status"], rows,
         `<p><b>Total discounts given: ${currency}${totalDisc.toFixed(2)}</b></p>`);
     };
 
     const marginBtn = document.getElementById("genMargin");
     if(marginBtn) marginBtn.onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("marginFrom","marginTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("marginFrom","marginTo");
       const b = branchFilter("marginBranch");
       const items = b? all(`SELECT si.* FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.branch=? AND s.ts>=? AND s.ts<=?`,[b,fromTs,toTs])
                       : all(`SELECT si.* FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.ts>=? AND s.ts<=?`,[fromTs,toTs]);
@@ -8743,7 +8815,7 @@ const APP_BUILD = 8;
       });
       const totalMargin = totalRev-totalCost;
       const totalPct = totalRev>0? (totalMargin/totalRev*100).toFixed(1)+"%" : "—";
-      printReport("Margin Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Margin Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Item","Qty Sold","Revenue","Cost","Margin","Margin %"], rows,
         `<p><b>Total — Revenue: ${currency}${totalRev.toFixed(2)} | Cost: ${currency}${totalCost.toFixed(2)} | Margin: ${currency}${totalMargin.toFixed(2)} (${totalPct})</b></p>`);
     };
@@ -8761,7 +8833,7 @@ const APP_BUILD = 8;
     };
 
     document.getElementById("genFast").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("fastFrom","fastTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("fastFrom","fastTo");
       const b = branchFilter("fastBranch");
       const items = b? all(`SELECT si.name, si.qty, si.price FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.branch=? AND s.ts>=? AND s.ts<=?`,[b,fromTs,toTs])
                       : all(`SELECT si.name, si.qty, si.price FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.ts>=? AND s.ts<=?`,[fromTs,toTs]);
@@ -8769,12 +8841,12 @@ const APP_BUILD = 8;
       items.forEach(i=>{ if(!byName[i.name]) byName[i.name]={qty:0,revenue:0}; byName[i.name].qty+=i.qty; byName[i.name].revenue+=i.price*i.qty; });
       const rows = Object.keys(byName).map(n=>({name:n,...byName[n]})).sort((a,b2)=>b2.qty-a.qty).slice(0,30)
         .map(r=>[escapeHtml(r.name), r.qty, currency+r.revenue.toFixed(2)]);
-      printReport("Fast Moving Items", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`,
+      printReport("Fast Moving Items", `${b||"All branches"} · ${from} to ${to}`,
         ["Item","Qty Sold","Revenue"], rows, "");
     };
 
     document.getElementById("genPayoutReport").onclick=()=>{
-      const {fromTs,toTs} = dateRangeSQL("payoutFrom","payoutTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("payoutFrom","payoutTo");
       const b = branchFilter("payoutBranch");
       const payouts = b? all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                         : all("SELECT * FROM payouts WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
@@ -8782,7 +8854,7 @@ const APP_BUILD = 8;
                                      : [new Date(p.ts).toLocaleString(), escapeHtml(p.branch), escapeHtml(p.reason||""), currency+p.amount.toFixed(2), escapeHtml(p.user||"")]);
       const headers = b? ["Date/Time","Reason","Amount","By"] : ["Date/Time","Branch","Reason","Amount","By"];
       const total = payouts.reduce((s,r)=>s+r.amount,0);
-      printReport("Payouts Report", `${b||"All branches"} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}`, headers, rows,
+      printReport("Payouts Report", `${b||"All branches"} · ${from} to ${to}`, headers, rows,
         `<p><b>Total payouts: ${currency}${total.toFixed(2)}</b></p>`);
     };
 
@@ -8795,7 +8867,7 @@ const APP_BUILD = 8;
 
     document.getElementById("genBranchReport").onclick=()=>{
       const b = branchFilter("brBranch") || currentBranch();
-      const {fromTs,toTs} = dateRangeSQL("brFrom","brTo");
+      const {fromTs,toTs,from,to} = dateRangeSQL("brFrom","brTo");
       const stock = all("SELECT * FROM products WHERE branch=? ORDER BY name",[b]);
       const sales = all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs]);
       // Credit portion only (sale_payments), same reasoning as genCredit's
@@ -8803,7 +8875,7 @@ const APP_BUILD = 8;
       const credits = all(`SELECT s.id, s.ts, sp.amount as credit_amount FROM sale_payments sp
                             JOIN sales s ON s.id=sp.sale_id
                             WHERE s.branch=? AND sp.method='Credit' AND s.ts>=? AND s.ts<=? ORDER BY s.ts`,[b,fromTs,toTs]);
-      const eods = all("SELECT * FROM eod_sessions WHERE branch=? AND date>=? AND date<=? ORDER BY date",[b,fromTs.slice(0,10),toTs.slice(0,10)]);
+      const eods = all("SELECT * FROM eod_sessions WHERE branch=? AND date>=? AND date<=? ORDER BY date",[b,from,to]);
       const discSales = sales.filter(s=>s.discount>0);
       const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs]);
       const customersList = all("SELECT * FROM customers WHERE branch=? ORDER BY name",[b]);
@@ -8826,7 +8898,7 @@ const APP_BUILD = 8;
       document.getElementById("printArea").innerHTML = `
         <div class="report-print">
           <h2>${escapeHtml(getSetting("shop_name","My Shop"))} — Branch Report</h2>
-          <div class="sub">${escapeHtml(b)} · ${fromTs.slice(0,10)} to ${toTs.slice(0,10)}</div>
+          <div class="sub">${escapeHtml(b)} · ${from} to ${to}</div>
 
           <h3 class="section">Stock List</h3>
           <table><tr><th>Item</th><th>Qty</th></tr>
@@ -8940,7 +9012,7 @@ const APP_BUILD = 8;
     });
   }
   function startStocktakeModal(){
-    const today = new Date().toISOString().slice(0,10);
+    const today = businessDateOf();   // the business date (utils.js), not the UTC date
     const wrap = openModal("Start Stocktake", `
       <label>Branch</label>${branchSelectHtml("stBranch", currentBranch())}
       <label>Team names</label>
@@ -9760,20 +9832,20 @@ const APP_BUILD = 8;
         const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                         : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
         function bucketKey(ts){
-          if(granularity==="month") return ts.slice(0,7);
-          if(granularity==="year") return ts.slice(0,4);
+          const bd = businessDateOf(ts);   // each sale's business date (utils.js), never the UTC date
+          if(granularity==="month") return bd.slice(0,7);
+          if(granularity==="year") return bd.slice(0,4);
           if(granularity==="week"){
-            // Simple Monday-start bucketing, computed off the date portion
-            // only (as a local midnight) so it doesn't need to be strict
-            // ISO-8601 or worry about UTC/local skew near midnight.
-            const d = new Date(ts.slice(0,10)+"T00:00:00");
+            // Simple Monday-start bucketing off the business date (as a
+            // local midnight), so it doesn't need to be strict ISO-8601.
+            const d = new Date(bd+"T00:00:00");
             const day = d.getDay();
             const diff = day===0? -6 : 1-day;
             d.setDate(d.getDate()+diff);
             const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), dd=String(d.getDate()).padStart(2,"0");
             return `${y}-${m}-${dd}`;
           }
-          return ts.slice(0,10); // day (default)
+          return bd; // day (default)
         }
         const buckets = {};
         sales.forEach(s=>{ const key = bucketKey(s.ts); buckets[key] = (buckets[key]||0) + s.total; });
@@ -9800,7 +9872,7 @@ const APP_BUILD = 8;
     const configs = reportWriterConfigs();
     let selected = configs.find(c=>c.id===rwType) || configs[0];
     rwType = selected.id;
-    const today = new Date().toISOString().slice(0,10);
+    const today = businessDateOf();
     main.innerHTML = `
       <p class="muted">View most reports right here, with filters — no printing needed just to read the numbers.</p>
       <label>Report</label>
@@ -9879,7 +9951,7 @@ const APP_BUILD = 8;
     if(selected.hasDate){
       rwFrom = document.getElementById("rwFrom").value;
       rwTo = document.getElementById("rwTo").value;
-      fromTs = rwFrom+"T00:00:00"; toTs = rwTo+"T23:59:59";
+      ({ fromTs, toTs } = businessRange(rwFrom, rwTo));   // business days as UTC instants (utils.js)
     }
     let granularity;
     if(selected.hasGranularity){
@@ -10025,8 +10097,8 @@ const APP_BUILD = 8;
         <h4 style="margin:0 0 4px">Send app log (for audit)</h4>
         <p class="muted">Sends the activity log for the period and branch chosen above, as a file to share when management or an auditor asks for it.</p>
         <div class="row" style="margin-bottom:8px">
-          <input class="field" type="date" id="logFrom" value="${new Date(Date.now()-30*864e5).toISOString().slice(0,10)}">
-          <input class="field" type="date" id="logTo" value="${new Date().toISOString().slice(0,10)}">
+          <input class="field" type="date" id="logFrom" value="${localDateStr(new Date(Date.now()-30*864e5))}">
+          <input class="field" type="date" id="logTo" value="${localDateStr()}">
         </div>
         <div class="row" style="margin-bottom:${hasFolderPicker?'10px':'0'}">
           <button class="btn btn-outline" id="saveLog">⬇️ Save log</button>
@@ -10306,7 +10378,8 @@ const APP_BUILD = 8;
   }
   async function sendAppLog(scope, from, to, share){
     if(!from || !to) return alert("Choose the From and To dates.");
-    const {bytes, count} = appLogCsvBytes(scope, from+"T00:00:00", to+"T23:59:59");
+    const day = businessRange(from, to);   // same days as the reports (utils.js); the log keeps UTC timestamps
+    const {bytes, count} = appLogCsvBytes(scope, day.fromTs, day.toTs);
     if(count===0) return alert("No activity was logged in that date range.");
     logAudit("Export App Log", "", `${count} entries, ${from} to ${to}, ${scopeLabel(scope)}${share?" (shared)":""}`);
     persist();
@@ -13734,6 +13807,15 @@ const APP_BUILD = 8;
         <button class="btn btn-outline" id="printTestLine" style="margin-bottom:12px">🖨️ Print test line</button>
         <button class="btn btn-primary" id="saveSettings" style="margin-top:12px">Save</button>
       </div>
+      <div class="card">
+        <h3>Business day</h3>
+        <label style="margin-top:0">Business day ends at</label>
+        <select class="field" id="sBizCutoff">
+          ${Array.from({length:BUSINESS_DAY_CUTOFF_MAX+1}, (_,h)=>`<option value="${h}" ${h===businessCutoffHours()?"selected":""}>${businessCutoffLabel(h)}${h===0? " (midnight)" : ""}</option>`).join("")}
+        </select>
+        <p class="muted">Sales after midnight and before this time count for the day before: in shifts, End of Day and every report. Today's business date: <b>${escapeHtml(businessDateOf())}</b>. Needs the Admin passcode, and can't be changed while a shift is open on this till.</p>
+        <button class="btn btn-outline" id="saveBizCutoff">Save business day</button>
+      </div>
       ${rpnSectionHtml()}
       ${currenciesSectionHtml()}
       <div class="card">
@@ -13784,6 +13866,15 @@ const APP_BUILD = 8;
       setSetting("seed_money", parseFloat(document.getElementById("sSeedMoney").value)||0);
       setSetting("paper_width", document.getElementById("sPaper").value);
       persist(); render();
+    };
+    document.getElementById("saveBizCutoff").onclick=()=>{
+      const h = parseInt(document.getElementById("sBizCutoff").value,10);
+      if(h===businessCutoffHours()) return alert("The business day already ends at "+businessCutoffLabel(h)+".");
+      if(!hasAdminPasscode()) return alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
+      const pc = prompt("Admin passcode to make the business day end at "+businessCutoffLabel(h)+":");
+      if(pc===null) return;
+      try{ setBusinessDayCutoff(h, pc); alert("The business day now ends at "+businessCutoffLabel(h)+"."); render(); }
+      catch(e){ alert(e.message); }
     };
     const saveFreqBtn = document.getElementById("saveFreqSettings");
     if(saveFreqBtn) saveFreqBtn.onclick=()=>{

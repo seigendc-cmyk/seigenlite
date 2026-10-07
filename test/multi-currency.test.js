@@ -7,6 +7,7 @@
 // still goes through sale_payments, this just adds currency/rate/
 // tendered_amount columns to that same line rather than a parallel table.
 "use strict";
+process.env.TZ = "UTC";   // dates here are built as UTC (TODAY = toISOString); test/business-day.test.js covers a real time zone
 const assert = require("assert");
 const { makeApp } = require("./harness");
 

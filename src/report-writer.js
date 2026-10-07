@@ -225,20 +225,20 @@
         const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                         : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
         function bucketKey(ts){
-          if(granularity==="month") return ts.slice(0,7);
-          if(granularity==="year") return ts.slice(0,4);
+          const bd = businessDateOf(ts);   // each sale's business date (utils.js), never the UTC date
+          if(granularity==="month") return bd.slice(0,7);
+          if(granularity==="year") return bd.slice(0,4);
           if(granularity==="week"){
-            // Simple Monday-start bucketing, computed off the date portion
-            // only (as a local midnight) so it doesn't need to be strict
-            // ISO-8601 or worry about UTC/local skew near midnight.
-            const d = new Date(ts.slice(0,10)+"T00:00:00");
+            // Simple Monday-start bucketing off the business date (as a
+            // local midnight), so it doesn't need to be strict ISO-8601.
+            const d = new Date(bd+"T00:00:00");
             const day = d.getDay();
             const diff = day===0? -6 : 1-day;
             d.setDate(d.getDate()+diff);
             const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), dd=String(d.getDate()).padStart(2,"0");
             return `${y}-${m}-${dd}`;
           }
-          return ts.slice(0,10); // day (default)
+          return bd; // day (default)
         }
         const buckets = {};
         sales.forEach(s=>{ const key = bucketKey(s.ts); buckets[key] = (buckets[key]||0) + s.total; });
@@ -265,7 +265,7 @@
     const configs = reportWriterConfigs();
     let selected = configs.find(c=>c.id===rwType) || configs[0];
     rwType = selected.id;
-    const today = new Date().toISOString().slice(0,10);
+    const today = businessDateOf();
     main.innerHTML = `
       <p class="muted">View most reports right here, with filters — no printing needed just to read the numbers.</p>
       <label>Report</label>
@@ -344,7 +344,7 @@
     if(selected.hasDate){
       rwFrom = document.getElementById("rwFrom").value;
       rwTo = document.getElementById("rwTo").value;
-      fromTs = rwFrom+"T00:00:00"; toTs = rwTo+"T23:59:59";
+      ({ fromTs, toTs } = businessRange(rwFrom, rwTo));   // business days as UTC instants (utils.js)
     }
     let granularity;
     if(selected.hasGranularity){

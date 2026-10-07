@@ -68,6 +68,15 @@
         <button class="btn btn-outline" id="printTestLine" style="margin-bottom:12px">🖨️ Print test line</button>
         <button class="btn btn-primary" id="saveSettings" style="margin-top:12px">Save</button>
       </div>
+      <div class="card">
+        <h3>Business day</h3>
+        <label style="margin-top:0">Business day ends at</label>
+        <select class="field" id="sBizCutoff">
+          ${Array.from({length:BUSINESS_DAY_CUTOFF_MAX+1}, (_,h)=>`<option value="${h}" ${h===businessCutoffHours()?"selected":""}>${businessCutoffLabel(h)}${h===0? " (midnight)" : ""}</option>`).join("")}
+        </select>
+        <p class="muted">Sales after midnight and before this time count for the day before: in shifts, End of Day and every report. Today's business date: <b>${escapeHtml(businessDateOf())}</b>. Needs the Admin passcode, and can't be changed while a shift is open on this till.</p>
+        <button class="btn btn-outline" id="saveBizCutoff">Save business day</button>
+      </div>
       ${rpnSectionHtml()}
       ${currenciesSectionHtml()}
       <div class="card">
@@ -118,6 +127,15 @@
       setSetting("seed_money", parseFloat(document.getElementById("sSeedMoney").value)||0);
       setSetting("paper_width", document.getElementById("sPaper").value);
       persist(); render();
+    };
+    document.getElementById("saveBizCutoff").onclick=()=>{
+      const h = parseInt(document.getElementById("sBizCutoff").value,10);
+      if(h===businessCutoffHours()) return alert("The business day already ends at "+businessCutoffLabel(h)+".");
+      if(!hasAdminPasscode()) return alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
+      const pc = prompt("Admin passcode to make the business day end at "+businessCutoffLabel(h)+":");
+      if(pc===null) return;
+      try{ setBusinessDayCutoff(h, pc); alert("The business day now ends at "+businessCutoffLabel(h)+"."); render(); }
+      catch(e){ alert(e.message); }
     };
     const saveFreqBtn = document.getElementById("saveFreqSettings");
     if(saveFreqBtn) saveFreqBtn.onclick=()=>{

@@ -5,6 +5,7 @@
 // Phase 1 + Phase 2 + the catalogue migration) in an in-memory PGlite, called
 // as role anon exactly as PostgREST would. Nothing reaches the live project.
 "use strict";
+process.env.TZ = "UTC";   // dates here are built as UTC (TODAY = toISOString); test/business-day.test.js covers a real time zone
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");

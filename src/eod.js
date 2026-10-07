@@ -15,11 +15,37 @@
   // a replacement for it.
   function businessDateToday(now){
     now = now || new Date();
-    const deviceDate = now.toISOString().slice(0,10);
+    const deviceDate = businessDateOf(now);   // business day rule (utils.js); the watermark below still never lets it go back
     const hwm = getSetting("business_date_hwm","");
     const date = (hwm && hwm > deviceDate) ? hwm : deviceDate;
     if(date !== hwm){ setSetting("business_date_hwm", date); persist(); }
     return date;
+  }
+
+  // Settings → "Business day ends at" (owner decision 2026-10-07): 0–6 hours
+  // after local midnight. Admin only, and never while a shift is open on
+  // this till, so a shift's business day can't change under it. Nor between
+  // midnight and the later of the two cut-offs, when the old and new rules
+  // disagree on today's date: 00:00 → 03:00 at 01:30 would date the next
+  // shift 7 Oct (the watermark never goes back) while its sales count for
+  // 6 Oct, already closed, so they'd be in no cash-up.
+  function businessCutoffLabel(h){ return String(h).padStart(2,"0")+":00"; }
+  function setBusinessDayCutoff(hours, passcode, now){
+    const h = Number(hours);
+    if(!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX) throw new Error("Choose a time from 00:00 to 06:00.");
+    const open = one("SELECT date, branch FROM eod_sessions WHERE status='open' ORDER BY date LIMIT 1");
+    if(open) throw new Error(`Complete the open shift (${open.date}${open.branch? ", "+open.branch : ""}) in Reports → End of Day first, then change when the business day ends.`);
+    now = now || new Date();
+    const later = Math.max(h, businessCutoffHours());
+    if(localDateStr(new Date(now.getTime() - h*3600000)) !== businessDateToday(now))
+      throw new Error(`Change this after ${businessCutoffLabel(later)}: until then the new time would move today's business date.`);
+    if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode. The business day was not changed.");
+    const old = businessCutoffHours();
+    if(h===old) return { changed:false };
+    setSetting("business_day_cutoff", String(h));
+    logAudit("Business day end changed", "", businessCutoffLabel(old)+" → "+businessCutoffLabel(h));
+    persist();
+    return { changed:true };
   }
 
   // ================== License anti-rollback: trusted time ==================
@@ -210,7 +236,9 @@
   // pos.js completeSale), so this is exactly equivalent to the old
   // sales.total-based sums for any sale that was never split.
   function eodTotalsFor(branch, date, openingFloat){
-    const daySales = all("SELECT * FROM sales WHERE branch=? AND ts LIKE ?",[branch,date+"%"]);
+    // the shift's business day as UTC instants (utils.js), same rule as the reports
+    const day = businessRange(date, date);
+    const daySales = all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=?",[branch,day.fromTs,day.toTs]);
     const saleIds = daySales.map(s=>s.id);
     const dayPayments = saleIds.length
       ? all(`SELECT * FROM sale_payments WHERE sale_id IN (${saleIds.map(()=>"?").join(",")})`, saleIds)
@@ -221,7 +249,7 @@
     const credit = sumMethod("Credit");
     const discounts = daySales.reduce((s,r)=>s+(r.discount||0),0);
     const totalSales = cash+ecocash+credit;
-    const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts LIKE ? ORDER BY ts",[branch,date+"%"]);
+    const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[branch,day.fromTs,day.toTs]);
     const payoutsTotal = payouts.reduce((s,r)=>s+r.amount,0);
     const expected = (openingFloat||0) + cash - payoutsTotal; // opening float + cash sales - payouts = expected cash
     // Multi-Currency Support (item 5): `cash` above stays the blended

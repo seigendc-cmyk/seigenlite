@@ -8,6 +8,7 @@
 //   * the stock ledger: every stock change writes a movement; integrity check; opening balance; merge
 //   * deactivated till: the app's refusal handling
 "use strict";
+process.env.TZ = "UTC";   // dates here are built as UTC (TODAY = toISOString); test/business-day.test.js covers a real time zone
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");

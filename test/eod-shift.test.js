@@ -6,6 +6,7 @@
 // a blocked sale goes through — these tests exercise that same function,
 // not a copy of its logic.
 "use strict";
+process.env.TZ = "UTC";   // dates here are built as UTC (TODAY = toISOString); test/business-day.test.js covers a real time zone
 const assert = require("assert");
 const { makeApp } = require("./harness");
 
