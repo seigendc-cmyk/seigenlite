@@ -1,5 +1,6 @@
 // node tools/db/record-migration-history.js            print the SQL, change nothing
 // node tools/db/record-migration-history.js check      read-only: what is recorded, what `supabase db push` would run
+// node tools/db/record-migration-history.js dry        read-only: snapshot the whole catalogue twice and compare
 // node tools/db/record-migration-history.js apply      run the SQL (one transaction), then verify
 //
 // Records on live which migration files are already applied, in the table
@@ -56,11 +57,11 @@ const WHOLE_DB = `select json_build_object(
   'functions', (select json_agg(json_build_object('n', p.oid::regprocedure::text, 'md5', md5(coalesce(p.prosrc, '')), 'acl', p.proacl::text,
       'sd', p.prosecdef, 'cfg', p.proconfig::text) order by p.oid::regprocedure::text) from pg_proc p),
   'constraints', (select json_agg(c.conrelid::regclass::text || '.' || c.conname || ':' || md5(pg_get_constraintdef(c.oid)) order by 1) from pg_constraint c where c.conrelid <> 0),
-  'triggers', (select json_agg(t.tgrelid::regclass::text || '.' || t.tgname || ':' || t.tgenabled order by 1) from pg_trigger t),
+  'triggers', (select json_agg(t.tgrelid::regclass::text || '.' || t.tgname || ':' || t.tgenabled::text order by 1) from pg_trigger t),
   'policies', (select json_agg(schemaname || '.' || tablename || '.' || policyname || ':' || md5(coalesce(qual, '') || '|' || coalesce(with_check, '') || '|' || roles::text) order by 1) from pg_policies),
   'extensions', (select json_agg(extname || ' ' || extversion order by 1) from pg_extension),
   'publications', (select json_agg(pubname || ':' || schemaname || '.' || tablename order by 1) from pg_publication_tables),
-  'default_acl', (select json_agg(defaclrole::regrole::text || ':' || defaclnamespace || ':' || defaclobjtype || ':' || defaclacl::text order by 1) from pg_default_acl)
+  'default_acl', (select json_agg(defaclrole::regrole::text || ':' || defaclnamespace::text || ':' || defaclobjtype::text || ':' || defaclacl::text order by 1) from pg_default_acl)
 ) j`;
 
 let URL = null;
@@ -122,6 +123,12 @@ function compare(a, b) {
     if (mode === 'check') {
       const st = await readOnly(c, state);
       console.log(JSON.stringify({ table_exists: st.exists, recorded: st.rows, db_push_would_run: pushPlan(st) }, null, 1));
+      return;
+    }
+    if (mode === 'dry') {   // read-only: snapshot twice and compare (proves the "nothing else changed" check)
+      const a = await readOnly(c, async (q) => (await q(WHOLE_DB))[0].j);
+      const b = await readOnly(c, async (q) => (await q(WHOLE_DB))[0].j);
+      console.log(JSON.stringify({ objects_compared: flatten(a).size, diff: compare(a, b) }, null, 1));
       return;
     }
     if (mode !== 'apply') throw new Error('unknown mode ' + mode);
