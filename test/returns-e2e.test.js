@@ -221,6 +221,37 @@ async function scenario(browser, kind){
     const slip = await p.textContent(".modalOverlay .cn-slip");
     assert.match(slip, /CREDIT NOTE CN0002[\s\S]*1 x Oil 2L[\s\S]*Exchange \(receipt #3\)\s*\$5\.00[\s\S]*Cash refunded\s*\$15\.00/);
     await shot(d, "13-exchange-slip");
+    await p.click(".modalOverlay [data-modal-close]");
+  });
+
+  await t(kind+": Sale Detail → \"Return / Credit note\" opens the return; once all is returned the button goes", async ()=>{
+    await nav(d, "pos");
+    await addToCart(d, "Rice 2kg"); await payCash(d);
+    await waitFor(()=>saleDone(d, 4), "the Rice sale");
+    await moreTab(d, "reportwriter");
+    await p.selectOption("#rwTypeSel", "sales");
+    await p.click("#rwView");
+    await p.click('[data-view-sale="4"]');
+    await p.waitForSelector(".modalOverlay #saleReturnBtn");
+    await shot(d, "14-sale-detail-return");
+    await p.click("#saleReturnBtn");
+    await p.waitForSelector(".return-flow .rt-line");
+    assert.match(await modal(d).textContent(), /Sold 1 · returned 0 · can return 1/);
+    await p.click('.rt-line:has-text("Rice 2kg") [data-rt-inc]');
+    await p.click("#rtNext");
+    await p.selectOption("#rtReason", "Changed mind");
+    await p.click("#rtNext");
+    await p.fill("#rtPass", "1234"); await p.click("#rtSave");
+    await waitFor(async()=> /Credit note CN0003 saved\./.test(await modal(d).textContent()), "the credit note");
+    await p.click("#rtClose");                                               // closing re-draws the page: view the report again
+    await p.selectOption("#rwTypeSel", "sales");
+    await p.click("#rwView");
+    await p.click('[data-view-sale="4"]');
+    await p.waitForSelector(".modalOverlay [data-open-cn]");
+    assert.match(await modal(d).textContent(), /Returned on: CN0003/);
+    assert.strictEqual(await p.$(".modalOverlay #saleReturnBtn"), null, "nothing left to return");
+    await p.click(".modalOverlay [data-open-cn]");
+    await waitFor(async()=> /CREDIT NOTE CN0003/.test(await modal(d).textContent()), "the credit note from Sale Detail");
     assert.deepStrictEqual(d.pageErrors, []);
   });
   await d.ctx.close();
