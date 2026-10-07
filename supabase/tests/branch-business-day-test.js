@@ -70,6 +70,14 @@ const hex = () => crypto.randomBytes(16).toString('hex');
   ok('main sets its own branch to 00:00 (0, not null)', r.r[0].j.business_day_cutoff === 0 && (await pull('TILL0002', 'K-2')).business_day_cutoff === 0);
   r = await setDay('REMOTE01', 'K-R', rm.branch_id, 5);
   ok('a non-main till is refused (NOT_MAIN)', r.r[0].j.error === 'NOT_MAIN');
+  // is_main is NOT NULL live; drop that inside a transaction to prove a null fails closed
+  await pg.exec(`begin; alter table public.cl_branches alter column is_main drop not null`);
+  await q(`update public.cl_branches set is_main = null where id = $1`, [rm.branch_id]);
+  r = await setDay('REMOTE01', 'K-R', rm.branch_id, 5);
+  const nullCut = (await q(`select business_day_cutoff c from public.cl_branches where id = $1`, [rm.branch_id]))[0].c;
+  await pg.exec('rollback');
+  ok('a till whose branch has a null is_main is refused (NOT_MAIN), nothing changed', !r.e && r.r[0].j.error === 'NOT_MAIN' && nullCut === 3, JSON.stringify(r) + ' cutoff ' + nullCut);
+  ok('the null is_main test left no trace', (await q(`select is_nullable from information_schema.columns where table_name='cl_branches' and column_name='is_main'`))[0].is_nullable === 'NO');
   r = await setDay('MAIN0001', 'K-1', rm.branch_id, 7);
   ok('07:00 is refused', !!r.e && /00:00 to 06:00/.test(r.e), JSON.stringify(r));
   r = await setDay('MAIN0001', 'K-1', '00000000-0000-0000-0000-000000000000', 2);

@@ -56,7 +56,8 @@ declare me cl_terminals%rowtype;
 begin
   me := cl_catalogue_caller(p_install_id, p_secret_phrase, p_device_key);
   if not me.active then return json_build_object('error', 'TERMINAL_INACTIVE'); end if;
-  if not (select is_main from cl_branches where id = me.branch_id) then return json_build_object('error', 'NOT_MAIN'); end if;
+  -- coalesce: a missing or null is_main is "not main" (fails closed; is_main is not null today)
+  if not coalesce((select is_main from cl_branches where id = me.branch_id), false) then return json_build_object('error', 'NOT_MAIN'); end if;
   if p_hours is not null and p_hours not between 0 and 6 then
     raise exception 'The business day can end from 00:00 to 06:00' using errcode = 'P0001';
   end if;
