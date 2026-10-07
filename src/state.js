@@ -5,18 +5,8 @@
    attachments additionally need the file served via http://localhost
    (a local-server app) — text sharing always works from a plain file.
 
-   ACTIVATION CODE FORMULA (also shown on the Help page in-app):
-     function computeActivationCode(deviceCode, secretPhrase) {
-       const combined = deviceCode.toUpperCase() + '|' + secretPhrase.toUpperCase();
-       let hash = 0;
-       for (let i = 0; i < combined.length; i++) {
-         hash = ((hash << 5) - hash + combined.charCodeAt(i)) | 0;
-       }
-       hash = Math.abs(hash);
-       return hash.toString(36).toUpperCase().padStart(6, '0').slice(-6);
-     }
-   Give this + the device code shown on the lock screen + the shop's secret
-   phrase to any Claude chat to get the 6-character unlock code.
+   Activation: signed licences, see src/activation.js and
+   docs/activation/activation-v2-design.md.
    ========================================================================= */
 
 (function(){

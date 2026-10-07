@@ -297,8 +297,8 @@ function sell(app, product, qty){
     assert.strictEqual(M2.api.getCart()[0].qty, 1, "capped at the stock it has");
     M2.hook("printReceipt", ()=>{}); M2.api.completeSale("Cash");
     assert.strictEqual(P(M2,"SUG1").stock, 0, "never below zero");
-    assert.strictEqual(M2.api.tillStockPending(), true, "T2 at main: stock comes in Phase 3b");
-    assert.match(M2.api.tillStockNoteHtml(), /Stock for this till isn(&#39;|')t set up yet — coming in the next update./);
+    assert.strictEqual(M2.api.tillStockPending(), true, "T2 at main with no stock left: the no-stock note");
+    assert.match(M2.api.tillStockNoteHtml(), /This till has no stock yet\. Receive stock on this till, or ask the main till to start shared stock for the branch\./);
     assert.strictEqual(M1.api.tillStockPending(), false, "T1 keeps its own stock");
     assert.strictEqual(R.api.tillStockPending(), false, "a single-till branch (Murehwa T1) keeps its own stock");
     // the below-zero indicator stays, read-only, for older data

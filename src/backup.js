@@ -161,14 +161,38 @@
     if(!confirm("This will replace ALL current data with the imported file. A backup of your current data downloads first. Continue?")) return;
     downloadDb(`seigen-backup-before-replace-${new Date().toISOString().replace(/[:.]/g,"-")}.sqlite`);
     const ownId = getSetting("branch_id",""), ownCounters = ownId? all("SELECT doc_type,last_no FROM doc_counters WHERE branch_id=?",[ownId]) : [];
+    const own = captureDeviceSettings();
     db = new SQL.Database(bytes);
     db.run(SCHEMA); migrate(db);
     keepDeviceIdentity(ownId, ownCounters);
+    restoreDeviceSettings(own);
     currency = getSetting("currency","$");
     backfillBranch(db, currentBranch());
+    if(typeof refreshLicenceLock==="function") refreshLicenceLock();   // the restored data may end the trial (activation.js)
     await persist();
     render();
     alert("Data imported.");
+  }
+
+  // Activation v2: a restore never brings another device's (or an older
+  // self's) identity, licence or clock with it. These settings stay the
+  // device's own; the clock watermark keeps the higher of the two, so
+  // restoring an old backup can't wind the trusted time back.
+  const DEVICE_OWN_SETTINGS = ["install_id","device_key","secret_phrase","install_date","licence","licence_serials",
+    "activated_until","activated_until_src","licence_v2_since",
+    "business_id","business_name","branch_uuid","terminal_branch_name","terminal_is_main","terminal_id","till_code","terminal_label",
+    "terminal_inactive","dc_vendor_id","dc_vendor_status"];
+  function captureDeviceSettings(){
+    const o = {};
+    DEVICE_OWN_SETTINGS.forEach(k=>{ o[k] = getSetting(k,""); });
+    o.trusted_time_hwm = getSetting("trusted_time_hwm","");
+    return o;
+  }
+  function restoreDeviceSettings(o){
+    DEVICE_OWN_SETTINGS.forEach(k=> setSetting(k, o[k]||""));
+    const a = Date.parse(o.trusted_time_hwm||""), b = Date.parse(getSetting("trusted_time_hwm",""));
+    const hi = [a,b].filter(x=>!isNaN(x));
+    if(hi.length) setSetting("trusted_time_hwm", new Date(Math.max(...hi)).toISOString());
   }
 
 

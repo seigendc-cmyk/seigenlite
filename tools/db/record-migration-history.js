@@ -27,11 +27,13 @@ const RECORDED = ['20260923000000', '20260924120000', '20260925120000', '2026092
   '20261003120000', '20261004120000', '20261004180000', '20261006120000', '20261007120000',
   '20261008120000', '20261008140000', '20261009120000'];
 const NOT_APPLIED = ['20260926160000'];
+// Applied later, one at a time, with tools/db/apply-migration.js (which records each itself).
+const APPLIED_LATER = ['20261010120000'];
 
 const files = fs.readdirSync(MIG).filter((f) => /^\d{14}_\w+\.sql$/.test(f)).sort();
 const nameOf = Object.fromEntries(files.map((f) => [f.slice(0, 14), f.slice(15, -4)]));
 for (const v of RECORDED) if (!nameOf[v]) throw new Error('no migration file for ' + v);
-for (const v of Object.keys(nameOf)) if (!RECORDED.includes(v) && !NOT_APPLIED.includes(v)) throw new Error('unclassified migration file ' + v);
+for (const v of Object.keys(nameOf)) if (!RECORDED.includes(v) && !NOT_APPLIED.includes(v) && !APPLIED_LATER.includes(v)) throw new Error('unclassified migration file ' + v);
 
 const lit = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 const SQL = `begin;

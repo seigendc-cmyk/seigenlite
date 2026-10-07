@@ -41,8 +41,8 @@ The goal: activation codes that only seiGEN can create, even though the app's so
 
 | What | Where | Finding |
 |---|---|---|
-| The formula | `src/activation.js:1-7` | `computeActivationCode(deviceCode, phrase)`: a 32-bit string hash (`hash*31 + char`) of `DEVICECODE\|PHRASE`, in base 36, last 6 characters. |
-| The formula, published | `src/state.js:8-19` | A header comment prints the formula with "Give this + the device code … + the shop's secret phrase to any Claude chat to get the 6-character unlock code." It ships in every build. |
+| The formula | `src/activation.js:1-7` | `computeActivationCode(deviceCode, phrase)`: a short, unkeyed hash of the device code and the shop's phrase (6 characters). No secret of seiGEN's is involved. |
+| The formula, published | `src/state.js:8-19` | A header comment printed the whole formula with instructions for computing codes, and shipped in every build. (Removed in v11, Q12.) |
 | The phrase | `src/setup.js:96,118,187`, `src/settings.js:83,150` | The shop's "activation secret phrase" is typed at setup and editable in Settings. **The shop owner knows it**, so anyone with the formula and their own phrase can make their own codes. A joined till holds the *business* phrase (`setup.js:118`). The server stores it in clear text in `cl_vendors.shop_secret_phrase`. |
 | Install ID | `src/terminal.js:21-22`, `src/db.js:653-657` | `uid4()`: 4 characters from a 32-letter alphabet (about 1 million values), made with `Math.random`. `LONG_INSTALL_ID = false`. |
 | Device key | `src/terminal.js:25-34` | 16 random bytes from `crypto.getRandomValues`, made once per install, never shown. Sent with check-in and every terminal RPC. Stored on the server in `cl_vendors.device_key`. |

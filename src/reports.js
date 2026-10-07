@@ -1,8 +1,11 @@
-  function renderReports(main){
+  // opts.readOnly: a locked device (activation.js renderLockReports) sees the
+  // figures only: no End of Day, returns or requests, which write.
+  function renderReports(main, opts){
+    const readOnly = !!(opts && opts.readOnly);
     const today = businessDateOf();   // the business date (utils.js), not the UTC date
     main.innerHTML = `
-      <h2>Reports</h2>
-
+      <h2>Reports${readOnly? " (read-only)" : ""}</h2>
+${readOnly? "" : `
       <div id="eodSection"></div>
 
       ${typeof returnsCardHtml==="function"? returnsCardHtml() : ""}
@@ -12,6 +15,7 @@
         <p class="muted">Note stock a customer asked for that you didn't have.</p>
         <button class="btn btn-primary" id="reportsLogRequestBtn">+ Log Request</button>
       </div>
+`}
 
       <div class="search-wrap">
         <span class="ic">🔎</span>
@@ -108,9 +112,11 @@
         <div class="rep-actions"><button class="btn btn-outline icon-btn" id="genBranchReport" title="Generate PDF">${ICON_GEN}</button></div>
       </div>
     `;
-    renderEOD(document.getElementById("eodSection"));
-    if(typeof wireReturnsCard==="function") wireReturnsCard();
-    document.getElementById("reportsLogRequestBtn").onclick=()=>openRequestsDrawer();
+    if(!readOnly){
+      renderEOD(document.getElementById("eodSection"));
+      if(typeof wireReturnsCard==="function") wireReturnsCard();
+      document.getElementById("reportsLogRequestBtn").onclick=()=>openRequestsDrawer();
+    }
 
     // Filters which report-generator CARDS are shown by title — purely a
     // display:none toggle over cards already in the DOM, so it never

@@ -274,6 +274,12 @@
   // check found the device clock rolled back or jumped — null the rest of
   // the time, including once a later, clean check supersedes it.
   function lastClockAnomaly(){ return _lastClockCheck? _lastClockCheck.anomaly : null; }
+  // A time seiGEN vouched for (a licence's signed issue date, activation.js):
+  // moves the watermark forward to it if it's ahead, never backwards.
+  function noteTrustedTime(d){
+    if(!d || isNaN(d.getTime()) || d.getTime() <= trustedNow().getTime()) return;
+    _lastClockCheck = evaluateTrustedTime(d, { trustedSource:true });
+  }
 
   // ================== Shift / EOD control ==================
   // Reuses eod_sessions (already existed as a one-row-per-count log; see

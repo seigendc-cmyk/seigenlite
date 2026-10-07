@@ -21,6 +21,14 @@ class Compat {
   }
 }
 
+// The vendored TweetNaCl (activation.js's licence verifier), run INSIDE the
+// context the way build.js ships it, so it sees the app's own Uint8Array
+// (a require()d copy would reject the context's arrays as foreign).
+const NACL_SRC = fs.readFileSync(path.join(__dirname,"..","src","vendor","tweetnacl-fast.min.js"),"utf8");
+function loadVendorNacl(ctx){
+  vm.runInContext("var module = { exports: {} };\n" + NACL_SRC + "\nvar nacl = module.exports; module = undefined;", ctx, { filename:"tweetnacl-fast.min.js" });
+}
+
 // One app instance = one branch's device.
 function makeApp(settings){
   const db = new Compat();
@@ -53,6 +61,7 @@ function makeApp(settings){
     escapeHtmlStub:null, SQLctor:sqlCtor, __db:db, persistCount:0,
   };
   vm.createContext(ctx);
+  loadVendorNacl(ctx);
   const prelude = `const APP_BUILD = ${APP_BUILD};
     let SQL={Database:SQLctor}, db=__db, sessionUser="Tester", currency="$";
     const IDB_NAME="x",IDB_STORE="x",IDB_KEY="x"; let route="", cart=[];
@@ -94,6 +103,10 @@ function makeApp(settings){
         businessDateToday, oldestOpenShift, openShiftForDate, eodOperatorName, eodOperatorStaffId, shiftBlockReason,
         startShift, eodTotalsFor, completeEOD, markEodPrinted, eodPrintSummary, eodWhatsAppText,
         computeActivationCode, activationStatus, currentDeviceCode,
+        LICENCE_PUBLIC_KEYS, LICENCE_EPOCH_MS, licenceState, licenceDeviceCode, deviceTag, deviceKeyHash, parseLicence, verifyLicence, currentLicence,
+        applyLicence, enterLegacyCode, redeemShortCode, activateFromInput, classifyActivationInput, licenceProblemText, licencePullPending,
+        earliestBusinessDataMs, trialStartMs, trialEndMs, legacyCutoffMs, legacyHorizonMs, refreshLicenceLock, licenceLocked, noteTrustedTime,
+        captureDeviceSettings, restoreDeviceSettings, DEVICE_OWN_SETTINGS, tillStockNoteText,
         trustedTimeHwm, establishTrustedTime, trustedNow, lastClockAnomaly, evaluateTrustedTime, fetchNetworkTime,
         RETURN_REASONS, RETURN_OTHER_TILL_TEXT, returnDaysLimit, setReturnDaysLimit, parseReceiptQuery, returnOriginProblem, findReturnSale, saleReturnState,
         computeReturn, allocateCents, planCreditNote, commitCreditNote, startExchange, cancelExchange, exchangePending:()=>exchangePending(), exchangeApplied,
@@ -128,4 +141,4 @@ function makeApp(settings){
   return { api, ctx, db, hook, setField };
 }
 
-module.exports = { makeApp, Compat, src };
+module.exports = { makeApp, Compat, src, loadVendorNacl };

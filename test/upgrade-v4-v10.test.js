@@ -198,7 +198,7 @@ async function buildV4Shop(){
     assert.deepStrictEqual(plain(N.api.stockLedgerCheck().mismatches), []);
   });
 
-  await t("a v4 T2 of a multi-till branch that isn't shared keeps selling its own stock on v10 (the note shows, nothing is blocked)", async ()=>{
+  await t("a v4 T2 of a multi-till branch that isn't shared keeps selling its own stock on v10 (no note: it holds stock of its own; nothing is blocked)", async ()=>{
     const T2 = hooks(withClock(makeV4({ setup_complete:"1", shop_name:"Gentronix", branch_name:"Harare", branch_type:"main", currency:"$",
       till_code:"T2", terminal_id:"22222222-2222-2222-2222-222222222222", terminal_is_main:"1" })));
     T2.clock("2026-10-06T08:00");
@@ -208,10 +208,10 @@ async function buildV4Shop(){
     T2.clock("2026-10-06T18:00"); T2.api.completeEOD("60", "");
     const U = hooks(withClock(boot(makeApp(), T2.db)));
     U.clock("2026-10-07T08:00"); U.api.startShift("50");
-    assert.strictEqual(U.api.tillStockPending(), true, "before its first stock sync: the note shows");
+    assert.strictEqual(U.api.tillStockPending(), false, "before its first stock sync: it has stock of its own, so no note (activation-v2-design.md section 9)");
     U.clock("2026-10-07T09:00"); assert.strictEqual(sell(U, [["RICE",2]], "Cash").receipt_no, "T2-0002");
     U.api.setSetting("stock_mode","local"); U.api.setSetting("stock_holder","");      // what cl_stock_sync answers for a non-holder of a local branch
-    assert.strictEqual(U.api.tillStockPending(), true, "after it: the note still shows");
+    assert.strictEqual(U.api.tillStockPending(), false, "after it (local branch, not the holder): still no note while it has stock");
     U.clock("2026-10-07T10:00"); sell(U, [["RICE",1]], "Cash");
     assert.strictEqual(U.api.one("SELECT stock FROM products WHERE sku='RICE'").stock, 1, "5 - 1 (v4) - 2 - 1 (v10): its own stock, as before");
     assert.deepStrictEqual(plain(U.api.stockLedgerCheck().mismatches), []);

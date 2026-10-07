@@ -233,11 +233,11 @@ async function installOf(d){ return (await sq("select install_id from cl_vendors
     await nav(D, "products");
     await waitFor(async()=> /Rice 2kg/.test(await D.page.textContent("#productsTableArea")), "products");
     assert.strictEqual(await D.page.$("#openAddProduct"), null);
-    assert.match(await D.page.textContent(".till-stock-note"), /Stock for this till isn't set up yet — coming in the next update./, "T2 of Murehwa: note on Products");
+    assert.match(await D.page.textContent(".till-stock-note"), /This till has no stock yet\. Receive stock on this till, or ask the main till to start shared stock for the branch\./, "T2 of Murehwa (no stock of its own): note on Products");
     await shot(D.page, "desktop-remote-products.png");
     await nav(D, "pos");
     await waitFor(async()=> (await D.page.$$('img.ds-thumb[data-cat-pic][src^="data:image/"]')).length===1, "the downloaded picture on Sell");
-    assert.match(await D.page.textContent(".till-stock-note"), /Stock for this till isn't set up yet/, "... and on Sell");
+    assert.match(await D.page.textContent(".till-stock-note"), /This till has no stock yet/, "... and on Sell");
     assert.strictEqual(await D.page.locator('.ds-add-btn').first().isDisabled(), true, "Out at zero stock");
     await shot(D.page, "desktop-remote-sell-pictures.png");
     const inSql = await D.page.evaluate(()=>new Promise(res=>{ const r = indexedDB.open("seigen_cat_pics"); r.onsuccess = ()=>{ const q = r.result.transaction("pics").objectStore("pics").count(); q.onsuccess = ()=>res(q.result); }; }));

@@ -21,22 +21,30 @@
     else { if(max>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:max}); }
     render();
   }
-  // A till in a multi-till branch whose stock isn't shared yet, and that
-  // doesn't hold the branch's stock itself, has nothing to sell (Phase 3a
-  // note). Phase 3b decides it from the server's answer (stock holder), so a
-  // branch whose T1 was deactivated and runs on a single T2 is handled; before
-  // the first stock sync it falls back to the till code.
-  const TILL_STOCK_NOTE = "Stock for this till isn't set up yet — coming in the next update.";
-  function tillStockPending(){
-    if(!getSetting("terminal_id","")) return false;
+  // The orange note on Sell and Products (activation-v2-design.md §9): shown
+  // only when it's true.
+  //   * shared branch, this till not joined yet (still holds its own stock):
+  //     say how to add it to the branch;
+  //   * a T2+ till in a local branch (or before its first stock sync) with no
+  //     stock at all: say how to get some. A till that holds stock of its own
+  //     sells it normally (sellableNow), so it gets no note.
+  // T1, the branch's stock holder and unregistered devices never see it.
+  const TILL_STOCK_NOTE_MERGE = "Your branch uses shared stock. This till still has stock of its own: add it to the branch in More → Settings → Branch stock.";
+  const TILL_STOCK_NOTE_EMPTY = "This till has no stock yet. Receive stock on this till, or ask the main till to start shared stock for the branch.";
+  function tillStockNoteText(){
+    if(!getSetting("terminal_id","")) return "";
     const mode = getSetting("stock_mode","");
-    if(mode==="shared") return getSetting("stock_init","")!=="1";
-    if(mode==="local") return getSetting("stock_holder","")!=="1";
+    if(mode==="shared") return getSetting("stock_init","")!=="1"? TILL_STOCK_NOTE_MERGE : "";
+    if(mode==="local" && getSetting("stock_holder","")==="1") return "";
     const t = getSetting("till_code","");
-    return /^T[0-9]+$/.test(t) && t!=="T1";
+    if(!mode && !(/^T[0-9]+$/.test(t) && t!=="T1")) return "";
+    const any = one("SELECT 1 x FROM products WHERE branch=? AND stock>0 LIMIT 1",[currentBranch()]);
+    return any? "" : TILL_STOCK_NOTE_EMPTY;
   }
+  function tillStockPending(){ return !!tillStockNoteText(); }
   function tillStockNoteHtml(){
-    return tillStockPending()? `<div class="box till-stock-note" style="margin:0 0 10px;padding:10px 12px;border:1px solid #b54708;border-radius:8px;background:#fff8f0;color:#b54708;font-weight:600">${escapeHtml(TILL_STOCK_NOTE)}</div>` : "";
+    const t = tillStockNoteText();
+    return t? `<div class="box till-stock-note" style="margin:0 0 10px;padding:10px 12px;border:1px solid #b54708;border-radius:8px;background:#fff8f0;color:#b54708;font-weight:600">${escapeHtml(t)}</div>` : "";
   }
   function changeQty(pid, delta){
     if(typeof window!=="undefined" && window._stockChecking) return;

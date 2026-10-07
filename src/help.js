@@ -1,21 +1,20 @@
   function renderAbout(main){
     main.innerHTML = `
+      ${typeof licenceStatusCardHtml==="function"? licenceStatusCardHtml() : ""}
       <div class="card">
         <p>seiGEN Commerce Lite is for people who care about growth in business. It's built so any shop — one till or several — can run sales, track stock, and close the day properly, without needing the internet to work.</p>
         <div class="hr"></div>
         <p><b>Digital Commerce</b><br>Commerce Valley Est, Marirangwe, Mhondoro<br>digitalcommerce.com</p>
-        <p><b>Call/WhatsApp:</b> +263774479121 / +263789487287</p>
-        <button class="btn btn-primary" id="waAbout1">📲 WhatsApp +263774479121</button>
-        <div style="height:8px"></div>
-        <button class="btn btn-outline" id="waAbout2">📲 WhatsApp +263789487287</button>
+        <p><b>Call/WhatsApp:</b> +263789487287</p>
+        <button class="btn btn-primary" id="waAbout2">📲 WhatsApp +263789487287</button>
         <div class="hr"></div>
         <p class="muted" style="font-size:11.5px">Distributed under license from seiGEN Commerce Infrastructure.</p>
         <p class="muted" style="font-size:11.5px">Version ${escapeHtml(APP_VERSION)}</p>
       </div>
     `;
     const intro = "Hi, I'm using seiGEN Commerce Lite and would like to get in touch.";
-    document.getElementById("waAbout1").onclick=()=> window.open("https://wa.me/263774479121?text="+encodeURIComponent(intro),"_blank");
     document.getElementById("waAbout2").onclick=()=> window.open("https://wa.me/263789487287?text="+encodeURIComponent(intro),"_blank");
+    if(typeof wireLicenceStatusCard==="function") wireLicenceStatusCard();
   }
 
   function renderHelp(main){
@@ -55,7 +54,7 @@
           <p><b>Credit sale invoices:</b> Any Credit sale gets a 🖨️ Invoice option alongside its receipt — a proper A4 document with your letterhead, itemized lines, and the customer's current Balance Due, useful for handing to a customer or filing separately from the till receipt.</p>
           <p><b>Sharing an export via WhatsApp:</b> Next to Export in Settings, 📲 Share via WhatsApp opens your device's share sheet with the data file already attached, skipping the manual-attach step — where a browser doesn't support that, it downloads the file instead and tells you to attach it yourself.</p>
           <p><b>Export filenames:</b> Every exported data file — manual Export, WhatsApp share, or the automatic file after a Dispatch — is named the same way: name, branch, date, and time, so it's always clear at a glance which file is which and when it was made.</p>
-          <p><b>Activation:</b> The app locks every 30 days. Call or WhatsApp +263774479121 with the device code shown and we'll send you an unlock code.</p>
+          <p><b>Activation:</b> A new device runs free for 30 days. After that it needs a licence from seiGEN: WhatsApp or call +263789487287 with the device code shown on the activation screen (also in More → About). seiGEN sends a link (tap it), a long code (paste it) and a short code (type it; needs the internet). Each licence works only on the device it was made for. If the licence runs out, selling pauses, but you can still view reports and download a backup.</p>
           <p class="muted" id="helpNoMatch" style="display:none">No help topics match your search.</p>
         </div>
     `;

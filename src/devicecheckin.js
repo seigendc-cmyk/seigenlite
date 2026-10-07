@@ -151,6 +151,10 @@
       setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);
       await persist();
+      // Activation (activation.js): a registered till picks up a licence
+      // seiGEN issued for it. Fire-and-forget, like the rest of check-in.
+      if(typeof licencePullPending==="function" && typeof isTerminalRegistered==="function" && isTerminalRegistered())
+        licencePullPending().catch(()=>{});
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —

@@ -38,7 +38,11 @@
   // ================== RENDER ==================
   function render(){
     if(route==="setup") return renderSetup();
+    // Activation (activation.js): a locked device only ever shows the lock
+    // screen or read-only Reports, whatever route a button asks for.
+    if(typeof licenceLocked==="function" && licenceLocked() && route!=="lockreports") route = "lock";
     if(route==="lock") return renderLock();
+    if(route==="lockreports") return renderLockReports();
     if(route==="start") return renderStart();
     const desktop = isDesktopBuild();
     $app.innerHTML = `

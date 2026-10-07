@@ -54,7 +54,7 @@
         <h2><span class="cat-vendor">${escapeHtml(getSetting("shop_name","My Shop"))}</span> — Product Catalogue</h2>
         <div class="sub">${escapeHtml(currentBranch())} · ${new Date().toLocaleDateString()}</div>
         <div class="catalogue-grid">${cards}</div>
-        <div class="cat-footer">Powered by seiGEN Commerce Infrastructure · +263774479121 · Terms and conditions apply</div>
+        <div class="cat-footer">Powered by seiGEN Commerce Infrastructure · +263789487287 · Terms and conditions apply</div>
       </div>`;
     if(!window._catalogueTipShown){
       window._catalogueTipShown = true;

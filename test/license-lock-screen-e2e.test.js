@@ -45,6 +45,7 @@ function makeDomApp(settings){
     $app: document.getElementById("app"),
   }));
 
+  require("./harness").loadVendorNacl(ctx);   // activation.js's vendored verifier, as build.js ships it
   const prelude = `
     let SQL={Database:SQLctor}, db=__db, sessionUser="Tester", currency="$";
     let route="lock", cart=[];
@@ -52,7 +53,7 @@ function makeDomApp(settings){
     function render(){}
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
   `;
-  const files = ["db.js","activation.js","pos.js","sync.js","eod.js"];
+  const files = ["db.js","activation.js","utils.js","terminal.js","pos.js","sync.js","eod.js"];
   // db.js defines the real persist() (idbSet/db.export-based, needing real
   // IndexedDB) — override it with a no-op after load, same pattern
   // test/harness.js uses, since this test only needs settings/business
@@ -88,7 +89,8 @@ async function t(name, fn){
     app.exec("renderLock();");
 
     assert.ok(app.document.querySelector(".device-code"), "the device code is shown");
-    assert.ok(/Your 30 days are up/.test(app.document.getElementById("app").innerHTML));
+    assert.ok(/Activation needed/.test(app.document.getElementById("app").innerHTML));
+    assert.ok(/free trial ended on/.test(app.document.getElementById("lockReason").textContent), app.document.getElementById("lockReason").textContent);
     assert.strictEqual(app.exec("lastClockAnomaly()"), null);
     // No stray anomaly banner text anywhere on the screen.
     assert.ok(!/date\/time appears to have/.test(app.document.getElementById("app").innerHTML));
@@ -139,7 +141,8 @@ async function t(name, fn){
     // real host machine's wall clock happens to read right now.
     const expected = new Date("2026-09-22T08:00:00Z").getTime()+30*86400000;
     assert.ok(Math.abs(until.getTime()-expected) < 5000, "activated_until is 30 days from the trusted instant: "+until.toISOString());
-    assert.strictEqual(app.exec("route"), "pos", "unlocking navigates away from the lock screen");
+    assert.strictEqual(app.exec("activationStatus()"), "ok", "the lock is cleared");
+    assert.ok(/activated until/i.test(app.document.getElementById("actDone").textContent), "the Activated screen says until when");
   });
 
   console.log("\n"+passed+" passed, "+failed+" failed");

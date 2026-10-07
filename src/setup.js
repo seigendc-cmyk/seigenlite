@@ -82,7 +82,7 @@
               <tr><td class="muted">Currency</td><td>${escapeHtml(setupData.currency)}</td></tr>
               ${(setupData.rpn.rpn_name||setupData.rpn.rpn_code||setupData.rpn.rpn_whatsapp||setupData.rpn.city_area)? `<tr><td class="muted">RPN</td><td>${escapeHtml(setupData.rpn.rpn_name)||"—"}${setupData.rpn.rpn_code? " ("+escapeHtml(setupData.rpn.rpn_code)+")":""}</td></tr>` : ""}
             </table>
-            <p class="muted">You get 30 days free use from today. After that, this screen will ask for an activation code — call or WhatsApp +263774479121.</p>
+            <p class="muted">You get 30 days free use from today. After that, the app asks for a licence: WhatsApp or call seiGEN on +263789487287.</p>
             <div class="row" style="margin-top:10px">
               <button class="btn btn-outline" id="setupBack2">Back</button>
               <button class="btn btn-primary" id="setupFinish">Finish setup</button>
@@ -123,7 +123,9 @@
         resetBranchId();
         const now = trustedNow();
         setSetting("install_date", now.toISOString());
+        setSetting("licence_v2_since", now.toISOString());   // this version's first run (old-style codes close 30 days later, activation.js)
         setSetting("activated_until", new Date(now.getTime()+30*86400000).toISOString());
+        setSetting("activated_until_src", "setup");   // only for a rollback to v10; the trial rule (activation.js) decides
         setSetting("setup_complete","1");
         currency = setupData.currency||"$";
         backfillBranch(db, currentBranch());
@@ -199,8 +201,10 @@
         // trial's start either.
         const now = trustedNow();
         setSetting("install_date", now.toISOString());
+        setSetting("licence_v2_since", now.toISOString());   // this version's first run (old-style codes close 30 days later, activation.js)
         const until = new Date(now.getTime()+30*86400000);
         setSetting("activated_until", until.toISOString());
+        setSetting("activated_until_src", "setup");   // only for a rollback to v10; the trial rule (activation.js) decides
         setSetting("setup_complete","1");
         currency = setupData.currency;
         backfillBranch(db, currentBranch());

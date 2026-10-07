@@ -199,7 +199,8 @@ async function runFor(browser, build){
   });
 
   await t(tag+"an expired activation shows the lock screen, not the Start screen", async ()=>{
-    await dbWrite(page, "UPDATE settings SET value='2000-01-01T00:00:00.000Z' WHERE key='activated_until'");
+    // v11 (activation.js): the trial runs 30 days from the install date (or older business data)
+    await dbWrite(page, "UPDATE settings SET value='2026-01-01T00:00:00.000Z' WHERE key='install_date'");
     await page.reload();
     await page.waitForSelector("#unlockBtn", { timeout: 20000 });
     assert.strictEqual(await page.$("#startSignIn"), null);

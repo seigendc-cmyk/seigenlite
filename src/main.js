@@ -24,10 +24,28 @@
     startDeviceCheckin(); // Digital Commerce device check-in: silent, best-effort phone-home — see devicecheckin.js. Never blocks boot.
     businessDateToday(); // Shift/EOD control: establish the anti-rollback high-water-mark as early as possible each session — see eod.js.
     await establishTrustedTime(); // License anti-rollback: same "as early as possible each session" habit, extended to full-timestamp precision — see eod.js. Awaited so activationStatus() below always sees this session's checked/corroborated time, never a stale one.
+    const linkLicence = takeLicenceFromUrl(); // activation.js: an activation link (#lic=…), checked offline
     const status = activationStatus();
-    if(status==="no_setup"){ route="setup"; renderSetup(); return; }
-    if(status==="locked"){ route="lock"; renderLock(); return; }
+    if(status==="no_setup"){
+      if(linkLicence){ route="setup"; renderLinkNoSetup(linkLicence); return; }   // never start setup from a link
+      route="setup"; renderSetup(); return;
+    }
+    refreshLicenceLock();
+    startLicenceWatch(); // re-checks every hour and when the app returns to the foreground
+    if(linkLicence){ renderLinkResult(await applyLicence(linkLicence, "link")); return; }
+    if(licenceLocked()){ route="lock"; renderLock(); return; }
     renderStart(); // Start screen → Sign in → "Who's working today?" (staff.js)
+  }
+  // A link tapped while the app is already open (some Android launchers
+  // reuse the open window): same handling, no reload.
+  if(typeof window!=="undefined" && window.addEventListener){
+    window.addEventListener("hashchange", async ()=>{
+      let setUp = false;
+      try{ setUp = !!getSetting("install_date",""); }catch(e){ return; }   // still booting: boot() reads the link itself
+      if(!/lic=/.test(String(location.hash||"")) || !setUp) return;
+      const t = takeLicenceFromUrl();
+      if(t) renderLinkResult(await applyLicence(t, "link"));
+    });
   }
   // Only registers when actually served over http(s)/localhost — this
   // silently does nothing when the file is just double-clicked (file://),

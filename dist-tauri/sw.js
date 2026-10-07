@@ -11,7 +11,8 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v10 — Phase 3c: sales returns & credit notes, exchanges, store credit, Item Ledger; business day set per branch by main
+// build: v11 — activation v2: signed licences (link, long code, short code), trial from the earliest business data, read-only Reports when locked
+// v10: Phase 3c: sales returns & credit notes, exchanges, store credit, Item Ledger; business day set per branch by main
 // v9: business day: local dates everywhere, "Business day ends at" cut-off (reports, Sales Trend, shifts, End of Day agree)
 // v8: tills report their build at check-in (shared stock waits until every till runs v7+)
 // v7: multi-terminal Phase 3b: shared branch stock + offline allowance

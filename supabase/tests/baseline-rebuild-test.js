@@ -1,13 +1,17 @@
-// node supabase/tests/baseline-rebuild-test.js          (PGlite + the committed live fingerprint)
-// node supabase/tests/baseline-rebuild-test.js live     (also re-reads live, read-only)
+// node supabase/tests/baseline-rebuild-test.js                       (PGlite + the committed live fingerprint)
+// node supabase/tests/baseline-rebuild-test.js live                  (also re-reads live, read-only)
+// node supabase/tests/baseline-rebuild-test.js live --write-fixture  (re-reads live, read-only, and rewrites the fixture)
 //
 // Proves supabase/migrations/20260923000000_baseline.sql: an EMPTY database
 // (PGlite, with Supabase's roles, schemas and default privileges stubbed)
 // built from the baseline followed by every later migration file has the
 // same catalogue as the live project: tables, columns, constraints, indexes,
 // functions (hash of the body), triggers, policies, RLS, comments and grants.
-// The only expected difference is 20260926160000_vendor_tokens_rpn_and_payment,
-// which is in the repo but deliberately not applied on live.
+//
+// Two builds: ALL files (every file must apply), and the LIVE SHAPE, which
+// leaves out the files that aren't applied on live (NOT_ON_LIVE_FILES in
+// rebuild-helpers.js, e.g. 20260926160000_vendor_tokens_rpn_and_payment,
+// parked). The live shape must equal live exactly.
 //
 // Live fingerprint: supabase/tests/fixtures/live-catalog-fingerprint.json,
 // made by tools/db/catalog.js from a read-only snapshot (schema only, no rows).
@@ -17,17 +21,17 @@
 const fs = require('fs');
 const path = require('path');
 const { snapshot, fingerprint, diff } = require('../../tools/db/catalog');
+const { migrationFiles, NOT_ON_LIVE_FILES, newPglite, buildFromRepo, READ, MIG } = require('./rebuild-helpers');
 
 const ROOT = path.join(__dirname, '..');
-const MIG = path.join(ROOT, 'migrations');
-const READ = (f) => fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n');   // the live applies normalised line endings the same way
-const FILES = fs.readdirSync(MIG).filter((f) => /^\d{14}_\w+\.sql$/.test(f)).sort();
+const FILES = migrationFiles();
 const BASELINE = '20260923000000_baseline.sql';
 const FIXTURE = path.join(__dirname, 'fixtures', 'live-catalog-fingerprint.json');
-const NOT_ON_LIVE = new Set([   // 20260926160000_vendor_tokens_rpn_and_payment (parked; not applied on live)
+// 20260926160000's objects: always among the extras of a full build
+const PARKED_OBJECTS = [
   'col vendor_tokens.rpn_id', 'con vendor_tokens.vendor_tokens_rpn_id_fkey', 'idx vendor_tokens_rpn_id_idx',
   'fn vendor_tokens_require_payment()', 'grant fn vendor_tokens_require_payment()',
-  'trg public.vendor_tokens.vendor_tokens_require_payment']);
+  'trg public.vendor_tokens.vendor_tokens_require_payment'];
 
 // Known drift in an APPLIED file, not in the baseline: 20260925150000 revokes
 // only delete/truncate from service_role, so a rebuild keeps the default
@@ -44,22 +48,6 @@ const onlyKnownDrift = (c) => {
   return JSON.stringify(a.filter((x) => !extra.includes(x))) === JSON.stringify(b);
 };
 
-// Supabase's own objects that the schema depends on (never part of a migration).
-const SUPABASE_STUB = `
-create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
-grant usage on schema public to anon, authenticated, service_role;
-create schema auth; grant usage on schema auth to anon, authenticated, service_role;
-create table auth.users (id uuid primary key, email text);
-create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-create function auth.jwt() returns jsonb language sql stable as $$ select nullif(current_setting('request.jwt.claims', true), '')::jsonb $$;
-create schema extensions; grant usage on schema extensions to anon, authenticated, service_role;
-create schema vault;
-create view vault.decrypted_secrets as select null::uuid id, null::text name, null::text decrypted_secret, null::timestamptz created_at where false;
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
-`;
-
 let pass = 0, fail = 0;
 function ok(name, cond, extra) {
   if (cond) { pass++; console.log('  ok   ' + name); }
@@ -67,7 +55,7 @@ function ok(name, cond, extra) {
 }
 const show = (d) => JSON.stringify(d, null, 1).slice(0, 4000);
 
-async function liveFingerprint() {
+async function liveSnapshot() {
   const { Client } = require('pg');
   let url = null;
   for (const line of fs.readFileSync(path.join(ROOT, '..', '.env'), 'utf8').split(/\r?\n/)) {
@@ -80,18 +68,14 @@ async function liveFingerprint() {
     await c.query('begin read only');
     const snap = await snapshot(async (sql) => (await c.query(sql)).rows);
     await c.query('rollback');
-    return fingerprint(snap);
+    return snap;
   } catch (e) { throw new Error(String(e.message).split(url).join('[SUPABASE_DB_URL]')); }
   finally { await c.end().catch(() => {}); }
 }
 
 (async () => {
-  const { PGlite } = await import('@electric-sql/pglite');
-  const { pgcrypto } = await import('@electric-sql/pglite/contrib/pgcrypto');
-  const { uuid_ossp } = await import('@electric-sql/pglite/contrib/uuid_ossp');
-  const pg = new PGlite({ extensions: { pgcrypto, uuid_ossp } });
+  const pg = await newPglite();
   const q = async (sql) => (await pg.query(sql)).rows;
-  await pg.exec(SUPABASE_STUB);
 
   const base = READ(path.join(MIG, BASELINE));
   console.log('baseline file');
@@ -107,23 +91,36 @@ async function liveFingerprint() {
   }
 
   console.log('baseline refuses a database that already has the schema');
-  const before = JSON.stringify(fingerprint(await snapshot(q)));
+  const full = fingerprint(await snapshot(q));
   let refused = null;
   try { await pg.exec(base); } catch (e) { refused = e.message; }
   await pg.exec('rollback').catch(() => {});
   ok('a second run raises "baseline aborted"', /baseline aborted/.test(refused || ''), refused);
-  ok('... and changes nothing', JSON.stringify(fingerprint(await snapshot(q))) === before);
+  ok('... and changes nothing', JSON.stringify(fingerprint(await snapshot(q))) === JSON.stringify(full));
 
-  console.log('rebuilt catalogue vs live');
-  const rebuilt = fingerprint(await snapshot(q));
+  console.log('the live shape (leaving out ' + NOT_ON_LIVE_FILES.join(', ') + ')');
+  const pgLive = await newPglite();
+  await buildFromRepo(pgLive, { skip: NOT_ON_LIVE_FILES });
+  const rebuilt = fingerprint(await snapshot(async (sql) => (await pgLive.query(sql)).rows));
+  const extras = diff(full, rebuilt);
+  ok(`the files not on live add ${extras.onlyA.length} objects, including all 6 of 20260926160000`,
+    PARKED_OBJECTS.every((k) => extras.onlyA.includes(k)) && !extras.onlyB.length, show(extras));
+
   const targets = [['committed live fingerprint', JSON.parse(fs.readFileSync(FIXTURE, 'utf8')).objects]];
-  if (process.argv[2] === 'live') targets.push(['live database, read now', await liveFingerprint()]);
+  if (process.argv[2] === 'live') {
+    const snap = await liveSnapshot();
+    const live = fingerprint(snap);
+    targets.push(['live database, read now', live]);
+    if (process.argv.includes('--write-fixture')) {
+      fs.writeFileSync(FIXTURE, JSON.stringify({ taken_at: new Date().toISOString().replace(/[:.]/g, '-'),
+        source: 'live, read-only (tools/db/catalog.js)', server: snap.server, objects: live }, null, 1) + '\n');
+      console.log('  (fixture rewritten from live)');
+    }
+  }
   for (const [label, live] of targets) {
     const d = diff(rebuilt, live);
-    const unexpectedOnlyRebuilt = d.onlyA.filter((k) => !NOT_ON_LIVE.has(k));
-    ok(`${label}: ${Object.keys(live).length} objects, nothing on live is missing from the rebuild`, d.onlyB.length === 0, show(d.onlyB));
-    ok(`${label}: the rebuild has nothing extra except 20260926160000's objects`, unexpectedOnlyRebuilt.length === 0, show(unexpectedOnlyRebuilt));
-    ok(`${label}: all 6 objects of 20260926160000 are the extra ones`, [...NOT_ON_LIVE].every((k) => d.onlyA.includes(k)), show(d.onlyA));
+    ok(`${label}: ${Object.keys(live).length} objects, nothing on live is missing from the live-shape rebuild`, d.onlyB.length === 0, show(d.onlyB));
+    ok(`${label}: the live-shape rebuild has nothing extra`, d.onlyA.length === 0, show(d.onlyA));
     const changed = d.changed.filter((c) => !onlyKnownDrift(c));
     ok(`${label}: every shared object is identical (except the ${d.changed.length - changed.length} known grant drifts of 20260925150000)`, changed.length === 0, show(changed));
   }

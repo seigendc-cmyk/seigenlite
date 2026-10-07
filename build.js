@@ -147,6 +147,10 @@ const SCRIPT_ORDER = [
   "main.js",
 ];
 
+// Third-party code shipped in every app build, ahead of the app itself:
+// TweetNaCl-js (Ed25519 licence checks, activation.js). See src/vendor/README.md.
+const VENDOR_SCRIPTS = ["vendor/tweetnacl-fast.min.js"];
+
 // Appended only for --pwa, after main.js's closing })(); — this is plain
 // top-level code outside the app's own IIFE (install prompt + update
 // banner; see src/pwa-extras.js for why it has to live outside help.js/
@@ -201,6 +205,11 @@ function buildHTML(scriptOrder, extraCssFiles, opts) {
     jsBytesAfter = Buffer.byteLength(appJS, "utf8");
   }
 
+  // Vendored libraries (VENDOR_SCRIPTS) go in first, as they are: never
+  // obfuscated (the obfuscator would slow the crypto down for nothing), and
+  // outside the app's IIFE, where they define their own global (nacl).
+  const vendorJS = VENDOR_SCRIPTS.map((name) => fs.readFileSync(path.join(SRC, name), "utf8")).join("\n") + "\n";
+
   const html =
     headTop +
     "<style>\n" +
@@ -208,6 +217,7 @@ function buildHTML(scriptOrder, extraCssFiles, opts) {
     (extraCss ? "\n" + extraCss : "") +
     "</style>\n" +
     headMid +
+    vendorJS +
     appJS +
     foot;
 
@@ -268,16 +278,19 @@ function buildPWA() {
 // own install icon, or pwa-extras.js's in-app Install button) — so it
 // gets the same manifest.json + precaching sw.js + install/update-banner
 // script as dist-pwa/, on top of its desktop-only Sales screen.
-function buildTauri() {
-  // Unlike PWA_EXTRA_SCRIPTS (deliberately appended after main.js, outside
-  // the app's IIFE), renderPOSDesktop needs to run inside it — it calls
-  // escapeHtml/cart/searchProducts etc., which are private to that
-  // closure. So this splices in before main.js rather than concatenating
-  // after the full order.
+// Unlike PWA_EXTRA_SCRIPTS (deliberately appended after main.js, outside
+// the app's IIFE), renderPOSDesktop needs to run inside it — it calls
+// escapeHtml/cart/searchProducts etc., which are private to that
+// closure. So this splices in before main.js rather than concatenating
+// after the full order.
+function tauriScriptOrder() {
   const mainIdx = SCRIPT_ORDER.indexOf("main.js");
-  const scriptOrder = SCRIPT_ORDER.slice(0, mainIdx)
+  return SCRIPT_ORDER.slice(0, mainIdx)
     .concat(DESKTOP_EXTRA_SCRIPTS, SCRIPT_ORDER.slice(mainIdx))
     .concat(PWA_EXTRA_SCRIPTS);
+}
+function buildTauri() {
+  const scriptOrder = tauriScriptOrder();
   const { html, jsBytesBefore, jsBytesAfter } = buildHTML(scriptOrder, DESKTOP_EXTRA_CSS, { obfuscate: true });
 
   fs.mkdirSync(DIST_TAURI, { recursive: true });
@@ -417,6 +430,11 @@ function buildRpn() {
   fs.writeFileSync(path.join(DIST_RPN, "sw.js"), sw);
   console.log("Built dist-rpn/ (index.html " + html.length + " bytes, build " + buildId + ") from " + RPN_SCRIPTS.length + " src file(s).");
 }
+
+// Tests (test/licence-e2e.test.js) assemble unobfuscated copies of the
+// phone and desktop builds in memory; requiring this file builds nothing.
+module.exports = { buildHTML, SCRIPT_ORDER, tauriScriptOrder, DESKTOP_EXTRA_CSS, inlineIcons };
+if (require.main !== module) return;
 
 const mode = process.argv.includes("--rpn") ? "rpn" : process.argv.includes("--itred") ? "itred" : process.argv.includes("--market") ? "market" : process.argv.includes("--tauri") ? "tauri" : process.argv.includes("--pwa") ? "pwa" : "single";
 if (mode === "pwa") buildPWA();

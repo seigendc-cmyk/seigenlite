@@ -20,7 +20,13 @@ const MIG = (f)=>fs.readFileSync(path.join(__dirname,"..","supabase","migrations
 
 let pg;
 const CASTS = { p_rows:"::jsonb", p_branch_id:"::uuid", p_cursor:"::bigint", p_rpn_hint_id:"::uuid", p_app_build:"::integer" };
-async function serverRpc(name, body){
+// One statement at a time on the single PGlite connection (role switching is
+// per connection): the app's own fire-and-forget calls (check-in's licence
+// pick-up, activation.js) mustn't interleave with the test's queries.
+let queue = Promise.resolve();
+const serial = (fn)=>{ const p = queue.then(fn, fn); queue = p.catch(()=>{}); return p; };
+function serverRpc(name, body){ return serial(()=>serverRpcNow(name, body)); }
+async function serverRpcNow(name, body){
   const keys = Object.keys(body);
   const vals = keys.map(k=> k==="p_rows"? JSON.stringify(body[k]) : body[k]);
   const sql = `select public.${name}(${keys.map((k,i)=>`${k}=>$${i+1}${CASTS[k]||""}`).join(",")})::json j`;
@@ -48,7 +54,7 @@ function device(o){
   A.api.run("INSERT INTO staff(name,role,passcode,branch,active,created_ts) VALUES('Owner','Admin','9999',?,1,'x')",[o.branch_name||""]);
   return A;
 }
-const sq = async (sql, p)=> (await pg.query(sql, p)).rows;
+const sq = (sql, p)=> serial(async ()=> (await pg.query(sql, p)).rows);
 
 (async()=>{
   const { PGlite } = await import("@electric-sql/pglite");

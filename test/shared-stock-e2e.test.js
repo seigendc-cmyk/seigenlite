@@ -153,7 +153,12 @@ const server = async (code)=> (await sq(`select bs.total, bs.available from cl_b
     await B.page.waitForSelector("[data-route]", { timeout:20000 });
     await nav(B, "products");
     await waitFor(async()=> /Rice 2kg/.test(await B.page.textContent("#productsTableArea")), "products on T2", 30000);
-    assert.match(await B.page.textContent(".till-stock-note"), /Stock for this till isn't set up yet/, "while the branch is local, T2 has no stock");
+    assert.match(await B.page.textContent(".till-stock-note"), /This till has no stock yet/, "while the branch is local, T2 has no stock");
+    await shot(B.page, "phone-t2-no-stock-note-products.png");
+    await nav(B, "pos");
+    assert.match(await B.page.textContent(".till-stock-note"), /This till has no stock yet/, "... and on Sell");
+    await shot(B.page, "phone-t2-no-stock-note-sell.png");
+    await nav(B, "products");
     assert.deepStrictEqual(A.pageErrors, []); assert.deepStrictEqual(B.pageErrors, []);
   });
 

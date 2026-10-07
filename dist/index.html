@@ -317,8 +317,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
 <script>
+!function(i){"use strict";var v=function(r){var t,n=new Float64Array(16);if(r)for(t=0;t<r.length;t++)n[t]=r[t];return n},h=function(){throw new Error("no PRNG")},o=new Uint8Array(16),n=new Uint8Array(32);n[0]=9;var s=v(),u=v([1]),p=v([56129,1]),c=v([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),y=v([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),e=v([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),a=v([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),l=v([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function f(r,t,n,e){r[t]=n>>24&255,r[t+1]=n>>16&255,r[t+2]=n>>8&255,r[t+3]=255&n,r[t+4]=e>>24&255,r[t+5]=e>>16&255,r[t+6]=e>>8&255,r[t+7]=255&e}function w(r,t,n,e,o){var i,h=0;for(i=0;i<o;i++)h|=r[t+i]^n[e+i];return(1&h-1>>>8)-1}function b(r,t,n,e){return w(r,t,n,e,16)}function g(r,t,n,e){return w(r,t,n,e,32)}function A(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=i,d=h,E=a,x=f,M=s,m=u,B=c,S=y,k=l,K=w,Y=v,L=p,T=b,z=g,R=A,P=_,N=0;N<20;N+=2)U^=(o=(T^=(o=(k^=(o=(M^=(o=U+T|0)<<7|o>>>25)+U|0)<<9|o>>>23)+M|0)<<13|o>>>19)+k|0)<<18|o>>>14,m^=(o=(d^=(o=(z^=(o=(K^=(o=m+d|0)<<7|o>>>25)+m|0)<<9|o>>>23)+K|0)<<13|o>>>19)+z|0)<<18|o>>>14,Y^=(o=(B^=(o=(E^=(o=(R^=(o=Y+B|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+R|0)<<13|o>>>19)+E|0)<<18|o>>>14,P^=(o=(L^=(o=(S^=(o=(x^=(o=P+L|0)<<7|o>>>25)+P|0)<<9|o>>>23)+x|0)<<13|o>>>19)+S|0)<<18|o>>>14,U^=(o=(x^=(o=(E^=(o=(d^=(o=U+x|0)<<7|o>>>25)+U|0)<<9|o>>>23)+d|0)<<13|o>>>19)+E|0)<<18|o>>>14,m^=(o=(M^=(o=(S^=(o=(B^=(o=m+M|0)<<7|o>>>25)+m|0)<<9|o>>>23)+B|0)<<13|o>>>19)+S|0)<<18|o>>>14,Y^=(o=(K^=(o=(k^=(o=(L^=(o=Y+K|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+L|0)<<13|o>>>19)+k|0)<<18|o>>>14,P^=(o=(R^=(o=(z^=(o=(T^=(o=P+R|0)<<7|o>>>25)+P|0)<<9|o>>>23)+T|0)<<13|o>>>19)+z|0)<<18|o>>>14;U=U+i|0,d=d+h|0,E=E+a|0,x=x+f|0,M=M+s|0,m=m+u|0,B=B+c|0,S=S+y|0,k=k+l|0,K=K+w|0,Y=Y+v|0,L=L+p|0,T=T+b|0,z=z+g|0,R=R+A|0,P=P+_|0,r[0]=U>>>0&255,r[1]=U>>>8&255,r[2]=U>>>16&255,r[3]=U>>>24&255,r[4]=d>>>0&255,r[5]=d>>>8&255,r[6]=d>>>16&255,r[7]=d>>>24&255,r[8]=E>>>0&255,r[9]=E>>>8&255,r[10]=E>>>16&255,r[11]=E>>>24&255,r[12]=x>>>0&255,r[13]=x>>>8&255,r[14]=x>>>16&255,r[15]=x>>>24&255,r[16]=M>>>0&255,r[17]=M>>>8&255,r[18]=M>>>16&255,r[19]=M>>>24&255,r[20]=m>>>0&255,r[21]=m>>>8&255,r[22]=m>>>16&255,r[23]=m>>>24&255,r[24]=B>>>0&255,r[25]=B>>>8&255,r[26]=B>>>16&255,r[27]=B>>>24&255,r[28]=S>>>0&255,r[29]=S>>>8&255,r[30]=S>>>16&255,r[31]=S>>>24&255,r[32]=k>>>0&255,r[33]=k>>>8&255,r[34]=k>>>16&255,r[35]=k>>>24&255,r[36]=K>>>0&255,r[37]=K>>>8&255,r[38]=K>>>16&255,r[39]=K>>>24&255,r[40]=Y>>>0&255,r[41]=Y>>>8&255,r[42]=Y>>>16&255,r[43]=Y>>>24&255,r[44]=L>>>0&255,r[45]=L>>>8&255,r[46]=L>>>16&255,r[47]=L>>>24&255,r[48]=T>>>0&255,r[49]=T>>>8&255,r[50]=T>>>16&255,r[51]=T>>>24&255,r[52]=z>>>0&255,r[53]=z>>>8&255,r[54]=z>>>16&255,r[55]=z>>>24&255,r[56]=R>>>0&255,r[57]=R>>>8&255,r[58]=R>>>16&255,r[59]=R>>>24&255,r[60]=P>>>0&255,r[61]=P>>>8&255,r[62]=P>>>16&255,r[63]=P>>>24&255}(r,t,n,e)}function _(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=0;U<20;U+=2)i^=(o=(b^=(o=(l^=(o=(s^=(o=i+b|0)<<7|o>>>25)+i|0)<<9|o>>>23)+s|0)<<13|o>>>19)+l|0)<<18|o>>>14,u^=(o=(h^=(o=(g^=(o=(w^=(o=u+h|0)<<7|o>>>25)+u|0)<<9|o>>>23)+w|0)<<13|o>>>19)+g|0)<<18|o>>>14,v^=(o=(c^=(o=(a^=(o=(A^=(o=v+c|0)<<7|o>>>25)+v|0)<<9|o>>>23)+A|0)<<13|o>>>19)+a|0)<<18|o>>>14,_^=(o=(p^=(o=(y^=(o=(f^=(o=_+p|0)<<7|o>>>25)+_|0)<<9|o>>>23)+f|0)<<13|o>>>19)+y|0)<<18|o>>>14,i^=(o=(f^=(o=(a^=(o=(h^=(o=i+f|0)<<7|o>>>25)+i|0)<<9|o>>>23)+h|0)<<13|o>>>19)+a|0)<<18|o>>>14,u^=(o=(s^=(o=(y^=(o=(c^=(o=u+s|0)<<7|o>>>25)+u|0)<<9|o>>>23)+c|0)<<13|o>>>19)+y|0)<<18|o>>>14,v^=(o=(w^=(o=(l^=(o=(p^=(o=v+w|0)<<7|o>>>25)+v|0)<<9|o>>>23)+p|0)<<13|o>>>19)+l|0)<<18|o>>>14,_^=(o=(A^=(o=(g^=(o=(b^=(o=_+A|0)<<7|o>>>25)+_|0)<<9|o>>>23)+b|0)<<13|o>>>19)+g|0)<<18|o>>>14;r[0]=i>>>0&255,r[1]=i>>>8&255,r[2]=i>>>16&255,r[3]=i>>>24&255,r[4]=u>>>0&255,r[5]=u>>>8&255,r[6]=u>>>16&255,r[7]=u>>>24&255,r[8]=v>>>0&255,r[9]=v>>>8&255,r[10]=v>>>16&255,r[11]=v>>>24&255,r[12]=_>>>0&255,r[13]=_>>>8&255,r[14]=_>>>16&255,r[15]=_>>>24&255,r[16]=c>>>0&255,r[17]=c>>>8&255,r[18]=c>>>16&255,r[19]=c>>>24&255,r[20]=y>>>0&255,r[21]=y>>>8&255,r[22]=y>>>16&255,r[23]=y>>>24&255,r[24]=l>>>0&255,r[25]=l>>>8&255,r[26]=l>>>16&255,r[27]=l>>>24&255,r[28]=w>>>0&255,r[29]=w>>>8&255,r[30]=w>>>16&255,r[31]=w>>>24&255}(r,t,n,e)}var U=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function d(r,t,n,e,o,i,h){var a,f,s=new Uint8Array(16),u=new Uint8Array(64);for(f=0;f<16;f++)s[f]=0;for(f=0;f<8;f++)s[f]=i[f];for(;64<=o;){for(A(u,s,h,U),f=0;f<64;f++)r[t+f]=n[e+f]^u[f];for(a=1,f=8;f<16;f++)a=a+(255&s[f])|0,s[f]=255&a,a>>>=8;o-=64,t+=64,e+=64}if(0<o)for(A(u,s,h,U),f=0;f<o;f++)r[t+f]=n[e+f]^u[f];return 0}function E(r,t,n,e,o){var i,h,a=new Uint8Array(16),f=new Uint8Array(64);for(h=0;h<16;h++)a[h]=0;for(h=0;h<8;h++)a[h]=e[h];for(;64<=n;){for(A(f,a,o,U),h=0;h<64;h++)r[t+h]=f[h];for(i=1,h=8;h<16;h++)i=i+(255&a[h])|0,a[h]=255&i,i>>>=8;n-=64,t+=64}if(0<n)for(A(f,a,o,U),h=0;h<n;h++)r[t+h]=f[h];return 0}function x(r,t,n,e,o){var i=new Uint8Array(32);_(i,e,o,U);for(var h=new Uint8Array(8),a=0;a<8;a++)h[a]=e[a+16];return E(r,t,n,h,i)}function M(r,t,n,e,o,i,h){var a=new Uint8Array(32);_(a,i,h,U);for(var f=new Uint8Array(8),s=0;s<8;s++)f[s]=i[s+16];return d(r,t,n,e,o,f,a)}var m=function(r){var t,n,e,o,i,h,a,f;this.buffer=new Uint8Array(16),this.r=new Uint16Array(10),this.h=new Uint16Array(10),this.pad=new Uint16Array(8),this.leftover=0,t=255&r[this.fin=0]|(255&r[1])<<8,this.r[0]=8191&t,n=255&r[2]|(255&r[3])<<8,this.r[1]=8191&(t>>>13|n<<3),e=255&r[4]|(255&r[5])<<8,this.r[2]=7939&(n>>>10|e<<6),o=255&r[6]|(255&r[7])<<8,this.r[3]=8191&(e>>>7|o<<9),i=255&r[8]|(255&r[9])<<8,this.r[4]=255&(o>>>4|i<<12),this.r[5]=i>>>1&8190,h=255&r[10]|(255&r[11])<<8,this.r[6]=8191&(i>>>14|h<<2),a=255&r[12]|(255&r[13])<<8,this.r[7]=8065&(h>>>11|a<<5),f=255&r[14]|(255&r[15])<<8,this.r[8]=8191&(a>>>8|f<<8),this.r[9]=f>>>5&127,this.pad[0]=255&r[16]|(255&r[17])<<8,this.pad[1]=255&r[18]|(255&r[19])<<8,this.pad[2]=255&r[20]|(255&r[21])<<8,this.pad[3]=255&r[22]|(255&r[23])<<8,this.pad[4]=255&r[24]|(255&r[25])<<8,this.pad[5]=255&r[26]|(255&r[27])<<8,this.pad[6]=255&r[28]|(255&r[29])<<8,this.pad[7]=255&r[30]|(255&r[31])<<8};function B(r,t,n,e,o,i){var h=new m(i);return h.update(n,e,o),h.finish(r,t),0}function S(r,t,n,e,o,i){var h=new Uint8Array(16);return B(h,0,n,e,o,i),b(r,t,h,0)}function k(r,t,n,e,o){var i;if(n<32)return-1;for(M(r,0,t,0,n,e,o),B(r,16,r,32,n-32,r),i=0;i<16;i++)r[i]=0;return 0}function K(r,t,n,e,o){var i,h=new Uint8Array(32);if(n<32)return-1;if(x(h,0,32,e,o),0!==S(t,16,t,32,n-32,h))return-1;for(M(r,0,t,0,n,e,o),i=0;i<32;i++)r[i]=0;return 0}function Y(r,t){var n;for(n=0;n<16;n++)r[n]=0|t[n]}function L(r){var t,n,e=1;for(t=0;t<16;t++)n=r[t]+e+65535,e=Math.floor(n/65536),r[t]=n-65536*e;r[0]+=e-1+37*(e-1)}function T(r,t,n){for(var e,o=~(n-1),i=0;i<16;i++)e=o&(r[i]^t[i]),r[i]^=e,t[i]^=e}function z(r,t){var n,e,o,i=v(),h=v();for(n=0;n<16;n++)h[n]=t[n];for(L(h),L(h),L(h),e=0;e<2;e++){for(i[0]=h[0]-65517,n=1;n<15;n++)i[n]=h[n]-65535-(i[n-1]>>16&1),i[n-1]&=65535;i[15]=h[15]-32767-(i[14]>>16&1),o=i[15]>>16&1,i[14]&=65535,T(h,i,1-o)}for(n=0;n<16;n++)r[2*n]=255&h[n],r[2*n+1]=h[n]>>8}function R(r,t){var n=new Uint8Array(32),e=new Uint8Array(32);return z(n,r),z(e,t),g(n,0,e,0)}function P(r){var t=new Uint8Array(32);return z(t,r),1&t[0]}function N(r,t){var n;for(n=0;n<16;n++)r[n]=t[2*n]+(t[2*n+1]<<8);r[15]&=32767}function O(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]+n[e]}function C(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]-n[e]}function F(r,t,n){var e,o,i=0,h=0,a=0,f=0,s=0,u=0,c=0,y=0,l=0,w=0,v=0,p=0,b=0,g=0,A=0,_=0,U=0,d=0,E=0,x=0,M=0,m=0,B=0,S=0,k=0,K=0,Y=0,L=0,T=0,z=0,R=0,P=n[0],N=n[1],O=n[2],C=n[3],F=n[4],I=n[5],Z=n[6],G=n[7],q=n[8],D=n[9],V=n[10],X=n[11],j=n[12],H=n[13],J=n[14],Q=n[15];i+=(e=t[0])*P,h+=e*N,a+=e*O,f+=e*C,s+=e*F,u+=e*I,c+=e*Z,y+=e*G,l+=e*q,w+=e*D,v+=e*V,p+=e*X,b+=e*j,g+=e*H,A+=e*J,_+=e*Q,h+=(e=t[1])*P,a+=e*N,f+=e*O,s+=e*C,u+=e*F,c+=e*I,y+=e*Z,l+=e*G,w+=e*q,v+=e*D,p+=e*V,b+=e*X,g+=e*j,A+=e*H,_+=e*J,U+=e*Q,a+=(e=t[2])*P,f+=e*N,s+=e*O,u+=e*C,c+=e*F,y+=e*I,l+=e*Z,w+=e*G,v+=e*q,p+=e*D,b+=e*V,g+=e*X,A+=e*j,_+=e*H,U+=e*J,d+=e*Q,f+=(e=t[3])*P,s+=e*N,u+=e*O,c+=e*C,y+=e*F,l+=e*I,w+=e*Z,v+=e*G,p+=e*q,b+=e*D,g+=e*V,A+=e*X,_+=e*j,U+=e*H,d+=e*J,E+=e*Q,s+=(e=t[4])*P,u+=e*N,c+=e*O,y+=e*C,l+=e*F,w+=e*I,v+=e*Z,p+=e*G,b+=e*q,g+=e*D,A+=e*V,_+=e*X,U+=e*j,d+=e*H,E+=e*J,x+=e*Q,u+=(e=t[5])*P,c+=e*N,y+=e*O,l+=e*C,w+=e*F,v+=e*I,p+=e*Z,b+=e*G,g+=e*q,A+=e*D,_+=e*V,U+=e*X,d+=e*j,E+=e*H,x+=e*J,M+=e*Q,c+=(e=t[6])*P,y+=e*N,l+=e*O,w+=e*C,v+=e*F,p+=e*I,b+=e*Z,g+=e*G,A+=e*q,_+=e*D,U+=e*V,d+=e*X,E+=e*j,x+=e*H,M+=e*J,m+=e*Q,y+=(e=t[7])*P,l+=e*N,w+=e*O,v+=e*C,p+=e*F,b+=e*I,g+=e*Z,A+=e*G,_+=e*q,U+=e*D,d+=e*V,E+=e*X,x+=e*j,M+=e*H,m+=e*J,B+=e*Q,l+=(e=t[8])*P,w+=e*N,v+=e*O,p+=e*C,b+=e*F,g+=e*I,A+=e*Z,_+=e*G,U+=e*q,d+=e*D,E+=e*V,x+=e*X,M+=e*j,m+=e*H,B+=e*J,S+=e*Q,w+=(e=t[9])*P,v+=e*N,p+=e*O,b+=e*C,g+=e*F,A+=e*I,_+=e*Z,U+=e*G,d+=e*q,E+=e*D,x+=e*V,M+=e*X,m+=e*j,B+=e*H,S+=e*J,k+=e*Q,v+=(e=t[10])*P,p+=e*N,b+=e*O,g+=e*C,A+=e*F,_+=e*I,U+=e*Z,d+=e*G,E+=e*q,x+=e*D,M+=e*V,m+=e*X,B+=e*j,S+=e*H,k+=e*J,K+=e*Q,p+=(e=t[11])*P,b+=e*N,g+=e*O,A+=e*C,_+=e*F,U+=e*I,d+=e*Z,E+=e*G,x+=e*q,M+=e*D,m+=e*V,B+=e*X,S+=e*j,k+=e*H,K+=e*J,Y+=e*Q,b+=(e=t[12])*P,g+=e*N,A+=e*O,_+=e*C,U+=e*F,d+=e*I,E+=e*Z,x+=e*G,M+=e*q,m+=e*D,B+=e*V,S+=e*X,k+=e*j,K+=e*H,Y+=e*J,L+=e*Q,g+=(e=t[13])*P,A+=e*N,_+=e*O,U+=e*C,d+=e*F,E+=e*I,x+=e*Z,M+=e*G,m+=e*q,B+=e*D,S+=e*V,k+=e*X,K+=e*j,Y+=e*H,L+=e*J,T+=e*Q,A+=(e=t[14])*P,_+=e*N,U+=e*O,d+=e*C,E+=e*F,x+=e*I,M+=e*Z,m+=e*G,B+=e*q,S+=e*D,k+=e*V,K+=e*X,Y+=e*j,L+=e*H,T+=e*J,z+=e*Q,_+=(e=t[15])*P,h+=38*(d+=e*O),a+=38*(E+=e*C),f+=38*(x+=e*F),s+=38*(M+=e*I),u+=38*(m+=e*Z),c+=38*(B+=e*G),y+=38*(S+=e*q),l+=38*(k+=e*D),w+=38*(K+=e*V),v+=38*(Y+=e*X),p+=38*(L+=e*j),b+=38*(T+=e*H),g+=38*(z+=e*J),A+=38*(R+=e*Q),i=(e=(i+=38*(U+=e*N))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i=(e=(i+=o-1+37*(o-1))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i+=o-1+37*(o-1),r[0]=i,r[1]=h,r[2]=a,r[3]=f,r[4]=s,r[5]=u,r[6]=c,r[7]=y,r[8]=l,r[9]=w,r[10]=v,r[11]=p,r[12]=b,r[13]=g,r[14]=A,r[15]=_}function I(r,t){F(r,t,t)}function Z(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=253;0<=n;n--)I(e,e),2!==n&&4!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function G(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=250;0<=n;n--)I(e,e),1!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function q(r,t,n){var e,o,i=new Uint8Array(32),h=new Float64Array(80),a=v(),f=v(),s=v(),u=v(),c=v(),y=v();for(o=0;o<31;o++)i[o]=t[o];for(i[31]=127&t[31]|64,i[0]&=248,N(h,n),o=0;o<16;o++)f[o]=h[o],u[o]=a[o]=s[o]=0;for(a[0]=u[0]=1,o=254;0<=o;--o)T(a,f,e=i[o>>>3]>>>(7&o)&1),T(s,u,e),O(c,a,s),C(a,a,s),O(s,f,u),C(f,f,u),I(u,c),I(y,a),F(a,s,a),F(s,f,c),O(c,a,s),C(a,a,s),I(f,a),C(s,u,y),F(a,s,p),O(a,a,u),F(s,s,a),F(a,u,y),F(u,f,h),I(f,c),T(a,f,e),T(s,u,e);for(o=0;o<16;o++)h[o+16]=a[o],h[o+32]=s[o],h[o+48]=f[o],h[o+64]=u[o];var l=h.subarray(32),w=h.subarray(16);return Z(l,l),F(w,w,l),z(r,w),0}function D(r,t){return q(r,t,n)}function V(r,t){return h(t,32),D(r,t)}function X(r,t,n){var e=new Uint8Array(32);return q(e,n,t),_(r,o,e,U)}m.prototype.blocks=function(r,t,n){for(var e,o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d=this.fin?0:2048,E=this.h[0],x=this.h[1],M=this.h[2],m=this.h[3],B=this.h[4],S=this.h[5],k=this.h[6],K=this.h[7],Y=this.h[8],L=this.h[9],T=this.r[0],z=this.r[1],R=this.r[2],P=this.r[3],N=this.r[4],O=this.r[5],C=this.r[6],F=this.r[7],I=this.r[8],Z=this.r[9];16<=n;)y=c=0,y+=(E+=8191&(e=255&r[t+0]|(255&r[t+1])<<8))*T,y+=(x+=8191&(e>>>13|(o=255&r[t+2]|(255&r[t+3])<<8)<<3))*(5*Z),y+=(M+=8191&(o>>>10|(i=255&r[t+4]|(255&r[t+5])<<8)<<6))*(5*I),y+=(m+=8191&(i>>>7|(h=255&r[t+6]|(255&r[t+7])<<8)<<9))*(5*F),c=(y+=(B+=8191&(h>>>4|(a=255&r[t+8]|(255&r[t+9])<<8)<<12))*(5*C))>>>13,y&=8191,y+=(S+=a>>>1&8191)*(5*O),y+=(k+=8191&(a>>>14|(f=255&r[t+10]|(255&r[t+11])<<8)<<2))*(5*N),y+=(K+=8191&(f>>>11|(s=255&r[t+12]|(255&r[t+13])<<8)<<5))*(5*P),y+=(Y+=8191&(s>>>8|(u=255&r[t+14]|(255&r[t+15])<<8)<<8))*(5*R),l=c+=(y+=(L+=u>>>5|d)*(5*z))>>>13,l+=E*z,l+=x*T,l+=M*(5*Z),l+=m*(5*I),c=(l+=B*(5*F))>>>13,l&=8191,l+=S*(5*C),l+=k*(5*O),l+=K*(5*N),l+=Y*(5*P),c+=(l+=L*(5*R))>>>13,l&=8191,w=c,w+=E*R,w+=x*z,w+=M*T,w+=m*(5*Z),c=(w+=B*(5*I))>>>13,w&=8191,w+=S*(5*F),w+=k*(5*C),w+=K*(5*O),w+=Y*(5*N),v=c+=(w+=L*(5*P))>>>13,v+=E*P,v+=x*R,v+=M*z,v+=m*T,c=(v+=B*(5*Z))>>>13,v&=8191,v+=S*(5*I),v+=k*(5*F),v+=K*(5*C),v+=Y*(5*O),p=c+=(v+=L*(5*N))>>>13,p+=E*N,p+=x*P,p+=M*R,p+=m*z,c=(p+=B*T)>>>13,p&=8191,p+=S*(5*Z),p+=k*(5*I),p+=K*(5*F),p+=Y*(5*C),b=c+=(p+=L*(5*O))>>>13,b+=E*O,b+=x*N,b+=M*P,b+=m*R,c=(b+=B*z)>>>13,b&=8191,b+=S*T,b+=k*(5*Z),b+=K*(5*I),b+=Y*(5*F),g=c+=(b+=L*(5*C))>>>13,g+=E*C,g+=x*O,g+=M*N,g+=m*P,c=(g+=B*R)>>>13,g&=8191,g+=S*z,g+=k*T,g+=K*(5*Z),g+=Y*(5*I),A=c+=(g+=L*(5*F))>>>13,A+=E*F,A+=x*C,A+=M*O,A+=m*N,c=(A+=B*P)>>>13,A&=8191,A+=S*R,A+=k*z,A+=K*T,A+=Y*(5*Z),_=c+=(A+=L*(5*I))>>>13,_+=E*I,_+=x*F,_+=M*C,_+=m*O,c=(_+=B*N)>>>13,_&=8191,_+=S*P,_+=k*R,_+=K*z,_+=Y*T,U=c+=(_+=L*(5*Z))>>>13,U+=E*Z,U+=x*I,U+=M*F,U+=m*C,c=(U+=B*O)>>>13,U&=8191,U+=S*N,U+=k*P,U+=K*R,U+=Y*z,E=y=8191&(c=(c=((c+=(U+=L*T)>>>13)<<2)+c|0)+(y&=8191)|0),x=l+=c>>>=13,M=w&=8191,m=v&=8191,B=p&=8191,S=b&=8191,k=g&=8191,K=A&=8191,Y=_&=8191,L=U&=8191,t+=16,n-=16;this.h[0]=E,this.h[1]=x,this.h[2]=M,this.h[3]=m,this.h[4]=B,this.h[5]=S,this.h[6]=k,this.h[7]=K,this.h[8]=Y,this.h[9]=L},m.prototype.finish=function(r,t){var n,e,o,i,h=new Uint16Array(10);if(this.leftover){for(i=this.leftover,this.buffer[i++]=1;i<16;i++)this.buffer[i]=0;this.fin=1,this.blocks(this.buffer,0,16)}for(n=this.h[1]>>>13,this.h[1]&=8191,i=2;i<10;i++)this.h[i]+=n,n=this.h[i]>>>13,this.h[i]&=8191;for(this.h[0]+=5*n,n=this.h[0]>>>13,this.h[0]&=8191,this.h[1]+=n,n=this.h[1]>>>13,this.h[1]&=8191,this.h[2]+=n,h[0]=this.h[0]+5,n=h[0]>>>13,h[0]&=8191,i=1;i<10;i++)h[i]=this.h[i]+n,n=h[i]>>>13,h[i]&=8191;for(h[9]-=8192,e=(1^n)-1,i=0;i<10;i++)h[i]&=e;for(e=~e,i=0;i<10;i++)this.h[i]=this.h[i]&e|h[i];for(this.h[0]=65535&(this.h[0]|this.h[1]<<13),this.h[1]=65535&(this.h[1]>>>3|this.h[2]<<10),this.h[2]=65535&(this.h[2]>>>6|this.h[3]<<7),this.h[3]=65535&(this.h[3]>>>9|this.h[4]<<4),this.h[4]=65535&(this.h[4]>>>12|this.h[5]<<1|this.h[6]<<14),this.h[5]=65535&(this.h[6]>>>2|this.h[7]<<11),this.h[6]=65535&(this.h[7]>>>5|this.h[8]<<8),this.h[7]=65535&(this.h[8]>>>8|this.h[9]<<5),o=this.h[0]+this.pad[0],this.h[0]=65535&o,i=1;i<8;i++)o=(this.h[i]+this.pad[i]|0)+(o>>>16)|0,this.h[i]=65535&o;r[t+0]=this.h[0]>>>0&255,r[t+1]=this.h[0]>>>8&255,r[t+2]=this.h[1]>>>0&255,r[t+3]=this.h[1]>>>8&255,r[t+4]=this.h[2]>>>0&255,r[t+5]=this.h[2]>>>8&255,r[t+6]=this.h[3]>>>0&255,r[t+7]=this.h[3]>>>8&255,r[t+8]=this.h[4]>>>0&255,r[t+9]=this.h[4]>>>8&255,r[t+10]=this.h[5]>>>0&255,r[t+11]=this.h[5]>>>8&255,r[t+12]=this.h[6]>>>0&255,r[t+13]=this.h[6]>>>8&255,r[t+14]=this.h[7]>>>0&255,r[t+15]=this.h[7]>>>8&255},m.prototype.update=function(r,t,n){var e,o;if(this.leftover){for(n<(o=16-this.leftover)&&(o=n),e=0;e<o;e++)this.buffer[this.leftover+e]=r[t+e];if(n-=o,t+=o,this.leftover+=o,this.leftover<16)return;this.blocks(this.buffer,0,16),this.leftover=0}if(16<=n&&(o=n-n%16,this.blocks(r,t,o),t+=o,n-=o),n){for(e=0;e<n;e++)this.buffer[this.leftover+e]=r[t+e];this.leftover+=n}};var j=k,H=K;var J=[1116352408,3609767458,1899447441,602891725,3049323471,3964484399,3921009573,2173295548,961987163,4081628472,1508970993,3053834265,2453635748,2937671579,2870763221,3664609560,3624381080,2734883394,310598401,1164996542,607225278,1323610764,1426881987,3590304994,1925078388,4068182383,2162078206,991336113,2614888103,633803317,3248222580,3479774868,3835390401,2666613458,4022224774,944711139,264347078,2341262773,604807628,2007800933,770255983,1495990901,1249150122,1856431235,1555081692,3175218132,1996064986,2198950837,2554220882,3999719339,2821834349,766784016,2952996808,2566594879,3210313671,3203337956,3336571891,1034457026,3584528711,2466948901,113926993,3758326383,338241895,168717936,666307205,1188179964,773529912,1546045734,1294757372,1522805485,1396182291,2643833823,1695183700,2343527390,1986661051,1014477480,2177026350,1206759142,2456956037,344077627,2730485921,1290863460,2820302411,3158454273,3259730800,3505952657,3345764771,106217008,3516065817,3606008344,3600352804,1432725776,4094571909,1467031594,275423344,851169720,430227734,3100823752,506948616,1363258195,659060556,3750685593,883997877,3785050280,958139571,3318307427,1322822218,3812723403,1537002063,2003034995,1747873779,3602036899,1955562222,1575990012,2024104815,1125592928,2227730452,2716904306,2361852424,442776044,2428436474,593698344,2756734187,3733110249,3204031479,2999351573,3329325298,3815920427,3391569614,3928383900,3515267271,566280711,3940187606,3454069534,4118630271,4000239992,116418474,1914138554,174292421,2731055270,289380356,3203993006,460393269,320620315,685471733,587496836,852142971,1086792851,1017036298,365543100,1126000580,2618297676,1288033470,3409855158,1501505948,4234509866,1607167915,987167468,1816402316,1246189591];function Q(r,t,n,e){for(var o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d,E,x,M,m,B,S=new Int32Array(16),k=new Int32Array(16),K=r[0],Y=r[1],L=r[2],T=r[3],z=r[4],R=r[5],P=r[6],N=r[7],O=t[0],C=t[1],F=t[2],I=t[3],Z=t[4],G=t[5],q=t[6],D=t[7],V=0;128<=e;){for(_=0;_<16;_++)U=8*_+V,S[_]=n[U+0]<<24|n[U+1]<<16|n[U+2]<<8|n[U+3],k[_]=n[U+4]<<24|n[U+5]<<16|n[U+6]<<8|n[U+7];for(_=0;_<80;_++)if(o=Y,i=L,h=T,c=C,y=F,l=I,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,x+=65535&(E=((w=Z)>>>14|(a=z)<<18)^(Z>>>18|z<<14)^(z>>>9|Z<<23)),M+=E>>>16,m+=65535&(d=(z>>>14|Z<<18)^(z>>>18|Z<<14)^(Z>>>9|z<<23)),B+=d>>>16,x+=65535&(E=Z&(v=G)^~Z&(p=q)),M+=E>>>16,m+=65535&(d=z&(f=R)^~z&(s=P)),B+=d>>>16,d=J[2*_],x+=65535&(E=J[2*_+1]),M+=E>>>16,m+=65535&d,B+=d>>>16,d=S[_%16],M+=(E=k[_%16])>>>16,m+=65535&d,B+=d>>>16,m+=(M+=(x+=65535&E)>>>16)>>>16,x=65535&(E=A=65535&x|M<<16),M=E>>>16,m=65535&(d=g=65535&m|(B+=m>>>16)<<16),B=d>>>16,x+=65535&(E=(O>>>28|K<<4)^(K>>>2|O<<30)^(K>>>7|O<<25)),M+=E>>>16,m+=65535&(d=(K>>>28|O<<4)^(O>>>2|K<<30)^(O>>>7|K<<25)),B+=d>>>16,M+=(E=O&C^O&F^C&F)>>>16,m+=65535&(d=K&Y^K&L^Y&L),B+=d>>>16,u=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,b=65535&x|M<<16,x=65535&(E=l),M=E>>>16,m=65535&(d=h),B=d>>>16,M+=(E=A)>>>16,m+=65535&(d=g),B+=d>>>16,Y=K,L=o,T=i,z=h=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,R=a,P=f,N=s,K=u,C=O,F=c,I=y,Z=l=65535&x|M<<16,G=w,q=v,D=p,O=b,_%16==15)for(U=0;U<16;U++)d=S[U],x=65535&(E=k[U]),M=E>>>16,m=65535&d,B=d>>>16,d=S[(U+9)%16],x+=65535&(E=k[(U+9)%16]),M+=E>>>16,m+=65535&d,B+=d>>>16,g=S[(U+1)%16],x+=65535&(E=((A=k[(U+1)%16])>>>1|g<<31)^(A>>>8|g<<24)^(A>>>7|g<<25)),M+=E>>>16,m+=65535&(d=(g>>>1|A<<31)^(g>>>8|A<<24)^g>>>7),B+=d>>>16,g=S[(U+14)%16],M+=(E=((A=k[(U+14)%16])>>>19|g<<13)^(g>>>29|A<<3)^(A>>>6|g<<26))>>>16,m+=65535&(d=(g>>>19|A<<13)^(A>>>29|g<<3)^g>>>6),B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,S[U]=65535&m|B<<16,k[U]=65535&x|M<<16;x=65535&(E=O),M=E>>>16,m=65535&(d=K),B=d>>>16,d=r[0],M+=(E=t[0])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[0]=K=65535&m|B<<16,t[0]=O=65535&x|M<<16,x=65535&(E=C),M=E>>>16,m=65535&(d=Y),B=d>>>16,d=r[1],M+=(E=t[1])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[1]=Y=65535&m|B<<16,t[1]=C=65535&x|M<<16,x=65535&(E=F),M=E>>>16,m=65535&(d=L),B=d>>>16,d=r[2],M+=(E=t[2])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[2]=L=65535&m|B<<16,t[2]=F=65535&x|M<<16,x=65535&(E=I),M=E>>>16,m=65535&(d=T),B=d>>>16,d=r[3],M+=(E=t[3])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[3]=T=65535&m|B<<16,t[3]=I=65535&x|M<<16,x=65535&(E=Z),M=E>>>16,m=65535&(d=z),B=d>>>16,d=r[4],M+=(E=t[4])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[4]=z=65535&m|B<<16,t[4]=Z=65535&x|M<<16,x=65535&(E=G),M=E>>>16,m=65535&(d=R),B=d>>>16,d=r[5],M+=(E=t[5])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[5]=R=65535&m|B<<16,t[5]=G=65535&x|M<<16,x=65535&(E=q),M=E>>>16,m=65535&(d=P),B=d>>>16,d=r[6],M+=(E=t[6])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[6]=P=65535&m|B<<16,t[6]=q=65535&x|M<<16,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,d=r[7],M+=(E=t[7])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[7]=N=65535&m|B<<16,t[7]=D=65535&x|M<<16,V+=128,e-=128}return e}function W(r,t,n){var e,o=new Int32Array(8),i=new Int32Array(8),h=new Uint8Array(256),a=n;for(o[0]=1779033703,o[1]=3144134277,o[2]=1013904242,o[3]=2773480762,o[4]=1359893119,o[5]=2600822924,o[6]=528734635,o[7]=1541459225,i[0]=4089235720,i[1]=2227873595,i[2]=4271175723,i[3]=1595750129,i[4]=2917565137,i[5]=725511199,i[6]=4215389547,i[7]=327033209,Q(o,i,t,n),n%=128,e=0;e<n;e++)h[e]=t[a-n+e];for(h[n]=128,h[(n=256-128*(n<112?1:0))-9]=0,f(h,n-8,a/536870912|0,a<<3),Q(o,i,h,n),e=0;e<8;e++)f(r,8*e,o[e],i[e]);return 0}function $(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v(),s=v(),u=v();C(n,r[1],r[0]),C(u,t[1],t[0]),F(n,n,u),O(e,r[0],r[1]),O(u,t[0],t[1]),F(e,e,u),F(o,r[3],t[3]),F(o,o,y),F(i,r[2],t[2]),O(i,i,i),C(h,e,n),C(a,i,o),O(f,i,o),O(s,e,n),F(r[0],h,a),F(r[1],s,f),F(r[2],f,a),F(r[3],h,s)}function rr(r,t,n){var e;for(e=0;e<4;e++)T(r[e],t[e],n)}function tr(r,t){var n=v(),e=v(),o=v();Z(o,t[2]),F(n,t[0],o),F(e,t[1],o),z(r,e),r[31]^=P(n)<<7}function nr(r,t,n){var e,o;for(Y(r[0],s),Y(r[1],u),Y(r[2],u),Y(r[3],s),o=255;0<=o;--o)rr(r,t,e=n[o/8|0]>>(7&o)&1),$(t,r),$(r,r),rr(r,t,e)}function er(r,t){var n=[v(),v(),v(),v()];Y(n[0],e),Y(n[1],a),Y(n[2],u),F(n[3],e,a),nr(r,n,t)}function or(r,t,n){var e,o=new Uint8Array(64),i=[v(),v(),v(),v()];for(n||h(t,32),W(o,t,32),o[0]&=248,o[31]&=127,o[31]|=64,er(i,o),tr(r,i),e=0;e<32;e++)t[e+32]=r[e];return 0}var ir=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function hr(r,t){var n,e,o,i;for(e=63;32<=e;--e){for(n=0,o=e-32,i=e-12;o<i;++o)t[o]+=n-16*t[e]*ir[o-(e-32)],n=Math.floor((t[o]+128)/256),t[o]-=256*n;t[o]+=n,t[e]=0}for(o=n=0;o<32;o++)t[o]+=n-(t[31]>>4)*ir[o],n=t[o]>>8,t[o]&=255;for(o=0;o<32;o++)t[o]-=n*ir[o];for(e=0;e<32;e++)t[e+1]+=t[e]>>8,r[e]=255&t[e]}function ar(r){var t,n=new Float64Array(64);for(t=0;t<64;t++)n[t]=r[t];for(t=0;t<64;t++)r[t]=0;hr(r,n)}function fr(r,t,n,e){var o,i,h=new Uint8Array(64),a=new Uint8Array(64),f=new Uint8Array(64),s=new Float64Array(64),u=[v(),v(),v(),v()];W(h,e,32),h[0]&=248,h[31]&=127,h[31]|=64;var c=n+64;for(o=0;o<n;o++)r[64+o]=t[o];for(o=0;o<32;o++)r[32+o]=h[32+o];for(W(f,r.subarray(32),n+32),ar(f),er(u,f),tr(r,u),o=32;o<64;o++)r[o]=e[o];for(W(a,r,n+64),ar(a),o=0;o<64;o++)s[o]=0;for(o=0;o<32;o++)s[o]=f[o];for(o=0;o<32;o++)for(i=0;i<32;i++)s[o+i]+=a[o]*h[i];return hr(r.subarray(32),s),c}function sr(r,t,n,e){var o,i=new Uint8Array(32),h=new Uint8Array(64),a=[v(),v(),v(),v()],f=[v(),v(),v(),v()];if(n<64)return-1;if(function(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v();if(Y(r[2],u),N(r[1],t),I(o,r[1]),F(i,o,c),C(o,o,r[2]),O(i,r[2],i),I(h,i),I(a,h),F(f,a,h),F(n,f,o),F(n,n,i),G(n,n),F(n,n,o),F(n,n,i),F(n,n,i),F(r[0],n,i),I(e,r[0]),F(e,e,i),R(e,o)&&F(r[0],r[0],l),I(e,r[0]),F(e,e,i),R(e,o))return 1;P(r[0])===t[31]>>7&&C(r[0],s,r[0]),F(r[3],r[0],r[1])}(f,e))return-1;for(o=0;o<n;o++)r[o]=t[o];for(o=0;o<32;o++)r[o+32]=e[o];if(W(h,r,n),ar(h),nr(a,f,h),er(f,t.subarray(32)),$(a,f),tr(i,a),n-=64,g(t,0,i,0)){for(o=0;o<n;o++)r[o]=0;return-1}for(o=0;o<n;o++)r[o]=t[o+64];return n}function ur(r,t){if(32!==r.length)throw new Error("bad key size");if(24!==t.length)throw new Error("bad nonce size")}function cr(){for(var r=0;r<arguments.length;r++)if(!(arguments[r]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function yr(r){for(var t=0;t<r.length;t++)r[t]=0}i.lowlevel={crypto_core_hsalsa20:_,crypto_stream_xor:M,crypto_stream:x,crypto_stream_salsa20_xor:d,crypto_stream_salsa20:E,crypto_onetimeauth:B,crypto_onetimeauth_verify:S,crypto_verify_16:b,crypto_verify_32:g,crypto_secretbox:k,crypto_secretbox_open:K,crypto_scalarmult:q,crypto_scalarmult_base:D,crypto_box_beforenm:X,crypto_box_afternm:j,crypto_box:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),j(r,t,n,e,h)},crypto_box_open:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),H(r,t,n,e,h)},crypto_box_keypair:V,crypto_hash:W,crypto_sign:fr,crypto_sign_keypair:or,crypto_sign_open:sr,crypto_secretbox_KEYBYTES:32,crypto_secretbox_NONCEBYTES:24,crypto_secretbox_ZEROBYTES:32,crypto_secretbox_BOXZEROBYTES:16,crypto_scalarmult_BYTES:32,crypto_scalarmult_SCALARBYTES:32,crypto_box_PUBLICKEYBYTES:32,crypto_box_SECRETKEYBYTES:32,crypto_box_BEFORENMBYTES:32,crypto_box_NONCEBYTES:24,crypto_box_ZEROBYTES:32,crypto_box_BOXZEROBYTES:16,crypto_sign_BYTES:64,crypto_sign_PUBLICKEYBYTES:32,crypto_sign_SECRETKEYBYTES:64,crypto_sign_SEEDBYTES:32,crypto_hash_BYTES:64,gf:v,D:c,L:ir,pack25519:z,unpack25519:N,M:F,A:O,S:I,Z:C,pow2523:G,add:$,set25519:Y,modL:hr,scalarmult:nr,scalarbase:er},i.randomBytes=function(r){var t=new Uint8Array(r);return h(t,r),t},i.secretbox=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(32+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+32]=r[i];return k(o,e,e.length,t,n),o.subarray(16)},i.secretbox.open=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(16+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+16]=r[i];return e.length<32||0!==K(o,e,e.length,t,n)?null:o.subarray(32)},i.secretbox.keyLength=32,i.secretbox.nonceLength=24,i.secretbox.overheadLength=16,i.scalarMult=function(r,t){if(cr(r,t),32!==r.length)throw new Error("bad n size");if(32!==t.length)throw new Error("bad p size");var n=new Uint8Array(32);return q(n,r,t),n},i.scalarMult.base=function(r){if(cr(r),32!==r.length)throw new Error("bad n size");var t=new Uint8Array(32);return D(t,r),t},i.scalarMult.scalarLength=32,i.scalarMult.groupElementLength=32,i.box=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox(r,t,o)},i.box.before=function(r,t){cr(r,t),function(r,t){if(32!==r.length)throw new Error("bad public key size");if(32!==t.length)throw new Error("bad secret key size")}(r,t);var n=new Uint8Array(32);return X(n,r,t),n},i.box.after=i.secretbox,i.box.open=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox.open(r,t,o)},i.box.open.after=i.secretbox.open,i.box.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(32);return V(r,t),{publicKey:r,secretKey:t}},i.box.keyPair.fromSecretKey=function(r){if(cr(r),32!==r.length)throw new Error("bad secret key size");var t=new Uint8Array(32);return D(t,r),{publicKey:t,secretKey:new Uint8Array(r)}},i.box.publicKeyLength=32,i.box.secretKeyLength=32,i.box.sharedKeyLength=32,i.box.nonceLength=24,i.box.overheadLength=i.secretbox.overheadLength,i.sign=function(r,t){if(cr(r,t),64!==t.length)throw new Error("bad secret key size");var n=new Uint8Array(64+r.length);return fr(n,r,r.length,t),n},i.sign.open=function(r,t){if(cr(r,t),32!==t.length)throw new Error("bad public key size");var n=new Uint8Array(r.length),e=sr(n,r,r.length,t);if(e<0)return null;for(var o=new Uint8Array(e),i=0;i<o.length;i++)o[i]=n[i];return o},i.sign.detached=function(r,t){for(var n=i.sign(r,t),e=new Uint8Array(64),o=0;o<e.length;o++)e[o]=n[o];return e},i.sign.detached.verify=function(r,t,n){if(cr(r,t,n),64!==t.length)throw new Error("bad signature size");if(32!==n.length)throw new Error("bad public key size");var e,o=new Uint8Array(64+r.length),i=new Uint8Array(64+r.length);for(e=0;e<64;e++)o[e]=t[e];for(e=0;e<r.length;e++)o[e+64]=r[e];return 0<=sr(i,o,o.length,n)},i.sign.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(64);return or(r,t),{publicKey:r,secretKey:t}},i.sign.keyPair.fromSecretKey=function(r){if(cr(r),64!==r.length)throw new Error("bad secret key size");for(var t=new Uint8Array(32),n=0;n<t.length;n++)t[n]=r[32+n];return{publicKey:t,secretKey:new Uint8Array(r)}},i.sign.keyPair.fromSeed=function(r){if(cr(r),32!==r.length)throw new Error("bad seed size");for(var t=new Uint8Array(32),n=new Uint8Array(64),e=0;e<32;e++)n[e]=r[e];return or(t,n,!0),{publicKey:t,secretKey:n}},i.sign.publicKeyLength=32,i.sign.secretKeyLength=64,i.sign.seedLength=32,i.sign.signatureLength=64,i.hash=function(r){cr(r);var t=new Uint8Array(64);return W(t,r,r.length),t},i.hash.hashLength=64,i.verify=function(r,t){return cr(r,t),0!==r.length&&0!==t.length&&(r.length===t.length&&0===w(r,0,t,0,r.length))},i.setPRNG=function(r){h=r},function(){var o="undefined"!=typeof self?self.crypto||self.msCrypto:null;if(o&&o.getRandomValues){i.setPRNG(function(r,t){var n,e=new Uint8Array(t);for(n=0;n<t;n+=65536)o.getRandomValues(e.subarray(n,n+Math.min(t-n,65536)));for(n=0;n<t;n++)r[n]=e[n];yr(e)})}else"undefined"!=typeof require&&(o=require("crypto"))&&o.randomBytes&&i.setPRNG(function(r,t){var n,e=o.randomBytes(t);for(n=0;n<t;n++)r[n]=e[n];yr(e)})}()}("undefined"!=typeof module&&module.exports?module.exports:self.nacl=self.nacl||{});
 const APP_VERSION = "1.09.01";
-const APP_BUILD = 10;
+const APP_BUILD = 11;
 /* =========================================================================
    seiGEN Commerce Lite — single-file offline POS
    Storage: SQLite via sql.js (WASM), persisted to IndexedDB as a blob.
@@ -326,18 +327,8 @@ const APP_BUILD = 10;
    attachments additionally need the file served via http://localhost
    (a local-server app) — text sharing always works from a plain file.
 
-   ACTIVATION CODE FORMULA (also shown on the Help page in-app):
-     function computeActivationCode(deviceCode, secretPhrase) {
-       const combined = deviceCode.toUpperCase() + '|' + secretPhrase.toUpperCase();
-       let hash = 0;
-       for (let i = 0; i < combined.length; i++) {
-         hash = ((hash << 5) - hash + combined.charCodeAt(i)) | 0;
-       }
-       hash = Math.abs(hash);
-       return hash.toString(36).toUpperCase().padStart(6, '0').slice(-6);
-     }
-   Give this + the device code shown on the lock screen + the shop's secret
-   phrase to any Claude chat to get the 6-character unlock code.
+   Activation: signed licences, see src/activation.js and
+   docs/activation/activation-v2-design.md.
    ========================================================================= */
 
 (function(){
@@ -1104,6 +1095,194 @@ const APP_BUILD = 10;
     return s;
   }
 
+  // ================== Activation (v2: signed licences) ==================
+  // docs/activation/activation-v2-design.md ("Owner decisions" wins).
+  //
+  // A device may be used while ONE of these holds (licenceState()):
+  //   licence  a licence string signed by seiGEN (Ed25519), bound to this
+  //            device, not yet expired. Checked fully offline with the public
+  //            key(s) below and the vendored TweetNaCl (src/vendor/).
+  //   trial    30 days from the EARLIEST of: install date, first sale, first
+  //            stock movement, first product created (so a reinstall + restore
+  //            of an old backup gives no new trial). Never signed.
+  //   legacy   activated_until from an old-style 6-character code (or from a
+  //            v10 install), honoured only until the legacy horizon.
+  // Every decision uses trustedNow() (eod.js), which never moves backwards.
+
+  // Public keys by key ID. Only seiGEN's private key (kept outside this repo,
+  // see docs/activation/licence-keys.md) can make a licence these accept.
+  // A new key ID can be added here to rotate keys; old IDs keep working until removed.
+  const LICENCE_PUBLIC_KEYS = {
+    1: "VLNqCYsJ2c6yZ+MToGEfn0zoRoQYpBWZ/f9naRP8jjA=",
+  };
+  const LICENCE_PREFIX = "SL2.";
+  const LICENCE_VERSION = 2;
+  const LICENCE_EPOCH_MS = Date.UTC(2026, 0, 1);      // day numbers in a licence count from 1 Jan 2026
+  const LICENCE_DAY_MS = 86400000;
+  const LICENCE_DAY_END_MS = 22*3600000;              // a licence day ends at 24:00 Harare (UTC+2) = 22:00 UTC
+  const TRIAL_DAYS = 30;
+  const ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // install IDs, device tags, short codes
+  const SEIGEN_PHONE = "+263789487287";
+  const SEIGEN_WA = "263789487287";
+  // Old-style codes: accepted until the cutoff, then refused. Set at the
+  // production release to that date + 30 days ("YYYY-MM-DD", end of that day
+  // in Harare). Until then each device's cutoff is 30 days after it first ran
+  // this version (licence_v2_since). The legacy horizon (cutoff + 30 days) is
+  // the last moment an old code entered before the cutoff can still run.
+  const LEGACY_CODE_CUTOFF = null;
+  const LEGACY_GRACE_DAYS = 30;
+
+  // ---- small helpers (no dependencies beyond TweetNaCl) ----
+  function naclLib(){
+    if(typeof nacl!=="undefined" && nacl && nacl.sign) return nacl;
+    if(typeof self!=="undefined" && self.nacl && self.nacl.sign) return self.nacl;
+    return null;
+  }
+  function licUtf8(s){ return new Uint8Array(new TextEncoder().encode(String(s))); }   // copied: this realm's Uint8Array, which nacl insists on
+  function licB64ToBytes(s){
+    const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    s = String(s).replace(/-/g,"+").replace(/_/g,"/").replace(/=+$/,"");
+    if(/[^A-Za-z0-9+/]/.test(s) || s.length%4===1) return null;
+    const out = new Uint8Array(Math.floor(s.length*3/4));
+    let bits=0, val=0, j=0;
+    for(let i=0;i<s.length;i++){
+      val = (val<<6) | A.indexOf(s[i]); bits += 6;
+      if(bits>=8){ bits-=8; out[j++] = (val>>bits) & 255; }
+    }
+    return out;
+  }
+  function licU16(b,o){ return (b[o]<<8)|b[o+1]; }
+  function licU32(b,o){ return ((b[o]<<24)>>>0) + (b[o+1]<<16) + (b[o+2]<<8) + b[o+3]; }
+  function licHex(b){ return Array.from(b, x=>x.toString(16).padStart(2,"0")).join(""); }
+  // The last day something is valid on (an end instant is exclusive: a
+  // licence ending at 24:00 on 7 Nov reads "7 Nov", not "8 Nov").
+  function licDateText(ms){ return new Date(ms-1).toLocaleDateString("en-GB",{ day:"numeric", month:"short", year:"numeric", timeZone:"Africa/Harare" }); }
+
+  // ---- this device ----
+  // SHA-512 of the device's private random key (terminal.js deviceKey()).
+  let _devHashKey = null, _devHash = null;
+  function deviceKeyHash(){
+    const k = deviceKey();
+    if(_devHashKey!==k){ _devHash = naclLib().hash(licUtf8(k)); _devHashKey = k; }
+    return _devHash;
+  }
+  // 4 characters = the first 20 bits of that hash. Ties a licence to this device.
+  function deviceTag(){
+    const h = deviceKeyHash();
+    const bits = (h[0]<<12) | (h[1]<<4) | (h[2]>>4);
+    let s = "";
+    for(let i=0;i<4;i++) s += ID_ALPHABET[(bits >> (15-5*i)) & 31];
+    return s;
+  }
+  // What the shop sends seiGEN: install ID + device tag, e.g. ABCD-K7Q2.
+  function licenceDeviceCode(){ return getSetting("install_id","XXXX") + "-" + deviceTag(); }
+
+  // ---- parsing and checking a licence (offline) ----
+  // Accepts the bare "SL2.…" text, a whole activation link (…#lic=SL2.…), or
+  // a WhatsApp message containing either. The licence is the run of
+  // base64url characters after "SL2."; if a paste broke it across lines,
+  // the run with the line breaks taken out is used instead.
+  const LICENCE_LENGTHS = [126, 147];   // base64url of 94 / 110 bytes (unregistered / registered)
+  function extractLicenceText(text){
+    const s = String(text||"");
+    const i = s.indexOf(LICENCE_PREFIX);
+    if(i<0) return null;
+    const rest = s.slice(i + LICENCE_PREFIX.length);
+    const run = (/^[A-Za-z0-9_-]*/.exec(rest)||[""])[0];
+    if(LICENCE_LENGTHS.includes(run.length)) return LICENCE_PREFIX + run;
+    const joined = (/^[A-Za-z0-9_-]*/.exec(rest.replace(/\s+/g,""))||[""])[0];
+    return LICENCE_PREFIX + (LICENCE_LENGTHS.includes(joined.length)? joined : run);
+  }
+  function parseLicence(text){
+    const t = extractLicenceText(text);
+    if(!t) return { ok:false, reason:"invalid" };
+    const b = licB64ToBytes(t.slice(LICENCE_PREFIX.length));
+    if(!b || b.length<30+64) return { ok:false, reason:"invalid" };
+    const flags = b[27], hasBiz = !!(flags & 2), plen = hasBiz? 46 : 30;
+    if(b.length!==plen+64 || b[0]!==LICENCE_VERSION) return { ok:false, reason:"invalid" };
+    const payload = b.subarray(0, plen), sig = b.subarray(plen);
+    let install = "";
+    for(let i=6;i<14 && b[i];i++) install += String.fromCharCode(b[i]);
+    const biz = hasBiz? licHex(b.subarray(30,46)) : "";
+    return { ok:true, text:t, payload, sig, kid:b[1], serial:licU32(b,2), installId:install,
+      binding:b.subarray(14,22), strong:!!(flags & 1), issuedDay:licU16(b,22), untilDay:licU16(b,24),
+      plan:b[26], features:licU16(b,28),
+      businessId: biz? biz.slice(0,8)+"-"+biz.slice(8,12)+"-"+biz.slice(12,16)+"-"+biz.slice(16,20)+"-"+biz.slice(20) : "",
+      issuedMs: LICENCE_EPOCH_MS + licU16(b,22)*LICENCE_DAY_MS,
+      untilMs: LICENCE_EPOCH_MS + (licU16(b,24)+1)*LICENCE_DAY_MS - (24*3600000-LICENCE_DAY_END_MS) };
+  }
+  // reason: invalid | unknown_key | other_device. Expiry is checked by the caller (needs trusted time).
+  // Any unexpected error counts as invalid (fails closed).
+  function verifyLicence(text){
+    try{ return verifyLicenceUnsafe(text); }catch(e){ return { ok:false, reason:"invalid" }; }
+  }
+  function verifyLicenceUnsafe(text){
+    const p = parseLicence(text);
+    if(!p.ok) return p;
+    const lib = naclLib();
+    const pub = LICENCE_PUBLIC_KEYS[p.kid];
+    if(!lib) return { ok:false, reason:"invalid" };
+    if(!pub) return { ok:false, reason:"unknown_key", lic:p };
+    let good = false;
+    try{ good = lib.sign.detached.verify(p.payload, p.sig, licB64ToBytes(pub)); }catch(e){ good = false; }
+    if(!good) return { ok:false, reason:"invalid" };
+    const h = deviceKeyHash();
+    const same = p.installId===getSetting("install_id","") && (p.strong
+      ? p.binding.every((x,i)=> x===h[i])
+      : p.binding[0]===h[0] && p.binding[1]===h[1] && (p.binding[2]>>4)===(h[2]>>4));
+    if(!same) return { ok:false, reason:"other_device", lic:p };
+    return { ok:true, lic:p };
+  }
+  // The licence this device holds, if it still verifies here (cached per string).
+  let _licCacheText = null, _licCacheResult = null;
+  function currentLicence(){
+    const t = getSetting("licence","");
+    if(!t) return null;
+    if(t!==_licCacheText || _devHashKey!==getSetting("device_key","")){ _licCacheText = t; _licCacheResult = verifyLicence(t); }
+    return _licCacheResult.ok? _licCacheResult.lic : null;
+  }
+  function usedLicenceSerials(){ try{ return JSON.parse(getSetting("licence_serials","[]"))||[]; }catch(e){ return []; } }
+
+  // ---- the trial (Q8): counts from the earliest business data ----
+  // Sales, stock movements (ledger, receipts, adjustments) and products
+  // created: whichever is oldest, or the install date if older still.
+  // Values that aren't dates (or are before 2024) are ignored.
+  function earliestBusinessDataMs(){
+    const qs = ["SELECT MIN(ts) v FROM sales WHERE ts IS NOT NULL AND ts<>''",
+      "SELECT MIN(ts) v FROM stock_movements WHERE ts IS NOT NULL AND ts<>''",
+      "SELECT MIN(ts) v FROM stock_received WHERE ts IS NOT NULL AND ts<>''",
+      "SELECT MIN(ts) v FROM stock_adjustments WHERE ts IS NOT NULL AND ts<>''",
+      "SELECT MIN(created_ts) v FROM products WHERE created_ts IS NOT NULL AND created_ts<>''"];
+    let min = null;
+    for(const q of qs){
+      let v = null;
+      try{ v = (one(q)||{}).v; }catch(e){ v = null; }
+      const ms = v? Date.parse(v) : NaN;
+      if(!isNaN(ms) && ms>=Date.UTC(2024,0,1) && (min===null || ms<min)) min = ms;
+    }
+    return min;
+  }
+  function trialStartMs(){
+    const inst = Date.parse(getSetting("install_date",""));
+    const data = earliestBusinessDataMs();
+    const c = [inst, data].filter(x=> x!==null && !isNaN(x));
+    return c.length? Math.min(...c) : null;
+  }
+  function trialEndMs(){ const s = trialStartMs(); return s===null? null : s + TRIAL_DAYS*LICENCE_DAY_MS; }
+
+  // ---- old-style codes: until the cutoff ----
+  function licenceV2SinceMs(){
+    let s = getSetting("licence_v2_since","");
+    if(!s){ s = trustedNow().toISOString(); setSetting("licence_v2_since", s); }
+    return Date.parse(s);
+  }
+  function legacyCutoffMs(){
+    if(LEGACY_CODE_CUTOFF) return Date.parse(LEGACY_CODE_CUTOFF+"T00:00:00Z") + LICENCE_DAY_MS - (24*3600000-LICENCE_DAY_END_MS);
+    return licenceV2SinceMs() + LEGACY_GRACE_DAYS*LICENCE_DAY_MS;
+  }
+  function legacyHorizonMs(){ return legacyCutoffMs() + LEGACY_GRACE_DAYS*LICENCE_DAY_MS; }
+  // The old 6-character code for a device code and phrase. Kept only so old
+  // codes still unlock until the cutoff; removed after the legacy horizon.
   function computeActivationCode(deviceCode, secretPhrase){
     const combined = deviceCode.toUpperCase()+"|"+secretPhrase.toUpperCase();
     let hash=0;
@@ -1112,20 +1291,8 @@ const APP_BUILD = 10;
     return hash.toString(36).toUpperCase().padStart(6,"0").slice(-6);
   }
   function daysBetween(a,b){ return Math.floor((b-a)/86400000); }
-  // Both installDate/now here previously used the raw device clock — the
-  // one thing an on-device date-rollback bypass can always manipulate.
-  // trustedNow() (eod.js) is the persisted, never-goes-backward substitute:
-  // rolling the clock back can no longer make an already-elapsed trial
-  // period look unexpired again, because trustedNow() never actually moves
-  // backwards even when the device clock does.
-  function activationStatus(){
-    const installDate = getSetting("install_date","");
-    const activatedUntil = getSetting("activated_until","");
-    if(!installDate) return "no_setup";
-    const now = trustedNow();
-    if(activatedUntil && now <= new Date(activatedUntil)) return "ok";
-    return "locked";
-  }
+  // The old device code (install ID + 30-day cycle), still what check-in
+  // reports and what an old-style code is made from.
   function currentDeviceCode(){
     const installDate = new Date(getSetting("install_date"));
     const installId = getSetting("install_id","XXXX");
@@ -1133,7 +1300,170 @@ const APP_BUILD = 10;
     return `${installId}-C${cycle}`;
   }
 
+  // ---- the state ----
+  // { status: ok|locked|no_setup, source: licence|trial|legacy|null, untilMs, licence, trialEndMs }
+  function licenceState(){
+    if(!getSetting("install_date","")) return { status:"no_setup", source:null, untilMs:null };
+    licenceV2SinceMs();   // records this version's first run (a device upgraded from v10)
+    const now = trustedNow().getTime();
+    const lic = currentLicence();
+    const licUntil = lic? lic.untilMs : null;
+    const trialEnd = trialEndMs();
+    // activated_until set by v11 setup is the trial's mirror for a rollback to
+    // v10, not a grant: the trial rule above decides instead.
+    const au = Date.parse(getSetting("activated_until",""));
+    const auSrc = getSetting("activated_until_src","");
+    const legacyUntil = (!isNaN(au) && auSrc!=="setup" && now < legacyHorizonMs())? au : null;
+    const valid = [];
+    if(licUntil!==null && now<=licUntil) valid.push(["licence", licUntil]);
+    if(trialEnd!==null && now<trialEnd) valid.push(["trial", trialEnd]);
+    if(legacyUntil!==null && now<=legacyUntil) valid.push(["legacy", legacyUntil]);
+    if(valid.length){
+      valid.sort((a,b)=> b[1]-a[1]);
+      return { status:"ok", source:valid[0][0], untilMs:valid[0][1], licence:lic, trialEndMs:trialEnd };
+    }
+    const ended = [licUntil, trialEnd, legacyUntil].filter(x=>x!==null);
+    return { status:"locked", source:null, untilMs: ended.length? Math.max(...ended) : null, licence:lic, trialEndMs:trialEnd };
+  }
+  function activationStatus(){ return licenceState().status; }
+  // render() (router.js) checks this cached flag on every screen; it's
+  // refreshed at boot, every hour, when the app comes back to the
+  // foreground (startLicenceWatch) and after any activation.
+  let _licenceLocked = false;
+  function refreshLicenceLock(){ _licenceLocked = activationStatus()==="locked"; return _licenceLocked; }
+  function licenceLocked(){ return _licenceLocked; }
 
+  // ---- activating ----
+  // via: link | paste | code | checkin. Resolves to { ok, untilMs, serial, already? } or { ok:false, reason }.
+  async function applyLicence(text, via){
+    const v = verifyLicence(text);
+    if(!v.ok) return { ok:false, reason:v.reason, lic:v.lic };
+    const lic = v.lic;
+    // A signed issue date is a trusted time: the watermark moves forward to it.
+    if(typeof noteTrustedTime==="function") noteTrustedTime(new Date(lic.issuedMs));
+    const now = trustedNow().getTime();
+    if(now > lic.untilMs) return { ok:false, reason:"expired", lic };
+    const cur = currentLicence();
+    if(cur && cur.serial===lic.serial) return { ok:true, already:true, untilMs:lic.untilMs, serial:lic.serial };
+    if(usedLicenceSerials().includes(lic.serial)) return { ok:false, reason:"used", lic };
+    if(cur && lic.serial < cur.serial && now <= cur.untilMs) return { ok:false, reason:"older", lic };
+    setSetting("licence", lic.text);
+    setSetting("licence_serials", JSON.stringify(usedLicenceSerials().concat([lic.serial]).slice(-50)));
+    // mirror for a rollback to v10, which only reads activated_until
+    setSetting("activated_until", new Date(lic.untilMs).toISOString());
+    setSetting("activated_until_src", "licence");
+    logAudit("Licence activated", "", "Licence #"+lic.serial+" until "+licDateText(lic.untilMs)+" ("+via+")");
+    refreshLicenceLock();
+    await persist();
+    return { ok:true, untilMs:lic.untilMs, serial:lic.serial };
+  }
+  async function enterLegacyCode(code){
+    if(trustedNow().getTime() >= legacyCutoffMs()) return { ok:false, reason:"legacy_closed" };
+    const expected = computeActivationCode(currentDeviceCode(), getSetting("secret_phrase",""));
+    if(code!==expected) return { ok:false, reason:"invalid" };
+    // trustedNow(), not Date.now(): a rolled-back clock can't stretch a replayed code
+    const until = new Date(trustedNow().getTime()+30*LICENCE_DAY_MS);
+    setSetting("activated_until", until.toISOString());
+    setSetting("activated_until_src", "code");
+    logAudit("Activated (old-style code)", "", "until "+licDateText(until.getTime()));
+    refreshLicenceLock();
+    await persist();
+    return { ok:true, untilMs:until.getTime(), legacy:true };
+  }
+  // Short code: needs the internet. The server checks it's for this device,
+  // marks it used and answers with the signed licence (cl_licence_redeem).
+  async function redeemShortCode(code){
+    if(!isOnline()) return { ok:false, reason:"offline" };
+    if(!getSetting("secret_phrase","").trim()) return { ok:false, reason:"no_phrase" };
+    if(typeof dcIsRegistered==="function" && !dcIsRegistered()){
+      const c = await deviceCheckin();
+      if(!c.ok && (c.reason==="offline" || c.reason==="network")) return { ok:false, reason:"offline" };
+    }
+    const r = await terminalRpc("cl_licence_redeem", Object.assign(terminalAuth(), { p_code: code }));
+    if(!r.ok){
+      if(r.reason==="offline" || r.reason==="network") return { ok:false, reason:"offline" };
+      if(r.reason==="refused"){
+        const map = { INVALID_CODE:"invalid", ALREADY_USED:"used", WRONG_DEVICE:"other_device", TOO_MANY_TRIES:"too_many", EXPIRED:"expired", REVOKED:"revoked" };
+        return { ok:false, reason: map[r.code] || "invalid" };
+      }
+      return { ok:false, reason:"server", message:r.message };
+    }
+    if(!r.data || !r.data.licence) return { ok:false, reason:"invalid" };
+    return applyLicence(r.data.licence, "code");
+  }
+  // One box takes a link, the long licence, a short code or an old-style code.
+  function classifyActivationInput(text){
+    const raw = String(text||"").trim();
+    if(!raw) return { kind:"empty" };
+    if(extractLicenceText(raw)) return { kind:"licence", value:raw };
+    const n = raw.toUpperCase().replace(/[^A-Z0-9]/g,"");
+    if(n.length===10 && [...n].every(c=>ID_ALPHABET.includes(c))) return { kind:"short", value:n };
+    if(n.length===6) return { kind:"legacy", value:n };
+    return { kind:"bad" };
+  }
+  async function activateFromInput(text, via){
+    const c = classifyActivationInput(text);
+    if(c.kind==="empty") return { ok:false, reason:"empty" };
+    if(c.kind==="licence") return applyLicence(c.value, via||"paste");
+    if(c.kind==="short") return redeemShortCode(c.value);
+    if(c.kind==="legacy") return enterLegacyCode(c.value);
+    return { ok:false, reason:"invalid" };
+  }
+  function licenceProblemText(r){
+    r = r || {};
+    const code = licenceDeviceCode();
+    switch(r.reason){
+      case "empty": return "Paste the licence from WhatsApp, or type the code.";
+      case "other_device": return "This licence is for another device"+(r.lic && r.lic.installId? " ("+r.lic.installId+"…)" : "")+". This device is "+code+". Ask seiGEN for a licence for this device.";
+      case "expired": return "This licence expired"+(r.lic? " on "+licDateText(r.lic.untilMs) : "")+". Ask seiGEN for a new one.";
+      case "used": return "This code has already been used. If it was on this device, the licence is already active; otherwise ask seiGEN for a new one.";
+      case "older": return "This device already has a newer licence"+(r.lic? " than #"+r.lic.serial : "")+".";
+      case "offline": return "You're offline. A short code needs the internet: connect and try again, or tap the link or paste the long licence from WhatsApp, which work offline.";
+      case "too_many": return "Too many wrong codes. Wait 15 minutes, then try again, or paste the long licence from WhatsApp.";
+      case "revoked": return "This licence has been cancelled by seiGEN. Contact seiGEN "+SEIGEN_PHONE+".";
+      case "legacy_closed": return "This is an old-style code, which is no longer accepted. seiGEN now sends a licence (a link or a code): WhatsApp "+SEIGEN_PHONE+" with your device code "+code+".";
+      case "no_phrase": return "Enter your activation secret phrase in More → Settings first, then try the code again.";
+      case "unknown_key": return "This licence needs a newer version of the app. Update the app, then try again.";
+      case "server": return "seiGEN couldn't check the code right now ("+(r.message||"server problem")+"). Try again, or paste the long licence.";
+      default: return "This code isn't valid. Check it, or paste the whole licence from WhatsApp.";
+    }
+  }
+
+  // ---- automatic delivery for registered devices (after a check-in) ----
+  async function licencePullPending(){
+    const cur = currentLicence();
+    const r = await terminalRpc("cl_licence_pending", Object.assign(terminalAuth(), { p_after_serial: cur? cur.serial : 0 }));
+    if(!r.ok || !r.data || !r.data.licence) return { ok:false };
+    return applyLicence(r.data.licence, "checkin");
+  }
+
+  // ---- an activation link (…#lic=SL2.…) ----
+  // Read once at boot and removed from the address bar; the "#" part never
+  // reaches any server.
+  function takeLicenceFromUrl(){
+    try{
+      const h = String(location.hash||"");
+      if(!/lic=/.test(h)) return null;
+      const t = extractLicenceText(decodeURIComponent(h));
+      if(history && history.replaceState) history.replaceState(null, "", location.pathname + location.search);
+      return t;
+    }catch(e){ return null; }
+  }
+
+  // ---- re-checks: every hour, and when the app comes back to the front ----
+  let _licWatchStarted = false;
+  function startLicenceWatch(){
+    if(_licWatchStarted || typeof document==="undefined") return;
+    _licWatchStarted = true;
+    const check = async ()=>{
+      try{ await establishTrustedTime(); }catch(e){}
+      if(refreshLicenceLock() && route!=="lock" && route!=="lockreports" && route!=="setup"){ route = "lock"; render(); }
+    };
+    setInterval(check, 3600000);
+    document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") check(); });
+  }
+
+  // ================== Screens ==================
   // Part 6: a detected clock anomaly must only ever affect this
   // license/activation screen's copy — never sales, stock, or any other
   // business data. Shown only alongside the existing lock screen, never as
@@ -1149,47 +1479,165 @@ const APP_BUILD = 10;
       <p class="muted" style="color:inherit;margin:6px 0 0">We use the date/time to keep your trial and activation accurate, so this may be why activation looks locked. Please check the device's date/time settings, connect to the internet so we can verify it automatically, and contact support if this keeps happening.</p>
     </div>`;
   }
+  function licenceAppKind(){ return (typeof isDesktopBuild==="function" && isDesktopBuild())? "desktop app" : "phone app"; }
+  function licenceWhatsAppText(){
+    const lines = ["Hi seiGEN, my shop needs a licence.",
+      "Device code: "+licenceDeviceCode(),
+      "Shop: "+getSetting("shop_name",""),
+      "App: "+licenceAppKind()];
+    if(trustedNow().getTime() < legacyCutoffMs()) lines.push("Old-style device code: "+currentDeviceCode());
+    return lines.join("\n");
+  }
+  function copyText(t){
+    try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t); return true; } }catch(e){}
+    return false;
+  }
+  function lockReasonText(st){
+    if(st.licence && st.untilMs && st.source===null && st.untilMs===st.licence.untilMs) return "Your licence ended on "+licDateText(st.untilMs)+".";
+    if(st.trialEndMs && st.untilMs===st.trialEndMs) return "Your 30-day free trial ended on "+licDateText(st.trialEndMs)+".";
+    if(st.untilMs) return "Your activation ended on "+licDateText(st.untilMs)+".";
+    return "This device needs a licence.";
+  }
+  // The activation form: device code, contact, one input. Used by the lock
+  // screen and by "Enter a new licence" on More → About.
+  function activationFormHtml(){
+    const legacyOpen = trustedNow().getTime() < legacyCutoffMs();
+    return `
+      <p class="muted" style="margin:0 0 6px">Your device code</p>
+      <div class="device-code" id="actDeviceCode">${escapeHtml(licenceDeviceCode())}</div>
+      <button class="btn btn-ghost btn-sm" id="actCopyCode" style="margin:0 auto 10px;display:block">Copy device code</button>
+      <button class="btn btn-primary" id="waLock">📲 WhatsApp seiGEN ${SEIGEN_PHONE}</button>
+      <a class="btn btn-outline" id="callLock" href="tel:${SEIGEN_PHONE}" style="display:block;margin-top:8px;text-align:center;text-decoration:none">📞 Call ${SEIGEN_PHONE}</a>
+      <div class="hr"></div>
+      <label for="actCode">Licence or code</label>
+      <textarea class="field" id="actCode" rows="2" placeholder="Paste the licence from WhatsApp, or type the code" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-align:center;font-weight:700;resize:vertical"></textarea>
+      <button class="btn btn-primary" id="unlockBtn" style="margin-top:10px">Activate</button>
+      <div id="actMsg" role="status" style="margin-top:10px;font-weight:600"></div>
+      ${legacyOpen? `<p class="muted" style="font-size:12px;margin:10px 0 0">Old-style 6-character codes are still accepted until ${escapeHtml(licDateText(legacyCutoffMs()))} (old device code ${escapeHtml(currentDeviceCode())}).</p>` : ""}`;
+  }
+  function wireActivationForm(onDone){
+    document.getElementById("waLock").onclick=()=>{
+      window.open("https://wa.me/"+SEIGEN_WA+"?text="+encodeURIComponent(licenceWhatsAppText()),"_blank");
+    };
+    document.getElementById("actCopyCode").onclick=(e)=>{ e.currentTarget.textContent = copyText(licenceDeviceCode())? "Copied" : licenceDeviceCode(); };
+    const btn = document.getElementById("unlockBtn"), msg = document.getElementById("actMsg");
+    btn.onclick = async ()=>{
+      const text = document.getElementById("actCode").value;
+      const kind = classifyActivationInput(text).kind;
+      btn.disabled = true; btn.textContent = kind==="short"? "Checking with seiGEN…" : "Activating…";
+      msg.textContent = ""; msg.style.color = "";
+      let r;
+      try{ r = await activateFromInput(text, "paste"); }catch(e){ r = { ok:false, reason:"invalid" }; }
+      btn.disabled = false; btn.textContent = "Activate";
+      if(r.ok){ onDone(r); return; }
+      msg.style.color = "var(--danger)";
+      msg.textContent = licenceProblemText(r);
+    };
+  }
   function renderLock(){
-    const deviceCode = currentDeviceCode();
+    route = "lock";
+    const st = licenceState();
     $app.innerHTML = `
       <div class="center-screen">
         <div class="setup-card center">
           <h2>Activation needed</h2>
           ${clockAnomalyNoticeHtml()}
-          <p class="muted">Your 30 days are up. Call or WhatsApp us with the code below and we'll send an unlock code.</p>
-          <div class="device-code">${deviceCode}</div>
-          <button class="btn btn-primary" id="waLock">📲 WhatsApp +263774479121</button>
+          <p class="muted" id="lockReason">${escapeHtml(lockReasonText(st))} Selling is paused until this device has a licence. Your data is safe.</p>
+          ${activationFormHtml()}
           <div class="hr"></div>
-          <label>Enter activation code</label>
-          <input class="field" id="actCode" placeholder="XXXXXX" style="text-align:center;letter-spacing:2px;font-weight:700">
-          <button class="btn btn-outline" id="unlockBtn" style="margin-top:12px">Unlock</button>
+          <button class="btn btn-outline" id="lockReports">📊 View reports (read-only)</button>
+          <button class="btn btn-outline" id="lockBackup" style="margin-top:8px">💾 Download backup</button>
         </div>
       </div>
     `;
-    document.getElementById("waLock").onclick=()=>{
-      const text = `Hi, my shop needs an activation code. Device code: ${deviceCode}`;
-      window.open("https://wa.me/263774479121?text="+encodeURIComponent(text),"_blank");
-    };
-    document.getElementById("unlockBtn").onclick=async ()=>{
-      const entered = document.getElementById("actCode").value.trim().toUpperCase();
-      const secret = getSetting("secret_phrase","");
-      const expected = computeActivationCode(deviceCode, secret);
-      if(entered === expected){
-        // trustedNow(), not Date.now(): otherwise rolling the clock back to
-        // replay a previously-issued code (same device-code cycle, same
-        // secret phrase) would grant a fresh 30 days measured from the
-        // rolled-back instant — exactly the repeated-manipulation extension
-        // Part 5 rules out.
-        const until = new Date(trustedNow().getTime()+30*86400000);
-        setSetting("activated_until", until.toISOString());
-        await persist();
-        route="pos"; render();
-      } else {
-        alert("Incorrect code. Please check and try again.");
-      }
+    wireActivationForm((r)=> renderActivationDone(r));
+    document.getElementById("lockReports").onclick = ()=>{ route = "lockreports"; render(); };
+    document.getElementById("lockBackup").onclick = ()=>{
+      downloadDb(`seigen-backup-${new Date().toISOString().replace(/[:.]/g,"-")}.sqlite`);
     };
   }
-
+  function renderActivationDone(r){
+    const legacy = r && r.legacy;
+    $app.innerHTML = `
+      <div class="center-screen">
+        <div class="setup-card center">
+          <h2>Activated</h2>
+          <p id="actDone" style="font-weight:700">This device is activated until ${escapeHtml(licDateText(r.untilMs))}.</p>
+          <p class="muted">${legacy? "Old-style code accepted." : "Licence #"+escapeHtml(String(r.serial||""))+" for device "+escapeHtml(licenceDeviceCode())+"."}</p>
+          <button class="btn btn-primary" id="actContinue">Continue</button>
+        </div>
+      </div>`;
+    document.getElementById("actContinue").onclick = ()=>{ route = "start"; render(); };
+  }
+  // A link opened where the shop isn't set up (another browser, a new
+  // install): never start setup from it, just say where to open it.
+  function renderLinkNoSetup(text){
+    $app.innerHTML = `
+      <div class="center-screen">
+        <div class="setup-card center">
+          <h2>Open this in your seiGEN app</h2>
+          <p class="muted">This activation link is for a device that's already set up, but this browser has no shop set up. Open the link in the seiGEN Commerce Lite app on that device (or in the browser you installed it from), or copy the licence and paste it into the app's activation screen.</p>
+          <button class="btn btn-primary" id="linkCopy">Copy the licence</button>
+          <div id="linkCopyMsg" class="muted" style="margin-top:8px"></div>
+          <div class="hr"></div>
+          <button class="btn btn-ghost" id="linkSetup">This is a new device: set it up</button>
+        </div>
+      </div>`;
+    document.getElementById("linkCopy").onclick = ()=>{
+      document.getElementById("linkCopyMsg").textContent = copyText(text)? "Copied. Paste it into the app's activation screen." : text;
+    };
+    document.getElementById("linkSetup").onclick = ()=>{ route = "setup"; renderSetup(); };
+  }
+  function renderLinkResult(r){
+    if(r.ok) return renderActivationDone(r);
+    $app.innerHTML = `
+      <div class="center-screen">
+        <div class="setup-card center">
+          <h2>Couldn't activate</h2>
+          <p id="linkErr" style="color:var(--danger);font-weight:600">${escapeHtml(licenceProblemText(r))}</p>
+          <button class="btn btn-primary" id="linkContinue">Continue</button>
+        </div>
+      </div>`;
+    document.getElementById("linkContinue").onclick = ()=>{ route = licenceLocked()? "lock" : "start"; render(); };
+  }
+  // Locked: read-only Reports (no End of Day, returns or requests).
+  function renderLockReports(){
+    $app.innerHTML = `
+      <div class="topbar">
+        <button class="logout-btn" id="lockReportsBack" aria-label="Back to activation" title="Back to activation" style="font-size:18px">‹</button>
+        <div class="names">
+          <div class="shop">${escapeHtml(getSetting("shop_name","Shop"))}</div>
+          <div class="branch">Read-only · activation needed</div>
+        </div>
+      </div>
+      <main id="main"><div class="card" id="lockReportsNote" style="border-color:#E8590C;background:#fff8f0;color:#b54708;font-weight:600">Read-only: selling is paused until this device has a licence. <button class="btn btn-sm btn-primary" id="lockReportsActivate" style="margin-left:6px">Activate</button></div><div id="lockReportsBody"></div></main>
+    `;
+    document.getElementById("lockReportsBack").onclick = ()=>{ route = "lock"; render(); };
+    document.getElementById("lockReportsActivate").onclick = ()=>{ route = "lock"; render(); };
+    renderReports(document.getElementById("lockReportsBody"), { readOnly:true });
+  }
+  // More → About: what this device runs on, and early renewal.
+  function licenceStatusCardHtml(){
+    const st = licenceState();
+    let line = "This device needs a licence.";
+    if(st.status==="ok" && st.source==="licence") line = "Licensed until "+licDateText(st.untilMs)+" (licence #"+st.licence.serial+").";
+    else if(st.status==="ok" && st.source==="trial") line = "Free trial until "+licDateText(st.untilMs)+".";
+    else if(st.status==="ok" && st.source==="legacy") line = "Activated (old-style code) until "+licDateText(st.untilMs)+".";
+    return `<div class="card" id="licenceCard">
+      <h3 style="margin-top:0">Licence</h3>
+      <p id="licenceLine" style="font-weight:600">${escapeHtml(line)}</p>
+      <p class="muted" style="margin:0 0 8px">Device code: <b>${escapeHtml(licenceDeviceCode())}</b></p>
+      <button class="btn btn-outline" id="licenceRenew">Enter a new licence</button>
+    </div>`;
+  }
+  function wireLicenceStatusCard(){
+    const b = document.getElementById("licenceRenew");
+    if(!b) return;
+    b.onclick = ()=>{
+      const wrap = openModal("Enter a new licence", `<div class="center">${activationFormHtml()}</div>`);
+      wireActivationForm((r)=>{ if(wrap && wrap.remove) wrap.remove(); render(); alert("Activated until "+licDateText(r.untilMs)+"."); });
+    };
+  }
 
   function searchProducts(q, branch){
     branch = branch===undefined ? currentBranch() : branch;
@@ -1214,22 +1662,30 @@ const APP_BUILD = 10;
     else { if(max>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:max}); }
     render();
   }
-  // A till in a multi-till branch whose stock isn't shared yet, and that
-  // doesn't hold the branch's stock itself, has nothing to sell (Phase 3a
-  // note). Phase 3b decides it from the server's answer (stock holder), so a
-  // branch whose T1 was deactivated and runs on a single T2 is handled; before
-  // the first stock sync it falls back to the till code.
-  const TILL_STOCK_NOTE = "Stock for this till isn't set up yet — coming in the next update.";
-  function tillStockPending(){
-    if(!getSetting("terminal_id","")) return false;
+  // The orange note on Sell and Products (activation-v2-design.md §9): shown
+  // only when it's true.
+  //   * shared branch, this till not joined yet (still holds its own stock):
+  //     say how to add it to the branch;
+  //   * a T2+ till in a local branch (or before its first stock sync) with no
+  //     stock at all: say how to get some. A till that holds stock of its own
+  //     sells it normally (sellableNow), so it gets no note.
+  // T1, the branch's stock holder and unregistered devices never see it.
+  const TILL_STOCK_NOTE_MERGE = "Your branch uses shared stock. This till still has stock of its own: add it to the branch in More → Settings → Branch stock.";
+  const TILL_STOCK_NOTE_EMPTY = "This till has no stock yet. Receive stock on this till, or ask the main till to start shared stock for the branch.";
+  function tillStockNoteText(){
+    if(!getSetting("terminal_id","")) return "";
     const mode = getSetting("stock_mode","");
-    if(mode==="shared") return getSetting("stock_init","")!=="1";
-    if(mode==="local") return getSetting("stock_holder","")!=="1";
+    if(mode==="shared") return getSetting("stock_init","")!=="1"? TILL_STOCK_NOTE_MERGE : "";
+    if(mode==="local" && getSetting("stock_holder","")==="1") return "";
     const t = getSetting("till_code","");
-    return /^T[0-9]+$/.test(t) && t!=="T1";
+    if(!mode && !(/^T[0-9]+$/.test(t) && t!=="T1")) return "";
+    const any = one("SELECT 1 x FROM products WHERE branch=? AND stock>0 LIMIT 1",[currentBranch()]);
+    return any? "" : TILL_STOCK_NOTE_EMPTY;
   }
+  function tillStockPending(){ return !!tillStockNoteText(); }
   function tillStockNoteHtml(){
-    return tillStockPending()? `<div class="box till-stock-note" style="margin:0 0 10px;padding:10px 12px;border:1px solid #b54708;border-radius:8px;background:#fff8f0;color:#b54708;font-weight:600">${escapeHtml(TILL_STOCK_NOTE)}</div>` : "";
+    const t = tillStockNoteText();
+    return t? `<div class="box till-stock-note" style="margin:0 0 10px;padding:10px 12px;border:1px solid #b54708;border-radius:8px;background:#fff8f0;color:#b54708;font-weight:600">${escapeHtml(t)}</div>` : "";
   }
   function changeQty(pid, delta){
     if(typeof window!=="undefined" && window._stockChecking) return;
@@ -2990,7 +3446,11 @@ const APP_BUILD = 10;
   // ================== RENDER ==================
   function render(){
     if(route==="setup") return renderSetup();
+    // Activation (activation.js): a locked device only ever shows the lock
+    // screen or read-only Reports, whatever route a button asks for.
+    if(typeof licenceLocked==="function" && licenceLocked() && route!=="lockreports") route = "lock";
     if(route==="lock") return renderLock();
+    if(route==="lockreports") return renderLockReports();
     if(route==="start") return renderStart();
     const desktop = isDesktopBuild();
     $app.innerHTML = `
@@ -3313,7 +3773,7 @@ const APP_BUILD = 10;
         <h2><span class="cat-vendor">${escapeHtml(getSetting("shop_name","My Shop"))}</span> — Product Catalogue</h2>
         <div class="sub">${escapeHtml(currentBranch())} · ${new Date().toLocaleDateString()}</div>
         <div class="catalogue-grid">${cards}</div>
-        <div class="cat-footer">Powered by seiGEN Commerce Infrastructure · +263774479121 · Terms and conditions apply</div>
+        <div class="cat-footer">Powered by seiGEN Commerce Infrastructure · +263789487287 · Terms and conditions apply</div>
       </div>`;
     if(!window._catalogueTipShown){
       window._catalogueTipShown = true;
@@ -8401,6 +8861,12 @@ const APP_BUILD = 10;
   // check found the device clock rolled back or jumped — null the rest of
   // the time, including once a later, clean check supersedes it.
   function lastClockAnomaly(){ return _lastClockCheck? _lastClockCheck.anomaly : null; }
+  // A time seiGEN vouched for (a licence's signed issue date, activation.js):
+  // moves the watermark forward to it if it's ahead, never backwards.
+  function noteTrustedTime(d){
+    if(!d || isNaN(d.getTime()) || d.getTime() <= trustedNow().getTime()) return;
+    _lastClockCheck = evaluateTrustedTime(d, { trustedSource:true });
+  }
 
   // ================== Shift / EOD control ==================
   // Reuses eod_sessions (already existed as a one-row-per-count log; see
@@ -9538,11 +10004,14 @@ const APP_BUILD = 10;
     return [["","Choose a product…"]].concat(all("SELECT id, sku, name FROM products WHERE branch=? ORDER BY name",[b]).map(p=>[String(p.id), (p.sku? p.sku+" · " : "")+p.name]));
   }
 
-  function renderReports(main){
+  // opts.readOnly: a locked device (activation.js renderLockReports) sees the
+  // figures only: no End of Day, returns or requests, which write.
+  function renderReports(main, opts){
+    const readOnly = !!(opts && opts.readOnly);
     const today = businessDateOf();   // the business date (utils.js), not the UTC date
     main.innerHTML = `
-      <h2>Reports</h2>
-
+      <h2>Reports${readOnly? " (read-only)" : ""}</h2>
+${readOnly? "" : `
       <div id="eodSection"></div>
 
       ${typeof returnsCardHtml==="function"? returnsCardHtml() : ""}
@@ -9552,6 +10021,7 @@ const APP_BUILD = 10;
         <p class="muted">Note stock a customer asked for that you didn't have.</p>
         <button class="btn btn-primary" id="reportsLogRequestBtn">+ Log Request</button>
       </div>
+`}
 
       <div class="search-wrap">
         <span class="ic">🔎</span>
@@ -9648,9 +10118,11 @@ const APP_BUILD = 10;
         <div class="rep-actions"><button class="btn btn-outline icon-btn" id="genBranchReport" title="Generate PDF">${ICON_GEN}</button></div>
       </div>
     `;
-    renderEOD(document.getElementById("eodSection"));
-    if(typeof wireReturnsCard==="function") wireReturnsCard();
-    document.getElementById("reportsLogRequestBtn").onclick=()=>openRequestsDrawer();
+    if(!readOnly){
+      renderEOD(document.getElementById("eodSection"));
+      if(typeof wireReturnsCard==="function") wireReturnsCard();
+      document.getElementById("reportsLogRequestBtn").onclick=()=>openRequestsDrawer();
+    }
 
     // Filters which report-generator CARDS are shown by title — purely a
     // display:none toggle over cards already in the DOM, so it never
@@ -11066,22 +11538,21 @@ const APP_BUILD = 10;
 
   function renderAbout(main){
     main.innerHTML = `
+      ${typeof licenceStatusCardHtml==="function"? licenceStatusCardHtml() : ""}
       <div class="card">
         <p>seiGEN Commerce Lite is for people who care about growth in business. It's built so any shop — one till or several — can run sales, track stock, and close the day properly, without needing the internet to work.</p>
         <div class="hr"></div>
         <p><b>Digital Commerce</b><br>Commerce Valley Est, Marirangwe, Mhondoro<br>digitalcommerce.com</p>
-        <p><b>Call/WhatsApp:</b> +263774479121 / +263789487287</p>
-        <button class="btn btn-primary" id="waAbout1">📲 WhatsApp +263774479121</button>
-        <div style="height:8px"></div>
-        <button class="btn btn-outline" id="waAbout2">📲 WhatsApp +263789487287</button>
+        <p><b>Call/WhatsApp:</b> +263789487287</p>
+        <button class="btn btn-primary" id="waAbout2">📲 WhatsApp +263789487287</button>
         <div class="hr"></div>
         <p class="muted" style="font-size:11.5px">Distributed under license from seiGEN Commerce Infrastructure.</p>
         <p class="muted" style="font-size:11.5px">Version ${escapeHtml(APP_VERSION)}</p>
       </div>
     `;
     const intro = "Hi, I'm using seiGEN Commerce Lite and would like to get in touch.";
-    document.getElementById("waAbout1").onclick=()=> window.open("https://wa.me/263774479121?text="+encodeURIComponent(intro),"_blank");
     document.getElementById("waAbout2").onclick=()=> window.open("https://wa.me/263789487287?text="+encodeURIComponent(intro),"_blank");
+    if(typeof wireLicenceStatusCard==="function") wireLicenceStatusCard();
   }
 
   function renderHelp(main){
@@ -11121,7 +11592,7 @@ const APP_BUILD = 10;
           <p><b>Credit sale invoices:</b> Any Credit sale gets a 🖨️ Invoice option alongside its receipt — a proper A4 document with your letterhead, itemized lines, and the customer's current Balance Due, useful for handing to a customer or filing separately from the till receipt.</p>
           <p><b>Sharing an export via WhatsApp:</b> Next to Export in Settings, 📲 Share via WhatsApp opens your device's share sheet with the data file already attached, skipping the manual-attach step — where a browser doesn't support that, it downloads the file instead and tells you to attach it yourself.</p>
           <p><b>Export filenames:</b> Every exported data file — manual Export, WhatsApp share, or the automatic file after a Dispatch — is named the same way: name, branch, date, and time, so it's always clear at a glance which file is which and when it was made.</p>
-          <p><b>Activation:</b> The app locks every 30 days. Call or WhatsApp +263774479121 with the device code shown and we'll send you an unlock code.</p>
+          <p><b>Activation:</b> A new device runs free for 30 days. After that it needs a licence from seiGEN: WhatsApp or call +263789487287 with the device code shown on the activation screen (also in More → About). seiGEN sends a link (tap it), a long code (paste it) and a short code (type it; needs the internet). Each licence works only on the device it was made for. If the licence runs out, selling pauses, but you can still view reports and download a backup.</p>
           <p class="muted" id="helpNoMatch" style="display:none">No help topics match your search.</p>
         </div>
     `;
@@ -11309,14 +11780,38 @@ const APP_BUILD = 10;
     if(!confirm("This will replace ALL current data with the imported file. A backup of your current data downloads first. Continue?")) return;
     downloadDb(`seigen-backup-before-replace-${new Date().toISOString().replace(/[:.]/g,"-")}.sqlite`);
     const ownId = getSetting("branch_id",""), ownCounters = ownId? all("SELECT doc_type,last_no FROM doc_counters WHERE branch_id=?",[ownId]) : [];
+    const own = captureDeviceSettings();
     db = new SQL.Database(bytes);
     db.run(SCHEMA); migrate(db);
     keepDeviceIdentity(ownId, ownCounters);
+    restoreDeviceSettings(own);
     currency = getSetting("currency","$");
     backfillBranch(db, currentBranch());
+    if(typeof refreshLicenceLock==="function") refreshLicenceLock();   // the restored data may end the trial (activation.js)
     await persist();
     render();
     alert("Data imported.");
+  }
+
+  // Activation v2: a restore never brings another device's (or an older
+  // self's) identity, licence or clock with it. These settings stay the
+  // device's own; the clock watermark keeps the higher of the two, so
+  // restoring an old backup can't wind the trusted time back.
+  const DEVICE_OWN_SETTINGS = ["install_id","device_key","secret_phrase","install_date","licence","licence_serials",
+    "activated_until","activated_until_src","licence_v2_since",
+    "business_id","business_name","branch_uuid","terminal_branch_name","terminal_is_main","terminal_id","till_code","terminal_label",
+    "terminal_inactive","dc_vendor_id","dc_vendor_status"];
+  function captureDeviceSettings(){
+    const o = {};
+    DEVICE_OWN_SETTINGS.forEach(k=>{ o[k] = getSetting(k,""); });
+    o.trusted_time_hwm = getSetting("trusted_time_hwm","");
+    return o;
+  }
+  function restoreDeviceSettings(o){
+    DEVICE_OWN_SETTINGS.forEach(k=> setSetting(k, o[k]||""));
+    const a = Date.parse(o.trusted_time_hwm||""), b = Date.parse(getSetting("trusted_time_hwm",""));
+    const hi = [a,b].filter(x=>!isNaN(x));
+    if(hi.length) setSetting("trusted_time_hwm", new Date(Math.max(...hi)).toISOString());
   }
 
 
@@ -12182,6 +12677,10 @@ const APP_BUILD = 10;
       setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);
       await persist();
+      // Activation (activation.js): a registered till picks up a licence
+      // seiGEN issued for it. Fire-and-forget, like the rest of check-in.
+      if(typeof licencePullPending==="function" && typeof isTerminalRegistered==="function" && isTerminalRegistered())
+        licencePullPending().catch(()=>{});
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —
@@ -15147,7 +15646,7 @@ const APP_BUILD = 10;
               <tr><td class="muted">Currency</td><td>${escapeHtml(setupData.currency)}</td></tr>
               ${(setupData.rpn.rpn_name||setupData.rpn.rpn_code||setupData.rpn.rpn_whatsapp||setupData.rpn.city_area)? `<tr><td class="muted">RPN</td><td>${escapeHtml(setupData.rpn.rpn_name)||"—"}${setupData.rpn.rpn_code? " ("+escapeHtml(setupData.rpn.rpn_code)+")":""}</td></tr>` : ""}
             </table>
-            <p class="muted">You get 30 days free use from today. After that, this screen will ask for an activation code — call or WhatsApp +263774479121.</p>
+            <p class="muted">You get 30 days free use from today. After that, the app asks for a licence: WhatsApp or call seiGEN on +263789487287.</p>
             <div class="row" style="margin-top:10px">
               <button class="btn btn-outline" id="setupBack2">Back</button>
               <button class="btn btn-primary" id="setupFinish">Finish setup</button>
@@ -15188,7 +15687,9 @@ const APP_BUILD = 10;
         resetBranchId();
         const now = trustedNow();
         setSetting("install_date", now.toISOString());
+        setSetting("licence_v2_since", now.toISOString());   // this version's first run (old-style codes close 30 days later, activation.js)
         setSetting("activated_until", new Date(now.getTime()+30*86400000).toISOString());
+        setSetting("activated_until_src", "setup");   // only for a rollback to v10; the trial rule (activation.js) decides
         setSetting("setup_complete","1");
         currency = setupData.currency||"$";
         backfillBranch(db, currentBranch());
@@ -15264,8 +15765,10 @@ const APP_BUILD = 10;
         // trial's start either.
         const now = trustedNow();
         setSetting("install_date", now.toISOString());
+        setSetting("licence_v2_since", now.toISOString());   // this version's first run (old-style codes close 30 days later, activation.js)
         const until = new Date(now.getTime()+30*86400000);
         setSetting("activated_until", until.toISOString());
+        setSetting("activated_until_src", "setup");   // only for a rollback to v10; the trial rule (activation.js) decides
         setSetting("setup_complete","1");
         currency = setupData.currency;
         backfillBranch(db, currentBranch());
@@ -15313,10 +15816,28 @@ const APP_BUILD = 10;
     startDeviceCheckin(); // Digital Commerce device check-in: silent, best-effort phone-home — see devicecheckin.js. Never blocks boot.
     businessDateToday(); // Shift/EOD control: establish the anti-rollback high-water-mark as early as possible each session — see eod.js.
     await establishTrustedTime(); // License anti-rollback: same "as early as possible each session" habit, extended to full-timestamp precision — see eod.js. Awaited so activationStatus() below always sees this session's checked/corroborated time, never a stale one.
+    const linkLicence = takeLicenceFromUrl(); // activation.js: an activation link (#lic=…), checked offline
     const status = activationStatus();
-    if(status==="no_setup"){ route="setup"; renderSetup(); return; }
-    if(status==="locked"){ route="lock"; renderLock(); return; }
+    if(status==="no_setup"){
+      if(linkLicence){ route="setup"; renderLinkNoSetup(linkLicence); return; }   // never start setup from a link
+      route="setup"; renderSetup(); return;
+    }
+    refreshLicenceLock();
+    startLicenceWatch(); // re-checks every hour and when the app returns to the foreground
+    if(linkLicence){ renderLinkResult(await applyLicence(linkLicence, "link")); return; }
+    if(licenceLocked()){ route="lock"; renderLock(); return; }
     renderStart(); // Start screen → Sign in → "Who's working today?" (staff.js)
+  }
+  // A link tapped while the app is already open (some Android launchers
+  // reuse the open window): same handling, no reload.
+  if(typeof window!=="undefined" && window.addEventListener){
+    window.addEventListener("hashchange", async ()=>{
+      let setUp = false;
+      try{ setUp = !!getSetting("install_date",""); }catch(e){ return; }   // still booting: boot() reads the link itself
+      if(!/lic=/.test(String(location.hash||"")) || !setUp) return;
+      const t = takeLicenceFromUrl();
+      if(t) renderLinkResult(await applyLicence(t, "link"));
+    });
   }
   // Only registers when actually served over http(s)/localhost — this
   // silently does nothing when the file is just double-clicked (file://),

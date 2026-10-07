@@ -427,7 +427,7 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
     await page.click("#feedbackToggle");
     await page.fill("#feedbackText", "Nice site");
     const [fb] = await Promise.all([ context.waitForEvent("page"), page.click("#feedbackSend") ]);
-    assert.match(fb.url(), /(wa\.me\/|api\.whatsapp\.com\/send\/?\?phone=)263774479121/); // wa.me redirects to api.whatsapp.com
+    assert.match(fb.url(), /(wa\.me\/|api\.whatsapp\.com\/send\/?\?phone=)263789487287/); // wa.me redirects to api.whatsapp.com
     await fb.close();
     for(const hash of ["#/","#/products","#/rpn","#/help","#/contact"]){
       await page.goto(SITE + hash);
