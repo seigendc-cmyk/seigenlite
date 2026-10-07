@@ -11,7 +11,7 @@ const crypto = require('crypto');
 const { LIVE_STUB } = require('./live-stub');
 
 const ROOT = path.join(__dirname, '..');
-const READ = (f) => fs.readFileSync(`${ROOT}/${f}`, 'utf8');
+const READ = (f) => fs.readFileSync(`${ROOT}/${f}`, 'utf8').replace(/\r\n/g, '\n');   // the live apply normalises the same way
 const BEFORE = ['migrations/20261004120000_multi_terminal_identity.sql', 'migrations/20261004180000_multi_terminal_phase2.sql',
   'migrations/20261006120000_catalogue_sync.sql', 'migrations/20261007120000_shared_stock.sql',
   'migrations/20261008120000_till_build_guard.sql', 'migrations/20261008140000_shared_stock_checkin_lock.sql'].map(READ);
