@@ -342,6 +342,18 @@ const ledgerOk = (A)=> assert.deepStrictEqual(plain(A.api.stockLedgerCheck().mis
     assert.strictEqual(A.api.findReturnSale("#"+old.id).error, TEXT, "a merged sale");
   });
 
+  await t("a registered till numbers its credit notes CN-T1-0001, CN-T1-0002 (unregistered: CN0001)", async ()=>{
+    const A = shop();
+    A.api.setSetting("till_code","T1"); A.api.setSetting("terminal_id","11111111-1111-1111-1111-111111111111");
+    const s = sell(A, [["RICE",2]], "Cash");
+    assert.strictEqual(s.receipt_no, "T1-0001");
+    const r1 = doReturn(A, s, [["RICE",1]]), r2 = doReturn(A, s, [["RICE",1]]);
+    assert.deepStrictEqual([r1.text, r2.text], ["CN-T1-0001", "CN-T1-0002"]);
+    assert.deepStrictEqual([r1.cn.till_code, r1.cn.cn_no, r2.cn.cn_no], ["T1", 1, 2], "the till code is stored with the credit note");
+    assert.strictEqual(A.api.cnDisplay(r2.cn), "CN-T1-0002");
+    assert.ok(A.api.creditNoteWhatsAppText(r1.id).includes("Credit note CN-T1-0001"));
+  });
+
   await t("merge: a same-branch-named device's sales arrive stamped and can't be returned here; credit notes reach main", async ()=>{
     const R = shop({ settings:{ branch_name:"Boka", branch_type:"remote" } });
     const s = sell(R, [["RICE",2]], "Cash");
