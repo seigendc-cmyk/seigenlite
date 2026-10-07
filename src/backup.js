@@ -366,8 +366,12 @@
     allX(impDb,"SELECT * FROM sale_items").forEach(it=>{
       if(!newSaleImpIds.has(it.sale_id) || byUid("sale_items",it.uid)) return;
       const newProdId = prodMap[it.product_id]||null;
-      run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,uid) VALUES(?,?,?,?,?,?,?)",
-        [saleMap[it.sale_id], newProdId, it.name, it.price, it.qty, it.cost||0, it.uid||null]);
+      // discount (Line-Item Discount) wasn't copied before 3c. Rows merged
+      // earlier keep discount 0 (a re-merge skips them by uid); their sale's
+      // own sales.discount was always copied, so totals were never wrong,
+      // only the per-line split.
+      run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount,uid) VALUES(?,?,?,?,?,?,?,?)",
+        [saleMap[it.sale_id], newProdId, it.name, it.price, it.qty, it.cost||0, it.discount||0, it.uid||null]);
     });
     // Same additive rule as sale_items above: a merged-in split-tender sale
     // must bring its per-method payment lines along, or the receiving
