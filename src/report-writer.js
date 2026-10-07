@@ -13,7 +13,12 @@
                         : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
         const rows = sales.map(s=>[`<button type="button" class="btn btn-outline btn-sm" data-view-sale="${s.id}" style="padding:4px 10px;font-size:12px">${escapeHtml(String(s.receipt_no||s.id))}</button>`, new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+(s.markup||0).toFixed(2), currency+s.total.toFixed(2)]);
         const grand = sales.reduce((s,r)=>s+r.total,0);
-        return { headers:["Receipt#","Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Markup","Total"], rows, footer:`Grand Total: ${currency}${grand.toFixed(2)}` };
+        // Phase 3c: credit notes as rows of their own (negative), and Gross / Returns / Net
+        const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
+        returnRows.forEach(r=>rows.push([`<button type="button" class="btn btn-outline btn-sm" data-view-cn="${r.cn.id}" style="padding:4px 10px;font-size:12px">${escapeHtml(r.text)}</button>`,
+          new Date(r.ts).toLocaleString(), escapeHtml(r.branch||""), "Return", escapeHtml("receipt "+r.cn.sale_receipt), "", "", "", "-"+currency+(-r.amount).toFixed(2)]));
+        return { headers:["Receipt#","Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Markup","Total"], rows,
+          footer: returnRows.length? salesReturnsFooter(grand, returnRows) : `Grand Total: ${currency}${grand.toFixed(2)}` };
       }
     },
     { id:"inventory", label:"Inventory Report", hasDate:false,
@@ -96,6 +101,7 @@
                         : all(`SELECT si.* FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.ts>=? AND s.ts<=?`,[fromTs,toTs]);
         const byName = {};
         items.forEach(i=>{ if(!byName[i.name]) byName[i.name]={qty:0,revenue:0,cost:0}; byName[i.name].qty+=i.qty; byName[i.name].revenue+=i.price*i.qty; byName[i.name].cost+=(i.cost||0)*i.qty; });
+        if(typeof applyReturnsToMargin==="function") applyReturnsToMargin(byName, b, fromTs, toTs);   // Phase 3c
         let totalRev=0, totalCost=0;
         const rows = Object.keys(byName).sort().map(name=>{
           const r=byName[name]; const margin=r.revenue-r.cost; const pct=r.revenue>0?(margin/r.revenue*100).toFixed(1)+"%":"—";
@@ -220,7 +226,7 @@
         return { headers, rows, footer:"" };
       }
     },
-    { id:"salestrend", label:"Sales Trend", hasDate:true, hasGranularity:true,
+    { id:"salestrend", label:"Sales Trend (net of returns)", hasDate:true, hasGranularity:true,
       fetch(b,fromTs,toTs,granularity){
         const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                         : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
@@ -240,16 +246,32 @@
           }
           return bd; // day (default)
         }
-        const buckets = {};
+        // Net of returns (owner Q13): a credit note counts on its own business date.
+        const buckets = {}, returned = {};
         sales.forEach(s=>{ const key = bucketKey(s.ts); buckets[key] = (buckets[key]||0) + s.total; });
+        (typeof creditNotesIn==="function"? creditNotesIn(b, fromTs, toTs) : []).forEach(c=>{ const key = bucketKey(c.ts); returned[key] = (returned[key]||0) + (c.goods_total||0); if(!(key in buckets)) buckets[key] = 0; });
         const sortedKeys = Object.keys(buckets).sort();
-        const chartData = sortedKeys.map(k=>({label:k, value:buckets[k]}));
-        const rows = sortedKeys.map(k=>[k, currency+buckets[k].toFixed(2)]);
-        const grand = sortedKeys.reduce((s,k)=>s+buckets[k],0);
-        return { headers:["Period","Total Sales"], rows, footer:`Grand Total: ${currency}${grand.toFixed(2)}`, chartData };
+        const net = (k)=> Math.round((buckets[k] - (returned[k]||0))*100)/100;
+        const chartData = sortedKeys.map(k=>({label:k, value:Math.max(0, net(k))}));
+        const rows = sortedKeys.map(k=>[k, currency+net(k).toFixed(2), currency+buckets[k].toFixed(2), returned[k]? "-"+currency+returned[k].toFixed(2) : ""]);
+        const grand = sortedKeys.reduce((s,k)=>s+net(k),0);
+        return { headers:["Period","Net Sales (net of returns)","Sales","Returns"], rows, footer:`Grand Total (net of returns): ${currency}${grand.toFixed(2)}`, chartData };
       }
     },
+    // Phase 3c (returns.js)
+    { id:"returns", label:"Returns", hasDate:true,
+      filters(){ return [{ key:"reason", label:"Reason", options:[["","All reasons"]].concat(RETURN_REASONS.map(r=>[r,r])) },
+        { key:"method", label:"Refund", options:RETURN_REFUND_FILTER },
+        { key:"condition", label:"Condition", options:[["","All"],["restock","Back to stock"],["writeoff","Written off"]] }]; },
+      fetch(b,fromTs,toTs,gran,status,opts){ return returnsReportTable(b, fromTs, toTs, (opts&&opts.filters)||{}); }
+    },
+    { id:"itemledger", label:"Item Ledger", hasDate:true,
+      filters(b){ return [{ key:"product", label:"Product", options:itemLedgerProductOptions(b) }]; },
+      fetch(b,fromTs,toTs,gran,status,opts){ return itemLedgerTable(b, fromTs, toTs, (opts&&opts.filters)||{}); }
+    },
   ];
+  // Report-specific dropdowns (Phase 3c): a config's filters(branch) -> [{ key, label, options:[[value,text]] }]
+  let rwFilters = {};
   function adjustmentsTable(b,fromTs,toTs,reason){
     const d = adjustmentReport({ branch:b||"", reason:reason||"", fromMs:Date.parse(fromTs), toMs:Date.parse(toTs) });
     const money = (v)=> v==null? "" : (v<0? "-" : "")+currency+Math.abs(v).toFixed(2);
@@ -289,11 +311,13 @@
           <option value="month" ${rwGranularity==="month"?"selected":""}>Month</option>
           <option value="year" ${rwGranularity==="year"?"selected":""}>Year</option>
         </select>` : ""}
+      ${selected.filters? selected.filters(rwBranch||null).map(f=>`<label>${escapeHtml(f.label)}</label>
+        <select class="field" data-rw-filter="${f.key}">${f.options.map(o=>`<option value="${escapeHtml(o[0])}" ${(rwFilters[selected.id+"."+f.key]||"")===o[0]?"selected":""}>${escapeHtml(o[1])}</option>`).join("")}</select>`).join("") : ""}
       <button class="btn btn-primary" id="rwView" style="margin-top:12px">View Report</button>
       <div id="rwResults" style="margin-top:14px"></div>
     `;
     document.getElementById("rwTypeSel").onchange=(e)=>{ rwType=e.target.value; render(); };
-    document.getElementById("rwBranchSel").onchange=(e)=>{ rwBranch=e.target.value; };
+    document.getElementById("rwBranchSel").onchange=(e)=>{ rwBranch=e.target.value; if(selected.filters) render(); };
     const viewSel = document.getElementById("rwViewSel");
     if(viewSel) viewSel.onchange=(e)=>{ rwView=e.target.value; render(); };
     const granSel = document.getElementById("rwGranularitySel");
@@ -356,6 +380,8 @@
     if(selected.hasView) opts.view = rwView;
     const stEl = document.getElementById("rwStatusSel"); if(stEl){ status = stEl.value; rwStatus = status; }
     const rsEl = document.getElementById("rwReasonSel"); if(rsEl){ opts.reason = rsEl.value; rwReason = opts.reason; }
+    opts.filters = {};
+    document.querySelectorAll("[data-rw-filter]").forEach(el=>{ opts.filters[el.dataset.rwFilter] = el.value; rwFilters[selected.id+"."+el.dataset.rwFilter] = el.value; });
     const data = selected.fetch(b, fromTs, toTs, granularity, status, opts);
     window._rwLastData = { title:selected.label, subtitle:`${b||"All branches"}${selected.hasDate? ` · ${rwFrom} to ${rwTo}`:""}`, headers:data.headers, rows:data.rows, footer:data.footer };
     const target = document.getElementById("rwResults");
@@ -379,5 +405,6 @@
     target.querySelectorAll("[data-view-sale]").forEach(b=>{
       b.onclick=()=> openSaleDetailModal(+b.dataset.viewSale);
     });
+    target.querySelectorAll("[data-view-cn]").forEach(b=>{ b.onclick=()=> openCreditNoteModal(+b.dataset.viewCn); });
   }
 

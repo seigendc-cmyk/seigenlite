@@ -5,6 +5,8 @@
 
       <div id="eodSection"></div>
 
+      ${typeof returnsCardHtml==="function"? returnsCardHtml() : ""}
+
       <div class="card">
         <h3>Log Request</h3>
         <p class="muted">Note stock a customer asked for that you didn't have.</p>
@@ -107,6 +109,7 @@
       </div>
     `;
     renderEOD(document.getElementById("eodSection"));
+    if(typeof wireReturnsCard==="function") wireReturnsCard();
     document.getElementById("reportsLogRequestBtn").onclick=()=>openRequestsDrawer();
 
     // Filters which report-generator CARDS are shown by title — purely a
@@ -174,12 +177,20 @@
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
       const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
+      // Phase 3c: returns in the range, as rows of their own (negative), and Gross / Returns / Net
+      const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
+      returnRows.forEach(r=>rows.push([new Date(r.ts).toLocaleString(), escapeHtml(r.branch||""), escapeHtml(r.label), "", "", "", "-"+currency+(-r.amount).toFixed(2)]));
       // Payment-method breakdown (item 6): sourced from sale_payments via
       // paymentMethodTotals (pos.js) so a split sale's Cash/EcoCash/Credit
       // lines are isolated the same way EOD reconciliation isolates them,
       // rather than bucketing the whole sale under one method.
       const breakdown = paymentMethodTotals(b, fromTs, toTs);
-      const breakdownHtml = breakdown.length? `
+      const withRefunds = returnRows.length? paymentBreakdownWithRefunds(breakdown, b, fromTs, toTs) : null;
+      const breakdownHtml = withRefunds? `
+        <h3 class="section">By Payment Method</h3>
+        <table><tr><th>Method</th><th>Sales</th><th>Refunds</th><th>Net</th></tr>
+        ${withRefunds.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${currency}${r.total.toFixed(2)}</td><td>-${currency}${r.refunds.toFixed(2)}</td><td>${currency}${r.net.toFixed(2)}</td></tr>`).join("")}
+        </table>` : breakdown.length? `
         <h3 class="section">By Payment Method</h3>
         <table><tr><th>Method</th><th>Total</th></tr>
         ${breakdown.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
@@ -188,14 +199,20 @@
       // actually happened in more than the base currency — a base-only
       // shop's Sales Report is otherwise identical to before this feature.
       const currencyRows = paymentMethodCurrencyTotals(b, fromTs, toTs);
-      const currencyHtml = currencyRows.some(r=>r.currency!==BASE_CURRENCY_CODE)? `
+      const curRefunds = returnRows.length? refundCurrencyTotals(b, fromTs, toTs) : null;
+      const currencyHtml = currencyRows.some(r=>r.currency!==BASE_CURRENCY_CODE)? (curRefunds? `
+        <h3 class="section">By Payment Method &amp; Currency</h3>
+        <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>Refunded</th><th>${currency} Equivalent (net)</th></tr>
+        ${currencyRows.map(r=>{ const x = curRefunds[r.method+"|"+r.currency]||{ total:0, tendered:0 };
+          return `<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>-${escapeHtml(r.symbol)}${x.tendered.toFixed(2)}</td><td>${currency}${(r.total-x.total).toFixed(2)}</td></tr>`; }).join("")}
+        </table>` : `
         <h3 class="section">By Payment Method &amp; Currency</h3>
         <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>${currency} Equivalent</th></tr>
         ${currencyRows.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
-        </table>` : "";
+        </table>`) : "";
       printReport("Sales Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Total"], rows,
-        `<p><b>Grand Total: ${currency}${grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
+        `<p><b>${returnRows.length? escapeHtml(salesReturnsFooter(grand, returnRows)) : "Grand Total: "+currency+grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
     };
     document.getElementById("waSales").onclick=()=>{
       const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
@@ -204,7 +221,12 @@
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
       const itemLines = sales.slice(0,40).map(s=>padLine(`${localDateTimeStr(s.ts)} ${s.branch} ${s.method}`, `${currency}${s.total.toFixed(2)}`));
-      shareWhatsApp(receiptText(`Sales Report (${b||"All branches"})`, itemLines, [padLine("TOTAL", `${currency}${grand.toFixed(2)}`)]));
+      const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
+      returnRows.slice(0,40).forEach(r=>itemLines.push(padLine(`${localDateTimeStr(r.ts)} ${r.branch} Return ${r.text}`, `-${currency}${(-r.amount).toFixed(2)}`)));
+      const ret = returnRows.reduce((s,r)=>s-r.amount,0);
+      shareWhatsApp(receiptText(`Sales Report (${b||"All branches"})`, itemLines, returnRows.length
+        ? [padLine("GROSS", `${currency}${grand.toFixed(2)}`), padLine("RETURNS", `-${currency}${ret.toFixed(2)}`), padLine("NET", `${currency}${(grand-ret).toFixed(2)}`)]
+        : [padLine("TOTAL", `${currency}${grand.toFixed(2)}`)]));
     };
 
     document.getElementById("genInventory").onclick=()=>{
@@ -291,6 +313,7 @@
         byName[i.name].revenue += i.price*i.qty;
         byName[i.name].cost += (i.cost||0)*i.qty;
       });
+      if(typeof applyReturnsToMargin==="function") applyReturnsToMargin(byName, b, fromTs, toTs);   // Phase 3c
       let totalRev=0, totalCost=0;
       const rows = Object.keys(byName).sort().map(name=>{
         const r = byName[name]; const margin = r.revenue-r.cost;

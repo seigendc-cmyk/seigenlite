@@ -261,6 +261,31 @@
     CREATE TABLE IF NOT EXISTS cat_branch_prices(
       cat_uid TEXT PRIMARY KEY, price REAL, seq INTEGER
     );
+    -- Sales returns & credit notes (Phase 3c, returns.js). The original sale
+    -- is never edited: a credit note points at it, its lines at the sale's
+    -- lines, and credit_note_refunds says where each part of the money went.
+    -- cn_no is numbered per device (doc_counters 'CN'), shown CN-T1-0001.
+    CREATE TABLE IF NOT EXISTS credit_notes(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT DEFAULT '', cn_branch_id TEXT, cn_no INTEGER, till_code TEXT,
+      sale_id INTEGER, sale_uid TEXT, sale_receipt TEXT DEFAULT '', customer_id INTEGER, ts TEXT NOT NULL, eod_session_id INTEGER,
+      reason TEXT DEFAULT '', reason_note TEXT DEFAULT '', started_by TEXT DEFAULT '', started_staff_id INTEGER,
+      approved_by TEXT DEFAULT '', approved_staff_id INTEGER, goods_total REAL DEFAULT 0, voucher_part REAL DEFAULT 0,
+      cost_reversed REAL DEFAULT 0, exchange_sale_id INTEGER, status TEXT DEFAULT 'posted'
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_credit_notes_no ON credit_notes(cn_branch_id, cn_no);
+    CREATE INDEX IF NOT EXISTS ix_credit_notes_sale ON credit_notes(sale_id);
+    CREATE TABLE IF NOT EXISTS credit_note_items(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, cn_id INTEGER, sale_item_id INTEGER, sale_item_uid TEXT,
+      product_id INTEGER, product_uid TEXT, product_code TEXT DEFAULT '', name TEXT DEFAULT '',
+      qty INTEGER NOT NULL, unit_refund REAL DEFAULT 0, amount REAL DEFAULT 0, unit_cost REAL DEFAULT 0, condition TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS ix_credit_note_items_cn ON credit_note_items(cn_id);
+    CREATE TABLE IF NOT EXISTS credit_note_refunds(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, cn_id INTEGER, method TEXT NOT NULL, amount REAL NOT NULL,
+      currency TEXT DEFAULT 'BASE', rate REAL DEFAULT 1, tendered_amount REAL, sale_payment_id INTEGER,
+      voucher_id INTEGER, exchange_sale_id INTEGER, ref TEXT DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS ix_credit_note_refunds_cn ON credit_note_refunds(cn_id);
     CREATE TABLE IF NOT EXISTS print_queue(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT DEFAULT '',
@@ -423,7 +448,17 @@
       // last-known branch figures and stock received offline, not yet synced.
       "ALTER TABLE products ADD COLUMN branch_avail INTEGER",
       "ALTER TABLE products ADD COLUMN branch_total INTEGER",
-      "ALTER TABLE products ADD COLUMN stock_pending_in INTEGER DEFAULT 0"
+      "ALTER TABLE products ADD COLUMN stock_pending_in INTEGER DEFAULT 0",
+      // Phase 3c (returns.js). vouchers.kind tells store credit from the
+      // frequent-customer (loyalty) voucher; every existing row reads 'loyalty'.
+      // sales.merged_ts: set by mergeDatabase on every sale it brings in, so a
+      // merged sale is never returned here (owner Q4).
+      "ALTER TABLE vouchers ADD COLUMN kind TEXT DEFAULT 'loyalty'",
+      "ALTER TABLE vouchers ADD COLUMN source_cn_id INTEGER",
+      "ALTER TABLE vouchers ADD COLUMN source_sale_id INTEGER",
+      "ALTER TABLE sales ADD COLUMN merged_ts TEXT DEFAULT ''",
+      // main's "Business day ends at" per branch (Phase 3c add-on), '' = not set
+      "ALTER TABLE branch_register ADD COLUMN business_day_cutoff TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -561,8 +596,9 @@
   // registered, and on rows from before this version ("pre-terminal").
   const SYNC_UID_TABLES = ["sales","sale_items","sale_payments","products","customers","payouts","credit_payments",
     "stock_received","stock_adjustments","stock_transfers","purchases","eod_sessions","staff","vouchers","stock_requests",
-    "stocktakes","stocktake_counts","dispatch_docs","dn_events","dn_cases","audit_log","stock_movements"];
-  const TERMINAL_STAMP_TABLES = ["sales","payouts","credit_payments","stock_received","stock_adjustments","eod_sessions","purchases","stock_movements"];
+    "stocktakes","stocktake_counts","dispatch_docs","dn_events","dn_cases","audit_log","stock_movements",
+    "credit_notes","credit_note_items","credit_note_refunds"];
+  const TERMINAL_STAMP_TABLES = ["sales","payouts","credit_payments","stock_received","stock_adjustments","eod_sessions","purchases","stock_movements","credit_notes"];
   const NEW_UID_SQL = "lower(hex(randomblob(16)))";
   function migrateSyncIdentity(t){
     TERMINAL_STAMP_TABLES.forEach(tbl=>{

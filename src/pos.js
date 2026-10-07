@@ -80,9 +80,14 @@
     const base = subtotal - discount;
     const voucher = Math.min(Math.max(0,currentVoucherAmount()), base);
     const total = base - voucher;
-    return { subtotal, discount, voucher, total };
+    // Exchange (Phase 3c, returns.js): the credit from the returned goods
+    // pays for up to the whole sale; `due` is what the customer still pays.
+    // total stays the sale's full value (it gets an 'Exchange' payment line).
+    const exchange = typeof exchangeApplied==="function"? exchangeApplied(total) : 0;
+    return { subtotal, discount, voucher, total, exchange, due: roundMoney(total - exchange) };
   }
-  function cartTotal(){ return cartTotals().total; }
+  // What the customer pays now: the sale total, less any exchange credit.
+  function cartTotal(){ return cartTotals().due; }
   // Wires every per-line discount <input> in a rendered cart (mobile drawer
   // or desktop cart panel — both share this, same reuse pattern as
   // wireSplitTenderPanel/wireFxPreview below). Not refresh(): a full
@@ -111,7 +116,7 @@
   function updateLineDiscountDerived(container){
     const totals = cartTotals();
     const totalEl = container.querySelector("#drawerTotal") || container.querySelector("#dsTotal");
-    if(totalEl) totalEl.textContent = currency+totals.total.toFixed(2);
+    if(totalEl) totalEl.textContent = currency+totals.due.toFixed(2);
     const extra = container.querySelector("#discountExtra");
     if(extra) extra.style.display = totals.discount>0? "block":"none";
   }
@@ -148,7 +153,10 @@
                        JOIN sales s ON s.id=sp.sale_id
                        WHERE s.customer_id=? AND sp.method='Credit'`,[cid]).t;
     const paid = one("SELECT COALESCE(SUM(amount),0) as t FROM credit_payments WHERE customer_id=?",[cid]).t;
-    return owed - paid;
+    // Phase 3c: a credit note that reduced the debtor balance (returns.js)
+    const returned = one(`SELECT COALESCE(SUM(r.amount),0) as t FROM credit_note_refunds r JOIN credit_notes c ON c.id=r.cn_id
+                           WHERE c.customer_id=? AND r.method='Debtor'`,[cid]).t;
+    return owed - paid - returned;
   }
   // Payment lines actually recorded for a sale (see completeSale) — the one
   // source of truth for "how was this sale paid", whether split or not.
@@ -219,7 +227,8 @@
     const sinceTs = new Date(Date.now() - withinDays*86400000).toISOString();
     const recentCount = one("SELECT COUNT(*) as c FROM sales WHERE customer_id=? AND branch=? AND ts>=?",[customerId,branch,sinceTs]).c;
     if(recentCount < purchasesNeeded) return;
-    const existingVoucher = one("SELECT * FROM vouchers WHERE customer_id=? AND status='Available'",[customerId]);
+    // loyalty vouchers only: a store-credit voucher (a return, Phase 3c) never blocks one
+    const existingVoucher = one("SELECT * FROM vouchers WHERE customer_id=? AND status='Available' AND COALESCE(kind,'loyalty')='loyalty'",[customerId]);
     if(existingVoucher) return;
     run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status) VALUES(?,?,?,?,'Available')",[customerId,voucherAmt,branch,ts]);
   }
@@ -470,9 +479,11 @@
     // subtotal/discount/voucher lines printed on the receipt and summed in
     // EOD/Discount reports wouldn't add up to the total, which was floored
     // at 0 instead of reflecting what was really given away.
-    const { subtotal, discount, voucher: voucherAmount, total } = cartTotals();
+    const { subtotal, discount, voucher: voucherAmount, total, exchange, due } = cartTotals();
 
-    const rawLines = (payments && payments.length) ? payments.slice() : [{method, amount: total}];
+    // Exchange (Phase 3c): the customer pays only `due`; when the credit
+    // covers the whole sale there is nothing to tender.
+    const rawLines = (payments && payments.length) ? payments.slice() : (exchange>0 && due<=0? [] : [{method, amount: due}]);
 
     // Resolve each line's tender currency to a base-currency-equivalent
     // amount up front, before any other validation — a currency with no
@@ -501,11 +512,14 @@
     if(lines.length>1){
       if(lines.some(l=>!(l.amount>0))){ alert("Enter an amount for every payment method."); return; }
       const sum = roundMoney(lines.reduce((s,l)=>s+l.amount,0));
-      if(sum!==roundMoney(total)){
-        alert(`Payment amounts (${currency}${sum.toFixed(2)}) must add up to the sale total (${currency}${total.toFixed(2)}).`);
+      if(sum!==roundMoney(due)){
+        alert(`Payment amounts (${currency}${sum.toFixed(2)}) must add up to the ${exchange>0? "amount to pay" : "sale total"} (${currency}${due.toFixed(2)}).`);
         return;
       }
     }
+    // the exchange credit is its own payment line, after what the customer tendered
+    if(exchange>0) lines.push({ method:"Exchange", currency:BASE_CURRENCY_CODE, rate:1, tenderedAmount:roundMoney(exchange), amount:roundMoney(exchange) });
+    if(!lines.length){ alert("Choose how the customer pays."); return; }
     // "Split" only when genuinely more than one method was used — a
     // split-tender sale that ends up with a single line (e.g. everything
     // else removed) is stored exactly like a normal single-method sale.
@@ -539,54 +553,80 @@
     const docRefEl = inp? { value:inp.docRef } : document.getElementById("docRef");
     const docRef = cleanDocRef(docRefEl? docRefEl.value : "");
 
+    // Exchange (Phase 3c, returns.js): the credit note for the returned goods
+    // is planned (and refused, if it must be) before anything is written or
+    // any stock is asked for, then saved in the same transaction as this sale.
+    let exPlan = null;
+    if(typeof exchangePlanForSale==="function"){
+      try{ exPlan = exchangePlanForSale(exchange, paymentRef); }
+      catch(e){ alert(e.message||String(e)); return; }
+    }
+
     // Multi-terminal Phase 3b: a shared-stock till asks the server first; the
     // sale is written only when that comes back (or from this till's allowance).
     if(!stockPlan && typeof sharedStockTill==="function" && sharedStockTill()){
       return sharedStockCheckout(cart.map(c=>({ product_id:c.product_id, qty:c.qty })), (plan)=>completeSale(method, payments, plan),
         { custName, custPhone, discountReason, discountApprovedBy, paymentRef, docRef });
     }
-    const customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
     const voucherToRedeem = appliedVoucher;
     const ts = new Date().toISOString();
-
     const discountStatus = discount>0? (discountApprovedBy? "Approved":"Pending") : "";
     const branch = currentBranch();
-    // markup/markup_reason are always written as 0/"" — cart-time markup
-    // was removed (Remove Cart Markup Calculation task); the columns stay
-    // in the schema only so historical rows keep whatever was charged
-    // before this change (see cartTotals above).
-    // Multi-terminal Phase 2: a registered till numbers its receipts T2-0045
-    // (its own counter); an unregistered device keeps "#<sales.id>" exactly as
-    // before, so receipt_no stays NULL there.
-    // (getSetting first: an unregistered device never needs docnum.js here)
-    const receiptNo = getSetting("till_code","") && currentTillCode()? reserveDocNumber("RCT").text : null;
-    run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo]);
-    const saleId = one("SELECT last_insert_rowid() as id").id;
-    if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
-    const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
-    const label = receiptLabel(saleId, receiptNo);
-    lines.forEach(l=>{
-      run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
-        [saleId,l.method,l.amount,l.currency,l.rate,l.tenderedAmount]);
-    });
-    // Each line's own (already-clamped) discount is persisted alongside it
-    // — additive column, see db.js's migrate(). sum(sale_items.discount)
-    // for this sale always equals the `discount` written on the sales row
-    // above, since both come from the same lineDiscount()/cartDiscountTotal()
-    // calls (cartTotals() already ran before this loop).
-    const receiptItems = cart.map(c=>({ product_id:c.product_id, name:c.name, price:c.price, qty:c.qty, discount:lineDiscount(c) }));
-    receiptItems.forEach(c=>{
-      const prod = one("SELECT cost FROM products WHERE id=?",[c.product_id]);
-      run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount) VALUES(?,?,?,?,?,?,?)",
-        [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount]);
-      // shared-stock till: only the part of the line taken from this till's own allowance changes its stock
-      const fromHere = stockPlan && Object.prototype.hasOwnProperty.call(stockPlan.alloc, c.product_id)? stockPlan.alloc[c.product_id] : c.qty;
-      if(fromHere) moveStock({ productId:c.product_id, delta:-fromHere, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
-    });
-    if(voucherToRedeem){
-      run("UPDATE vouchers SET status='Redeemed', redeemed_ts=?, redeemed_sale_id=? WHERE id=?",[ts,saleId,voucherToRedeem.id]);
+    let customerId, saleId, receiptNo, label, receiptItems, exchangeCn = null;
+    if(exPlan) run("BEGIN");
+    try{
+      customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
+      // markup/markup_reason are always written as 0/"" — cart-time markup
+      // was removed (Remove Cart Markup Calculation task); the columns stay
+      // in the schema only so historical rows keep whatever was charged
+      // before this change (see cartTotals above).
+      // Multi-terminal Phase 2: a registered till numbers its receipts T2-0045
+      // (its own counter); an unregistered device keeps "#<sales.id>" exactly as
+      // before, so receipt_no stays NULL there.
+      // (getSetting first: an unregistered device never needs docnum.js here)
+      receiptNo = getSetting("till_code","") && currentTillCode()? reserveDocNumber("RCT").text : null;
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo]);
+      saleId = one("SELECT last_insert_rowid() as id").id;
+      if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
+      const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
+      label = receiptLabel(saleId, receiptNo);
+      lines.forEach(l=>{
+        run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
+          [saleId,l.method,l.amount,l.currency,l.rate,l.tenderedAmount]);
+      });
+      // Each line's own (already-clamped) discount is persisted alongside it
+      // — additive column, see db.js's migrate(). sum(sale_items.discount)
+      // for this sale always equals the `discount` written on the sales row
+      // above, since both come from the same lineDiscount()/cartDiscountTotal()
+      // calls (cartTotals() already ran before this loop).
+      receiptItems = cart.map(c=>({ product_id:c.product_id, name:c.name, price:c.price, qty:c.qty, discount:lineDiscount(c) }));
+      receiptItems.forEach(c=>{
+        const prod = one("SELECT cost FROM products WHERE id=?",[c.product_id]);
+        run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount) VALUES(?,?,?,?,?,?,?)",
+          [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount]);
+        // shared-stock till: only the part of the line taken from this till's own allowance changes its stock
+        const fromHere = stockPlan && Object.prototype.hasOwnProperty.call(stockPlan.alloc, c.product_id)? stockPlan.alloc[c.product_id] : c.qty;
+        if(fromHere) moveStock({ productId:c.product_id, delta:-fromHere, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
+      });
+      if(voucherToRedeem){
+        run("UPDATE vouchers SET status='Redeemed', redeemed_ts=?, redeemed_sale_id=? WHERE id=?",[ts,saleId,voucherToRedeem.id]);
+        // Owner Q9 (Phase 3c): what's left of a STORE-CREDIT voucher stays the
+        // customer's, as a new voucher. A loyalty voucher is used up as before.
+        const v = one("SELECT * FROM vouchers WHERE id=?",[voucherToRedeem.id]);
+        const left = v? roundMoney(v.amount - voucherAmount) : 0;
+        if(v && v.kind==="store_credit" && left>0)
+          run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,kind,source_cn_id,source_sale_id) VALUES(?,?,?,?,'Available','store_credit',?,?)",
+            [v.customer_id, left, branch, ts, v.source_cn_id||null, saleId]);
+      }
+      if(exPlan) exchangeCn = commitExchangeCreditNote(exPlan, saleId, label, ts);
+      if(exPlan) run("COMMIT");
+    }catch(e){
+      if(!exPlan) throw e;
+      try{ run("ROLLBACK"); }catch(_){}
+      alert("Nothing was saved: "+(e.message||String(e)));
+      return;
     }
     const itemNames = cart.map(c=>c.name);
     const itemsSummary = itemNames.length<=3? itemNames.join(", ") : `${itemNames[0]} +${itemNames.length-1} more`;
@@ -595,6 +635,7 @@
     maybeIssueFrequentCustomerVoucher(customerId, branch, ts);
     persist();
     window._lastReceipt = {saleId,receiptNo,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef};
+    window._lastCreditNote = exchangeCn;   // only right after an exchange
     printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef, receiptNo);
     cart = []; drawerOpen=false; appliedVoucher=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
     render();
@@ -619,6 +660,9 @@
           ${(window._lastReceipt.payments||[]).some(p=>p.method==="Credit")? `<button class="btn btn-sm btn-outline" id="invoiceBtn">🖨️ Invoice</button>` : ""}
         </div>
       </div>` : ""}
+      ${window._lastCreditNote && typeof openCreditNoteModal==="function"? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div class="muted">Credit note ${escapeHtml(window._lastCreditNote.text)} (exchange)</div>
+        <button class="btn btn-sm btn-outline" id="lastCnBtn" style="flex:none;width:auto">🖨️ Slip</button></div>` : ""}
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="searchInput" placeholder="Search products or SKU…" value="${escapeHtml(searchQuery)}">
@@ -642,6 +686,8 @@
     // Explicit, standalone action (Device Setup, Cash Drawer) — never a
     // side effect of any of the print buttons above; openCashDrawer() is
     // the only thing this ever calls.
+    const lastCn = document.getElementById("lastCnBtn");
+    if(lastCn) lastCn.onclick = ()=>openCreditNoteModal(window._lastCreditNote.id);
     const drawerBtn = document.getElementById("openDrawerBtn");
     if(drawerBtn) drawerBtn.onclick=()=> openCashDrawer();
     if(rp) rp.onclick=()=>{ const r=window._lastReceipt; printReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef,r.receiptNo); };

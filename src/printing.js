@@ -359,7 +359,9 @@
     if(summary.bank>0) parts.push(escposTextBytes(padLine("Sales Bank", `${currency}${summary.bank.toFixed(2)}`, w)+"\n"));
     parts.push(escposTextBytes(padLine("Sales Credit", `${currency}${summary.credit.toFixed(2)}`, w)+"\n"));
     parts.push(escposTextBytes(padLine("Less: Discounts", `-${currency}${summary.discounts.toFixed(2)}`, w)+"\n"));
+    if(summary.exchangeIn>0) parts.push(escposTextBytes(padLine("Sales Exchange", `${currency}${summary.exchangeIn.toFixed(2)}`, w)+"\n"));
     parts.push(escposBold(true), escposTextBytes(padLine("Total Sales", `${currency}${summary.totalSales.toFixed(2)}`, w)+"\n"), escposBold(false));
+    (summary.returnsLines||[]).forEach(([a,b])=> parts.push(escposTextBytes(padLine(a, b, w)+"\n")));
     parts.push(escposLine(w));
     summary.payouts.forEach(p=> parts.push(escposTextBytes(padLine(p.reason||"Payout", `-${currency}${p.amount.toFixed(2)}`, w)+"\n")));
     parts.push(escposTextBytes(padLine("Less: Payouts", `-${currency}${summary.payoutsTotal.toFixed(2)}`, w)+"\n"));
@@ -461,7 +463,9 @@
         ${summary.bank>0? `<div class="line"><span>Sales Bank</span><span>${currency}${summary.bank.toFixed(2)}</span></div>` : ""}
         <div class="line"><span>Sales Credit</span><span>${currency}${summary.credit.toFixed(2)}</span></div>
         <div class="line"><span>Less: Discounts</span><span>-${currency}${summary.discounts.toFixed(2)}</span></div>
+        ${summary.exchangeIn>0? `<div class="line"><span>Sales Exchange</span><span>${currency}${summary.exchangeIn.toFixed(2)}</span></div>` : ""}
         <div class="line"><b>Total Sales</b><b>${currency}${summary.totalSales.toFixed(2)}</b></div>
+        ${(summary.returnsLines||[]).map(([a,b])=>`<div class="line"><span>${escapeHtml(a)}</span><span>${escapeHtml(b)}</span></div>`).join("")}
         <hr>
         <div>Payouts:</div>
         ${summary.payouts.length? summary.payouts.map(p=>`<div class="line"><span>${escapeHtml(p.reason)}</span><span>-${currency}${p.amount.toFixed(2)}</span></div>`).join("") : "<div>None</div>"}
@@ -671,10 +675,12 @@
       <div class="total-line"><span>Total</span><span>${currency}${sale.total.toFixed(2)}</span></div>
       <button class="btn btn-outline" id="printSaleCopyBtn" style="margin-top:12px">🖨️ Print Copy</button>
       ${payments.some(p=>p.method==="Credit")? `<button class="btn btn-outline" id="printInvoiceBtn" style="margin-top:8px">🖨️ Print Invoice</button>` : ""}
+      ${typeof saleDetailReturnHtml==="function"? saleDetailReturnHtml(sale) : ""}
     `);
     wrap.querySelector("#printSaleCopyBtn").onclick=()=> printSaleCopy(sale.id);
     const invBtn = wrap.querySelector("#printInvoiceBtn");
     if(invBtn) invBtn.onclick=()=> printCreditInvoice(sale.id);
+    if(typeof wireSaleDetailReturn==="function") wireSaleDetailReturn(wrap, sale);   // Phase 3c, returns.js
   }
 
   // ---------------- Device Setup: Printer setup screen ----------------

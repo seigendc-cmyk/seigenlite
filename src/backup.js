@@ -202,17 +202,20 @@
     try{
       const run2 = (sql,p=[])=>{ try{ copy.run(sql,p); }catch(e){} };
       ["products","sales","eod_sessions","payouts","credit_payments","stock_received","audit_log",
-       "stock_requests","purchases","staff","vouchers","stocktakes","stock_adjustments","stock_movements"].forEach(t=>
+       "stock_requests","purchases","staff","vouchers","stocktakes","stock_adjustments","stock_movements","credit_notes"].forEach(t=>
         run2(`DELETE FROM ${t} WHERE branch<>?`,[scope]));
       run2("DELETE FROM stock_transfers WHERE from_branch<>? AND to_branch<>?",[scope,scope]);
       run2("DELETE FROM dispatch_docs WHERE dispatch_branch_name<>? AND receive_branch_name<>?",[scope,scope]);
       run2("DELETE FROM dn_events WHERE dn_from_name<>? AND dn_to_name<>?",[scope,scope]);
       run2("DELETE FROM branch_prices WHERE dest_branch_name<>?",[scope]);
       run2("DELETE FROM sale_items WHERE sale_id NOT IN (SELECT id FROM sales)");
+      run2("DELETE FROM credit_note_items WHERE cn_id NOT IN (SELECT id FROM credit_notes)");
+      run2("DELETE FROM credit_note_refunds WHERE cn_id NOT IN (SELECT id FROM credit_notes)");
       run2("DELETE FROM stocktake_counts WHERE stocktake_id NOT IN (SELECT id FROM stocktakes)");
       run2(`DELETE FROM customers WHERE id NOT IN (SELECT customer_id FROM sales WHERE customer_id IS NOT NULL)
               AND id NOT IN (SELECT customer_id FROM credit_payments WHERE customer_id IS NOT NULL)
-              AND id NOT IN (SELECT customer_id FROM vouchers WHERE customer_id IS NOT NULL)`);
+              AND id NOT IN (SELECT customer_id FROM vouchers WHERE customer_id IS NOT NULL)
+              AND id NOT IN (SELECT customer_id FROM credit_notes WHERE customer_id IS NOT NULL)`);
       return copy.export();
     } finally { copy.close(); }
   }
@@ -352,14 +355,15 @@
       }
     });
 
-    const saleMap = {}; const newSaleImpIds = new Set();
+    const saleMap = {}; const newSaleImpIds = new Set(); const mergedTs = new Date().toISOString();
     allX(impDb,"SELECT * FROM sales").forEach(s=>{
       const dup = byUid("sales",s.uid) || one("SELECT id FROM sales WHERE branch=? AND ts=?",[s.branch,s.ts]);
       if(dup){ saleMap[s.id]=dup.id; return; }
       const newCustId = s.customer_id? (custMap[s.customer_id]||null) : null;
-      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,uid,terminal_id,branch_uuid,receipt_no)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||"",s.uid||null,tid(s),buid(s),s.receipt_no||null]);
+      // merged_ts (Phase 3c): a sale brought in by a merge is never returned on this device (returns.js)
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,uid,terminal_id,branch_uuid,receipt_no,merged_ts)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||"",s.uid||null,tid(s),buid(s),s.receipt_no||null,mergedTs]);
       saleMap[s.id]=one("SELECT last_insert_rowid() as id").id;
       newSaleImpIds.add(s.id);
     });
@@ -525,8 +529,31 @@
       const dup = byUid("vouchers",v.uid) || one("SELECT id FROM vouchers WHERE customer_id=? AND earned_ts=?",[newCustId,v.earned_ts]);
       if(dup) return;
       const newSaleId = v.redeemed_sale_id? (saleMap[v.redeemed_sale_id]||null) : null;
-      run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,redeemed_ts,redeemed_sale_id,uid) VALUES(?,?,?,?,?,?,?,?)",
-        [newCustId,v.amount,v.branch,v.earned_ts,v.status||"Available",v.redeemed_ts||"",newSaleId,v.uid||null]);
+      run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,redeemed_ts,redeemed_sale_id,uid,kind,source_sale_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+        [newCustId,v.amount,v.branch,v.earned_ts,v.status||"Available",v.redeemed_ts||"",newSaleId,v.uid||null,v.kind||"loyalty",v.source_sale_id? (saleMap[v.source_sale_id]||null) : null]);
+    });
+
+    // Credit notes (Phase 3c): main sees a branch's returns and write-offs
+    // (owner Q6). Matched by uid; links are re-pointed to the rows here.
+    const uidOf = (tbl, id)=> id==null? null : ((oneX(impDb, `SELECT uid FROM ${tbl} WHERE id=?`,[id])||{}).uid || null);
+    const localId = (tbl, impId)=>{ const u = uidOf(tbl, impId); const r = u? byUid(tbl, u) : null; return r? r.id : null; };
+    allX(impDb,"SELECT * FROM credit_notes ORDER BY id").forEach(c=>{
+      if(byUid("credit_notes",c.uid) || one("SELECT id FROM credit_notes WHERE cn_branch_id=? AND cn_no=?",[c.cn_branch_id,c.cn_no])) return;
+      run(`INSERT INTO credit_notes(branch,cn_branch_id,cn_no,till_code,sale_id,sale_uid,sale_receipt,customer_id,ts,eod_session_id,reason,reason_note,started_by,started_staff_id,
+            approved_by,approved_staff_id,goods_total,voucher_part,cost_reversed,exchange_sale_id,status,uid,terminal_id,branch_uuid) VALUES(?,?,?,?,?,?,?,?,?,NULL,?,?,?,NULL,?,NULL,?,?,?,?,?,?,?,?)`,
+        [c.branch,c.cn_branch_id,c.cn_no,c.till_code,c.sale_id!=null? (saleMap[c.sale_id]||null) : null,c.sale_uid,c.sale_receipt,c.customer_id? (custMap[c.customer_id]||null) : null,c.ts,
+         c.reason,c.reason_note,c.started_by,c.approved_by,c.goods_total,c.voucher_part,c.cost_reversed,c.exchange_sale_id!=null? (saleMap[c.exchange_sale_id]||null) : null,c.status||"posted",c.uid||null,tid(c),buid(c)]);
+      const cnId = one("SELECT last_insert_rowid() AS id").id;
+      allX(impDb,"SELECT * FROM credit_note_items WHERE cn_id=? ORDER BY id",[c.id]).forEach(i=>{
+        run(`INSERT INTO credit_note_items(cn_id,sale_item_id,sale_item_uid,product_id,product_uid,product_code,name,qty,unit_refund,amount,unit_cost,condition,uid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [cnId, i.sale_item_uid? ((byUid("sale_items", i.sale_item_uid)||{}).id||null) : null, i.sale_item_uid, i.product_id? (prodMap[i.product_id]||null) : null, i.product_uid,
+           i.product_code, i.name, i.qty, i.unit_refund, i.amount, i.unit_cost, i.condition, i.uid||null]);
+      });
+      allX(impDb,"SELECT * FROM credit_note_refunds WHERE cn_id=? ORDER BY id",[c.id]).forEach(r=>{
+        run(`INSERT INTO credit_note_refunds(cn_id,method,amount,currency,rate,tendered_amount,sale_payment_id,voucher_id,exchange_sale_id,ref,uid) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+          [cnId, r.method, r.amount, r.currency, r.rate, r.tendered_amount, localId("sale_payments", r.sale_payment_id), localId("vouchers", r.voucher_id),
+           r.exchange_sale_id!=null? (saleMap[r.exchange_sale_id]||null) : null, r.ref||"", r.uid||null]);
+      });
     });
 
     // Information for main only: where the branch's prices differ from main's,

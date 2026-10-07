@@ -264,6 +264,18 @@
   .rep-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
   .icon-btn{flex:none;width:auto;padding:10px 13px;}
 
+  /* Phase 3c returns: the step strip and the credit note slip (on screen, PDF and print) */
+  .rt-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .rt-steps span{flex:1 1 auto;text-align:center;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:700;
+    background:var(--bg,#f4f4f4);color:var(--ink-soft);border:1px solid var(--border);white-space:nowrap;}
+  .rt-steps span.on{background:var(--orange-light);color:var(--orange);border-color:var(--orange);}
+  .cn-slip .line{display:flex;justify-content:space-between;gap:10px;}
+  .cn-slip .line > :last-child{white-space:nowrap;}
+  .cn-slip h3{text-align:center;margin:2px 0;}
+  .cn-slip hr{border:none;border-top:1px dashed #999;margin:6px 0;}
+  .modal-body .cn-slip{font-family:monospace;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:#fff;}
+  #printArea .cn-slip.report-print{max-width:120mm;margin:0 auto;font-size:14px;}
+
   #printArea{display:none;}
   @media print{
     /* display:none, not visibility:hidden — a hidden app screen still takes
@@ -306,7 +318,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
 <script>
 const APP_VERSION = "1.09.01";
-const APP_BUILD = 9;
+const APP_BUILD = 10;
 /* =========================================================================
    seiGEN Commerce Lite — single-file offline POS
    Storage: SQLite via sql.js (WASM), persisted to IndexedDB as a blob.
@@ -697,6 +709,31 @@ const APP_BUILD = 9;
     CREATE TABLE IF NOT EXISTS cat_branch_prices(
       cat_uid TEXT PRIMARY KEY, price REAL, seq INTEGER
     );
+    -- Sales returns & credit notes (Phase 3c, returns.js). The original sale
+    -- is never edited: a credit note points at it, its lines at the sale's
+    -- lines, and credit_note_refunds says where each part of the money went.
+    -- cn_no is numbered per device (doc_counters 'CN'), shown CN-T1-0001.
+    CREATE TABLE IF NOT EXISTS credit_notes(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT DEFAULT '', cn_branch_id TEXT, cn_no INTEGER, till_code TEXT,
+      sale_id INTEGER, sale_uid TEXT, sale_receipt TEXT DEFAULT '', customer_id INTEGER, ts TEXT NOT NULL, eod_session_id INTEGER,
+      reason TEXT DEFAULT '', reason_note TEXT DEFAULT '', started_by TEXT DEFAULT '', started_staff_id INTEGER,
+      approved_by TEXT DEFAULT '', approved_staff_id INTEGER, goods_total REAL DEFAULT 0, voucher_part REAL DEFAULT 0,
+      cost_reversed REAL DEFAULT 0, exchange_sale_id INTEGER, status TEXT DEFAULT 'posted'
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_credit_notes_no ON credit_notes(cn_branch_id, cn_no);
+    CREATE INDEX IF NOT EXISTS ix_credit_notes_sale ON credit_notes(sale_id);
+    CREATE TABLE IF NOT EXISTS credit_note_items(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, cn_id INTEGER, sale_item_id INTEGER, sale_item_uid TEXT,
+      product_id INTEGER, product_uid TEXT, product_code TEXT DEFAULT '', name TEXT DEFAULT '',
+      qty INTEGER NOT NULL, unit_refund REAL DEFAULT 0, amount REAL DEFAULT 0, unit_cost REAL DEFAULT 0, condition TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS ix_credit_note_items_cn ON credit_note_items(cn_id);
+    CREATE TABLE IF NOT EXISTS credit_note_refunds(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, cn_id INTEGER, method TEXT NOT NULL, amount REAL NOT NULL,
+      currency TEXT DEFAULT 'BASE', rate REAL DEFAULT 1, tendered_amount REAL, sale_payment_id INTEGER,
+      voucher_id INTEGER, exchange_sale_id INTEGER, ref TEXT DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS ix_credit_note_refunds_cn ON credit_note_refunds(cn_id);
     CREATE TABLE IF NOT EXISTS print_queue(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT DEFAULT '',
@@ -859,7 +896,17 @@ const APP_BUILD = 9;
       // last-known branch figures and stock received offline, not yet synced.
       "ALTER TABLE products ADD COLUMN branch_avail INTEGER",
       "ALTER TABLE products ADD COLUMN branch_total INTEGER",
-      "ALTER TABLE products ADD COLUMN stock_pending_in INTEGER DEFAULT 0"
+      "ALTER TABLE products ADD COLUMN stock_pending_in INTEGER DEFAULT 0",
+      // Phase 3c (returns.js). vouchers.kind tells store credit from the
+      // frequent-customer (loyalty) voucher; every existing row reads 'loyalty'.
+      // sales.merged_ts: set by mergeDatabase on every sale it brings in, so a
+      // merged sale is never returned here (owner Q4).
+      "ALTER TABLE vouchers ADD COLUMN kind TEXT DEFAULT 'loyalty'",
+      "ALTER TABLE vouchers ADD COLUMN source_cn_id INTEGER",
+      "ALTER TABLE vouchers ADD COLUMN source_sale_id INTEGER",
+      "ALTER TABLE sales ADD COLUMN merged_ts TEXT DEFAULT ''",
+      // main's "Business day ends at" per branch (Phase 3c add-on), '' = not set
+      "ALTER TABLE branch_register ADD COLUMN business_day_cutoff TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -997,8 +1044,9 @@ const APP_BUILD = 9;
   // registered, and on rows from before this version ("pre-terminal").
   const SYNC_UID_TABLES = ["sales","sale_items","sale_payments","products","customers","payouts","credit_payments",
     "stock_received","stock_adjustments","stock_transfers","purchases","eod_sessions","staff","vouchers","stock_requests",
-    "stocktakes","stocktake_counts","dispatch_docs","dn_events","dn_cases","audit_log","stock_movements"];
-  const TERMINAL_STAMP_TABLES = ["sales","payouts","credit_payments","stock_received","stock_adjustments","eod_sessions","purchases","stock_movements"];
+    "stocktakes","stocktake_counts","dispatch_docs","dn_events","dn_cases","audit_log","stock_movements",
+    "credit_notes","credit_note_items","credit_note_refunds"];
+  const TERMINAL_STAMP_TABLES = ["sales","payouts","credit_payments","stock_received","stock_adjustments","eod_sessions","purchases","stock_movements","credit_notes"];
   const NEW_UID_SQL = "lower(hex(randomblob(16)))";
   function migrateSyncIdentity(t){
     TERMINAL_STAMP_TABLES.forEach(tbl=>{
@@ -1225,9 +1273,14 @@ const APP_BUILD = 9;
     const base = subtotal - discount;
     const voucher = Math.min(Math.max(0,currentVoucherAmount()), base);
     const total = base - voucher;
-    return { subtotal, discount, voucher, total };
+    // Exchange (Phase 3c, returns.js): the credit from the returned goods
+    // pays for up to the whole sale; `due` is what the customer still pays.
+    // total stays the sale's full value (it gets an 'Exchange' payment line).
+    const exchange = typeof exchangeApplied==="function"? exchangeApplied(total) : 0;
+    return { subtotal, discount, voucher, total, exchange, due: roundMoney(total - exchange) };
   }
-  function cartTotal(){ return cartTotals().total; }
+  // What the customer pays now: the sale total, less any exchange credit.
+  function cartTotal(){ return cartTotals().due; }
   // Wires every per-line discount <input> in a rendered cart (mobile drawer
   // or desktop cart panel — both share this, same reuse pattern as
   // wireSplitTenderPanel/wireFxPreview below). Not refresh(): a full
@@ -1256,7 +1309,7 @@ const APP_BUILD = 9;
   function updateLineDiscountDerived(container){
     const totals = cartTotals();
     const totalEl = container.querySelector("#drawerTotal") || container.querySelector("#dsTotal");
-    if(totalEl) totalEl.textContent = currency+totals.total.toFixed(2);
+    if(totalEl) totalEl.textContent = currency+totals.due.toFixed(2);
     const extra = container.querySelector("#discountExtra");
     if(extra) extra.style.display = totals.discount>0? "block":"none";
   }
@@ -1293,7 +1346,10 @@ const APP_BUILD = 9;
                        JOIN sales s ON s.id=sp.sale_id
                        WHERE s.customer_id=? AND sp.method='Credit'`,[cid]).t;
     const paid = one("SELECT COALESCE(SUM(amount),0) as t FROM credit_payments WHERE customer_id=?",[cid]).t;
-    return owed - paid;
+    // Phase 3c: a credit note that reduced the debtor balance (returns.js)
+    const returned = one(`SELECT COALESCE(SUM(r.amount),0) as t FROM credit_note_refunds r JOIN credit_notes c ON c.id=r.cn_id
+                           WHERE c.customer_id=? AND r.method='Debtor'`,[cid]).t;
+    return owed - paid - returned;
   }
   // Payment lines actually recorded for a sale (see completeSale) — the one
   // source of truth for "how was this sale paid", whether split or not.
@@ -1364,7 +1420,8 @@ const APP_BUILD = 9;
     const sinceTs = new Date(Date.now() - withinDays*86400000).toISOString();
     const recentCount = one("SELECT COUNT(*) as c FROM sales WHERE customer_id=? AND branch=? AND ts>=?",[customerId,branch,sinceTs]).c;
     if(recentCount < purchasesNeeded) return;
-    const existingVoucher = one("SELECT * FROM vouchers WHERE customer_id=? AND status='Available'",[customerId]);
+    // loyalty vouchers only: a store-credit voucher (a return, Phase 3c) never blocks one
+    const existingVoucher = one("SELECT * FROM vouchers WHERE customer_id=? AND status='Available' AND COALESCE(kind,'loyalty')='loyalty'",[customerId]);
     if(existingVoucher) return;
     run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status) VALUES(?,?,?,?,'Available')",[customerId,voucherAmt,branch,ts]);
   }
@@ -1615,9 +1672,11 @@ const APP_BUILD = 9;
     // subtotal/discount/voucher lines printed on the receipt and summed in
     // EOD/Discount reports wouldn't add up to the total, which was floored
     // at 0 instead of reflecting what was really given away.
-    const { subtotal, discount, voucher: voucherAmount, total } = cartTotals();
+    const { subtotal, discount, voucher: voucherAmount, total, exchange, due } = cartTotals();
 
-    const rawLines = (payments && payments.length) ? payments.slice() : [{method, amount: total}];
+    // Exchange (Phase 3c): the customer pays only `due`; when the credit
+    // covers the whole sale there is nothing to tender.
+    const rawLines = (payments && payments.length) ? payments.slice() : (exchange>0 && due<=0? [] : [{method, amount: due}]);
 
     // Resolve each line's tender currency to a base-currency-equivalent
     // amount up front, before any other validation — a currency with no
@@ -1646,11 +1705,14 @@ const APP_BUILD = 9;
     if(lines.length>1){
       if(lines.some(l=>!(l.amount>0))){ alert("Enter an amount for every payment method."); return; }
       const sum = roundMoney(lines.reduce((s,l)=>s+l.amount,0));
-      if(sum!==roundMoney(total)){
-        alert(`Payment amounts (${currency}${sum.toFixed(2)}) must add up to the sale total (${currency}${total.toFixed(2)}).`);
+      if(sum!==roundMoney(due)){
+        alert(`Payment amounts (${currency}${sum.toFixed(2)}) must add up to the ${exchange>0? "amount to pay" : "sale total"} (${currency}${due.toFixed(2)}).`);
         return;
       }
     }
+    // the exchange credit is its own payment line, after what the customer tendered
+    if(exchange>0) lines.push({ method:"Exchange", currency:BASE_CURRENCY_CODE, rate:1, tenderedAmount:roundMoney(exchange), amount:roundMoney(exchange) });
+    if(!lines.length){ alert("Choose how the customer pays."); return; }
     // "Split" only when genuinely more than one method was used — a
     // split-tender sale that ends up with a single line (e.g. everything
     // else removed) is stored exactly like a normal single-method sale.
@@ -1684,54 +1746,80 @@ const APP_BUILD = 9;
     const docRefEl = inp? { value:inp.docRef } : document.getElementById("docRef");
     const docRef = cleanDocRef(docRefEl? docRefEl.value : "");
 
+    // Exchange (Phase 3c, returns.js): the credit note for the returned goods
+    // is planned (and refused, if it must be) before anything is written or
+    // any stock is asked for, then saved in the same transaction as this sale.
+    let exPlan = null;
+    if(typeof exchangePlanForSale==="function"){
+      try{ exPlan = exchangePlanForSale(exchange, paymentRef); }
+      catch(e){ alert(e.message||String(e)); return; }
+    }
+
     // Multi-terminal Phase 3b: a shared-stock till asks the server first; the
     // sale is written only when that comes back (or from this till's allowance).
     if(!stockPlan && typeof sharedStockTill==="function" && sharedStockTill()){
       return sharedStockCheckout(cart.map(c=>({ product_id:c.product_id, qty:c.qty })), (plan)=>completeSale(method, payments, plan),
         { custName, custPhone, discountReason, discountApprovedBy, paymentRef, docRef });
     }
-    const customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
     const voucherToRedeem = appliedVoucher;
     const ts = new Date().toISOString();
-
     const discountStatus = discount>0? (discountApprovedBy? "Approved":"Pending") : "";
     const branch = currentBranch();
-    // markup/markup_reason are always written as 0/"" — cart-time markup
-    // was removed (Remove Cart Markup Calculation task); the columns stay
-    // in the schema only so historical rows keep whatever was charged
-    // before this change (see cartTotals above).
-    // Multi-terminal Phase 2: a registered till numbers its receipts T2-0045
-    // (its own counter); an unregistered device keeps "#<sales.id>" exactly as
-    // before, so receipt_no stays NULL there.
-    // (getSetting first: an unregistered device never needs docnum.js here)
-    const receiptNo = getSetting("till_code","") && currentTillCode()? reserveDocNumber("RCT").text : null;
-    run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo]);
-    const saleId = one("SELECT last_insert_rowid() as id").id;
-    if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
-    const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
-    const label = receiptLabel(saleId, receiptNo);
-    lines.forEach(l=>{
-      run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
-        [saleId,l.method,l.amount,l.currency,l.rate,l.tenderedAmount]);
-    });
-    // Each line's own (already-clamped) discount is persisted alongside it
-    // — additive column, see db.js's migrate(). sum(sale_items.discount)
-    // for this sale always equals the `discount` written on the sales row
-    // above, since both come from the same lineDiscount()/cartDiscountTotal()
-    // calls (cartTotals() already ran before this loop).
-    const receiptItems = cart.map(c=>({ product_id:c.product_id, name:c.name, price:c.price, qty:c.qty, discount:lineDiscount(c) }));
-    receiptItems.forEach(c=>{
-      const prod = one("SELECT cost FROM products WHERE id=?",[c.product_id]);
-      run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount) VALUES(?,?,?,?,?,?,?)",
-        [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount]);
-      // shared-stock till: only the part of the line taken from this till's own allowance changes its stock
-      const fromHere = stockPlan && Object.prototype.hasOwnProperty.call(stockPlan.alloc, c.product_id)? stockPlan.alloc[c.product_id] : c.qty;
-      if(fromHere) moveStock({ productId:c.product_id, delta:-fromHere, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
-    });
-    if(voucherToRedeem){
-      run("UPDATE vouchers SET status='Redeemed', redeemed_ts=?, redeemed_sale_id=? WHERE id=?",[ts,saleId,voucherToRedeem.id]);
+    let customerId, saleId, receiptNo, label, receiptItems, exchangeCn = null;
+    if(exPlan) run("BEGIN");
+    try{
+      customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
+      // markup/markup_reason are always written as 0/"" — cart-time markup
+      // was removed (Remove Cart Markup Calculation task); the columns stay
+      // in the schema only so historical rows keep whatever was charged
+      // before this change (see cartTotals above).
+      // Multi-terminal Phase 2: a registered till numbers its receipts T2-0045
+      // (its own counter); an unregistered device keeps "#<sales.id>" exactly as
+      // before, so receipt_no stays NULL there.
+      // (getSetting first: an unregistered device never needs docnum.js here)
+      receiptNo = getSetting("till_code","") && currentTillCode()? reserveDocNumber("RCT").text : null;
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo]);
+      saleId = one("SELECT last_insert_rowid() as id").id;
+      if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
+      const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
+      label = receiptLabel(saleId, receiptNo);
+      lines.forEach(l=>{
+        run("INSERT INTO sale_payments(sale_id,method,amount,currency,rate,tendered_amount) VALUES(?,?,?,?,?,?)",
+          [saleId,l.method,l.amount,l.currency,l.rate,l.tenderedAmount]);
+      });
+      // Each line's own (already-clamped) discount is persisted alongside it
+      // — additive column, see db.js's migrate(). sum(sale_items.discount)
+      // for this sale always equals the `discount` written on the sales row
+      // above, since both come from the same lineDiscount()/cartDiscountTotal()
+      // calls (cartTotals() already ran before this loop).
+      receiptItems = cart.map(c=>({ product_id:c.product_id, name:c.name, price:c.price, qty:c.qty, discount:lineDiscount(c) }));
+      receiptItems.forEach(c=>{
+        const prod = one("SELECT cost FROM products WHERE id=?",[c.product_id]);
+        run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount) VALUES(?,?,?,?,?,?,?)",
+          [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount]);
+        // shared-stock till: only the part of the line taken from this till's own allowance changes its stock
+        const fromHere = stockPlan && Object.prototype.hasOwnProperty.call(stockPlan.alloc, c.product_id)? stockPlan.alloc[c.product_id] : c.qty;
+        if(fromHere) moveStock({ productId:c.product_id, delta:-fromHere, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
+      });
+      if(voucherToRedeem){
+        run("UPDATE vouchers SET status='Redeemed', redeemed_ts=?, redeemed_sale_id=? WHERE id=?",[ts,saleId,voucherToRedeem.id]);
+        // Owner Q9 (Phase 3c): what's left of a STORE-CREDIT voucher stays the
+        // customer's, as a new voucher. A loyalty voucher is used up as before.
+        const v = one("SELECT * FROM vouchers WHERE id=?",[voucherToRedeem.id]);
+        const left = v? roundMoney(v.amount - voucherAmount) : 0;
+        if(v && v.kind==="store_credit" && left>0)
+          run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,kind,source_cn_id,source_sale_id) VALUES(?,?,?,?,'Available','store_credit',?,?)",
+            [v.customer_id, left, branch, ts, v.source_cn_id||null, saleId]);
+      }
+      if(exPlan) exchangeCn = commitExchangeCreditNote(exPlan, saleId, label, ts);
+      if(exPlan) run("COMMIT");
+    }catch(e){
+      if(!exPlan) throw e;
+      try{ run("ROLLBACK"); }catch(_){}
+      alert("Nothing was saved: "+(e.message||String(e)));
+      return;
     }
     const itemNames = cart.map(c=>c.name);
     const itemsSummary = itemNames.length<=3? itemNames.join(", ") : `${itemNames[0]} +${itemNames.length-1} more`;
@@ -1740,6 +1828,7 @@ const APP_BUILD = 9;
     maybeIssueFrequentCustomerVoucher(customerId, branch, ts);
     persist();
     window._lastReceipt = {saleId,receiptNo,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef};
+    window._lastCreditNote = exchangeCn;   // only right after an exchange
     printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef, receiptNo);
     cart = []; drawerOpen=false; appliedVoucher=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
     render();
@@ -1764,6 +1853,9 @@ const APP_BUILD = 9;
           ${(window._lastReceipt.payments||[]).some(p=>p.method==="Credit")? `<button class="btn btn-sm btn-outline" id="invoiceBtn">🖨️ Invoice</button>` : ""}
         </div>
       </div>` : ""}
+      ${window._lastCreditNote && typeof openCreditNoteModal==="function"? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div class="muted">Credit note ${escapeHtml(window._lastCreditNote.text)} (exchange)</div>
+        <button class="btn btn-sm btn-outline" id="lastCnBtn" style="flex:none;width:auto">🖨️ Slip</button></div>` : ""}
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="searchInput" placeholder="Search products or SKU…" value="${escapeHtml(searchQuery)}">
@@ -1787,6 +1879,8 @@ const APP_BUILD = 9;
     // Explicit, standalone action (Device Setup, Cash Drawer) — never a
     // side effect of any of the print buttons above; openCashDrawer() is
     // the only thing this ever calls.
+    const lastCn = document.getElementById("lastCnBtn");
+    if(lastCn) lastCn.onclick = ()=>openCreditNoteModal(window._lastCreditNote.id);
     const drawerBtn = document.getElementById("openDrawerBtn");
     if(drawerBtn) drawerBtn.onclick=()=> openCashDrawer();
     if(rp) rp.onclick=()=>{ const r=window._lastReceipt; printReceipt(r.saleId,r.ts,r.subtotal,r.discount,r.markup,r.voucherAmount||0,r.total,r.method,r.items,r.payments,r.docRef,r.receiptNo); };
@@ -2205,9 +2299,12 @@ const APP_BUILD = 9;
       summary.cashByCurrency.forEach(r=> parts.push(escposTextBytes(padLine(`  ${r.currency} cash`, `${r.symbol}${r.tendered.toFixed(2)}`, w)+"\n")));
     }
     parts.push(escposTextBytes(padLine("Sales EcoCash", `${currency}${summary.ecocash.toFixed(2)}`, w)+"\n"));
+    if(summary.bank>0) parts.push(escposTextBytes(padLine("Sales Bank", `${currency}${summary.bank.toFixed(2)}`, w)+"\n"));
     parts.push(escposTextBytes(padLine("Sales Credit", `${currency}${summary.credit.toFixed(2)}`, w)+"\n"));
     parts.push(escposTextBytes(padLine("Less: Discounts", `-${currency}${summary.discounts.toFixed(2)}`, w)+"\n"));
+    if(summary.exchangeIn>0) parts.push(escposTextBytes(padLine("Sales Exchange", `${currency}${summary.exchangeIn.toFixed(2)}`, w)+"\n"));
     parts.push(escposBold(true), escposTextBytes(padLine("Total Sales", `${currency}${summary.totalSales.toFixed(2)}`, w)+"\n"), escposBold(false));
+    (summary.returnsLines||[]).forEach(([a,b])=> parts.push(escposTextBytes(padLine(a, b, w)+"\n")));
     parts.push(escposLine(w));
     summary.payouts.forEach(p=> parts.push(escposTextBytes(padLine(p.reason||"Payout", `-${currency}${p.amount.toFixed(2)}`, w)+"\n")));
     parts.push(escposTextBytes(padLine("Less: Payouts", `-${currency}${summary.payoutsTotal.toFixed(2)}`, w)+"\n"));
@@ -2306,9 +2403,12 @@ const APP_BUILD = 9;
         <div class="line"><span>Sales Cash</span><span>${currency}${summary.cash.toFixed(2)}</span></div>
         ${(summary.cashByCurrency||[]).length>1? summary.cashByCurrency.map(r=>`<div class="line" style="padding-left:12px;font-size:12px"><span>${escapeHtml(r.currency)} cash</span><span>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</span></div>`).join("") : ""}
         <div class="line"><span>Sales EcoCash</span><span>${currency}${summary.ecocash.toFixed(2)}</span></div>
+        ${summary.bank>0? `<div class="line"><span>Sales Bank</span><span>${currency}${summary.bank.toFixed(2)}</span></div>` : ""}
         <div class="line"><span>Sales Credit</span><span>${currency}${summary.credit.toFixed(2)}</span></div>
         <div class="line"><span>Less: Discounts</span><span>-${currency}${summary.discounts.toFixed(2)}</span></div>
+        ${summary.exchangeIn>0? `<div class="line"><span>Sales Exchange</span><span>${currency}${summary.exchangeIn.toFixed(2)}</span></div>` : ""}
         <div class="line"><b>Total Sales</b><b>${currency}${summary.totalSales.toFixed(2)}</b></div>
+        ${(summary.returnsLines||[]).map(([a,b])=>`<div class="line"><span>${escapeHtml(a)}</span><span>${escapeHtml(b)}</span></div>`).join("")}
         <hr>
         <div>Payouts:</div>
         ${summary.payouts.length? summary.payouts.map(p=>`<div class="line"><span>${escapeHtml(p.reason)}</span><span>-${currency}${p.amount.toFixed(2)}</span></div>`).join("") : "<div>None</div>"}
@@ -2518,10 +2618,12 @@ const APP_BUILD = 9;
       <div class="total-line"><span>Total</span><span>${currency}${sale.total.toFixed(2)}</span></div>
       <button class="btn btn-outline" id="printSaleCopyBtn" style="margin-top:12px">🖨️ Print Copy</button>
       ${payments.some(p=>p.method==="Credit")? `<button class="btn btn-outline" id="printInvoiceBtn" style="margin-top:8px">🖨️ Print Invoice</button>` : ""}
+      ${typeof saleDetailReturnHtml==="function"? saleDetailReturnHtml(sale) : ""}
     `);
     wrap.querySelector("#printSaleCopyBtn").onclick=()=> printSaleCopy(sale.id);
     const invBtn = wrap.querySelector("#printInvoiceBtn");
     if(invBtn) invBtn.onclick=()=> printCreditInvoice(sale.id);
+    if(typeof wireSaleDetailReturn==="function") wireSaleDetailReturn(wrap, sale);   // Phase 3c, returns.js
   }
 
   // ---------------- Device Setup: Printer setup screen ----------------
@@ -2977,6 +3079,7 @@ const APP_BUILD = 9;
       return;
     }
     const subtotal = cartSubtotal();
+    const exchangeCovers = typeof exchangePending==="function" && !!exchangePending();   // Phase 3c: an exchange credit is in the cart
     drawer.innerHTML = `
       <div class="drawer-head"><h3 style="margin:0">Cart</h3><button class="close-x" id="closeDrawer">✕</button></div>
       <div class="drawer-body">
@@ -3014,11 +3117,12 @@ const APP_BUILD = 9;
         <label>Customer phone (optional)</label>
         <input class="field" id="custPhone" placeholder="e.g. 077xxxxxxx" value="${window._custPhoneVal||''}">
         <div id="voucherBox"></div>
+        ${typeof exchangeCartHtml==="function"? exchangeCartHtml() : ""}
         <div class="hr" style="margin:10px 0"></div>
         <div class="subline"><span>Subtotal</span><span>${currency}${subtotal.toFixed(2)}</span></div>
-        <div class="total-line"><span>Total</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
+        <div class="total-line"><span>${exchangeCovers? "To pay" : "Total"}</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
         ${fxPreviewHtml()}
-        ${splitTender? splitTenderPanelHtml() : `
+        ${exchangeCovers && cart.length && cartTotal()<=0? `<button class="btn btn-primary" id="payExchange">Complete exchange</button>` : splitTender? splitTenderPanelHtml() : `
         ${quickTapCurrencySelectorHtml()}
         <div class="row" style="margin-bottom:8px">
           <button class="btn btn-primary" id="payCash" ${cart.length===0?"disabled":""}>Cash</button>
@@ -3042,6 +3146,7 @@ const APP_BUILD = 9;
     document.getElementById("custName").oninput=(e)=>{ window._custNameVal=e.target.value; renderVoucherBox(); };
     document.getElementById("custPhone").oninput=(e)=>{ window._custPhoneVal=e.target.value; };
     renderVoucherBox();
+    if(typeof wireExchangeCart==="function") wireExchangeCart(drawer, renderDrawer);
     wireFxPreview(drawer, renderDrawer);
     const resetTemp=()=>{ window._custNameVal=""; window._custPhoneVal="";
       window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; window._docRefVal=""; };
@@ -3082,22 +3187,25 @@ const APP_BUILD = 9;
       box.innerHTML = `<div class="pill ok" style="display:inline-flex;align-items:center;gap:6px;margin:6px 0">Voucher applied: -${currency}${appliedVoucher.amount.toFixed(2)} <button type="button" data-remove-voucher style="background:none;border:none;color:inherit;font-weight:700;padding:0 2px;cursor:pointer">✕</button></div>`;
       box.querySelector("[data-remove-voucher]").onclick=()=>{
         appliedVoucher = null;
-        if(totalEl) totalEl.textContent = currency+cartTotal().toFixed(2);
-        renderVoucherBox();
+        if(totalEl){ totalEl.textContent = currency+cartTotal().toFixed(2); renderVoucherBox(); }
+        else render();
       };
       return;
     }
-    const voucher = one("SELECT * FROM vouchers WHERE customer_id=? AND status='Available'",[cust.id]);
-    if(!voucher){ box.innerHTML=""; return; }
-    box.innerHTML = `<div class="card" style="padding:8px 10px;margin:6px 0;display:flex;justify-content:space-between;align-items:center">
-      <span>🎁 Voucher available: ${currency}${voucher.amount.toFixed(2)}</span>
-      <button type="button" class="btn btn-sm btn-primary" data-apply-voucher style="flex:none">Apply Voucher</button>
-    </div>`;
-    box.querySelector("[data-apply-voucher]").onclick=()=>{
+    // Phase 3c: a customer can also hold store credit (a return); each is
+    // offered, one voucher per sale, as before.
+    const vouchers = all("SELECT * FROM vouchers WHERE customer_id=? AND status='Available' ORDER BY id",[cust.id]);
+    if(!vouchers.length){ box.innerHTML=""; return; }
+    box.innerHTML = vouchers.map(voucher=>`<div class="card" style="padding:8px 10px;margin:6px 0;display:flex;justify-content:space-between;align-items:center">
+      <span>🎁 ${voucher.kind==="store_credit"? "Store credit" : "Voucher"} available: ${currency}${voucher.amount.toFixed(2)}</span>
+      <button type="button" class="btn btn-sm btn-primary" data-apply-voucher="${voucher.id}" style="flex:none">Apply ${voucher.kind==="store_credit"? "Store Credit" : "Voucher"}</button>
+    </div>`).join("");
+    box.querySelectorAll("[data-apply-voucher]").forEach(b=>b.onclick=()=>{
+      const voucher = vouchers.find(v=>v.id===+b.dataset.applyVoucher);
       appliedVoucher = { id:voucher.id, amount:voucher.amount, customerId:cust.id };
-      if(totalEl) totalEl.textContent = currency+cartTotal().toFixed(2);
-      renderVoucherBox();
-    };
+      if(totalEl){ totalEl.textContent = currency+cartTotal().toFixed(2); renderVoucherBox(); }
+      else render();   // desktop Sales screen: its total is redrawn with the cart
+    });
   }
 
 
@@ -3577,13 +3685,13 @@ const APP_BUILD = 9;
 
   // DN files are self-contained JSON (see dnfile.js). GRV files (Phase 3) share it.
   const DOC_FILE_EXT = ".json";
-  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT","RCT"];
+  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT","RCT","CN"];
   // Multi-terminal Phase 2: documents numbered per till once the device has a
   // till code (Settings → Business & Terminals). The counter itself stays per
   // device (doc_counters, keyed by getBranchId(), which is already per
   // device), so (dispatch_branch_id, dn_no) stays unique; only the displayed
   // number gains the till code. Export file numbers (EXP/LOG/ITM/MKT) don't.
-  const TILL_DOC_TYPES = ["DN","GRV","ADJ","CXL","RCT"];
+  const TILL_DOC_TYPES = ["DN","GRV","ADJ","CXL","RCT","CN"];   // CN = credit note (Phase 3c): CN-T1-0001, CN0001 unregistered
   const TILL_CODE_RE = /^T[0-9]{1,3}$/;
   const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -8049,15 +8157,22 @@ const APP_BUILD = 9;
   // shift 7 Oct (the watermark never goes back) while its sales count for
   // 6 Oct, already closed, so they'd be in no cash-up.
   function businessCutoffLabel(h){ return String(h).padStart(2,"0")+":00"; }
-  function setBusinessDayCutoff(hours, passcode, now){
-    const h = Number(hours);
-    if(!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX) throw new Error("Choose a time from 00:00 to 06:00.");
+  // Why the cut-off can't change to h right now on this till ("" = it can).
+  function businessDayChangeProblem(h, now){
     const open = one("SELECT date, branch FROM eod_sessions WHERE status='open' ORDER BY date LIMIT 1");
-    if(open) throw new Error(`Complete the open shift (${open.date}${open.branch? ", "+open.branch : ""}) in Reports → End of Day first, then change when the business day ends.`);
+    if(open) return `Complete the open shift (${open.date}${open.branch? ", "+open.branch : ""}) in Reports → End of Day first, then change when the business day ends.`;
     now = now || new Date();
     const later = Math.max(h, businessCutoffHours());
     if(localDateStr(new Date(now.getTime() - h*3600000)) !== businessDateToday(now))
-      throw new Error(`Change this after ${businessCutoffLabel(later)}: until then the new time would move today's business date.`);
+      return `Change this after ${businessCutoffLabel(later)}: until then the new time would move today's business date.`;
+    return "";
+  }
+  function setBusinessDayCutoff(hours, passcode, now){
+    const h = Number(hours);
+    if(!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX) throw new Error("Choose a time from 00:00 to 06:00.");
+    if(businessDaySetByMain()!==null) throw new Error("Main sets when this branch's business day ends ("+businessCutoffLabel(businessDaySetByMain())+").");
+    const problem = businessDayChangeProblem(h, now);
+    if(problem) throw new Error(problem);
     if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode. The business day was not changed.");
     const old = businessCutoffHours();
     if(h===old) return { changed:false };
@@ -8065,6 +8180,103 @@ const APP_BUILD = 9;
     logAudit("Business day end changed", "", businessCutoffLabel(old)+" → "+businessCutoffLabel(h));
     persist();
     return { changed:true };
+  }
+
+  // ---- set per branch by main (Phase 3c add-on, design §2.14) ----
+  // Main sets a branch's time (Settings, Admin passcode); every till of that
+  // branch picks it up with the catalogue pull (cl_catalogue_pull's
+  // business_day_cutoff) and applies it under the same rules as a change made
+  // here: never while a shift is open, never while the old and new rules
+  // disagree on today's date. Until then it waits (business_day_pending) and
+  // is tried again on the next pull and after End of Day. Unregistered tills,
+  // and branches main never set, keep their own setting.
+  //   business_day_branch  = main's value for this branch ('' = not set)
+  function businessDaySetByMain(){ const v = getSetting("business_day_branch",""); return v===""? null : Number(v); }
+  function applyBranchBusinessDay(value, now){
+    if(value===undefined) return null;                                 // a server without the add-on
+    if(value===null || value===""){
+      if(businessDaySetByMain()!==null) logAudit("Business day end: main no longer sets it", "", "kept "+businessCutoffLabel(businessCutoffHours()));
+      setSetting("business_day_branch",""); setSetting("business_day_pending","");
+      return { cleared:true };
+    }
+    const h = Number(value);
+    if(!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX) return null;
+    setSetting("business_day_branch", String(h));
+    return applyPendingBusinessDay(now);
+  }
+  function applyPendingBusinessDay(now){
+    const h = businessDaySetByMain();
+    if(h===null) return null;
+    if(h===businessCutoffHours()){ setSetting("business_day_pending",""); return { applied:false }; }
+    const problem = businessDayChangeProblem(h, now);
+    if(problem){ setSetting("business_day_pending", String(h)); return { pending:true, problem }; }
+    const old = businessCutoffHours();
+    setSetting("business_day_cutoff", String(h)); setSetting("business_day_pending","");
+    logAudit("Business day end changed (set by main)", "", businessCutoffLabel(old)+" → "+businessCutoffLabel(h));
+    persist();
+    return { applied:true };
+  }
+  // Main: set (or clear, hours "") a branch's time; queued for Digital Commerce.
+  function setBranchBusinessDay(destName, hours, passcode){
+    if(getSetting("terminal_is_main","")!=="1") throw new Error("Only a till of the main branch can set this for a branch.");
+    const clear = hours==="" || hours==null, h = Number(hours);
+    if(!clear && (!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX)) throw new Error("Choose a time from 00:00 to 06:00.");
+    if(!one("SELECT 1 AS x FROM branch_register WHERE name=?",[destName])) throw new Error("Unknown branch.");
+    if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
+    if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode. Nothing was changed.");
+    const value = clear? "" : String(h);
+    run("UPDATE branch_register SET business_day_cutoff=? WHERE name=?",[value, destName]);
+    run(`INSERT INTO cat_outbox(kind,dest_name,cat_uid,price,mode,op_id,created_ts,error) VALUES('bizday',?,'',NULL,?,?,?,'')
+         ON CONFLICT(kind,dest_name,cat_uid) DO UPDATE SET mode=excluded.mode, op_id=excluded.op_id, created_ts=excluded.created_ts, error=''`,
+      [destName, value, typeof catNewOp==="function"? catNewOp() : String(Date.now()), new Date().toISOString()]);
+    logAudit("Business day end set for a branch", "", destName+": "+(clear? "not set (each till keeps its own)" : businessCutoffLabel(h)));
+    persist();
+    return { value };
+  }
+  function businessDayCardHtml(){
+    const byMain = businessDaySetByMain(), pending = getSetting("business_day_pending","");
+    const isMain = getSetting("terminal_is_main","")==="1" && !!getSetting("terminal_id","");
+    if(isMain && typeof ensureSelfInRegister==="function") ensureSelfInRegister();   // main's own branch is listed too
+    const branches = isMain? all("SELECT name, business_day_cutoff FROM branch_register ORDER BY name") : [];
+    const opts = (sel, allowNone)=> (allowNone? `<option value="" ${sel===""?"selected":""}>Not set (each till keeps its own)</option>` : "")
+      + Array.from({length:BUSINESS_DAY_CUTOFF_MAX+1}, (_,h)=>`<option value="${h}" ${String(sel)===String(h)?"selected":""}>${businessCutoffLabel(h)}${h===0? " (midnight)" : ""}</option>`).join("");
+    return `<div class="card">
+        <h3>Business day</h3>
+        <label style="margin-top:0">Business day ends at</label>
+        <select class="field" id="sBizCutoff" ${byMain!==null? "disabled" : ""}>${opts(businessCutoffHours(), false)}</select>
+        ${byMain!==null? `<p class="biz-by-main" style="margin:6px 0;font-weight:600">Set by main: ${businessCutoffLabel(byMain)}.${pending!==""? ` Applies after this shift's End of Day.` : ""}</p>` : ""}
+        <p class="muted">Sales after midnight and before this time count for the day before: in shifts, End of Day and every report. Today's business date: <b>${escapeHtml(businessDateOf())}</b>.${byMain!==null? "" : " Needs the Admin passcode, and can't be changed while a shift is open on this till."}</p>
+        ${byMain!==null? "" : `<button class="btn btn-outline" id="saveBizCutoff">Save business day</button>`}
+        ${branches.length? `<div class="hr"></div><h4 style="margin:0 0 6px">Set for each branch</h4>
+          <p class="muted" style="margin:0 0 6px">Every till of the branch picks it up when it next syncs the catalogue (after its open shift, if it has one).</p>
+          ${branches.map(b=>`<div class="row" style="align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1">${escapeHtml(b.name)}</span>
+            <select class="field" data-biz-branch="${escapeHtml(b.name)}" style="flex:1">${opts(b.business_day_cutoff||"", true)}</select></div>`).join("")}
+          <button class="btn btn-outline" id="saveBizBranches">Save for branches</button>` : ""}
+      </div>`;
+  }
+  function wireBusinessDayCard(){
+    const save = document.getElementById("saveBizCutoff");
+    if(save) save.onclick=()=>{
+      const h = parseInt(document.getElementById("sBizCutoff").value,10);
+      if(h===businessCutoffHours()) return alert("The business day already ends at "+businessCutoffLabel(h)+".");
+      if(!hasAdminPasscode()) return alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
+      const pc = prompt("Admin passcode to make the business day end at "+businessCutoffLabel(h)+":");
+      if(pc===null) return;
+      try{ setBusinessDayCutoff(h, pc); alert("The business day now ends at "+businessCutoffLabel(h)+"."); render(); }
+      catch(e){ alert(e.message); }
+    };
+    const br = document.getElementById("saveBizBranches");
+    if(br) br.onclick=()=>{
+      const changes = [...document.querySelectorAll("[data-biz-branch]")].filter(s=>{
+        const r = one("SELECT business_day_cutoff AS v FROM branch_register WHERE name=?",[s.dataset.bizBranch]);
+        return (r? r.v||"" : "")!==s.value; });
+      if(!changes.length) return alert("Nothing changed.");
+      const pc = prompt("Admin passcode to set the business day for "+changes.map(s=>s.dataset.bizBranch).join(", ")+":");
+      if(pc===null) return;
+      try{ changes.forEach(s=>setBranchBusinessDay(s.dataset.bizBranch, s.value, pc)); alert("Saved. Each branch's tills pick it up when they next sync."); render();
+        if(typeof catalogueSyncNow==="function") catalogueSyncNow({}).catch(()=>{}); }
+      catch(e){ alert(e.message); }
+    };
   }
 
   // ================== License anti-rollback: trusted time ==================
@@ -8265,12 +8477,33 @@ const APP_BUILD = 9;
     const sumMethod = (m)=> dayPayments.filter(p=>p.method===m).reduce((s,r)=>s+r.amount,0);
     const cash = sumMethod("Cash");
     const ecocash = sumMethod("EcoCash");
+    const bank = sumMethod("Bank");
     const credit = sumMethod("Credit");
     const discounts = daySales.reduce((s,r)=>s+(r.discount||0),0);
-    const totalSales = cash+ecocash+credit;
+    // Bank was left out of Total Sales before 3c (expected cash never
+    // included it, and still doesn't: Bank isn't cash in the drawer).
+    // Exchange (Phase 3c): the part of a sale paid with returned goods' credit.
+    const exchangeIn = sumMethod("Exchange");
+    const totalSales = cash+ecocash+bank+credit+exchangeIn;
     const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[branch,day.fromTs,day.toTs]);
     const payoutsTotal = payouts.reduce((s,r)=>s+r.amount,0);
-    const expected = (openingFloat||0) + cash - payoutsTotal; // opening float + cash sales - payouts = expected cash
+    // Returns (Phase 3c, returns.js) made on this till in the same business
+    // day: cash refunded leaves the drawer, so it comes off expected cash.
+    const dayCns = all("SELECT id, goods_total FROM credit_notes WHERE branch=? AND ts>=? AND ts<=?",[branch,day.fromTs,day.toTs]);
+    const dayRefunds = dayCns.length? all(`SELECT * FROM credit_note_refunds WHERE cn_id IN (${dayCns.map(()=>"?").join(",")})`, dayCns.map(c=>c.id)) : [];
+    const refundOf = (m)=> roundMoney(dayRefunds.filter(r=>r.method===m).reduce((s,r)=>s+r.amount,0));
+    const refunds = { count:dayCns.length, total:roundMoney(dayCns.reduce((s,c)=>s+(c.goods_total||0),0)),
+      cash:refundOf("Cash"), ecocash:refundOf("EcoCash"), bank:refundOf("Bank"), debtor:refundOf("Debtor"), voucher:refundOf("Voucher"), exchange:refundOf("Exchange") };
+    const refundByCurrency = {};
+    dayRefunds.filter(r=>r.method==="Cash").forEach(r=>{
+      const code = r.currency || BASE_CURRENCY_CODE;
+      if(!refundByCurrency[code]) refundByCurrency[code] = { currency:code, symbol:currencySymbolFor(code), tendered:0, amount:0 };
+      refundByCurrency[code].tendered = roundMoney(refundByCurrency[code].tendered + (r.tendered_amount==null? r.amount : r.tendered_amount));
+      refundByCurrency[code].amount = roundMoney(refundByCurrency[code].amount + r.amount);
+    });
+    refunds.cashByCurrency = Object.keys(refundByCurrency).sort().map(k=>refundByCurrency[k]);
+    const netSales = roundMoney(totalSales - refunds.total);
+    const expected = (openingFloat||0) + cash - payoutsTotal - refunds.cash; // opening float + cash sales - payouts - cash refunds = expected cash
     // Multi-Currency Support (item 5): `cash` above stays the blended
     // base-currency-equivalent figure `expected` is built from — unchanged.
     // This is purely an additional breakdown so a till count can be
@@ -8290,7 +8523,25 @@ const APP_BUILD = 9;
       tendered: roundMoney(byCurrency[code].tendered),
       amount: roundMoney(byCurrency[code].amount),
     }));
-    return { cash, ecocash, credit, discounts, totalSales, payouts, payoutsTotal, expected, cashByCurrency };
+    return { cash, ecocash, bank, credit, exchangeIn, discounts, totalSales, payouts, payoutsTotal, expected, cashByCurrency, refunds, netSales };
+  }
+  // The "Returns" block of the EOD screen, slip and WhatsApp text, as
+  // [label, value] pairs (empty when there were no returns: the EOD reads
+  // exactly as before).
+  function eodReturnsLines(t){
+    const r = t.refunds;
+    if(!r || !r.count) return [];
+    const m = (v)=> `-${currency}${v.toFixed(2)}`;
+    const out = [[`Less: Returns (${r.count})`, m(r.total)]];
+    if(r.cash) out.push(["  Cash refunded", m(r.cash)]);
+    if((r.cashByCurrency||[]).some(c=>c.currency!==BASE_CURRENCY_CODE)) r.cashByCurrency.forEach(c=>out.push([`    ${c.currency} cash`, `-${c.symbol}${c.tendered.toFixed(2)}`]));
+    if(r.ecocash) out.push(["  EcoCash refunded", m(r.ecocash)]);
+    if(r.bank) out.push(["  Bank refunded", m(r.bank)]);
+    if(r.debtor) out.push(["  Debtor balances reduced", m(r.debtor)]);
+    if(r.voucher) out.push(["  Store credit issued", m(r.voucher)]);
+    if(r.exchange) out.push(["  Exchanged for new items", m(r.exchange)]);
+    out.push(["Net Sales", `${currency}${(t.netSales||0).toFixed(2)}`]);
+    return out;
   }
   // Closes whichever shift is open (today's, or an older unresolved one
   // being caught up on) — idempotent: once closed, oldestOpenShift() no
@@ -8308,6 +8559,7 @@ const APP_BUILD = 9;
     run(`UPDATE eod_sessions SET status='closed', expected_cash=?, counted_cash=?, variance=?, notes=?, closed_ts=?, closed_by=?, closed_staff_id=? WHERE id=?`,
       [totals.expected,counted,variance,notes||"",ts,eodOperatorName(),eodOperatorStaffId(),shift.id]);
     logAudit("EOD completed","",`Expected ${currency}${totals.expected.toFixed(2)}, counted ${currency}${counted.toFixed(2)}, variance ${currency}${variance.toFixed(2)}`);
+    if(getSetting("business_day_pending","")!=="") applyPendingBusinessDay(now);   // main's time for this branch, held for this shift
     persist();
     return one("SELECT * FROM eod_sessions WHERE id=?",[shift.id]);
   }
@@ -8319,9 +8571,10 @@ const APP_BUILD = 9;
   // buildEODBytes/printEOD already expect — only addition is openingFloat.
   function eodPrintSummary(shift, totals, lowStock, counted){
     const c = counted===undefined? (shift.counted_cash||0) : counted;
-    return { date:shift.date, cash:totals.cash, ecocash:totals.ecocash, credit:totals.credit, discounts:totals.discounts,
+    return { date:shift.date, cash:totals.cash, ecocash:totals.ecocash, bank:totals.bank||0, credit:totals.credit, discounts:totals.discounts,
       totalSales:totals.totalSales, payouts:totals.payouts, payoutsTotal:totals.payoutsTotal, openingFloat:shift.opening_float||0,
-      expected:totals.expected, counted:c, variance:c-totals.expected, lowStock, cashByCurrency:totals.cashByCurrency||[] };
+      expected:totals.expected, counted:c, variance:c-totals.expected, lowStock, cashByCurrency:totals.cashByCurrency||[],
+      exchangeIn:totals.exchangeIn||0, refunds:totals.refunds||null, netSales:totals.netSales, returnsLines:eodReturnsLines(totals) };
   }
   function eodWhatsAppText(summary){
     const itemLines = [
@@ -8333,12 +8586,15 @@ const APP_BUILD = 9;
         ? summary.cashByCurrency.map(r=>padLine(`  ${r.currency} cash`, `${r.symbol}${r.tendered.toFixed(2)}`))
         : []),
       padLine("Sales EcoCash", `${currency}${summary.ecocash.toFixed(2)}`),
+      ...(summary.bank>0? [padLine("Sales Bank", `${currency}${summary.bank.toFixed(2)}`)] : []),
       padLine("Sales Credit", `${currency}${summary.credit.toFixed(2)}`),
+      ...(summary.exchangeIn>0? [padLine("Sales Exchange (returned goods)", `${currency}${summary.exchangeIn.toFixed(2)}`)] : []),
       padLine("Less: Discounts", `-${currency}${summary.discounts.toFixed(2)}`),
       padLine("Payouts", `-${currency}${summary.payoutsTotal.toFixed(2)}`)
     ];
     const totalLines = [
       padLine("Total Sales", `${currency}${summary.totalSales.toFixed(2)}`),
+      ...(summary.returnsLines||[]).map(([a,b])=>padLine(a,b)),
       padLine("Expected Cash", `${currency}${summary.expected.toFixed(2)}`),
       padLine("Cash Count", `${currency}${summary.counted.toFixed(2)}`),
       padLine("Variance", `${currency}${summary.variance.toFixed(2)}`),
@@ -8424,10 +8680,13 @@ const APP_BUILD = 9;
           ${totals.cashByCurrency.map(r=>`<div class="subline" style="font-size:12px"><span>${escapeHtml(r.currency)} cash</span><span>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)} <span class="muted">(≈ ${currency}${r.amount.toFixed(2)})</span></span></div>`).join("")}
         </div>` : ""}
         <div class="subline"><span>Sales EcoCash</span><span>${currency}${totals.ecocash.toFixed(2)}</span></div>
+        ${totals.bank>0? `<div class="subline"><span>Sales Bank</span><span>${currency}${totals.bank.toFixed(2)}</span></div>` : ""}
         <div class="subline"><span>Sales Credit</span><span>${currency}${totals.credit.toFixed(2)}</span></div>
+        ${totals.exchangeIn>0? `<div class="subline"><span>Sales Exchange (returned goods)</span><span>${currency}${totals.exchangeIn.toFixed(2)}</span></div>` : ""}
         <div class="subline"><span>Less: Discounts</span><span>-${currency}${totals.discounts.toFixed(2)}</span></div>
         <div class="hr" style="margin:8px 0"></div>
         <div class="total-line"><span>Total Sales</span><span>${currency}${totals.totalSales.toFixed(2)}</span></div>
+        ${eodReturnsLines(totals).length? `<div class="eod-returns" style="margin-top:6px">${eodReturnsLines(totals).map(([a,b],i,arr)=>`<div class="${i===arr.length-1? "total-line" : "subline"}"${/^  /.test(a)? ' style="padding-left:12px;font-size:13px"' : ""}><span>${escapeHtml(a.trim())}</span><span>${escapeHtml(b)}</span></div>`).join("")}</div>` : ""}
         <p class="muted" style="font-size:12px;margin-top:6px">Shift started ${shift.started_ts? new Date(shift.started_ts).toLocaleString():""} by ${escapeHtml(shift.started_by||"—")}.</p>
       </div>
 
@@ -8441,7 +8700,7 @@ const APP_BUILD = 9;
 
       <div class="card">
         <h3>Blind cash count</h3>
-        <p class="muted">Opening float + cash sales − payouts = expected cash. Count the drawer and enter the amount — expected cash stays hidden until you submit.</p>
+        <p class="muted">Opening float + cash sales − payouts${totals.refunds && totals.refunds.cash? " − cash refunds" : ""} = expected cash. Count the drawer and enter the amount — expected cash stays hidden until you submit.</p>
         <label>Cash counted (${currency})</label>
         <input class="field" id="counted" type="number" step="0.01" placeholder="0.00">
         <button class="btn btn-primary" id="submitCount" style="margin-top:12px">Complete EOD</button>
@@ -8513,12 +8772,780 @@ const APP_BUILD = 9;
   }
   const REP_PRESETS = [{label:"Today",key:"today"},{label:"Last 7 days",key:"week"},{label:"This month",key:"month"}];
 
+  // ================== Sales returns & credit notes (multi-terminal Phase 3c) ==================
+  // Design: docs/multi-terminal/phase3c-returns-design.md (owner decisions §4).
+  //   * The original receipt is required, and only a sale made on THIS till
+  //     can be returned here (returnOriginProblem): never one merged in from
+  //     another device, another till or another branch.
+  //   * A line returns at the price actually paid (its line discount, an old
+  //     cart discount and any voucher shared out by value), never more than
+  //     sold minus already returned. Checked again and written in one
+  //     transaction (commitCreditNote), so nothing is half-saved.
+  //   * The money goes back the same way it was paid (each tender, a foreign
+  //     currency at the sale's own rate; the Credit part lowers the debtor
+  //     balance), or as store credit, or towards an exchange. A voucher-paid
+  //     share only ever comes back as a voucher (owner Q2).
+  //   * Good goods go back to stock (moveStock 'return', so a shared-stock
+  //     till queues it for the branch: sellable after sync). Damaged goods
+  //     are recorded and written off at once; sellable stock never changes.
+  //   * The cashier starts it; an Admin approves with the passcode (the stock
+  //     adjustment pattern, adjust.js), and a shift must be open (owner Q11).
+
+  const RETURN_REASONS = ["Wrong item","Faulty / damaged","Changed mind","Other"];
+  const RETURN_DAYS_DEFAULT = 30;
+  const RETURN_OTHER_TILL_TEXT = "This receipt was made on another till. Return it on that till.";
+  const RETURN_METHODS = ["same","voucher","debtor","exchange"];
+  const RETURN_METHOD_LABEL = { same:"Same way they paid", voucher:"Store credit voucher", debtor:"Reduce debtor balance", exchange:"Exchange" };
+  const REFUND_LABEL = { Cash:"Cash refunded", EcoCash:"EcoCash refunded", Bank:"Bank refunded", Debtor:"Debtor balance reduced",
+    Voucher:"Store credit voucher", Exchange:"Exchange" };
+  const CONDITION_LABEL = { restock:"back to stock", writeoff:"written off" };
+
+  // ---- settings: how long after the sale (owner Q1) ----
+  function returnDaysLimit(){
+    const n = parseInt(getSetting("return_days",""),10);
+    return (n>=1 && n<=365)? n : RETURN_DAYS_DEFAULT;
+  }
+  function setReturnDaysLimit(days, passcode){
+    const n = Number(days);
+    if(!Number.isInteger(n) || n<1 || n>365) throw new Error("Enter a number of days from 1 to 365.");
+    if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
+    if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode. The return limit was not changed.");
+    const old = returnDaysLimit();
+    if(n===old) return { changed:false };
+    setSetting("return_days", String(n));
+    logAudit("Return limit changed", "", old+" → "+n+" days");
+    persist();
+    return { changed:true };
+  }
+  // the cashier who starts the return goes on the credit note and the audit line
+  function returnRequireSignedIn(){
+    if(!String(sessionUser||"").trim()) throw new Error("Enter your name first (tap your name at the top), so the return is recorded against you.");
+  }
+  function cnDisplay(cn){ return docDisplay("CN", cn.cn_no, cn.till_code||""); }
+
+  // ---- finding the original receipt (owner Q4) ----
+  // "T1-45" / "t1-0045" -> { receiptNo:"T1-0045" }; "#45" / "45" -> { saleId:45 }
+  function parseReceiptQuery(text){
+    const t = String(text==null?"":text).trim().toUpperCase().replace(/\s+/g,"");
+    let m = /^#?(\d{1,9})$/.exec(t);
+    if(m) return { saleId:Number(m[1]) };
+    m = /^(T\d{1,3})-(\d{1,9})$/.exec(t);
+    if(m) return { receiptNo: m[1]+"-"+String(Number(m[2])).padStart(4,"0") };
+    return null;
+  }
+  // "" when this sale was made on this device, in this branch. The rule
+  // (design §4, owner Q4): same branch, never merged in (merged_ts, stamped
+  // by mergeDatabase from 3c on), and no other till's terminal stamp.
+  function returnOriginProblem(sale){
+    if(!sale) return "Receipt not found.";
+    if(String(sale.branch||"")!==currentBranch()) return RETURN_OTHER_TILL_TEXT;
+    if(sale.merged_ts) return RETURN_OTHER_TILL_TEXT;
+    if(sale.terminal_id && sale.terminal_id!==getSetting("terminal_id","")) return RETURN_OTHER_TILL_TEXT;
+    return "";
+  }
+  function businessDaysBetween(a, b){
+    const d = (s)=>{ const [y,m,dd] = String(s).split("-").map(Number); return Date.UTC(y,m-1,dd); };
+    return Math.round((d(b)-d(a))/86400000);
+  }
+  function returnAgeProblem(sale, now){
+    const limit = returnDaysLimit();
+    const days = businessDaysBetween(businessDateOf(sale.ts), businessDateOf(now||new Date()));
+    return days>limit? "Receipt "+receiptDisplay(sale)+" is from "+businessDateOf(sale.ts)+", past the "+limit+"-day return limit." : "";
+  }
+  // -> { sale } | { error, sale? }
+  function findReturnSale(text, now){
+    const q = parseReceiptQuery(text);
+    if(!q) return { error:"Type the receipt number as printed, e.g. T1-0045 or #45." };
+    const label = q.receiptNo || "#"+q.saleId;
+    const cands = q.saleId!=null? all("SELECT * FROM sales WHERE id=? AND COALESCE(receipt_no,'')=''",[q.saleId])
+                                : all("SELECT * FROM sales WHERE upper(receipt_no)=? ORDER BY id",[q.receiptNo]);
+    if(!cands.length){
+      if(q.receiptNo && currentTillCode() && q.receiptNo.split("-")[0]!==currentTillCode()) return { error:RETURN_OTHER_TILL_TEXT };
+      return { error:"Receipt "+label+" wasn't found on this till." };
+    }
+    const sale = cands.find(s=>!returnOriginProblem(s));
+    if(!sale) return { error:returnOriginProblem(cands[0]) };
+    const age = returnAgeProblem(sale, now);
+    if(age) return { error:age, sale };
+    if(saleReturnState(sale).lines.every(l=>l.returnable<=0)){
+      const cns = all("SELECT * FROM credit_notes WHERE sale_id=? ORDER BY id",[sale.id]).map(cnDisplay).join(", ");
+      return { error:"Everything on receipt "+receiptDisplay(sale)+" has already been returned"+(cns? " ("+cns+")" : "")+".", sale };
+    }
+    return { sale };
+  }
+
+  // ---- the maths ----
+  // Splits `total` (money) over `weights` to the cent, largest remainder
+  // first, so the parts always add up to exactly `total`.
+  function allocateCents(total, weights){
+    const cents = Math.round((total||0)*100), W = weights.reduce((s,w)=>s+w,0);
+    if(!(W>0) || cents<=0) return weights.map(()=>0);
+    const raw = weights.map(w=>cents*w/W), base = raw.map(Math.floor);
+    let left = cents - base.reduce((s,x)=>s+x,0);
+    raw.map((x,i)=>[x-base[i], i]).sort((a,b)=>b[0]-a[0] || a[1]-b[1]).forEach(([,i])=>{ if(left>0){ base[i]++; left--; } });
+    return base.map(c=>c/100);
+  }
+  // A sale's lines with what each one was really paid, and what's left to return.
+  //   B (goodsValue) = sales.total + sales.voucher_amount: the goods after every
+  //   discount (line discounts, an old cart-level discount, old markup).
+  //   A line's value = B shared by its net (price × qty − line discount).
+  function saleReturnState(sale){
+    const items = all("SELECT * FROM sale_items WHERE sale_id=? ORDER BY id",[sale.id]);
+    const done = new Map(all(`SELECT i.sale_item_id AS id, SUM(i.qty) AS q, SUM(i.amount) AS a FROM credit_note_items i
+      JOIN credit_notes c ON c.id=i.cn_id WHERE c.sale_id=? GROUP BY i.sale_item_id`,[sale.id]).map(r=>[r.id, r]));
+    const B = roundMoney((sale.total||0) + (sale.voucher_amount||0));
+    const values = allocateCents(B, items.map(i=>Math.max(0, i.price*i.qty - (i.discount||0))));
+    const lines = items.map((i,k)=>{
+      const d = done.get(i.id) || { q:0, a:0 };
+      const p = i.product_id? one("SELECT id,uid,sku,name,branch,COALESCE(active,1) AS active FROM products WHERE id=?",[i.product_id]) : null;
+      return { id:i.id, uid:i.uid||null, productId:p? p.id : null, productUid:p? (p.uid||null) : null, code:p? (p.sku||"") : "",
+        name:i.name, qty:i.qty, price:i.price, discount:i.discount||0, cost:i.cost||0, value:values[k],
+        returned:d.q||0, refunded:roundMoney(d.a||0), returnable:i.qty-(d.q||0),
+        canRestock: !!(p && p.active===1 && p.branch===currentBranch()) };            // owner Q14: otherwise write-off only
+    });
+    const payments = salePayments(sale.id).map(p=>{
+      const r = one("SELECT COALESCE(SUM(amount),0) AS a, COALESCE(SUM(tendered_amount),0) AS t FROM credit_note_refunds WHERE sale_payment_id=?",[p.id]);
+      return Object.assign({}, p, { refunded:roundMoney(r.a), refundedTendered:roundMoney(r.t) });
+    });
+    const prev = one("SELECT COALESCE(SUM(goods_total),0) AS g, COALESCE(SUM(voucher_part),0) AS v FROM credit_notes WHERE sale_id=?",[sale.id]);
+    return { sale, lines, payments, goodsValue:B, goodsRefunded:roundMoney(prev.g), voucherRefunded:roundMoney(prev.v) };
+  }
+  // picks: [{ saleItemId, qty, condition:'restock'|'writeoff' }] -> the refund for them.
+  // The last units of a line get exactly what's left of it, so rounding never refunds more than was paid.
+  function computeReturn(state, picks){
+    const lines = [];
+    for(const p of (picks||[])){
+      const l = state.lines.find(x=>x.id===p.saleItemId);
+      if(!l) throw new Error("That item isn't on receipt "+receiptDisplay(state.sale)+".");
+      const q = Number(p.qty);
+      if(!Number.isInteger(q) || q<0) throw new Error("Quantities are whole numbers.");
+      if(q===0) continue;
+      if(q>l.returnable) throw new Error(l.returnable>0? "Only "+l.returnable+" "+l.name+" can still be returned (sold "+l.qty+", already returned "+l.returned+")."
+                                                       : l.name+" has already been returned in full.");
+      const condition = p.condition==="writeoff"? "writeoff" : "restock";
+      if(condition==="restock" && !l.canRestock) throw new Error(l.name+" is no longer a product here, so it can only be written off.");
+      const amount = q===l.returnable? roundMoney(l.value - l.refunded) : roundMoney(l.value*q/l.qty);
+      lines.push({ line:l, qty:q, condition, amount, unitRefund: roundMoney(amount/q) });
+    }
+    if(!lines.length) throw new Error("Choose at least one item to return.");
+    const goods = roundMoney(lines.reduce((s,x)=>s+x.amount,0));
+    const V = state.sale.voucher_amount||0, B = state.goodsValue;
+    const complete = state.lines.every(l=>{ const x = lines.find(y=>y.line.id===l.id); return l.returned + (x? x.qty : 0) >= l.qty; });
+    const voucherLeft = Math.max(0, roundMoney(V - state.voucherRefunded));
+    let voucherPart = complete? voucherLeft : (B>0? Math.min(voucherLeft, roundMoney(goods*V/B)) : 0);
+    voucherPart = Math.max(0, Math.min(voucherPart, goods));
+    return { lines, goods, voucherPart, tenderPart:roundMoney(goods - voucherPart), complete,
+      costReversed: roundMoney(lines.filter(x=>x.condition==="restock").reduce((s,x)=>s+x.qty*x.line.cost,0)) };
+  }
+  // Shares `amount` over the sale's tenders by what's left to refund on each,
+  // never more on a tender than it took. -> [{ payment, amount, full }]
+  function allocateTender(state, amount){
+    const pays = state.payments.map(p=>({ p, cap:roundMoney(p.amount - p.refunded) })).filter(x=>x.cap>0);
+    if(!(amount>0)) return [];
+    const capTotal = roundMoney(pays.reduce((s,x)=>s+x.cap,0));
+    if(amount > capTotal + 0.001) throw new Error("This is more than is left to refund on receipt "+receiptDisplay(state.sale)+".");
+    const shares = allocateCents(amount, pays.map(x=>x.cap));
+    return pays.map((x,i)=>({ payment:x.p, amount:shares[i], full: Math.abs(shares[i]-x.cap)<0.001 })).filter(x=>x.amount>0);
+  }
+  // Where each part of the money goes. -> [{ method, amount, currency, rate, tendered, salePaymentId }]
+  //   same:     each tender back on itself (foreign currency at the sale's rate);
+  //   voucher:  all as store credit;  debtor: all off the debtor balance;
+  //   exchange: o.applied towards the new sale, the difference the same way.
+  // In every case the Credit tender's share lowers the debtor balance (no cash
+  // or voucher for goods not paid for), down to zero, the rest as store
+  // credit (owner Q8); the voucher-paid share is store credit (owner Q2).
+  function planRefunds(state, calc, method, o){
+    o = o||{};
+    const out = [], sale = state.sale;
+    const isCreditSale = state.payments.some(p=>p.method==="Credit") && !!sale.customer_id;
+    if(method==="debtor" && !isCreditSale) throw new Error("This sale wasn't on credit, so the debtor balance can't be reduced.");
+    const voucherRow = (amount, pid)=>({ method:"Voucher", amount, currency:BASE_CURRENCY_CODE, rate:1, tendered:amount, salePaymentId:pid||null });
+    let tender = calc.tenderPart, voucherShare = calc.voucherPart;
+    if(method==="exchange"){
+      const applied = roundMoney(o.applied||0);
+      if(applied>0) out.push({ method:"Exchange", amount:applied, currency:BASE_CURRENCY_CODE, rate:1, tendered:applied, salePaymentId:null });
+      tender = roundMoney(o.tenderAmount||0); voucherShare = roundMoney(o.voucherAmount||0);
+    }
+    allocateTender(state, tender).forEach(a=>{
+      const p = a.payment;
+      if(p.method==="Credit" || method==="debtor"){ out.push({ method:"Debtor", amount:a.amount, currency:BASE_CURRENCY_CODE, rate:1, tendered:a.amount, salePaymentId:p.id }); return; }
+      if(method==="voucher" || p.method==="Exchange"){ out.push(voucherRow(a.amount, p.id)); return; }   // an exchange credit comes back as store credit
+      const code = p.currency || BASE_CURRENCY_CODE, foreign = code!==BASE_CURRENCY_CODE;
+      const left = roundMoney((p.tendered_amount==null? p.amount : p.tendered_amount) - p.refundedTendered);
+      out.push({ method:p.method, amount:a.amount, currency:code, rate:p.rate||1, salePaymentId:p.id,
+        tendered: !foreign? a.amount : (a.full? left : roundMoney(a.amount*(p.rate||1))) });
+    });
+    // the debtor balance only goes down to zero; the rest is store credit
+    let room = sale.customer_id? Math.max(0, roundMoney(customerBalance(sale.customer_id))) : 0;
+    out.slice().forEach(r=>{
+      if(r.method!=="Debtor") return;
+      const keep = Math.min(r.amount, room); room = roundMoney(room - keep);
+      const extra = roundMoney(r.amount - keep);
+      if(extra>0){ r.amount = roundMoney(keep); r.tendered = r.amount; out.push(voucherRow(extra, r.salePaymentId)); }
+    });
+    if(voucherShare>0) out.push(voucherRow(voucherShare, null));
+    return out.filter(r=>r.amount>0);
+  }
+  function refundSum(refunds, method){ return roundMoney(refunds.filter(r=>r.method===method).reduce((s,r)=>s+r.amount,0)); }
+
+  // The whole credit note, checked, nothing written. Throws a plain message.
+  // o: { reason, note, customerName, customerPhone, ref, now, applied, tenderAmount, voucherAmount }
+  function planCreditNote(saleId, picks, method, o){
+    o = o||{};
+    const sale = one("SELECT * FROM sales WHERE id=?",[saleId]);
+    const origin = returnOriginProblem(sale);
+    if(origin) throw new Error(origin);
+    const age = returnAgeProblem(sale, o.now);
+    if(age) throw new Error(age);
+    if(!RETURN_METHODS.includes(method)) throw new Error("Choose how the money goes back.");
+    const state = saleReturnState(sale);
+    const calc = computeReturn(state, picks);
+    if(!RETURN_REASONS.includes(o.reason)) throw new Error("Choose the reason for the return.");
+    const note = String(o.note||"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,120);
+    if(o.reason==="Other" && !note) throw new Error("Write a short note for \"Other\".");
+    // the exchange's own refunds are known only at checkout (exchangePlanForSale)
+    const refunds = (method==="exchange" && o.applied==null)? [] : planRefunds(state, calc, method, o);
+    const voucherTotal = refundSum(refunds, "Voucher");
+    const customer = { name:String(o.customerName||"").trim(), phone:String(o.customerPhone||"").trim() };
+    const needsCustomer = (voucherTotal>0 || method==="voucher") && !sale.customer_id;
+    if(needsCustomer && (!customer.name || !customer.phone)) throw new Error("Store credit needs the customer's name and phone.");
+    const ref = String(o.ref||"").trim().slice(0,60);
+    const needsRef = refunds.some(r=>r.method==="EcoCash" || r.method==="Bank");
+    if(needsRef && !ref) throw new Error("Enter the reference of the EcoCash/Bank refund.");
+    return { sale, state, calc, method, refunds, reason:o.reason, note, customer, needsCustomer, ref, needsRef,
+      voucherTotal, debtorTotal:refundSum(refunds, "Debtor"), picks:(picks||[]).map(p=>({ saleItemId:p.saleItemId, qty:Number(p.qty)||0, condition:p.condition })), opts:o };
+  }
+
+  // ---- saving: one transaction (owner: Admin passcode, open shift) ----
+  // o: { passcode | admin (an exchange approved earlier), now, inTx, exchangeSaleId, startedBy }
+  // -> { id, text, goods, refunds }. Any throw rolls everything back, the CN number included.
+  function commitCreditNote(plan, o){
+    o = o||{};
+    returnRequireSignedIn();
+    let admin = o.admin || null;
+    if(!admin){
+      if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
+      admin = findAdmin(o.passcode);
+      if(!admin) throw new Error("Incorrect Admin passcode. Nothing was saved.");
+    }
+    const now = o.now || new Date(), ts = now.toISOString();
+    const block = shiftBlockReason(now);
+    if(block) throw new Error(block);
+    if(!o.inTx) run("BEGIN");
+    try{
+      // the rules again inside the transaction: the limits are never taken on trust
+      const p = planCreditNote(plan.sale.id, plan.picks, plan.method, Object.assign({}, plan.opts, { now }));
+      const branch = currentBranch(), shift = oldestOpenShift(branch);
+      let customerId = p.sale.customer_id || null;
+      if(!customerId && p.needsCustomer) customerId = findOrCreateCustomer(p.customer.name, p.customer.phone);
+      const startedBy = o.startedBy || eodOperatorName();
+      const cn = reserveDocNumber("CN");
+      run(`INSERT INTO credit_notes(branch,cn_branch_id,cn_no,till_code,sale_id,sale_uid,sale_receipt,customer_id,ts,eod_session_id,reason,reason_note,
+            started_by,started_staff_id,approved_by,approved_staff_id,goods_total,voucher_part,cost_reversed,exchange_sale_id,status)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'posted')`,
+        [branch, getBranchId(), cn.n, cn.till||null, p.sale.id, p.sale.uid||null, receiptDisplay(p.sale), customerId, ts, shift? shift.id : null,
+         p.reason, p.note, startedBy, o.startedStaffId!==undefined? o.startedStaffId : eodOperatorStaffId(), admin.name, admin.id||null,
+         p.calc.goods, p.calc.voucherPart, p.calc.costReversed, o.exchangeSaleId||null]);
+      const row = one("SELECT * FROM credit_notes WHERE cn_branch_id=? AND cn_no=?",[getBranchId(), cn.n]);
+      p.calc.lines.forEach(x=>{
+        run(`INSERT INTO credit_note_items(cn_id,sale_item_id,sale_item_uid,product_id,product_uid,product_code,name,qty,unit_refund,amount,unit_cost,condition)
+             VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [row.id, x.line.id, x.line.uid, x.line.productId, x.line.productUid, x.line.code, x.line.name, x.qty, x.unitRefund, x.amount, x.line.cost, x.condition]);
+      });
+      let voucherId = null;
+      if(p.voucherTotal>0){
+        run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,kind,source_cn_id,source_sale_id) VALUES(?,?,?,?,'Available','store_credit',?,?)",
+          [customerId, p.voucherTotal, branch, ts, row.id, p.sale.id]);
+        voucherId = one("SELECT last_insert_rowid() AS id").id;
+      }
+      p.refunds.forEach(r=>{
+        run(`INSERT INTO credit_note_refunds(cn_id,method,amount,currency,rate,tendered_amount,sale_payment_id,voucher_id,exchange_sale_id,ref)
+             VALUES(?,?,?,?,?,?,?,?,?,?)`,
+          [row.id, r.method, r.amount, r.currency, r.rate, r.tendered, r.salePaymentId, r.method==="Voucher"? voucherId : null,
+           r.method==="Exchange"? (o.exchangeSaleId||null) : null, (r.method==="EcoCash"||r.method==="Bank")? p.ref : ""]);
+      });
+      // stock: restock through moveStock (shared-stock till: queued for the
+      // branch, sellable after sync); a write-off is in and straight out
+      // again on this till only, so sellable stock never goes up.
+      p.calc.lines.forEach(x=>{
+        if(!x.line.productId) return;
+        const m = { productId:x.line.productId, docType:"cn", docUid:row.uid||null, docNo:cn.text, ts };
+        if(x.condition==="restock") moveStock(Object.assign({}, m, { delta:x.qty, kind:"return", note:"Returned (receipt "+receiptDisplay(p.sale)+")" }));
+        else {
+          moveStock(Object.assign({}, m, { delta:x.qty, kind:"return_damaged", ssLocal:true, note:"Returned damaged (receipt "+receiptDisplay(p.sale)+")" }));
+          moveStock(Object.assign({}, m, { delta:-x.qty, kind:"return_writeoff", ssLocal:true, note:"Written off: "+p.reason }));
+        }
+      });
+      const names = p.calc.lines.map(x=>x.line.name);
+      const nR = p.calc.lines.filter(x=>x.condition==="restock").reduce((s,x)=>s+x.qty,0), nW = p.calc.lines.filter(x=>x.condition==="writeoff").reduce((s,x)=>s+x.qty,0);
+      const how = [...new Set(p.refunds.map(r=>r.method))].join("+") || RETURN_METHOD_LABEL[p.method];
+      logAudit("Credit note", names.length<=3? names.join(", ") : names[0]+" +"+(names.length-1)+" more",
+        cn.text+" for receipt "+receiptDisplay(p.sale)+" · "+currency+p.calc.goods.toFixed(2)+" · "+how+" · "+nR+" restocked, "+nW+" written off"
+        +" · reason: "+p.reason+(p.note? " ("+p.note+")" : "")+" · started by "+startedBy+", authorised by "+admin.name);
+      if(!o.inTx) run("COMMIT");
+      return { id:row.id, text:cn.text, goods:p.calc.goods, refunds:p.refunds };
+    }catch(e){
+      if(!o.inTx){ try{ run("ROLLBACK"); }catch(_){} }
+      throw e;
+    }
+  }
+
+  // ---- exchange (owner Q5): the credit goes into the cart, saved with the new sale ----
+  let pendingExchange = null;
+  function startExchange(saleId, picks, o){
+    o = o||{};
+    const plan = planCreditNote(saleId, picks, "exchange", o);
+    returnRequireSignedIn();
+    if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
+    const admin = findAdmin(o.passcode);
+    if(!admin) throw new Error("Incorrect Admin passcode. Nothing was saved.");
+    const block = shiftBlockReason(o.now);
+    if(block) throw new Error(block);
+    pendingExchange = { saleId, picks:plan.picks, reason:plan.reason, note:plan.note, admin:{ id:admin.id, name:admin.name },
+      startedBy:eodOperatorName(), startedStaffId:eodOperatorStaffId(), goods:plan.calc.goods, voucherPart:plan.calc.voucherPart,
+      receipt:receiptDisplay(plan.sale) };
+    return pendingExchange;
+  }
+  function exchangePending(){ return pendingExchange; }
+  function cancelExchange(){ pendingExchange = null; }
+  function exchangeApplied(total){ return pendingExchange? Math.max(0, Math.min(pendingExchange.goods, roundMoney(total))) : 0; }
+  // Called by completeSale before anything is written. A cheaper exchange's
+  // difference goes back the same way they paid; its voucher-paid share as
+  // store credit. ref = the cart's payment reference (an EcoCash/Bank refund).
+  function exchangePlanForSale(applied, ref){
+    if(!pendingExchange) return null;
+    const x = pendingExchange, diff = Math.max(0, roundMoney(x.goods - applied));
+    const voucherAmount = (diff>0 && x.goods>0)? roundMoney(x.voucherPart*diff/x.goods) : 0;
+    return planCreditNote(x.saleId, x.picks, "exchange", { reason:x.reason, note:x.note, applied, voucherAmount, tenderAmount:roundMoney(diff - voucherAmount), ref });
+  }
+  function commitExchangeCreditNote(plan, saleId, saleLabel, ts){
+    const x = pendingExchange;
+    const r = commitCreditNote(plan, { admin:x.admin, inTx:true, exchangeSaleId:saleId, now:new Date(ts), startedBy:x.startedBy, startedStaffId:x.startedStaffId });
+    pendingExchange = null;
+    return r;
+  }
+  function exchangeCartHtml(){
+    if(!pendingExchange) return "";
+    const x = pendingExchange, t = cartTotals();
+    const back = roundMoney(x.goods - t.exchange);
+    return `<div class="box exchange-box" style="margin:6px 0 8px;padding:8px 10px;border:1px solid var(--orange,#e8590c);border-radius:8px;background:#fff8f0">
+      <div class="subline" style="font-weight:700"><span>Exchange credit (receipt ${escapeHtml(x.receipt)})</span><span>−${currency}${t.exchange.toFixed(2)}</span></div>
+      <div class="muted" style="font-size:12px">${cart.length===0? "Add the new items to the cart." : back>0? currency+back.toFixed(2)+" goes back the same way they paid." : t.due>0? "The customer pays the rest below." : "The credit covers the new items."}</div>
+      <button type="button" class="btn btn-ghost btn-sm" id="cancelExchangeBtn" style="margin-top:6px">Cancel exchange</button>
+    </div>`;
+  }
+  function wireExchangeCart(scope, refresh){
+    const b = scope.querySelector("#cancelExchangeBtn");
+    if(b) b.onclick = ()=>{ if(confirm("Cancel this exchange? Nothing has been saved.")){ cancelExchange(); refresh(); } };
+    const done = scope.querySelector("#payExchange");
+    if(done) done.onclick = ()=>{ completeSale("Exchange"); };
+  }
+
+  // ---- reading credit notes (reports, EOD, slips) ----
+  function creditNoteFull(cnId){
+    const cn = one("SELECT * FROM credit_notes WHERE id=?",[cnId]);
+    if(!cn) return null;
+    return { cn, items:all("SELECT * FROM credit_note_items WHERE cn_id=? ORDER BY id",[cnId]), refunds:all("SELECT * FROM credit_note_refunds WHERE cn_id=? ORDER BY id",[cnId]),
+      customer: cn.customer_id? one("SELECT * FROM customers WHERE id=?",[cn.customer_id]) : null,
+      exchangeSale: cn.exchange_sale_id? one("SELECT * FROM sales WHERE id=?",[cn.exchange_sale_id]) : null, text:cnDisplay(cn) };
+  }
+  function creditNotesIn(branch, fromTs, toTs){
+    return branch? all("SELECT * FROM credit_notes WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[branch,fromTs,toTs])
+                 : all("SELECT * FROM credit_notes WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
+  }
+  function refundsFor(cns){
+    if(!cns.length) return [];
+    return all(`SELECT * FROM credit_note_refunds WHERE cn_id IN (${cns.map(()=>"?").join(",")})`, cns.map(c=>c.id));
+  }
+  // Refunds in the payment-method terms of the Sales Report: Debtor is
+  // money off Credit; a store-credit voucher is its own row.
+  const REFUND_AS_METHOD = { Debtor:"Credit", Voucher:"Store credit" };
+  function refundMethodTotals(branch, fromTs, toTs){
+    const m = {};
+    refundsFor(creditNotesIn(branch, fromTs, toTs)).forEach(r=>{ const k = REFUND_AS_METHOD[r.method]||r.method; m[k] = roundMoney((m[k]||0) + r.amount); });
+    return m;
+  }
+  function refundCurrencyTotals(branch, fromTs, toTs){
+    const m = {};
+    refundsFor(creditNotesIn(branch, fromTs, toTs)).forEach(r=>{
+      if(REFUND_AS_METHOD[r.method] || r.method==="Exchange") return;
+      const k = r.method+"|"+(r.currency||BASE_CURRENCY_CODE);
+      if(!m[k]) m[k] = { total:0, tendered:0 };
+      m[k].total = roundMoney(m[k].total + r.amount);
+      m[k].tendered = roundMoney(m[k].tendered + (r.tendered_amount==null? r.amount : r.tendered_amount));
+    });
+    return m;
+  }
+  // name -> { qty, amount, restockCost } for the Margin report
+  function returnsByItem(branch, fromTs, toTs){
+    const cns = creditNotesIn(branch, fromTs, toTs), m = {};
+    if(!cns.length) return m;
+    all(`SELECT * FROM credit_note_items WHERE cn_id IN (${cns.map(()=>"?").join(",")})`, cns.map(c=>c.id)).forEach(i=>{
+      if(!m[i.name]) m[i.name] = { qty:0, amount:0, restockCost:0 };
+      m[i.name].qty += i.qty; m[i.name].amount = roundMoney(m[i.name].amount + i.amount);
+      if(i.condition==="restock") m[i.name].restockCost = roundMoney(m[i.name].restockCost + i.qty*(i.unit_cost||0));
+    });
+    return m;
+  }
+  function creditNoteMethodsText(refunds){
+    const by = {};
+    refunds.forEach(r=>{ const k = r.method; by[k] = roundMoney((by[k]||0) + r.amount); });
+    return Object.keys(by).map(k=>(REFUND_LABEL[k]||k).replace(" refunded","")+" "+currency+by[k].toFixed(2)).join(", ");
+  }
+
+  // ---- the slip: 58/80mm (ESC/POS or the print dialog), PDF, WhatsApp ----
+  function creditNoteLines(cnId, w){
+    const f = creditNoteFull(cnId);
+    if(!f) return null;
+    const { cn, items, refunds } = f;
+    const head = [new Date(cn.ts).toLocaleString(), "CREDIT NOTE "+f.text, "Original receipt "+cn.sale_receipt];
+    if(f.customer) head.push("Customer: "+f.customer.name);
+    const itemLines = [];
+    items.forEach(i=>{ itemLines.push(padLine(i.qty+" x "+i.name, "-"+currency+i.amount.toFixed(2), w)); itemLines.push("  ("+CONDITION_LABEL[i.condition]+")"); });
+    const totalLines = [padLine("TOTAL CREDIT", currency+cn.goods_total.toFixed(2), w)];
+    const by = {};
+    refunds.forEach(r=>{
+      const k = r.method+"|"+(r.currency||BASE_CURRENCY_CODE);
+      if(!by[k]) by[k] = { r, amount:0, tendered:0 };
+      by[k].amount = roundMoney(by[k].amount + r.amount);
+      by[k].tendered = roundMoney(by[k].tendered + (r.tendered_amount==null? r.amount : r.tendered_amount));
+    });
+    Object.values(by).forEach(({ r, amount, tendered })=>{
+      const code = r.currency||BASE_CURRENCY_CODE;
+      let label = REFUND_LABEL[r.method]||r.method;
+      if(r.method==="Exchange" && f.exchangeSale) label += " (receipt "+receiptDisplay(f.exchangeSale)+")";
+      const value = code!==BASE_CURRENCY_CODE? currencySymbolFor(code)+tendered.toFixed(2)+" (= "+currency+amount.toFixed(2)+")" : currency+amount.toFixed(2);
+      totalLines.push(padLine(label+(code!==BASE_CURRENCY_CODE? " "+code : ""), value, w));
+      if((r.method==="EcoCash"||r.method==="Bank") && r.ref) totalLines.push("  Ref: "+r.ref);
+    });
+    const foot = ["Reason: "+cn.reason+(cn.reason_note? " - "+cn.reason_note : ""), "Started by "+(cn.started_by||"-"), "Authorised by "+(cn.approved_by||"-")];
+    if(refunds.some(r=>r.method==="Voucher")) foot.push("Store credit: use it at this till.");
+    return { title:"Credit note "+f.text, head, itemLines, totalLines, foot, f };
+  }
+  function buildCreditNoteBytes(cnId){
+    const w = escposColWidth(), L = creditNoteLines(cnId, w);
+    const shop = getSetting("shop_name","My Shop"), branch = getSetting("branch_name","");
+    const parts = [ escposInit(), escposFontB(), escposNormalSize(), escposAlign("center"), escposBold(true), escposTextBytes(shop+"\n"), escposBold(false) ];
+    if(branch) parts.push(escposTextBytes(branch+"\n"));
+    parts.push(escposAlign("left"), escposLine(w));
+    L.head.forEach((t,i)=>{ if(i===1) parts.push(escposBold(true)); parts.push(escposTextBytes(t+"\n")); if(i===1) parts.push(escposBold(false)); });
+    parts.push(escposLine(w));
+    L.itemLines.forEach(t=>parts.push(escposTextBytes(t+"\n")));
+    parts.push(escposLine(w));
+    L.totalLines.forEach((t,i)=>{ if(i===0) parts.push(escposBold(true)); parts.push(escposTextBytes(t+"\n")); if(i===0) parts.push(escposBold(false)); });
+    parts.push(escposLine(w));
+    L.foot.forEach(t=>parts.push(escposTextBytes(t+"\n")));
+    parts.push(escposCut());
+    return concatBytes(parts);
+  }
+  function creditNoteHtml(cnId, a4){
+    const L = creditNoteLines(cnId, 40);
+    const shop = getSetting("shop_name","My Shop"), branch = getSetting("branch_name","");
+    const line = (t)=>{ const m = /^(.*?)\s{2,}(\S.*)$/.exec(t); return m? `<div class="line"><span>${escapeHtml(m[1])}</span><span>${escapeHtml(m[2])}</span></div>` : `<div>${escapeHtml(t)}</div>`; };
+    return `<div class="${a4? "report-print" : "receipt"} cn-slip">
+      <h3>${escapeHtml(shop)}</h3>${branch? `<div style="text-align:center">${escapeHtml(branch)}</div>` : ""}<hr>
+      ${L.head.map((t,i)=> i===1? `<div><b>${escapeHtml(t)}</b></div>` : `<div>${escapeHtml(t)}</div>`).join("")}<hr>
+      ${L.itemLines.map(line).join("")}<hr>
+      ${L.totalLines.map((t,i)=> i===0? `<div class="line"><b>${escapeHtml(t.replace(/\s{2,}\S.*$/,""))}</b><b>${escapeHtml(t.replace(/^.*?\s{2,}/,""))}</b></div>` : line(t)).join("")}<hr>
+      ${L.foot.map(t=>`<div>${escapeHtml(t)}</div>`).join("")}
+    </div>`;
+  }
+  async function printCreditNote(cnId){
+    const L = creditNoteLines(cnId, escposColWidth());
+    if(!L) return;
+    if(await sendDirect(buildCreditNoteBytes(cnId), L.title)) return;
+    document.getElementById("printArea").innerHTML = creditNoteHtml(cnId, false);
+    printNow(paperWidth());
+  }
+  function printCreditNotePdf(cnId){
+    document.getElementById("printArea").innerHTML = creditNoteHtml(cnId, true);
+    printNow(null);
+  }
+  function creditNoteWhatsAppText(cnId){
+    const L = creditNoteLines(cnId);
+    return receiptText(getSetting("shop_name","")+" — "+L.title, L.head.slice(0,1).concat(L.head.slice(2), [""], L.itemLines), L.totalLines.concat([""], L.foot));
+  }
+
+  // ---- screens ----
+  // Reports → Returns card, and Sale Detail's "Return / Credit note".
+  function returnsCardHtml(){
+    return `<div class="card" data-report-name="Returns Credit note Refund Exchange">
+      <h3>Returns</h3>
+      <p class="muted">Return items from a receipt made on this till. An Admin approves it with the passcode.</p>
+      <div class="row"><input class="field" id="rtFindInput" placeholder="Receipt number, e.g. T1-0045 or #45" autocomplete="off">
+        <button class="btn btn-primary" id="rtFindBtn" style="flex:none;width:auto">Find receipt</button></div>
+      <div id="rtFindMsg" class="rt-msg" style="color:var(--danger,#b42318);font-weight:600;margin-top:6px"></div>
+    </div>`;
+  }
+  function wireReturnsCard(){
+    const btn = document.getElementById("rtFindBtn");
+    if(!btn) return;
+    const go = ()=>{
+      const r = findReturnSale(document.getElementById("rtFindInput").value);
+      const msg = document.getElementById("rtFindMsg");
+      if(r.error){ msg.textContent = r.error; return; }
+      msg.textContent = "";
+      openReturnFlow(r.sale.id);
+    };
+    btn.onclick = go;
+    document.getElementById("rtFindInput").onkeydown = (e)=>{ if(e.key==="Enter") go(); };
+  }
+  function saleDetailReturnHtml(sale){
+    const cns = all("SELECT * FROM credit_notes WHERE sale_id=? ORDER BY id",[sale.id]);
+    const list = cns.length? `<div class="muted" style="margin-top:8px">Returned on: ${cns.map(c=>`<a href="#" data-open-cn="${c.id}">${escapeHtml(cnDisplay(c))}</a>`).join(", ")}</div>` : "";
+    const can = !returnOriginProblem(sale) && !returnAgeProblem(sale) && saleReturnState(sale).lines.some(l=>l.returnable>0);
+    return list + (can? `<button class="btn btn-primary" id="saleReturnBtn" style="margin-top:8px">↩ Return / Credit note</button>` : "");
+  }
+  function wireSaleDetailReturn(wrap, sale){
+    const b = wrap.querySelector("#saleReturnBtn");
+    if(b) b.onclick = ()=>{ wrap.remove(); openReturnFlow(sale.id); };
+    wrap.querySelectorAll("[data-open-cn]").forEach(a=>a.onclick = (e)=>{ e.preventDefault(); openCreditNoteModal(+a.dataset.openCn); });
+  }
+  function openCreditNoteModal(cnId){
+    const f = creditNoteFull(cnId);
+    if(!f) return;
+    const wrap = openModal("Credit note "+f.text, `${creditNoteHtml(cnId, false)}
+      <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-outline" id="cnPrint">🖨️ Print slip</button><button class="btn btn-outline" id="cnPdf">📄 PDF</button><button class="btn btn-ghost" id="cnWa">📲 WhatsApp</button>
+      </div>`);
+    wrap.querySelector("#cnPrint").onclick = ()=>printCreditNote(cnId);
+    wrap.querySelector("#cnPdf").onclick = ()=>printCreditNotePdf(cnId);
+    wrap.querySelector("#cnWa").onclick = ()=>shareWhatsApp(creditNoteWhatsAppText(cnId), f.customer && f.customer.phone);
+    return wrap;
+  }
+
+  // The return, step by step: items → refund → approve → done.
+  function openReturnFlow(saleId){
+    try{ returnRequireSignedIn(); }catch(e){ alert(e.message); return; }
+    const sale = one("SELECT * FROM sales WHERE id=?",[saleId]);
+    const bad = returnOriginProblem(sale) || returnAgeProblem(sale);
+    if(bad){ alert(bad); return; }
+    const S = { step:"items", sale, picks:new Map(), method:"same", customerName:"", customerPhone:"", ref:"", reason:"", note:"", done:null };
+    saleReturnState(sale).lines.forEach(l=>S.picks.set(l.id, { qty:0, condition: l.canRestock? "restock" : "writeoff" }));
+    const wrap = openModal("Return · receipt "+receiptDisplay(sale), "");
+    wrap.classList.add("return-flow");
+    const body = wrap.querySelector(".modal-body");
+    const $ = (s)=>body.querySelector(s);
+    const picksArr = ()=>[...S.picks.entries()].map(([id,p])=>({ saleItemId:id, qty:p.qty, condition:p.condition }));
+    const opts = ()=>({ reason:S.reason, note:S.note, customerName:S.customerName, customerPhone:S.customerPhone, ref:S.ref });
+    // the preview: the money only, before the reason, customer or reference are typed
+    const tryPlan = (method)=>{ try{ return { plan:planCreditNote(sale.id, picksArr(), method||S.method, Object.assign(opts(),
+      { reason:"Wrong item", note:"", customerName:S.customerName||"-", customerPhone:S.customerPhone||"-", ref:S.ref||"-" })) }; }catch(e){ return { error:e.message||String(e) }; } };
+    const steps = ["items","refund","approve","done"];
+    const stepper = ()=>`<div class="rt-steps">${["Items","Refund","Approve","Done"].map((t,i)=>`<span class="${steps.indexOf(S.step)>=i? "on" : ""}">${i+1}. ${t}</span>`).join("")}</div>`;
+    const saleHead = ()=>`<div class="muted" style="margin-bottom:8px">${escapeHtml(new Date(sale.ts).toLocaleString())} · ${currency}${sale.total.toFixed(2)} · ${escapeHtml(sale.method)}${sale.customer_id? " · "+escapeHtml((one("SELECT name FROM customers WHERE id=?",[sale.customer_id])||{}).name||"") : ""}</div>`;
+    function draw(){
+      const state = saleReturnState(sale);
+      if(S.step==="items"){
+        let calcErr = "", calc = null;
+        try{ calc = computeReturn(state, picksArr()); }catch(e){ calcErr = e.message; }
+        body.innerHTML = stepper() + saleHead() + state.lines.map(l=>{
+          const p = S.picks.get(l.id), each = l.qty? roundMoney(l.value/l.qty) : 0;
+          return `<div class="rt-line card" style="padding:8px 10px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(l.name)}</b><span class="muted">${currency}${each.toFixed(2)} each paid</span></div>
+            <div class="muted" style="font-size:12px">Sold ${l.qty} · returned ${l.returned} · can return ${l.returnable}</div>
+            ${l.returnable>0? `<div class="row" style="margin-top:6px;align-items:center;gap:8px;flex-wrap:wrap">
+              <div class="qty-ctl" style="flex:none"><button type="button" data-rt-dec="${l.id}">−</button><span data-rt-qty="${l.id}">${p.qty}</span><button type="button" data-rt-inc="${l.id}">+</button></div>
+              <select class="field" data-rt-cond="${l.id}" style="flex:1;min-width:180px" ${l.canRestock? "" : "disabled"}>
+                <option value="restock" ${p.condition==="restock"?"selected":""}>Good — back to stock</option>
+                <option value="writeoff" ${p.condition==="writeoff"?"selected":""}>Damaged or faulty — write off</option>
+              </select></div>
+              ${l.canRestock? "" : `<div class="muted" style="font-size:12px">No longer a product here: the money is refunded, the item is written off.</div>`}` : `<div class="pill" style="margin-top:4px">Returned in full</div>`}
+          </div>`;
+        }).join("") + `<div class="total-line"><span>Refund</span><span id="rtTotal">${currency}${(calc? calc.goods : 0).toFixed(2)}</span></div>
+          <div class="rt-msg" style="color:var(--danger,#b42318);min-height:18px">${calc || picksArr().every(p=>!p.qty)? "" : escapeHtml(calcErr)}</div>
+          <button class="btn btn-primary" id="rtNext" ${calc? "" : "disabled"}>Next: refund</button>`;
+        body.querySelectorAll("[data-rt-inc]").forEach(b=>b.onclick=()=>{ const l = state.lines.find(x=>x.id===+b.dataset.rtInc), p = S.picks.get(l.id); if(p.qty<l.returnable){ p.qty++; draw(); } });
+        body.querySelectorAll("[data-rt-dec]").forEach(b=>b.onclick=()=>{ const p = S.picks.get(+b.dataset.rtDec); if(p.qty>0){ p.qty--; draw(); } });
+        body.querySelectorAll("[data-rt-cond]").forEach(s=>s.onchange=()=>{ S.picks.get(+s.dataset.rtCond).condition = s.value; draw(); });
+        $("#rtNext").onclick = ()=>{ S.step = "refund"; draw(); };
+        return;
+      }
+      if(S.step==="refund"){
+        const isCredit = state.payments.some(p=>p.method==="Credit") && !!sale.customer_id;
+        const methods = RETURN_METHODS.map(m=>{
+          const off = m==="debtor" && !isCredit? "Only for a sale on credit." : "";
+          const hint = { same:"Each payment back on itself: cash, EcoCash, Bank, in the currency and at the rate of the sale. The credit part lowers what they owe.",
+            voucher:"The whole refund as a store credit voucher for the customer.", debtor:"The refund comes off what the customer owes, down to zero; the rest as store credit.",
+            exchange:"The credit goes into the cart; the customer takes new items and pays any difference." }[m];
+          return `<label class="rt-method ${off? "off" : ""}" style="display:block;padding:8px 10px;border:1px solid var(--line,#ddd);border-radius:8px;margin-bottom:6px;${off? "opacity:.55" : ""}">
+            <input type="radio" name="rtMethod" value="${m}" ${S.method===m?"checked":""} ${off?"disabled":""}> <b>${RETURN_METHOD_LABEL[m]}</b>
+            <div class="muted" style="font-size:12px">${escapeHtml(off||hint)}</div></label>`;
+        }).join("");
+        const pv = tryPlan();
+        const plan = pv.plan;
+        const preview = !plan? "" : S.method==="exchange"? `<p class="muted" style="margin:4px 0">Credit of <b>${currency}${plan.calc.goods.toFixed(2)}</b> goes towards the new items. If they cost less, the difference goes back the same way they paid.</p>`
+          : plan.refunds.map(r=>`<div class="subline"><span>${escapeHtml(REFUND_LABEL[r.method]||r.method)}${r.currency&&r.currency!==BASE_CURRENCY_CODE? " ("+escapeHtml(r.currency)+")" : ""}</span><span>${r.currency&&r.currency!==BASE_CURRENCY_CODE? escapeHtml(currencySymbolFor(r.currency))+r.tendered.toFixed(2)+" ≈ " : ""}${currency}${r.amount.toFixed(2)}</span></div>`).join("");
+        const needCust = plan && !sale.customer_id && (S.method==="voucher" || plan.refunds.some(r=>r.method==="Voucher"));
+        const needRef = plan && plan.refunds.some(r=>r.method==="EcoCash"||r.method==="Bank");
+        body.innerHTML = stepper() + saleHead() + methods + `<div class="card" style="padding:8px 10px;margin:8px 0">${preview || `<span class="muted">${escapeHtml(pv.error||"")}</span>`}</div>
+          ${needCust? `<label>Customer name (for the store credit)</label><input class="field" id="rtCust" value="${escapeHtml(S.customerName)}" placeholder="e.g. Tendai Moyo">
+            <label>Customer phone</label><input class="field" id="rtPhone" value="${escapeHtml(S.customerPhone)}" placeholder="e.g. 077xxxxxxx">` : ""}
+          ${needRef? `<label>Reference of the EcoCash/Bank refund</label><input class="field" id="rtRef" value="${escapeHtml(S.ref)}" placeholder="Transaction reference">` : ""}
+          <label>Reason</label><select class="field" id="rtReason"><option value="">Choose…</option>${RETURN_REASONS.map(r=>`<option ${S.reason===r?"selected":""}>${escapeHtml(r)}</option>`).join("")}</select>
+          <label>Note ${S.reason==="Other"? "(required)" : "(optional)"}</label><input class="field" id="rtNote" maxlength="120" value="${escapeHtml(S.note)}">
+          <div class="rt-msg" id="rtErr" style="color:var(--danger,#b42318);min-height:18px;margin-top:6px"></div>
+          <div class="row" style="gap:8px"><button class="btn btn-outline" id="rtBack">Back</button><button class="btn btn-primary" id="rtNext">Next: approve</button></div>`;
+        body.querySelectorAll("[name=rtMethod]").forEach(r=>r.onchange=()=>{ S.method = r.value; draw(); });
+        const keep = ()=>{ const v = (s)=>{ const el = $(s); return el? el.value : null; };
+          if(v("#rtCust")!==null) S.customerName = v("#rtCust"); if(v("#rtPhone")!==null) S.customerPhone = v("#rtPhone");
+          if(v("#rtRef")!==null) S.ref = v("#rtRef"); S.reason = v("#rtReason"); S.note = v("#rtNote"); };
+        $("#rtReason").onchange = ()=>{ keep(); draw(); };
+        $("#rtBack").onclick = ()=>{ keep(); S.step = "items"; draw(); };
+        $("#rtNext").onclick = ()=>{
+          keep();
+          try{ planCreditNote(sale.id, picksArr(), S.method, opts()); S.step = "approve"; draw(); }
+          catch(e){ $("#rtErr").textContent = e.message||String(e); }
+        };
+        return;
+      }
+      if(S.step==="approve"){
+        const plan = planCreditNote(sale.id, picksArr(), S.method, opts());
+        const stock = plan.calc.lines.map(x=>`<div class="subline"><span>${x.qty} x ${escapeHtml(x.line.name)} <span class="muted">(${CONDITION_LABEL[x.condition]})</span></span><span>−${currency}${x.amount.toFixed(2)}</span></div>`).join("");
+        const money = S.method==="exchange"? `<div class="subline"><span>Exchange credit</span><span>${currency}${plan.calc.goods.toFixed(2)}</span></div>`
+          : plan.refunds.map(r=>`<div class="subline"><span>${escapeHtml(REFUND_LABEL[r.method]||r.method)}${r.currency&&r.currency!==BASE_CURRENCY_CODE? " ("+escapeHtml(r.currency)+")" : ""}</span><span>${r.currency&&r.currency!==BASE_CURRENCY_CODE? escapeHtml(currencySymbolFor(r.currency))+r.tendered.toFixed(2)+" ≈ " : ""}${currency}${r.amount.toFixed(2)}</span></div>`).join("");
+        const shared = typeof sharedStockTill==="function" && sharedStockTill() && plan.calc.lines.some(x=>x.condition==="restock");
+        body.innerHTML = stepper() + saleHead() + `<div class="card" style="padding:8px 10px">${stock}<div class="hr" style="margin:6px 0"></div>${money}
+            <div class="total-line"><span>Total credit</span><span>${currency}${plan.calc.goods.toFixed(2)}</span></div>
+            <div class="muted" style="font-size:12px;margin-top:4px">Reason: ${escapeHtml(plan.reason)}${plan.note? " — "+escapeHtml(plan.note) : ""} · started by ${escapeHtml(eodOperatorName()||"—")}</div>
+            ${shared? `<div class="muted" style="font-size:12px">Goods back to stock go to the branch's shared stock: sellable once it syncs.</div>` : ""}</div>
+          <label>Admin passcode</label><input class="field" id="rtPass" type="password" inputmode="numeric" autocomplete="off" placeholder="An Admin approves every return">
+          <div class="rt-msg" id="rtErr" style="color:var(--danger,#b42318);min-height:18px;margin-top:6px"></div>
+          <div class="row" style="gap:8px"><button class="btn btn-outline" id="rtBack">Back</button>
+            <button class="btn btn-primary" id="rtSave">${S.method==="exchange"? "Approve and go to cart" : "Save credit note"}</button></div>`;
+        $("#rtBack").onclick = ()=>{ S.step = "refund"; draw(); };
+        let busy = false;
+        $("#rtSave").onclick = async ()=>{
+          if(busy) return; busy = true;
+          try{
+            if(S.method==="exchange"){
+              startExchange(sale.id, picksArr(), Object.assign(opts(), { passcode:$("#rtPass").value }));
+              wrap.remove(); route = "pos"; drawerOpen = !isDesktopBuild(); render(); return;   // the desktop cart is always on screen
+            }
+            S.done = commitCreditNote(plan, { passcode:$("#rtPass").value });
+          }catch(e){ $("#rtErr").textContent = e.message||String(e); busy = false; return; }
+          try{ await persist(); }catch(e){}
+          if(typeof sharedStockTill==="function" && sharedStockTill() && typeof isOnline==="function" && isOnline()) stockSyncNow({}).then(()=>render()).catch(()=>{});
+          S.step = "done"; draw();
+        };
+        return;
+      }
+      // done
+      const f = creditNoteFull(S.done.id);
+      body.innerHTML = stepper() + `<p style="font-weight:700;margin:4px 0 8px">Credit note ${escapeHtml(f.text)} saved.</p>
+        <div class="muted" style="margin-bottom:8px">${escapeHtml(creditNoteMethodsText(f.refunds))}</div>
+        ${creditNoteHtml(S.done.id, false)}
+        <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">
+          <button class="btn btn-primary" id="cnPrint">🖨️ Print slip</button><button class="btn btn-outline" id="cnPdf">📄 PDF</button>
+          <button class="btn btn-ghost" id="cnWa">📲 WhatsApp</button><button class="btn btn-outline" id="rtClose">Done</button></div>`;
+      $("#cnPrint").onclick = ()=>printCreditNote(S.done.id);
+      $("#cnPdf").onclick = ()=>printCreditNotePdf(S.done.id);
+      $("#cnWa").onclick = ()=>shareWhatsApp(creditNoteWhatsAppText(S.done.id), f.customer && f.customer.phone);
+      $("#rtClose").onclick = ()=>{ wrap.remove(); render(); };
+    }
+    draw();
+    return wrap;
+  }
+
+  // ---- reports (owner: Sales gross/returns/net, payment methods, profit,
+  // Sales Trend net of returns, a Returns report, the Item Ledger). With no
+  // returns in the range every report reads exactly as before.
+  // Sales Report rows for the credit notes in a range, in the given columns.
+  function salesReportReturnRows(branch, fromTs, toTs){
+    return creditNotesIn(branch, fromTs, toTs).map(c=>({ cn:c, text:cnDisplay(c), ts:c.ts, branch:c.branch, amount:-(c.goods_total||0),
+      label:"Return "+cnDisplay(c)+" (receipt "+c.sale_receipt+")" }));
+  }
+  function salesReturnsFooter(gross, returnRows){
+    const ret = roundMoney(returnRows.reduce((s,r)=>s-r.amount,0));
+    return `Gross sales: ${currency}${gross.toFixed(2)} · Returns: -${currency}${ret.toFixed(2)} · Net sales: ${currency}${roundMoney(gross-ret).toFixed(2)}`;
+  }
+  // paymentMethodTotals rows -> with Refunds and Net (store credit issued is its own row)
+  function paymentBreakdownWithRefunds(rows, branch, fromTs, toTs){
+    const ref = refundMethodTotals(branch, fromTs, toTs);
+    const out = rows.map(r=>({ method:r.method, total:r.total, refunds:ref[r.method]||0 }));
+    Object.keys(ref).forEach(m=>{ if(!out.some(r=>r.method===m)) out.push({ method:m, total:0, refunds:ref[m] }); });
+    return out.map(r=>Object.assign(r, { net:roundMoney(r.total - r.refunds) }));
+  }
+  // Margin: revenue less what was refunded; cost less RESTOCKED lines only (a write-off stays a cost).
+  function applyReturnsToMargin(byName, branch, fromTs, toTs){
+    const ret = returnsByItem(branch, fromTs, toTs);
+    Object.keys(ret).forEach(n=>{
+      if(!byName[n]) byName[n] = { qty:0, revenue:0, cost:0 };
+      byName[n].qty -= ret[n].qty; byName[n].revenue -= ret[n].amount; byName[n].cost -= ret[n].restockCost;
+    });
+    return byName;
+  }
+
+  // Returns report (Report Writer): every credit note in the range.
+  const RETURN_REFUND_FILTER = [["","All methods"],["Cash","Cash"],["EcoCash","EcoCash"],["Bank","Bank"],["Debtor","Debtor balance"],["Voucher","Store credit"],["Exchange","Exchange"]];
+  function returnsReportData(branch, fromTs, toTs, f){
+    f = f||{};
+    const rows = [], totals = {}, cond = { restock:0, writeoff:0 };
+    let sum = 0;
+    creditNotesIn(branch, fromTs, toTs).forEach(c=>{
+      const full = creditNoteFull(c.id);
+      if(f.reason && c.reason!==f.reason) return;
+      if(f.method && !full.refunds.some(r=>r.method===f.method)) return;
+      if(f.condition && !full.items.some(i=>i.condition===f.condition)) return;
+      sum = roundMoney(sum + c.goods_total);
+      full.refunds.forEach(r=>{ totals[r.method] = roundMoney((totals[r.method]||0) + r.amount); });
+      full.items.forEach(i=>{ cond[i.condition] = (cond[i.condition]||0) + i.qty; });
+      rows.push({ c, full });
+    });
+    return { rows, total:sum, totals, cond };
+  }
+  function returnsReportTable(branch, fromTs, toTs, f){
+    const d = returnsReportData(branch, fromTs, toTs, f);
+    const rows = d.rows.map(({ c, full })=>[
+      `<button type="button" class="btn btn-outline btn-sm" data-view-cn="${c.id}" style="padding:4px 10px;font-size:12px">${escapeHtml(full.text)}</button>`,
+      escapeHtml(new Date(c.ts).toLocaleString()), escapeHtml(c.till_code||"—"), escapeHtml(c.sale_receipt), escapeHtml(full.customer? full.customer.name : ""),
+      full.items.map(i=>escapeHtml(i.qty+" x "+i.name)+` <span class="muted">(${CONDITION_LABEL[i.condition]})</span>`).join("<br>"),
+      currency+c.goods_total.toFixed(2), escapeHtml(creditNoteMethodsText(full.refunds)), escapeHtml(c.reason+(c.reason_note? " — "+c.reason_note : "")),
+      escapeHtml((c.started_by||"")+" / "+(c.approved_by||""))]);
+    const byMethod = Object.keys(d.totals).map(m=>(REFUND_LABEL[m]||m).replace(" refunded","")+" "+currency+d.totals[m].toFixed(2)).join(" · ");
+    return { headers:["Credit note","Date/Time","Till","Receipt","Customer","Items","Amount","Refund","Reason","Started / Approved"], rows,
+      footer:`${d.rows.length} credit note${d.rows.length===1?"":"s"} · ${currency}${d.total.toFixed(2)}${byMethod? " · "+byMethod : ""} · ${d.cond.restock||0} unit(s) back to stock, ${d.cond.writeoff||0} written off` };
+  }
+
+  // Item Ledger (owner Q12): one product, every stock movement, running balance. Read-only.
+  const LEDGER_KIND_LABEL = { opening:"Opening balance", product_created:"Product created", sale:"Sale", return:"Return (back to stock)",
+    return_damaged:"Return (damaged)", return_writeoff:"Written off (damaged return)", adjustment:"Adjustment", receive:"Received",
+    dispatch:"Dispatched", stocktake:"Stocktake", import:"Import", purchase:"Purchase", restock:"Restock", allowance:"Till allowance (shared stock)",
+    shared_opening:"Handed to branch (shared stock)", merge_out:"Added to branch (shared stock)", other:"Other" };
+  function itemLedgerData(productId, fromTs, toTs){
+    const p = one("SELECT * FROM products WHERE id=?",[productId]);
+    if(!p) return null;
+    const opening = one("SELECT COALESCE(SUM(qty_delta),0) AS s FROM stock_movements WHERE product_id=? AND ts<?",[productId, fromTs]).s;
+    let bal = opening, inQ = 0, outQ = 0;
+    const rows = all("SELECT * FROM stock_movements WHERE product_id=? AND ts>=? AND ts<=? ORDER BY ts, id",[productId, fromTs, toTs]).map(m=>{
+      bal += m.qty_delta; if(m.qty_delta>0) inQ += m.qty_delta; else outQ -= m.qty_delta;
+      return Object.assign({}, m, { balance:bal });
+    });
+    return { product:p, opening, rows, closing:bal, inQ, outQ };
+  }
+  function itemLedgerTable(branch, fromTs, toTs, f){
+    const pid = Number((f||{}).product)||0;
+    if(!pid) return { headers:["Date/Time","Movement","Document","Change","Balance","By","Note"], rows:[], footer:"Choose a product." };
+    const d = itemLedgerData(pid, fromTs, toTs);
+    if(!d) return { headers:[], rows:[], footer:"That product no longer exists." };
+    const rows = d.rows.map(m=>[escapeHtml(new Date(m.ts).toLocaleString()), escapeHtml(LEDGER_KIND_LABEL[m.kind]||m.kind), escapeHtml(m.doc_no||""),
+      (m.qty_delta>0?"+":"")+m.qty_delta, String(m.balance), escapeHtml(m.user||""), escapeHtml(m.note||"")]);
+    return { headers:["Date/Time","Movement","Document","Change","Balance","By","Note"], rows,
+      footer:`${d.product.sku? d.product.sku+" " : ""}${d.product.name} · opening ${d.opening} · in +${d.inQ} · out -${d.outQ} · closing ${d.closing}` };
+  }
+  function itemLedgerProductOptions(branch){
+    const b = branch || currentBranch();
+    return [["","Choose a product…"]].concat(all("SELECT id, sku, name FROM products WHERE branch=? ORDER BY name",[b]).map(p=>[String(p.id), (p.sku? p.sku+" · " : "")+p.name]));
+  }
+
   function renderReports(main){
     const today = businessDateOf();   // the business date (utils.js), not the UTC date
     main.innerHTML = `
       <h2>Reports</h2>
 
       <div id="eodSection"></div>
+
+      ${typeof returnsCardHtml==="function"? returnsCardHtml() : ""}
 
       <div class="card">
         <h3>Log Request</h3>
@@ -8622,6 +9649,7 @@ const APP_BUILD = 9;
       </div>
     `;
     renderEOD(document.getElementById("eodSection"));
+    if(typeof wireReturnsCard==="function") wireReturnsCard();
     document.getElementById("reportsLogRequestBtn").onclick=()=>openRequestsDrawer();
 
     // Filters which report-generator CARDS are shown by title — purely a
@@ -8689,12 +9717,20 @@ const APP_BUILD = 9;
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
       const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
+      // Phase 3c: returns in the range, as rows of their own (negative), and Gross / Returns / Net
+      const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
+      returnRows.forEach(r=>rows.push([new Date(r.ts).toLocaleString(), escapeHtml(r.branch||""), escapeHtml(r.label), "", "", "", "-"+currency+(-r.amount).toFixed(2)]));
       // Payment-method breakdown (item 6): sourced from sale_payments via
       // paymentMethodTotals (pos.js) so a split sale's Cash/EcoCash/Credit
       // lines are isolated the same way EOD reconciliation isolates them,
       // rather than bucketing the whole sale under one method.
       const breakdown = paymentMethodTotals(b, fromTs, toTs);
-      const breakdownHtml = breakdown.length? `
+      const withRefunds = returnRows.length? paymentBreakdownWithRefunds(breakdown, b, fromTs, toTs) : null;
+      const breakdownHtml = withRefunds? `
+        <h3 class="section">By Payment Method</h3>
+        <table><tr><th>Method</th><th>Sales</th><th>Refunds</th><th>Net</th></tr>
+        ${withRefunds.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${currency}${r.total.toFixed(2)}</td><td>-${currency}${r.refunds.toFixed(2)}</td><td>${currency}${r.net.toFixed(2)}</td></tr>`).join("")}
+        </table>` : breakdown.length? `
         <h3 class="section">By Payment Method</h3>
         <table><tr><th>Method</th><th>Total</th></tr>
         ${breakdown.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
@@ -8703,14 +9739,20 @@ const APP_BUILD = 9;
       // actually happened in more than the base currency — a base-only
       // shop's Sales Report is otherwise identical to before this feature.
       const currencyRows = paymentMethodCurrencyTotals(b, fromTs, toTs);
-      const currencyHtml = currencyRows.some(r=>r.currency!==BASE_CURRENCY_CODE)? `
+      const curRefunds = returnRows.length? refundCurrencyTotals(b, fromTs, toTs) : null;
+      const currencyHtml = currencyRows.some(r=>r.currency!==BASE_CURRENCY_CODE)? (curRefunds? `
+        <h3 class="section">By Payment Method &amp; Currency</h3>
+        <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>Refunded</th><th>${currency} Equivalent (net)</th></tr>
+        ${currencyRows.map(r=>{ const x = curRefunds[r.method+"|"+r.currency]||{ total:0, tendered:0 };
+          return `<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>-${escapeHtml(r.symbol)}${x.tendered.toFixed(2)}</td><td>${currency}${(r.total-x.total).toFixed(2)}</td></tr>`; }).join("")}
+        </table>` : `
         <h3 class="section">By Payment Method &amp; Currency</h3>
         <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>${currency} Equivalent</th></tr>
         ${currencyRows.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
-        </table>` : "";
+        </table>`) : "";
       printReport("Sales Report", `${b||"All branches"} · ${from} to ${to}`,
         ["Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Total"], rows,
-        `<p><b>Grand Total: ${currency}${grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
+        `<p><b>${returnRows.length? escapeHtml(salesReturnsFooter(grand, returnRows)) : "Grand Total: "+currency+grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
     };
     document.getElementById("waSales").onclick=()=>{
       const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
@@ -8719,7 +9761,12 @@ const APP_BUILD = 9;
                       : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
       const itemLines = sales.slice(0,40).map(s=>padLine(`${localDateTimeStr(s.ts)} ${s.branch} ${s.method}`, `${currency}${s.total.toFixed(2)}`));
-      shareWhatsApp(receiptText(`Sales Report (${b||"All branches"})`, itemLines, [padLine("TOTAL", `${currency}${grand.toFixed(2)}`)]));
+      const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
+      returnRows.slice(0,40).forEach(r=>itemLines.push(padLine(`${localDateTimeStr(r.ts)} ${r.branch} Return ${r.text}`, `-${currency}${(-r.amount).toFixed(2)}`)));
+      const ret = returnRows.reduce((s,r)=>s-r.amount,0);
+      shareWhatsApp(receiptText(`Sales Report (${b||"All branches"})`, itemLines, returnRows.length
+        ? [padLine("GROSS", `${currency}${grand.toFixed(2)}`), padLine("RETURNS", `-${currency}${ret.toFixed(2)}`), padLine("NET", `${currency}${(grand-ret).toFixed(2)}`)]
+        : [padLine("TOTAL", `${currency}${grand.toFixed(2)}`)]));
     };
 
     document.getElementById("genInventory").onclick=()=>{
@@ -8806,6 +9853,7 @@ const APP_BUILD = 9;
         byName[i.name].revenue += i.price*i.qty;
         byName[i.name].cost += (i.cost||0)*i.qty;
       });
+      if(typeof applyReturnsToMargin==="function") applyReturnsToMargin(byName, b, fromTs, toTs);   // Phase 3c
       let totalRev=0, totalCost=0;
       const rows = Object.keys(byName).sort().map(name=>{
         const r = byName[name]; const margin = r.revenue-r.cost;
@@ -9620,7 +10668,12 @@ const APP_BUILD = 9;
                         : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
         const rows = sales.map(s=>[`<button type="button" class="btn btn-outline btn-sm" data-view-sale="${s.id}" style="padding:4px 10px;font-size:12px">${escapeHtml(String(s.receipt_no||s.id))}</button>`, new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+(s.markup||0).toFixed(2), currency+s.total.toFixed(2)]);
         const grand = sales.reduce((s,r)=>s+r.total,0);
-        return { headers:["Receipt#","Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Markup","Total"], rows, footer:`Grand Total: ${currency}${grand.toFixed(2)}` };
+        // Phase 3c: credit notes as rows of their own (negative), and Gross / Returns / Net
+        const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
+        returnRows.forEach(r=>rows.push([`<button type="button" class="btn btn-outline btn-sm" data-view-cn="${r.cn.id}" style="padding:4px 10px;font-size:12px">${escapeHtml(r.text)}</button>`,
+          new Date(r.ts).toLocaleString(), escapeHtml(r.branch||""), "Return", escapeHtml("receipt "+r.cn.sale_receipt), "", "", "", "-"+currency+(-r.amount).toFixed(2)]));
+        return { headers:["Receipt#","Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Markup","Total"], rows,
+          footer: returnRows.length? salesReturnsFooter(grand, returnRows) : `Grand Total: ${currency}${grand.toFixed(2)}` };
       }
     },
     { id:"inventory", label:"Inventory Report", hasDate:false,
@@ -9703,6 +10756,7 @@ const APP_BUILD = 9;
                         : all(`SELECT si.* FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.ts>=? AND s.ts<=?`,[fromTs,toTs]);
         const byName = {};
         items.forEach(i=>{ if(!byName[i.name]) byName[i.name]={qty:0,revenue:0,cost:0}; byName[i.name].qty+=i.qty; byName[i.name].revenue+=i.price*i.qty; byName[i.name].cost+=(i.cost||0)*i.qty; });
+        if(typeof applyReturnsToMargin==="function") applyReturnsToMargin(byName, b, fromTs, toTs);   // Phase 3c
         let totalRev=0, totalCost=0;
         const rows = Object.keys(byName).sort().map(name=>{
           const r=byName[name]; const margin=r.revenue-r.cost; const pct=r.revenue>0?(margin/r.revenue*100).toFixed(1)+"%":"—";
@@ -9827,7 +10881,7 @@ const APP_BUILD = 9;
         return { headers, rows, footer:"" };
       }
     },
-    { id:"salestrend", label:"Sales Trend", hasDate:true, hasGranularity:true,
+    { id:"salestrend", label:"Sales Trend (net of returns)", hasDate:true, hasGranularity:true,
       fetch(b,fromTs,toTs,granularity){
         const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
                         : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
@@ -9847,16 +10901,32 @@ const APP_BUILD = 9;
           }
           return bd; // day (default)
         }
-        const buckets = {};
+        // Net of returns (owner Q13): a credit note counts on its own business date.
+        const buckets = {}, returned = {};
         sales.forEach(s=>{ const key = bucketKey(s.ts); buckets[key] = (buckets[key]||0) + s.total; });
+        (typeof creditNotesIn==="function"? creditNotesIn(b, fromTs, toTs) : []).forEach(c=>{ const key = bucketKey(c.ts); returned[key] = (returned[key]||0) + (c.goods_total||0); if(!(key in buckets)) buckets[key] = 0; });
         const sortedKeys = Object.keys(buckets).sort();
-        const chartData = sortedKeys.map(k=>({label:k, value:buckets[k]}));
-        const rows = sortedKeys.map(k=>[k, currency+buckets[k].toFixed(2)]);
-        const grand = sortedKeys.reduce((s,k)=>s+buckets[k],0);
-        return { headers:["Period","Total Sales"], rows, footer:`Grand Total: ${currency}${grand.toFixed(2)}`, chartData };
+        const net = (k)=> Math.round((buckets[k] - (returned[k]||0))*100)/100;
+        const chartData = sortedKeys.map(k=>({label:k, value:Math.max(0, net(k))}));
+        const rows = sortedKeys.map(k=>[k, currency+net(k).toFixed(2), currency+buckets[k].toFixed(2), returned[k]? "-"+currency+returned[k].toFixed(2) : ""]);
+        const grand = sortedKeys.reduce((s,k)=>s+net(k),0);
+        return { headers:["Period","Net Sales (net of returns)","Sales","Returns"], rows, footer:`Grand Total (net of returns): ${currency}${grand.toFixed(2)}`, chartData };
       }
     },
+    // Phase 3c (returns.js)
+    { id:"returns", label:"Returns", hasDate:true,
+      filters(){ return [{ key:"reason", label:"Reason", options:[["","All reasons"]].concat(RETURN_REASONS.map(r=>[r,r])) },
+        { key:"method", label:"Refund", options:RETURN_REFUND_FILTER },
+        { key:"condition", label:"Condition", options:[["","All"],["restock","Back to stock"],["writeoff","Written off"]] }]; },
+      fetch(b,fromTs,toTs,gran,status,opts){ return returnsReportTable(b, fromTs, toTs, (opts&&opts.filters)||{}); }
+    },
+    { id:"itemledger", label:"Item Ledger", hasDate:true,
+      filters(b){ return [{ key:"product", label:"Product", options:itemLedgerProductOptions(b) }]; },
+      fetch(b,fromTs,toTs,gran,status,opts){ return itemLedgerTable(b, fromTs, toTs, (opts&&opts.filters)||{}); }
+    },
   ];
+  // Report-specific dropdowns (Phase 3c): a config's filters(branch) -> [{ key, label, options:[[value,text]] }]
+  let rwFilters = {};
   function adjustmentsTable(b,fromTs,toTs,reason){
     const d = adjustmentReport({ branch:b||"", reason:reason||"", fromMs:Date.parse(fromTs), toMs:Date.parse(toTs) });
     const money = (v)=> v==null? "" : (v<0? "-" : "")+currency+Math.abs(v).toFixed(2);
@@ -9896,11 +10966,13 @@ const APP_BUILD = 9;
           <option value="month" ${rwGranularity==="month"?"selected":""}>Month</option>
           <option value="year" ${rwGranularity==="year"?"selected":""}>Year</option>
         </select>` : ""}
+      ${selected.filters? selected.filters(rwBranch||null).map(f=>`<label>${escapeHtml(f.label)}</label>
+        <select class="field" data-rw-filter="${f.key}">${f.options.map(o=>`<option value="${escapeHtml(o[0])}" ${(rwFilters[selected.id+"."+f.key]||"")===o[0]?"selected":""}>${escapeHtml(o[1])}</option>`).join("")}</select>`).join("") : ""}
       <button class="btn btn-primary" id="rwView" style="margin-top:12px">View Report</button>
       <div id="rwResults" style="margin-top:14px"></div>
     `;
     document.getElementById("rwTypeSel").onchange=(e)=>{ rwType=e.target.value; render(); };
-    document.getElementById("rwBranchSel").onchange=(e)=>{ rwBranch=e.target.value; };
+    document.getElementById("rwBranchSel").onchange=(e)=>{ rwBranch=e.target.value; if(selected.filters) render(); };
     const viewSel = document.getElementById("rwViewSel");
     if(viewSel) viewSel.onchange=(e)=>{ rwView=e.target.value; render(); };
     const granSel = document.getElementById("rwGranularitySel");
@@ -9963,6 +11035,8 @@ const APP_BUILD = 9;
     if(selected.hasView) opts.view = rwView;
     const stEl = document.getElementById("rwStatusSel"); if(stEl){ status = stEl.value; rwStatus = status; }
     const rsEl = document.getElementById("rwReasonSel"); if(rsEl){ opts.reason = rsEl.value; rwReason = opts.reason; }
+    opts.filters = {};
+    document.querySelectorAll("[data-rw-filter]").forEach(el=>{ opts.filters[el.dataset.rwFilter] = el.value; rwFilters[selected.id+"."+el.dataset.rwFilter] = el.value; });
     const data = selected.fetch(b, fromTs, toTs, granularity, status, opts);
     window._rwLastData = { title:selected.label, subtitle:`${b||"All branches"}${selected.hasDate? ` · ${rwFrom} to ${rwTo}`:""}`, headers:data.headers, rows:data.rows, footer:data.footer };
     const target = document.getElementById("rwResults");
@@ -9986,6 +11060,7 @@ const APP_BUILD = 9;
     target.querySelectorAll("[data-view-sale]").forEach(b=>{
       b.onclick=()=> openSaleDetailModal(+b.dataset.viewSale);
     });
+    target.querySelectorAll("[data-view-cn]").forEach(b=>{ b.onclick=()=> openCreditNoteModal(+b.dataset.viewCn); });
   }
 
 
@@ -10275,17 +11350,20 @@ const APP_BUILD = 9;
     try{
       const run2 = (sql,p=[])=>{ try{ copy.run(sql,p); }catch(e){} };
       ["products","sales","eod_sessions","payouts","credit_payments","stock_received","audit_log",
-       "stock_requests","purchases","staff","vouchers","stocktakes","stock_adjustments","stock_movements"].forEach(t=>
+       "stock_requests","purchases","staff","vouchers","stocktakes","stock_adjustments","stock_movements","credit_notes"].forEach(t=>
         run2(`DELETE FROM ${t} WHERE branch<>?`,[scope]));
       run2("DELETE FROM stock_transfers WHERE from_branch<>? AND to_branch<>?",[scope,scope]);
       run2("DELETE FROM dispatch_docs WHERE dispatch_branch_name<>? AND receive_branch_name<>?",[scope,scope]);
       run2("DELETE FROM dn_events WHERE dn_from_name<>? AND dn_to_name<>?",[scope,scope]);
       run2("DELETE FROM branch_prices WHERE dest_branch_name<>?",[scope]);
       run2("DELETE FROM sale_items WHERE sale_id NOT IN (SELECT id FROM sales)");
+      run2("DELETE FROM credit_note_items WHERE cn_id NOT IN (SELECT id FROM credit_notes)");
+      run2("DELETE FROM credit_note_refunds WHERE cn_id NOT IN (SELECT id FROM credit_notes)");
       run2("DELETE FROM stocktake_counts WHERE stocktake_id NOT IN (SELECT id FROM stocktakes)");
       run2(`DELETE FROM customers WHERE id NOT IN (SELECT customer_id FROM sales WHERE customer_id IS NOT NULL)
               AND id NOT IN (SELECT customer_id FROM credit_payments WHERE customer_id IS NOT NULL)
-              AND id NOT IN (SELECT customer_id FROM vouchers WHERE customer_id IS NOT NULL)`);
+              AND id NOT IN (SELECT customer_id FROM vouchers WHERE customer_id IS NOT NULL)
+              AND id NOT IN (SELECT customer_id FROM credit_notes WHERE customer_id IS NOT NULL)`);
       return copy.export();
     } finally { copy.close(); }
   }
@@ -10425,22 +11503,27 @@ const APP_BUILD = 9;
       }
     });
 
-    const saleMap = {}; const newSaleImpIds = new Set();
+    const saleMap = {}; const newSaleImpIds = new Set(); const mergedTs = new Date().toISOString();
     allX(impDb,"SELECT * FROM sales").forEach(s=>{
       const dup = byUid("sales",s.uid) || one("SELECT id FROM sales WHERE branch=? AND ts=?",[s.branch,s.ts]);
       if(dup){ saleMap[s.id]=dup.id; return; }
       const newCustId = s.customer_id? (custMap[s.customer_id]||null) : null;
-      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,uid,terminal_id,branch_uuid,receipt_no)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||"",s.uid||null,tid(s),buid(s),s.receipt_no||null]);
+      // merged_ts (Phase 3c): a sale brought in by a merge is never returned on this device (returns.js)
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,uid,terminal_id,branch_uuid,receipt_no,merged_ts)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [s.ts,s.subtotal||0,s.discount||0,s.total,s.method,newCustId,s.branch,s.discount_reason||"",s.discount_approved_by||"",s.discount_status||"",s.markup||0,s.markup_reason||"",s.payment_ref||"",s.user||"",s.voucher_amount||0,s.doc_ref||"",s.uid||null,tid(s),buid(s),s.receipt_no||null,mergedTs]);
       saleMap[s.id]=one("SELECT last_insert_rowid() as id").id;
       newSaleImpIds.add(s.id);
     });
     allX(impDb,"SELECT * FROM sale_items").forEach(it=>{
       if(!newSaleImpIds.has(it.sale_id) || byUid("sale_items",it.uid)) return;
       const newProdId = prodMap[it.product_id]||null;
-      run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,uid) VALUES(?,?,?,?,?,?,?)",
-        [saleMap[it.sale_id], newProdId, it.name, it.price, it.qty, it.cost||0, it.uid||null]);
+      // discount (Line-Item Discount) wasn't copied before 3c. Rows merged
+      // earlier keep discount 0 (a re-merge skips them by uid); their sale's
+      // own sales.discount was always copied, so totals were never wrong,
+      // only the per-line split.
+      run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount,uid) VALUES(?,?,?,?,?,?,?,?)",
+        [saleMap[it.sale_id], newProdId, it.name, it.price, it.qty, it.cost||0, it.discount||0, it.uid||null]);
     });
     // Same additive rule as sale_items above: a merged-in split-tender sale
     // must bring its per-method payment lines along, or the receiving
@@ -10594,8 +11677,31 @@ const APP_BUILD = 9;
       const dup = byUid("vouchers",v.uid) || one("SELECT id FROM vouchers WHERE customer_id=? AND earned_ts=?",[newCustId,v.earned_ts]);
       if(dup) return;
       const newSaleId = v.redeemed_sale_id? (saleMap[v.redeemed_sale_id]||null) : null;
-      run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,redeemed_ts,redeemed_sale_id,uid) VALUES(?,?,?,?,?,?,?,?)",
-        [newCustId,v.amount,v.branch,v.earned_ts,v.status||"Available",v.redeemed_ts||"",newSaleId,v.uid||null]);
+      run("INSERT INTO vouchers(customer_id,amount,branch,earned_ts,status,redeemed_ts,redeemed_sale_id,uid,kind,source_sale_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+        [newCustId,v.amount,v.branch,v.earned_ts,v.status||"Available",v.redeemed_ts||"",newSaleId,v.uid||null,v.kind||"loyalty",v.source_sale_id? (saleMap[v.source_sale_id]||null) : null]);
+    });
+
+    // Credit notes (Phase 3c): main sees a branch's returns and write-offs
+    // (owner Q6). Matched by uid; links are re-pointed to the rows here.
+    const uidOf = (tbl, id)=> id==null? null : ((oneX(impDb, `SELECT uid FROM ${tbl} WHERE id=?`,[id])||{}).uid || null);
+    const localId = (tbl, impId)=>{ const u = uidOf(tbl, impId); const r = u? byUid(tbl, u) : null; return r? r.id : null; };
+    allX(impDb,"SELECT * FROM credit_notes ORDER BY id").forEach(c=>{
+      if(byUid("credit_notes",c.uid) || one("SELECT id FROM credit_notes WHERE cn_branch_id=? AND cn_no=?",[c.cn_branch_id,c.cn_no])) return;
+      run(`INSERT INTO credit_notes(branch,cn_branch_id,cn_no,till_code,sale_id,sale_uid,sale_receipt,customer_id,ts,eod_session_id,reason,reason_note,started_by,started_staff_id,
+            approved_by,approved_staff_id,goods_total,voucher_part,cost_reversed,exchange_sale_id,status,uid,terminal_id,branch_uuid) VALUES(?,?,?,?,?,?,?,?,?,NULL,?,?,?,NULL,?,NULL,?,?,?,?,?,?,?,?)`,
+        [c.branch,c.cn_branch_id,c.cn_no,c.till_code,c.sale_id!=null? (saleMap[c.sale_id]||null) : null,c.sale_uid,c.sale_receipt,c.customer_id? (custMap[c.customer_id]||null) : null,c.ts,
+         c.reason,c.reason_note,c.started_by,c.approved_by,c.goods_total,c.voucher_part,c.cost_reversed,c.exchange_sale_id!=null? (saleMap[c.exchange_sale_id]||null) : null,c.status||"posted",c.uid||null,tid(c),buid(c)]);
+      const cnId = one("SELECT last_insert_rowid() AS id").id;
+      allX(impDb,"SELECT * FROM credit_note_items WHERE cn_id=? ORDER BY id",[c.id]).forEach(i=>{
+        run(`INSERT INTO credit_note_items(cn_id,sale_item_id,sale_item_uid,product_id,product_uid,product_code,name,qty,unit_refund,amount,unit_cost,condition,uid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [cnId, i.sale_item_uid? ((byUid("sale_items", i.sale_item_uid)||{}).id||null) : null, i.sale_item_uid, i.product_id? (prodMap[i.product_id]||null) : null, i.product_uid,
+           i.product_code, i.name, i.qty, i.unit_refund, i.amount, i.unit_cost, i.condition, i.uid||null]);
+      });
+      allX(impDb,"SELECT * FROM credit_note_refunds WHERE cn_id=? ORDER BY id",[c.id]).forEach(r=>{
+        run(`INSERT INTO credit_note_refunds(cn_id,method,amount,currency,rate,tendered_amount,sale_payment_id,voucher_id,exchange_sale_id,ref,uid) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+          [cnId, r.method, r.amount, r.currency, r.rate, r.tendered_amount, localId("sale_payments", r.sale_payment_id), localId("vouchers", r.voucher_id),
+           r.exchange_sale_id!=null? (saleMap[r.exchange_sale_id]||null) : null, r.ref||"", r.uid||null]);
+      });
     });
 
     // Information for main only: where the branch's prices differ from main's,
@@ -11560,6 +12666,8 @@ const APP_BUILD = 9;
   // only after the whole page is in (a crash re-applies it: idempotent).
   async function catApplyPage(page){
     const mainTill = !!page.is_main;
+    // Phase 3c add-on: main's "Business day ends at" for this branch (undefined from an older server)
+    if(typeof applyBranchBusinessDay==="function" && page.business_day_cutoff!==undefined) applyBranchBusinessDay(page.business_day_cutoff);
     const counts = { added:0, updated:0, kept:0, skipped:0, prices:0 };
     const batch = async (rows, fn)=>{
       for(let i=0;i<rows.length;i+=CAT_APPLY_BATCH){
@@ -11704,6 +12812,14 @@ const APP_BUILD = 9;
       const r = await catRpc("cl_branch_set_price_mode", { p_branch_id:id, p_mode:m.mode });
       if(!r.ok){ if(r.reason==="offline"||r.reason==="network") return r; run("UPDATE cat_outbox SET error=? WHERE kind='mode' AND dest_name=?",[r.code||"refused", m.dest_name]); continue; }
       run("DELETE FROM cat_outbox WHERE kind='mode' AND dest_name=? AND op_id=?",[m.dest_name, m.op_id]); sent++;
+    }
+    // Phase 3c add-on: main's "Business day ends at" per branch (eod.js setBranchBusinessDay)
+    for(const m of rows.filter(x=>x.kind==="bizday")){
+      const id = idFor(m.dest_name);
+      if(!id){ run("UPDATE cat_outbox SET error='WAITING_BRANCH' WHERE kind='bizday' AND dest_name=?",[m.dest_name]); continue; }
+      const r = await catRpc("cl_branch_set_business_day", { p_branch_id:id, p_hours: m.mode===""||m.mode==null? null : Number(m.mode) });
+      if(!r.ok){ if(r.reason==="offline"||r.reason==="network") return r; run("UPDATE cat_outbox SET error=? WHERE kind='bizday' AND dest_name=?",[r.code||"refused", m.dest_name]); continue; }
+      run("DELETE FROM cat_outbox WHERE kind='bizday' AND dest_name=? AND op_id=?",[m.dest_name, m.op_id]); sent++;
     }
     const prices = rows.filter(x=>x.kind==="price").map(x=>Object.assign({ branch_id:idFor(x.dest_name) }, x));
     prices.filter(x=>!x.branch_id).forEach(x=>run("UPDATE cat_outbox SET error='WAITING_BRANCH' WHERE kind='price' AND dest_name=? AND cat_uid=?",[x.dest_name, x.cat_uid]));
@@ -11906,7 +13022,8 @@ const APP_BUILD = 9;
       db.run("COMMIT");
     }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
     // 2. the catalogue itself, in batches (never stock)
-    await catApplyPage({ products:b.prods, prices:b.prices, is_main:mainTill, price_mode:b.meta? b.meta.price_mode : "", branch_id:b.meta? b.meta.branch_id : "", cursor:b.cursor });
+    await catApplyPage({ products:b.prods, prices:b.prices, is_main:mainTill, price_mode:b.meta? b.meta.price_mode : "", branch_id:b.meta? b.meta.branch_id : "", cursor:b.cursor,
+      business_day_cutoff:b.meta? b.meta.business_day_cutoff : undefined });
     // 3. main-branch till: everything of this branch not in the catalogue yet joins it
     if(mainTill){
       run("UPDATE products SET cat_uid=uid, cat_dirty=1, cat_op=lower(hex(randomblob(16))) WHERE branch=? AND cat_uid IS NULL AND uid IS NOT NULL",[catBranch()]);
@@ -13807,15 +14924,14 @@ const APP_BUILD = 9;
         <button class="btn btn-outline" id="printTestLine" style="margin-bottom:12px">🖨️ Print test line</button>
         <button class="btn btn-primary" id="saveSettings" style="margin-top:12px">Save</button>
       </div>
-      <div class="card">
-        <h3>Business day</h3>
-        <label style="margin-top:0">Business day ends at</label>
-        <select class="field" id="sBizCutoff">
-          ${Array.from({length:BUSINESS_DAY_CUTOFF_MAX+1}, (_,h)=>`<option value="${h}" ${h===businessCutoffHours()?"selected":""}>${businessCutoffLabel(h)}${h===0? " (midnight)" : ""}</option>`).join("")}
-        </select>
-        <p class="muted">Sales after midnight and before this time count for the day before: in shifts, End of Day and every report. Today's business date: <b>${escapeHtml(businessDateOf())}</b>. Needs the Admin passcode, and can't be changed while a shift is open on this till.</p>
-        <button class="btn btn-outline" id="saveBizCutoff">Save business day</button>
-      </div>
+      ${businessDayCardHtml()}
+      ${typeof returnDaysLimit==="function"? `<div class="card">
+        <h3>Returns</h3>
+        <label style="margin-top:0">A sale can be returned for (days)</label>
+        <input class="field" id="sReturnDays" type="number" min="1" max="365" step="1" value="${returnDaysLimit()}">
+        <p class="muted">Counted in business days from the sale. An older receipt is refused. Needs the Admin passcode.</p>
+        <button class="btn btn-outline" id="saveReturnDays">Save return limit</button>
+      </div>` : ""}
       ${rpnSectionHtml()}
       ${currenciesSectionHtml()}
       <div class="card">
@@ -13867,13 +14983,15 @@ const APP_BUILD = 9;
       setSetting("paper_width", document.getElementById("sPaper").value);
       persist(); render();
     };
-    document.getElementById("saveBizCutoff").onclick=()=>{
-      const h = parseInt(document.getElementById("sBizCutoff").value,10);
-      if(h===businessCutoffHours()) return alert("The business day already ends at "+businessCutoffLabel(h)+".");
+    wireBusinessDayCard();
+    const saveRet = document.getElementById("saveReturnDays");
+    if(saveRet) saveRet.onclick=()=>{
+      const n = parseInt(document.getElementById("sReturnDays").value,10);
+      if(n===returnDaysLimit()) return alert("Returns are already allowed for "+n+" days.");
       if(!hasAdminPasscode()) return alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
-      const pc = prompt("Admin passcode to make the business day end at "+businessCutoffLabel(h)+":");
+      const pc = prompt("Admin passcode to allow returns for "+n+" days:");
       if(pc===null) return;
-      try{ setBusinessDayCutoff(h, pc); alert("The business day now ends at "+businessCutoffLabel(h)+"."); render(); }
+      try{ setReturnDaysLimit(n, pc); alert("Returns are now allowed for "+n+" days."); render(); }
       catch(e){ alert(e.message); }
     };
     const saveFreqBtn = document.getElementById("saveFreqSettings");

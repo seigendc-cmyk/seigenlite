@@ -68,15 +68,14 @@
         <button class="btn btn-outline" id="printTestLine" style="margin-bottom:12px">🖨️ Print test line</button>
         <button class="btn btn-primary" id="saveSettings" style="margin-top:12px">Save</button>
       </div>
-      <div class="card">
-        <h3>Business day</h3>
-        <label style="margin-top:0">Business day ends at</label>
-        <select class="field" id="sBizCutoff">
-          ${Array.from({length:BUSINESS_DAY_CUTOFF_MAX+1}, (_,h)=>`<option value="${h}" ${h===businessCutoffHours()?"selected":""}>${businessCutoffLabel(h)}${h===0? " (midnight)" : ""}</option>`).join("")}
-        </select>
-        <p class="muted">Sales after midnight and before this time count for the day before: in shifts, End of Day and every report. Today's business date: <b>${escapeHtml(businessDateOf())}</b>. Needs the Admin passcode, and can't be changed while a shift is open on this till.</p>
-        <button class="btn btn-outline" id="saveBizCutoff">Save business day</button>
-      </div>
+      ${businessDayCardHtml()}
+      ${typeof returnDaysLimit==="function"? `<div class="card">
+        <h3>Returns</h3>
+        <label style="margin-top:0">A sale can be returned for (days)</label>
+        <input class="field" id="sReturnDays" type="number" min="1" max="365" step="1" value="${returnDaysLimit()}">
+        <p class="muted">Counted in business days from the sale. An older receipt is refused. Needs the Admin passcode.</p>
+        <button class="btn btn-outline" id="saveReturnDays">Save return limit</button>
+      </div>` : ""}
       ${rpnSectionHtml()}
       ${currenciesSectionHtml()}
       <div class="card">
@@ -128,13 +127,15 @@
       setSetting("paper_width", document.getElementById("sPaper").value);
       persist(); render();
     };
-    document.getElementById("saveBizCutoff").onclick=()=>{
-      const h = parseInt(document.getElementById("sBizCutoff").value,10);
-      if(h===businessCutoffHours()) return alert("The business day already ends at "+businessCutoffLabel(h)+".");
+    wireBusinessDayCard();
+    const saveRet = document.getElementById("saveReturnDays");
+    if(saveRet) saveRet.onclick=()=>{
+      const n = parseInt(document.getElementById("sReturnDays").value,10);
+      if(n===returnDaysLimit()) return alert("Returns are already allowed for "+n+" days.");
       if(!hasAdminPasscode()) return alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
-      const pc = prompt("Admin passcode to make the business day end at "+businessCutoffLabel(h)+":");
+      const pc = prompt("Admin passcode to allow returns for "+n+" days:");
       if(pc===null) return;
-      try{ setBusinessDayCutoff(h, pc); alert("The business day now ends at "+businessCutoffLabel(h)+"."); render(); }
+      try{ setReturnDaysLimit(n, pc); alert("Returns are now allowed for "+n+" days."); render(); }
       catch(e){ alert(e.message); }
     };
     const saveFreqBtn = document.getElementById("saveFreqSettings");

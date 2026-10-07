@@ -30,15 +30,22 @@
   // shift 7 Oct (the watermark never goes back) while its sales count for
   // 6 Oct, already closed, so they'd be in no cash-up.
   function businessCutoffLabel(h){ return String(h).padStart(2,"0")+":00"; }
-  function setBusinessDayCutoff(hours, passcode, now){
-    const h = Number(hours);
-    if(!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX) throw new Error("Choose a time from 00:00 to 06:00.");
+  // Why the cut-off can't change to h right now on this till ("" = it can).
+  function businessDayChangeProblem(h, now){
     const open = one("SELECT date, branch FROM eod_sessions WHERE status='open' ORDER BY date LIMIT 1");
-    if(open) throw new Error(`Complete the open shift (${open.date}${open.branch? ", "+open.branch : ""}) in Reports → End of Day first, then change when the business day ends.`);
+    if(open) return `Complete the open shift (${open.date}${open.branch? ", "+open.branch : ""}) in Reports → End of Day first, then change when the business day ends.`;
     now = now || new Date();
     const later = Math.max(h, businessCutoffHours());
     if(localDateStr(new Date(now.getTime() - h*3600000)) !== businessDateToday(now))
-      throw new Error(`Change this after ${businessCutoffLabel(later)}: until then the new time would move today's business date.`);
+      return `Change this after ${businessCutoffLabel(later)}: until then the new time would move today's business date.`;
+    return "";
+  }
+  function setBusinessDayCutoff(hours, passcode, now){
+    const h = Number(hours);
+    if(!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX) throw new Error("Choose a time from 00:00 to 06:00.");
+    if(businessDaySetByMain()!==null) throw new Error("Main sets when this branch's business day ends ("+businessCutoffLabel(businessDaySetByMain())+").");
+    const problem = businessDayChangeProblem(h, now);
+    if(problem) throw new Error(problem);
     if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode. The business day was not changed.");
     const old = businessCutoffHours();
     if(h===old) return { changed:false };
@@ -46,6 +53,103 @@
     logAudit("Business day end changed", "", businessCutoffLabel(old)+" → "+businessCutoffLabel(h));
     persist();
     return { changed:true };
+  }
+
+  // ---- set per branch by main (Phase 3c add-on, design §2.14) ----
+  // Main sets a branch's time (Settings, Admin passcode); every till of that
+  // branch picks it up with the catalogue pull (cl_catalogue_pull's
+  // business_day_cutoff) and applies it under the same rules as a change made
+  // here: never while a shift is open, never while the old and new rules
+  // disagree on today's date. Until then it waits (business_day_pending) and
+  // is tried again on the next pull and after End of Day. Unregistered tills,
+  // and branches main never set, keep their own setting.
+  //   business_day_branch  = main's value for this branch ('' = not set)
+  function businessDaySetByMain(){ const v = getSetting("business_day_branch",""); return v===""? null : Number(v); }
+  function applyBranchBusinessDay(value, now){
+    if(value===undefined) return null;                                 // a server without the add-on
+    if(value===null || value===""){
+      if(businessDaySetByMain()!==null) logAudit("Business day end: main no longer sets it", "", "kept "+businessCutoffLabel(businessCutoffHours()));
+      setSetting("business_day_branch",""); setSetting("business_day_pending","");
+      return { cleared:true };
+    }
+    const h = Number(value);
+    if(!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX) return null;
+    setSetting("business_day_branch", String(h));
+    return applyPendingBusinessDay(now);
+  }
+  function applyPendingBusinessDay(now){
+    const h = businessDaySetByMain();
+    if(h===null) return null;
+    if(h===businessCutoffHours()){ setSetting("business_day_pending",""); return { applied:false }; }
+    const problem = businessDayChangeProblem(h, now);
+    if(problem){ setSetting("business_day_pending", String(h)); return { pending:true, problem }; }
+    const old = businessCutoffHours();
+    setSetting("business_day_cutoff", String(h)); setSetting("business_day_pending","");
+    logAudit("Business day end changed (set by main)", "", businessCutoffLabel(old)+" → "+businessCutoffLabel(h));
+    persist();
+    return { applied:true };
+  }
+  // Main: set (or clear, hours "") a branch's time; queued for Digital Commerce.
+  function setBranchBusinessDay(destName, hours, passcode){
+    if(getSetting("terminal_is_main","")!=="1") throw new Error("Only a till of the main branch can set this for a branch.");
+    const clear = hours==="" || hours==null, h = Number(hours);
+    if(!clear && (!Number.isInteger(h) || h<0 || h>BUSINESS_DAY_CUTOFF_MAX)) throw new Error("Choose a time from 00:00 to 06:00.");
+    if(!one("SELECT 1 AS x FROM branch_register WHERE name=?",[destName])) throw new Error("Unknown branch.");
+    if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
+    if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode. Nothing was changed.");
+    const value = clear? "" : String(h);
+    run("UPDATE branch_register SET business_day_cutoff=? WHERE name=?",[value, destName]);
+    run(`INSERT INTO cat_outbox(kind,dest_name,cat_uid,price,mode,op_id,created_ts,error) VALUES('bizday',?,'',NULL,?,?,?,'')
+         ON CONFLICT(kind,dest_name,cat_uid) DO UPDATE SET mode=excluded.mode, op_id=excluded.op_id, created_ts=excluded.created_ts, error=''`,
+      [destName, value, typeof catNewOp==="function"? catNewOp() : String(Date.now()), new Date().toISOString()]);
+    logAudit("Business day end set for a branch", "", destName+": "+(clear? "not set (each till keeps its own)" : businessCutoffLabel(h)));
+    persist();
+    return { value };
+  }
+  function businessDayCardHtml(){
+    const byMain = businessDaySetByMain(), pending = getSetting("business_day_pending","");
+    const isMain = getSetting("terminal_is_main","")==="1" && !!getSetting("terminal_id","");
+    if(isMain && typeof ensureSelfInRegister==="function") ensureSelfInRegister();   // main's own branch is listed too
+    const branches = isMain? all("SELECT name, business_day_cutoff FROM branch_register ORDER BY name") : [];
+    const opts = (sel, allowNone)=> (allowNone? `<option value="" ${sel===""?"selected":""}>Not set (each till keeps its own)</option>` : "")
+      + Array.from({length:BUSINESS_DAY_CUTOFF_MAX+1}, (_,h)=>`<option value="${h}" ${String(sel)===String(h)?"selected":""}>${businessCutoffLabel(h)}${h===0? " (midnight)" : ""}</option>`).join("");
+    return `<div class="card">
+        <h3>Business day</h3>
+        <label style="margin-top:0">Business day ends at</label>
+        <select class="field" id="sBizCutoff" ${byMain!==null? "disabled" : ""}>${opts(businessCutoffHours(), false)}</select>
+        ${byMain!==null? `<p class="biz-by-main" style="margin:6px 0;font-weight:600">Set by main: ${businessCutoffLabel(byMain)}.${pending!==""? ` Applies after this shift's End of Day.` : ""}</p>` : ""}
+        <p class="muted">Sales after midnight and before this time count for the day before: in shifts, End of Day and every report. Today's business date: <b>${escapeHtml(businessDateOf())}</b>.${byMain!==null? "" : " Needs the Admin passcode, and can't be changed while a shift is open on this till."}</p>
+        ${byMain!==null? "" : `<button class="btn btn-outline" id="saveBizCutoff">Save business day</button>`}
+        ${branches.length? `<div class="hr"></div><h4 style="margin:0 0 6px">Set for each branch</h4>
+          <p class="muted" style="margin:0 0 6px">Every till of the branch picks it up when it next syncs the catalogue (after its open shift, if it has one).</p>
+          ${branches.map(b=>`<div class="row" style="align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1">${escapeHtml(b.name)}</span>
+            <select class="field" data-biz-branch="${escapeHtml(b.name)}" style="flex:1">${opts(b.business_day_cutoff||"", true)}</select></div>`).join("")}
+          <button class="btn btn-outline" id="saveBizBranches">Save for branches</button>` : ""}
+      </div>`;
+  }
+  function wireBusinessDayCard(){
+    const save = document.getElementById("saveBizCutoff");
+    if(save) save.onclick=()=>{
+      const h = parseInt(document.getElementById("sBizCutoff").value,10);
+      if(h===businessCutoffHours()) return alert("The business day already ends at "+businessCutoffLabel(h)+".");
+      if(!hasAdminPasscode()) return alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
+      const pc = prompt("Admin passcode to make the business day end at "+businessCutoffLabel(h)+":");
+      if(pc===null) return;
+      try{ setBusinessDayCutoff(h, pc); alert("The business day now ends at "+businessCutoffLabel(h)+"."); render(); }
+      catch(e){ alert(e.message); }
+    };
+    const br = document.getElementById("saveBizBranches");
+    if(br) br.onclick=()=>{
+      const changes = [...document.querySelectorAll("[data-biz-branch]")].filter(s=>{
+        const r = one("SELECT business_day_cutoff AS v FROM branch_register WHERE name=?",[s.dataset.bizBranch]);
+        return (r? r.v||"" : "")!==s.value; });
+      if(!changes.length) return alert("Nothing changed.");
+      const pc = prompt("Admin passcode to set the business day for "+changes.map(s=>s.dataset.bizBranch).join(", ")+":");
+      if(pc===null) return;
+      try{ changes.forEach(s=>setBranchBusinessDay(s.dataset.bizBranch, s.value, pc)); alert("Saved. Each branch's tills pick it up when they next sync."); render();
+        if(typeof catalogueSyncNow==="function") catalogueSyncNow({}).catch(()=>{}); }
+      catch(e){ alert(e.message); }
+    };
   }
 
   // ================== License anti-rollback: trusted time ==================
@@ -251,10 +355,28 @@
     const discounts = daySales.reduce((s,r)=>s+(r.discount||0),0);
     // Bank was left out of Total Sales before 3c (expected cash never
     // included it, and still doesn't: Bank isn't cash in the drawer).
-    const totalSales = cash+ecocash+bank+credit;
+    // Exchange (Phase 3c): the part of a sale paid with returned goods' credit.
+    const exchangeIn = sumMethod("Exchange");
+    const totalSales = cash+ecocash+bank+credit+exchangeIn;
     const payouts = all("SELECT * FROM payouts WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[branch,day.fromTs,day.toTs]);
     const payoutsTotal = payouts.reduce((s,r)=>s+r.amount,0);
-    const expected = (openingFloat||0) + cash - payoutsTotal; // opening float + cash sales - payouts = expected cash
+    // Returns (Phase 3c, returns.js) made on this till in the same business
+    // day: cash refunded leaves the drawer, so it comes off expected cash.
+    const dayCns = all("SELECT id, goods_total FROM credit_notes WHERE branch=? AND ts>=? AND ts<=?",[branch,day.fromTs,day.toTs]);
+    const dayRefunds = dayCns.length? all(`SELECT * FROM credit_note_refunds WHERE cn_id IN (${dayCns.map(()=>"?").join(",")})`, dayCns.map(c=>c.id)) : [];
+    const refundOf = (m)=> roundMoney(dayRefunds.filter(r=>r.method===m).reduce((s,r)=>s+r.amount,0));
+    const refunds = { count:dayCns.length, total:roundMoney(dayCns.reduce((s,c)=>s+(c.goods_total||0),0)),
+      cash:refundOf("Cash"), ecocash:refundOf("EcoCash"), bank:refundOf("Bank"), debtor:refundOf("Debtor"), voucher:refundOf("Voucher"), exchange:refundOf("Exchange") };
+    const refundByCurrency = {};
+    dayRefunds.filter(r=>r.method==="Cash").forEach(r=>{
+      const code = r.currency || BASE_CURRENCY_CODE;
+      if(!refundByCurrency[code]) refundByCurrency[code] = { currency:code, symbol:currencySymbolFor(code), tendered:0, amount:0 };
+      refundByCurrency[code].tendered = roundMoney(refundByCurrency[code].tendered + (r.tendered_amount==null? r.amount : r.tendered_amount));
+      refundByCurrency[code].amount = roundMoney(refundByCurrency[code].amount + r.amount);
+    });
+    refunds.cashByCurrency = Object.keys(refundByCurrency).sort().map(k=>refundByCurrency[k]);
+    const netSales = roundMoney(totalSales - refunds.total);
+    const expected = (openingFloat||0) + cash - payoutsTotal - refunds.cash; // opening float + cash sales - payouts - cash refunds = expected cash
     // Multi-Currency Support (item 5): `cash` above stays the blended
     // base-currency-equivalent figure `expected` is built from — unchanged.
     // This is purely an additional breakdown so a till count can be
@@ -274,7 +396,25 @@
       tendered: roundMoney(byCurrency[code].tendered),
       amount: roundMoney(byCurrency[code].amount),
     }));
-    return { cash, ecocash, bank, credit, discounts, totalSales, payouts, payoutsTotal, expected, cashByCurrency };
+    return { cash, ecocash, bank, credit, exchangeIn, discounts, totalSales, payouts, payoutsTotal, expected, cashByCurrency, refunds, netSales };
+  }
+  // The "Returns" block of the EOD screen, slip and WhatsApp text, as
+  // [label, value] pairs (empty when there were no returns: the EOD reads
+  // exactly as before).
+  function eodReturnsLines(t){
+    const r = t.refunds;
+    if(!r || !r.count) return [];
+    const m = (v)=> `-${currency}${v.toFixed(2)}`;
+    const out = [[`Less: Returns (${r.count})`, m(r.total)]];
+    if(r.cash) out.push(["  Cash refunded", m(r.cash)]);
+    if((r.cashByCurrency||[]).some(c=>c.currency!==BASE_CURRENCY_CODE)) r.cashByCurrency.forEach(c=>out.push([`    ${c.currency} cash`, `-${c.symbol}${c.tendered.toFixed(2)}`]));
+    if(r.ecocash) out.push(["  EcoCash refunded", m(r.ecocash)]);
+    if(r.bank) out.push(["  Bank refunded", m(r.bank)]);
+    if(r.debtor) out.push(["  Debtor balances reduced", m(r.debtor)]);
+    if(r.voucher) out.push(["  Store credit issued", m(r.voucher)]);
+    if(r.exchange) out.push(["  Exchanged for new items", m(r.exchange)]);
+    out.push(["Net Sales", `${currency}${(t.netSales||0).toFixed(2)}`]);
+    return out;
   }
   // Closes whichever shift is open (today's, or an older unresolved one
   // being caught up on) — idempotent: once closed, oldestOpenShift() no
@@ -292,6 +432,7 @@
     run(`UPDATE eod_sessions SET status='closed', expected_cash=?, counted_cash=?, variance=?, notes=?, closed_ts=?, closed_by=?, closed_staff_id=? WHERE id=?`,
       [totals.expected,counted,variance,notes||"",ts,eodOperatorName(),eodOperatorStaffId(),shift.id]);
     logAudit("EOD completed","",`Expected ${currency}${totals.expected.toFixed(2)}, counted ${currency}${counted.toFixed(2)}, variance ${currency}${variance.toFixed(2)}`);
+    if(getSetting("business_day_pending","")!=="") applyPendingBusinessDay(now);   // main's time for this branch, held for this shift
     persist();
     return one("SELECT * FROM eod_sessions WHERE id=?",[shift.id]);
   }
@@ -305,7 +446,8 @@
     const c = counted===undefined? (shift.counted_cash||0) : counted;
     return { date:shift.date, cash:totals.cash, ecocash:totals.ecocash, bank:totals.bank||0, credit:totals.credit, discounts:totals.discounts,
       totalSales:totals.totalSales, payouts:totals.payouts, payoutsTotal:totals.payoutsTotal, openingFloat:shift.opening_float||0,
-      expected:totals.expected, counted:c, variance:c-totals.expected, lowStock, cashByCurrency:totals.cashByCurrency||[] };
+      expected:totals.expected, counted:c, variance:c-totals.expected, lowStock, cashByCurrency:totals.cashByCurrency||[],
+      exchangeIn:totals.exchangeIn||0, refunds:totals.refunds||null, netSales:totals.netSales, returnsLines:eodReturnsLines(totals) };
   }
   function eodWhatsAppText(summary){
     const itemLines = [
@@ -319,11 +461,13 @@
       padLine("Sales EcoCash", `${currency}${summary.ecocash.toFixed(2)}`),
       ...(summary.bank>0? [padLine("Sales Bank", `${currency}${summary.bank.toFixed(2)}`)] : []),
       padLine("Sales Credit", `${currency}${summary.credit.toFixed(2)}`),
+      ...(summary.exchangeIn>0? [padLine("Sales Exchange (returned goods)", `${currency}${summary.exchangeIn.toFixed(2)}`)] : []),
       padLine("Less: Discounts", `-${currency}${summary.discounts.toFixed(2)}`),
       padLine("Payouts", `-${currency}${summary.payoutsTotal.toFixed(2)}`)
     ];
     const totalLines = [
       padLine("Total Sales", `${currency}${summary.totalSales.toFixed(2)}`),
+      ...(summary.returnsLines||[]).map(([a,b])=>padLine(a,b)),
       padLine("Expected Cash", `${currency}${summary.expected.toFixed(2)}`),
       padLine("Cash Count", `${currency}${summary.counted.toFixed(2)}`),
       padLine("Variance", `${currency}${summary.variance.toFixed(2)}`),
@@ -411,9 +555,11 @@
         <div class="subline"><span>Sales EcoCash</span><span>${currency}${totals.ecocash.toFixed(2)}</span></div>
         ${totals.bank>0? `<div class="subline"><span>Sales Bank</span><span>${currency}${totals.bank.toFixed(2)}</span></div>` : ""}
         <div class="subline"><span>Sales Credit</span><span>${currency}${totals.credit.toFixed(2)}</span></div>
+        ${totals.exchangeIn>0? `<div class="subline"><span>Sales Exchange (returned goods)</span><span>${currency}${totals.exchangeIn.toFixed(2)}</span></div>` : ""}
         <div class="subline"><span>Less: Discounts</span><span>-${currency}${totals.discounts.toFixed(2)}</span></div>
         <div class="hr" style="margin:8px 0"></div>
         <div class="total-line"><span>Total Sales</span><span>${currency}${totals.totalSales.toFixed(2)}</span></div>
+        ${eodReturnsLines(totals).length? `<div class="eod-returns" style="margin-top:6px">${eodReturnsLines(totals).map(([a,b],i,arr)=>`<div class="${i===arr.length-1? "total-line" : "subline"}"${/^  /.test(a)? ' style="padding-left:12px;font-size:13px"' : ""}><span>${escapeHtml(a.trim())}</span><span>${escapeHtml(b)}</span></div>`).join("")}</div>` : ""}
         <p class="muted" style="font-size:12px;margin-top:6px">Shift started ${shift.started_ts? new Date(shift.started_ts).toLocaleString():""} by ${escapeHtml(shift.started_by||"—")}.</p>
       </div>
 
@@ -427,7 +573,7 @@
 
       <div class="card">
         <h3>Blind cash count</h3>
-        <p class="muted">Opening float + cash sales − payouts = expected cash. Count the drawer and enter the amount — expected cash stays hidden until you submit.</p>
+        <p class="muted">Opening float + cash sales − payouts${totals.refunds && totals.refunds.cash? " − cash refunds" : ""} = expected cash. Count the drawer and enter the amount — expected cash stays hidden until you submit.</p>
         <label>Cash counted (${currency})</label>
         <input class="field" id="counted" type="number" step="0.01" placeholder="0.00">
         <button class="btn btn-primary" id="submitCount" style="margin-top:12px">Complete EOD</button>

@@ -127,6 +127,7 @@
       return;
     }
     const subtotal = cartSubtotal();
+    const exchangeCovers = typeof exchangePending==="function" && !!exchangePending();   // Phase 3c: an exchange credit is in the cart
     drawer.innerHTML = `
       <div class="drawer-head"><h3 style="margin:0">Cart</h3><button class="close-x" id="closeDrawer">✕</button></div>
       <div class="drawer-body">
@@ -164,11 +165,12 @@
         <label>Customer phone (optional)</label>
         <input class="field" id="custPhone" placeholder="e.g. 077xxxxxxx" value="${window._custPhoneVal||''}">
         <div id="voucherBox"></div>
+        ${typeof exchangeCartHtml==="function"? exchangeCartHtml() : ""}
         <div class="hr" style="margin:10px 0"></div>
         <div class="subline"><span>Subtotal</span><span>${currency}${subtotal.toFixed(2)}</span></div>
-        <div class="total-line"><span>Total</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
+        <div class="total-line"><span>${exchangeCovers? "To pay" : "Total"}</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
         ${fxPreviewHtml()}
-        ${splitTender? splitTenderPanelHtml() : `
+        ${exchangeCovers && cart.length && cartTotal()<=0? `<button class="btn btn-primary" id="payExchange">Complete exchange</button>` : splitTender? splitTenderPanelHtml() : `
         ${quickTapCurrencySelectorHtml()}
         <div class="row" style="margin-bottom:8px">
           <button class="btn btn-primary" id="payCash" ${cart.length===0?"disabled":""}>Cash</button>
@@ -192,6 +194,7 @@
     document.getElementById("custName").oninput=(e)=>{ window._custNameVal=e.target.value; renderVoucherBox(); };
     document.getElementById("custPhone").oninput=(e)=>{ window._custPhoneVal=e.target.value; };
     renderVoucherBox();
+    if(typeof wireExchangeCart==="function") wireExchangeCart(drawer, renderDrawer);
     wireFxPreview(drawer, renderDrawer);
     const resetTemp=()=>{ window._custNameVal=""; window._custPhoneVal="";
       window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; window._docRefVal=""; };
@@ -232,22 +235,25 @@
       box.innerHTML = `<div class="pill ok" style="display:inline-flex;align-items:center;gap:6px;margin:6px 0">Voucher applied: -${currency}${appliedVoucher.amount.toFixed(2)} <button type="button" data-remove-voucher style="background:none;border:none;color:inherit;font-weight:700;padding:0 2px;cursor:pointer">✕</button></div>`;
       box.querySelector("[data-remove-voucher]").onclick=()=>{
         appliedVoucher = null;
-        if(totalEl) totalEl.textContent = currency+cartTotal().toFixed(2);
-        renderVoucherBox();
+        if(totalEl){ totalEl.textContent = currency+cartTotal().toFixed(2); renderVoucherBox(); }
+        else render();
       };
       return;
     }
-    const voucher = one("SELECT * FROM vouchers WHERE customer_id=? AND status='Available'",[cust.id]);
-    if(!voucher){ box.innerHTML=""; return; }
-    box.innerHTML = `<div class="card" style="padding:8px 10px;margin:6px 0;display:flex;justify-content:space-between;align-items:center">
-      <span>🎁 Voucher available: ${currency}${voucher.amount.toFixed(2)}</span>
-      <button type="button" class="btn btn-sm btn-primary" data-apply-voucher style="flex:none">Apply Voucher</button>
-    </div>`;
-    box.querySelector("[data-apply-voucher]").onclick=()=>{
+    // Phase 3c: a customer can also hold store credit (a return); each is
+    // offered, one voucher per sale, as before.
+    const vouchers = all("SELECT * FROM vouchers WHERE customer_id=? AND status='Available' ORDER BY id",[cust.id]);
+    if(!vouchers.length){ box.innerHTML=""; return; }
+    box.innerHTML = vouchers.map(voucher=>`<div class="card" style="padding:8px 10px;margin:6px 0;display:flex;justify-content:space-between;align-items:center">
+      <span>🎁 ${voucher.kind==="store_credit"? "Store credit" : "Voucher"} available: ${currency}${voucher.amount.toFixed(2)}</span>
+      <button type="button" class="btn btn-sm btn-primary" data-apply-voucher="${voucher.id}" style="flex:none">Apply ${voucher.kind==="store_credit"? "Store Credit" : "Voucher"}</button>
+    </div>`).join("");
+    box.querySelectorAll("[data-apply-voucher]").forEach(b=>b.onclick=()=>{
+      const voucher = vouchers.find(v=>v.id===+b.dataset.applyVoucher);
       appliedVoucher = { id:voucher.id, amount:voucher.amount, customerId:cust.id };
-      if(totalEl) totalEl.textContent = currency+cartTotal().toFixed(2);
-      renderVoucherBox();
-    };
+      if(totalEl){ totalEl.textContent = currency+cartTotal().toFixed(2); renderVoucherBox(); }
+      else render();   // desktop Sales screen: its total is redrawn with the cart
+    });
   }
 
 

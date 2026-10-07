@@ -63,7 +63,7 @@ function makeApp(settings){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","currencies.js","eod.js","stocktake.js","import.js","marketing.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -95,7 +95,10 @@ function makeApp(settings){
         startShift, eodTotalsFor, completeEOD, markEodPrinted, eodPrintSummary, eodWhatsAppText,
         computeActivationCode, activationStatus, currentDeviceCode,
         trustedTimeHwm, establishTrustedTime, trustedNow, lastClockAnomaly, evaluateTrustedTime, fetchNetworkTime,
-        completeSale, addToCart, cartTotals, customerBalance, salePayments, saleHasPaymentMethod, paymentMethodTotals,
+        RETURN_REASONS, RETURN_OTHER_TILL_TEXT, returnDaysLimit, setReturnDaysLimit, parseReceiptQuery, returnOriginProblem, findReturnSale, saleReturnState,
+        computeReturn, allocateCents, planCreditNote, commitCreditNote, startExchange, cancelExchange, exchangePending:()=>exchangePending(), exchangeApplied,
+        creditNoteFull, creditNoteLines, creditNoteWhatsAppText, refundMethodTotals, refundCurrencyTotals, returnsByItem, cnDisplay, eodReturnsLines,
+        completeSale, addToCart, cartTotals, cartTotal, customerBalance, salePayments, saleHasPaymentMethod, paymentMethodTotals,
         paymentMethodCurrencyTotals, BASE_CURRENCY_CODE, saveCurrency, activeCurrencies, allCurrencies, getCurrencyByCode,
         quickTapPayments, setQuickTapCurrency:(c)=>{ quickTapCurrency=c; },
         currencyAccepted, currencySymbolFor, currencyNameFor,

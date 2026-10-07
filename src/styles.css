@@ -249,6 +249,18 @@
   .rep-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
   .icon-btn{flex:none;width:auto;padding:10px 13px;}
 
+  /* Phase 3c returns: the step strip and the credit note slip (on screen, PDF and print) */
+  .rt-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .rt-steps span{flex:1 1 auto;text-align:center;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:700;
+    background:var(--bg,#f4f4f4);color:var(--ink-soft);border:1px solid var(--border);white-space:nowrap;}
+  .rt-steps span.on{background:var(--orange-light);color:var(--orange);border-color:var(--orange);}
+  .cn-slip .line{display:flex;justify-content:space-between;gap:10px;}
+  .cn-slip .line > :last-child{white-space:nowrap;}
+  .cn-slip h3{text-align:center;margin:2px 0;}
+  .cn-slip hr{border:none;border-top:1px dashed #999;margin:6px 0;}
+  .modal-body .cn-slip{font-family:monospace;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:#fff;}
+  #printArea .cn-slip.report-print{max-width:120mm;margin:0 auto;font-size:14px;}
+
   #printArea{display:none;}
   @media print{
     /* display:none, not visibility:hidden — a hidden app screen still takes

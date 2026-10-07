@@ -124,6 +124,7 @@ const SCRIPT_ORDER = [
   "credit.js",
   "currencies.js",
   "eod.js",
+  "returns.js",
   "reports.js",
   "stocktake.js",
   "requests.js",

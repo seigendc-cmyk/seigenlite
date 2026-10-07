@@ -1,6 +1,6 @@
 # Phase 3c — Sales returns & credit notes (design)
 
-Status: **Stage A — design for approval.** Nothing in this document is built yet.
+Status: **Stage B — built** on `phase3c-returns` (build v10). §1–§3 are the Stage A design as approved; §4 holds the owner's decisions, which win wherever they differ.
 Branch: `phase3c-returns`, from `phase3b-shared-stock` at `c1fc9e7` (build v9: build guard, cart lock, business-day cut-off).
 
 Labels used below: **VERIFIED** (read in code or the live DB this session), **ASSUMED**, **UNVERIFIED**, **PROPOSED** (new in this design).
@@ -378,7 +378,8 @@ The full list from the brief, plus these:
      - `sale.branch = currentBranch()`;
      - `sale.merged_ts` is empty (a new column `mergeDatabase` stamps on every sale it inserts from 3c on);
      - `sale.terminal_id` is NULL or equals this till's `terminal_id`. A registered sale from another terminal is refused.
-   - **Known limit, stated, not guessed around:** a sale merged **before 3c** from a device with the **same branch name** and **no terminal stamp** looks exactly like this device's own pre-registration sale. No existing column tells them apart, and merges were not audit-logged. Merges from other branches (the normal main ← remote case) are refused reliably by the branch rule.
+   - **Known limit, stated, not guessed around:** a sale merged **before 3c** from a device with the **same branch name** and **no terminal stamp** looks exactly like this device's own pre-registration sale. No existing column tells them apart, and merges were not audit-logged. The same holds for a pre-3c merge of a sale that had no `uid` (a pre-Phase-1 source) into a till that was already registered: the uid trigger stamped it with this till's own terminal. Merges from other branches (the normal main ← remote case) are refused reliably by the branch rule, and every merge from 3c on is refused by `merged_ts`.
+   - A merged unregistered sale also gets a new local `id` here, so the `#45` printed on the other device does not point at it anyway.
 5. **Cheaper exchange:** the difference goes back the same way they paid (voucher-paid share as voucher). A dearer exchange is paid through normal checkout.
 6. **Write-offs at main:** yes, via the existing merge.
 7. **Reasons:** Wrong item, Faulty / damaged, Changed mind, Other. The note is optional, but required for Other.

@@ -118,6 +118,8 @@
   // only after the whole page is in (a crash re-applies it: idempotent).
   async function catApplyPage(page){
     const mainTill = !!page.is_main;
+    // Phase 3c add-on: main's "Business day ends at" for this branch (undefined from an older server)
+    if(typeof applyBranchBusinessDay==="function" && page.business_day_cutoff!==undefined) applyBranchBusinessDay(page.business_day_cutoff);
     const counts = { added:0, updated:0, kept:0, skipped:0, prices:0 };
     const batch = async (rows, fn)=>{
       for(let i=0;i<rows.length;i+=CAT_APPLY_BATCH){
@@ -262,6 +264,14 @@
       const r = await catRpc("cl_branch_set_price_mode", { p_branch_id:id, p_mode:m.mode });
       if(!r.ok){ if(r.reason==="offline"||r.reason==="network") return r; run("UPDATE cat_outbox SET error=? WHERE kind='mode' AND dest_name=?",[r.code||"refused", m.dest_name]); continue; }
       run("DELETE FROM cat_outbox WHERE kind='mode' AND dest_name=? AND op_id=?",[m.dest_name, m.op_id]); sent++;
+    }
+    // Phase 3c add-on: main's "Business day ends at" per branch (eod.js setBranchBusinessDay)
+    for(const m of rows.filter(x=>x.kind==="bizday")){
+      const id = idFor(m.dest_name);
+      if(!id){ run("UPDATE cat_outbox SET error='WAITING_BRANCH' WHERE kind='bizday' AND dest_name=?",[m.dest_name]); continue; }
+      const r = await catRpc("cl_branch_set_business_day", { p_branch_id:id, p_hours: m.mode===""||m.mode==null? null : Number(m.mode) });
+      if(!r.ok){ if(r.reason==="offline"||r.reason==="network") return r; run("UPDATE cat_outbox SET error=? WHERE kind='bizday' AND dest_name=?",[r.code||"refused", m.dest_name]); continue; }
+      run("DELETE FROM cat_outbox WHERE kind='bizday' AND dest_name=? AND op_id=?",[m.dest_name, m.op_id]); sent++;
     }
     const prices = rows.filter(x=>x.kind==="price").map(x=>Object.assign({ branch_id:idFor(x.dest_name) }, x));
     prices.filter(x=>!x.branch_id).forEach(x=>run("UPDATE cat_outbox SET error='WAITING_BRANCH' WHERE kind='price' AND dest_name=? AND cat_uid=?",[x.dest_name, x.cat_uid]));
@@ -464,7 +474,8 @@
       db.run("COMMIT");
     }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
     // 2. the catalogue itself, in batches (never stock)
-    await catApplyPage({ products:b.prods, prices:b.prices, is_main:mainTill, price_mode:b.meta? b.meta.price_mode : "", branch_id:b.meta? b.meta.branch_id : "", cursor:b.cursor });
+    await catApplyPage({ products:b.prods, prices:b.prices, is_main:mainTill, price_mode:b.meta? b.meta.price_mode : "", branch_id:b.meta? b.meta.branch_id : "", cursor:b.cursor,
+      business_day_cutoff:b.meta? b.meta.business_day_cutoff : undefined });
     // 3. main-branch till: everything of this branch not in the catalogue yet joins it
     if(mainTill){
       run("UPDATE products SET cat_uid=uid, cat_dirty=1, cat_op=lower(hex(randomblob(16))) WHERE branch=? AND cat_uid IS NULL AND uid IS NOT NULL",[catBranch()]);

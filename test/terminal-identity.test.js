@@ -50,7 +50,8 @@ const REG = { business_id:"b-1", business_name:"Boka General", branch_id:"br-1",
   await t("every syncable table has uid; the 8 transaction tables also have terminal_id and branch_uuid", ()=>{
     const A = rig();
     const cols = (tbl)=> A.api.all(`PRAGMA table_info(${tbl})`).map(c=>c.name);
-    assert.strictEqual(A.api.SYNC_UID_TABLES.length, 22);   // Phase 2 added stock_movements
+    assert.strictEqual(A.api.SYNC_UID_TABLES.length, 25);   // Phase 2 added stock_movements; Phase 3c the three credit-note tables
+    assert.ok(A.api.TERMINAL_STAMP_TABLES.includes("credit_notes"), "credit notes are stamped (Phase 3c)");
     assert.ok(A.api.TERMINAL_STAMP_TABLES.includes("stock_movements"), "stock movements are stamped (Phase 2)");
     assert.ok(A.api.SYNC_UID_TABLES.includes("audit_log"), "audit_log included (approved)");
     A.api.SYNC_UID_TABLES.forEach(tbl=> assert.ok(cols(tbl).includes("uid"), tbl+".uid"));
@@ -86,6 +87,9 @@ const REG = { business_id:"b-1", business_name:"Boka General", branch_id:"br-1",
       dn_cases:"INSERT INTO dn_cases(case_no,dn_branch_id,dn_no) VALUES(#,'B-X',1)",
       audit_log:"INSERT INTO audit_log(ts,action) VALUES('t','a')",
       stock_movements:"INSERT INTO stock_movements(product_id,qty_delta,kind,ts) VALUES(1,#,'restock','t')",
+      credit_notes:"INSERT INTO credit_notes(cn_branch_id,cn_no,ts) VALUES('B-X',#,'t')",
+      credit_note_items:"INSERT INTO credit_note_items(cn_id,qty,condition) VALUES(#,1,'restock')",
+      credit_note_refunds:"INSERT INTO credit_note_refunds(cn_id,method,amount) VALUES(#,'Cash',1)",
     };
     assert.deepStrictEqual(Object.keys(ins).sort(), plain(A.api.SYNC_UID_TABLES).sort(), "the test covers every table");
     Object.values(ins).forEach(sql=>{ old.run(sql.split("#").join("1")); old.run(sql.split("#").join("2")); });   // two rows each (# = a key that must differ)
