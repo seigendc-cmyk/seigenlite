@@ -17,3 +17,6 @@ deploy/
 
 # ESLint output, regenerated outside these sessions — not tracked
 lint-report/
+
+# Supabase CLI cache (tools/licence/deploy-function.js)
+supabase/.temp/
