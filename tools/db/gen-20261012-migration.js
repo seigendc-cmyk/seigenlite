@@ -75,20 +75,18 @@ let CRED_NEW = insBefore(CRED_OLD, `  if p_reverses_entry_id is not null then
   if found then return json_build_object('ledger_entry', row_to_json(v_entry), 'duplicate', true); end if;
 
 `);
-let PREP_NEW = ins(PREP_OLD, `  v_to := v_from + p_days;
-`, `
-  -- One issue per device (or per business) per staff member per 30 seconds:
-  -- a repeated tap or a retried request must not sign and charge twice.
-  perform pg_advisory_xact_lock(hashtext('cl_licence_prepare:' || coalesce(upper(split_part(regexp_replace(p_device_code, '\\s', '', 'g'), '-', 1)), p_business_id::text)));
-  select l.serial into v_serial from cl_licences l
-   where l.issued_by = v_staff and l.issued_at > now() - ${WINDOW}
-     and ((p_device_code is not null and l.install_id = upper(split_part(regexp_replace(p_device_code, '\\s', '', 'g'), '-', 1)))
-       or (p_business_id is not null and l.business_id = p_business_id))
-   order by l.serial desc limit 1;
-  if found then
-    raise exception 'DUPLICATE_ISSUE: licence #% was issued for this % a few seconds ago. Check the list; to issue another, wait 30 seconds.',
-      v_serial, case when p_device_code is not null then 'device' else 'business' end;
-  end if;
+let PREP_NEW = ins(PREP_OLD, `    if v_install !~ '^[A-Z0-9]{4,8}$' then raise exception 'Device code must look like ABCD-K7Q2 (install ID, dash, 4 characters)'; end if;
+`, `    -- One issue per DEVICE per staff member per 30 seconds: a repeated tap or
+    -- a retried request must not sign and charge twice. Other tills of the
+    -- same business are not affected (T1, T2, T3 back to back is fine).
+    perform pg_advisory_xact_lock(hashtext('cl_licence_prepare:' || v_install));
+    select l.serial into v_serial from cl_licences l
+     where l.issued_by = v_staff and l.install_id = v_install and l.issued_at > now() - ${WINDOW}
+     order by l.serial desc limit 1;
+    if found then
+      raise exception 'DUPLICATE_ISSUE: licence #% was issued for this device (%) a few seconds ago. Check the list; to issue another, wait 30 seconds.',
+        v_serial, v_install;
+    end if;
 `);
 
 const HEADER = `-- =====================================================================
@@ -116,8 +114,9 @@ const HEADER = `-- =============================================================
 --    and cl_record_ledger_credit answer an identical call from the same
 --    staff member within 30 seconds with the entry already written
 --    ('duplicate': true), and write nothing new; cl_licence_prepare refuses
---    a second issue for the same device or business by the same staff
---    member within 30 seconds (DUPLICATE_ISSUE). Each takes a transaction
+--    a second issue for the same DEVICE (install ID) by the same staff
+--    member within 30 seconds (DUPLICATE_ISSUE); other tills of the same
+--    business can be issued straight after each other. Each takes a transaction
 --    lock first, so even calls arriving at the same instant are serialised.
 --    Grants are unchanged (create or replace keeps them).
 -- =====================================================================

@@ -144,11 +144,40 @@ function ok(name, cond, extra) {
   r = await prep('SYS'); ok('... another staff member may (a deliberate second licence)', !r.e, r.e);
   await age(); r = await prep('ACT'); ok('... and so may the first, after 30 seconds', !r.e, r.e);
 
+  // one business, three tills: the guard is per device, not per business
+  const tills = [];
+  for (let i = 1; i <= 3; i++) {
+    const dk = crypto.randomBytes(16).toString('hex'), inst = 'TT0' + i;
+    const v = (await q(`insert into cl_vendors (business_name, install_id, shop_secret_phrase, device_key, status) values ('Test Multi-till', $1, 'p', $2, 'onboarding') returning id`, [inst, dk]))[0].id;
+    tills.push({ inst, v, code: inst + '-' + (await q(`select public.cl_licence_tag(public.cl_licence_hash($1)) t`, [dk]))[0].t });
+  }
+  const BIZ = (await q(`insert into cl_businesses (name, secret_phrase_hash, created_by_vendor_id) values ('Test Multi-till', 'x', $1) returning id`, [tills[0].v]))[0].id;
+  const BR = (await q(`insert into cl_branches (business_id, name, is_main) values ($1, 'Main', true) returning id`, [BIZ]))[0].id;
+  for (let i = 0; i < 3; i++) await q(`insert into cl_terminals (business_id, branch_id, vendor_id, install_id, till_code) values ($1, $2, $3, $4, $5)`, [BIZ, BR, tills[i].v, tills[i].inst, 'T' + (i + 1)]);
+  const prepCode = (k, code) => as(tok(k), `select public.cl_licence_prepare(p_device_code=>$1, p_days=>30) j`, [code]).then(j);
+  const prepBiz = (k) => as(tok(k), `select public.cl_licence_prepare(p_business_id=>$1::uuid, p_days=>30) j`, [BIZ]).then(j);
+  const tillSerial = {};
+  for (let i = 0; i < 3; i++) {
+    r = await prepCode('ACT', tills[i].code);
+    ok('business with three tills: T' + (i + 1) + ' (' + tills[i].inst + ') issued straight after the one before', !r.e && r.licences.length === 1 && r.licences[0].install_id === tills[i].inst, r.e);
+    tillSerial[tills[i].inst] = r.licences && r.licences[0].serial;
+  }
+  ok('... three licences, all issued within 30 s by the same staff member', await n(`select count(*) n from cl_licences where business_id = $1 and issued_at > now() - interval '30 seconds'`, [BIZ]) === 3);
+  r = await prepCode('ACT', tills[1].code);
+  ok('... T2 again within 30 s is refused: DUPLICATE_ISSUE naming T2\'s licence and install', new RegExp('DUPLICATE_ISSUE: licence #' + tillSerial.TT02 + ' was issued for this device \\(TT02\\)').test(r.e || ''), r.e);
+  r = await prepBiz('ACT');
+  ok('... "every till of the business" within 30 s is refused too (it would sign T1 a second time), nothing written', /DUPLICATE_ISSUE: licence #\d+ was issued for this device \(TT0\d\)/.test(r.e || '') && await n(`select count(*) n from cl_licences where business_id = $1`, [BIZ]) === 3, r.e);
+  await age();
+  r = await prepBiz('ACT');
+  ok('... after 30 s, "every till" issues all three in one call', !r.e && r.licences.length === 3, r.e);
+  r = await prepCode('ACT', tills[2].code);
+  ok('... and T3 straight after that is refused (same device twice)', /DUPLICATE_ISSUE: .*\(TT03\)/.test(r.e || ''), r.e);
+
   console.log('rollback');
   let rb = null; try { await pg.exec(RB); } catch (x) { rb = x.message; } await pg.exec('rollback').catch(() => {});
   ok('the rollback refuses while payment reversals exist, changing nothing', /rollback aborted: payment reversals exist/.test(rb || ''), rb);
   await pg.exec(`delete from cl_activity_log; delete from cl_cashbook_entries; update cl_ledger_entries set reverses_entry_id = null where entry_type = 'credit'; delete from cl_ledger_entries where entry_type in ('payment_reversal', 'credit');
-           delete from cl_ledger_entries; delete from cl_licences; delete from cl_activation_codes; delete from cl_vendors; delete from cl_activation_pricing; delete from cl_chart_of_accounts;
+           delete from cl_ledger_entries; delete from cl_licences; delete from cl_activation_codes; delete from cl_terminals; delete from cl_branches; delete from cl_businesses; delete from cl_vendors; delete from cl_activation_pricing; delete from cl_chart_of_accounts;
            delete from cl_staff_module_access; delete from cl_modules; delete from cl_staff;`);
   await pg.exec(RB);
   const after = fingerprint(await snapshot(q));
