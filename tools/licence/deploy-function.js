@@ -34,8 +34,13 @@ function dotenv(key) {
 function run(args, secrets, env) {
   const redact = (s) => secrets.filter((v) => v && v.length >= 6).reduce((acc, v) => acc.split(v).join('[REDACTED]'), s);
   const q = (a) => /^[A-Za-z0-9_\-.\/:=@\\]+$/.test(a) ? a : '"' + String(a).replace(/"/g, '\\"') + '"';
+  // SUPABASE_CLI=<path to supabase(.exe)> uses that binary directly (e.g. when
+  // npx can't fetch the platform package); otherwise npx supabase.
+  const direct = process.env.SUPABASE_CLI;
   return new Promise((resolve) => {
-    const child = spawn('npx', ['--yes', 'supabase@latest', ...args].map(q), { cwd: ROOT, shell: true,
+    const child = direct
+      ? spawn(direct, args, { cwd: ROOT, env: Object.assign({}, process.env, env, { SUPABASE_TELEMETRY_DISABLED: '1' }) })
+      : spawn('npx', ['--yes', 'supabase@latest', ...args].map(q), { cwd: ROOT, shell: true,
       env: Object.assign({}, process.env, env, { SUPABASE_TELEMETRY_DISABLED: '1' }) });
     child.stdout.on('data', (d) => process.stdout.write(redact(d.toString())));
     child.stderr.on('data', (d) => process.stderr.write(redact(d.toString())));
