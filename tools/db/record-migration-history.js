@@ -28,7 +28,7 @@ const RECORDED = ['20260923000000', '20260924120000', '20260925120000', '2026092
   '20261008120000', '20261008140000', '20261009120000'];
 const NOT_APPLIED = ['20260926160000'];
 // Applied later, one at a time, with tools/db/apply-migration.js (which records each itself).
-const APPLIED_LATER = ['20261010120000'];
+const APPLIED_LATER = ['20261010120000', '20261011120000'];
 
 const files = fs.readdirSync(MIG).filter((f) => /^\d{14}_\w+\.sql$/.test(f)).sort();
 const nameOf = Object.fromEntries(files.map((f) => [f.slice(0, 14), f.slice(15, -4)]));

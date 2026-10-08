@@ -17,7 +17,7 @@ const migrationFiles = () => fs.readdirSync(MIG).filter((f) => /^\d{14}_\w+\.sql
 // supabase_migrations.schema_migrations there).
 const NOT_ON_LIVE_FILES = [
   '20260926160000_vendor_tokens_rpn_and_payment.sql',   // parked for the Console billing work
-  '20261010120000_activation_licences.sql',             // activation v2: until the owner says "apply"
+  '20261011120000_ledger_credits.sql',                  // ledger credits: until the owner says "apply"
 ];
 
 // Supabase's own objects that the schema depends on (never part of a migration).

@@ -37,7 +37,7 @@ const b64url = (s) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base
 (async () => {
   const { importSigningKey, signPayloadHex } = await import('../functions/issue-licence/sign.mjs');
   const pg = await newPglite();
-  const skip = NOT_ON_LIVE_FILES;
+  const skip = NOT_ON_LIVE_FILES.concat([FILE]);   // the shape just before this migration (it is on live now)
   await buildFromRepo(pg, { skip });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
