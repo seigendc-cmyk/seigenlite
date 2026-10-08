@@ -44,9 +44,11 @@ function ok(name, cond, extra) {
     values ($1, 1, 'EM6P', 'PTF5', '\\x0000000000000000', true, $2, 30, current_date, current_date + 30, '\\x00', 'SL2.x', md5($5), 'issued', $3, $4)`, [serial, vendor, staff, ledger, String(serial)]);
   await lic(1001, null, null); await lic(1002, dixie, ch);
   await q(`select setval('cl_licences_serial_seq', 1002)`);
+  await q(`insert into cl_plan_assignments (vendor_id, plan_code, reason, set_by) values ($1, 'lite', 'Tuckshop', $2)`, [brechin, staff]);
   const counts = () => q(`select (select count(*)::int from cl_ledger_entries) ledger, (select count(*)::int from cl_cashbook_entries) cash, (select count(*)::int from cl_payment_vouchers) vouchers,
     (select count(*)::int from cl_payment_voucher_lines) vlines, (select count(*)::int from cl_licences) lic, (select count(*)::int from cl_activation_pricing) price,
-    (select count(*)::int from cl_chart_of_accounts) coa, (select count(*)::int from cl_vendors) vendors, (select count(*)::int from cl_price_plan_versions) versions`).then((r) => r[0]);
+    (select count(*)::int from cl_chart_of_accounts) coa, (select count(*)::int from cl_vendors) vendors, (select count(*)::int from cl_price_plan_versions) versions,
+    (select count(*)::int from cl_plan_assignments) assign`).then((r) => r[0]);
   const before = await counts();
   ok('seeded like live: 4 ledger (95.00), 6 cashbook (220 in / 5 out), 1 voucher + 1 line, 2 licences, 3 rates, 8 accounts',
     before.ledger === 4 && before.cash === 6 && before.vouchers === 1 && before.vlines === 1 && before.lic === 2 && before.price === 3 && before.coa === 8 && v.voucher_no === 'PV-00001', JSON.stringify(before));
@@ -66,6 +68,7 @@ function ok(name, cond, extra) {
   const after = await counts();
   ok('ledger, cashbook, vouchers and lines are empty', after.ledger === 0 && after.cash === 0 && after.vouchers === 0 && after.vlines === 0, JSON.stringify(after));
   ok('kept: licences 2, rates 3, accounts 8, vendors, plan versions', after.lic === 2 && after.price === 3 && after.coa === 8 && after.vendors === before.vendors && after.versions === before.versions, JSON.stringify(after));
+  ok('kept: the plan assignment (Brechin Nursery: Lite)', after.assign === 1 && (await q(`select plan_code from cl_plan_assignments where vendor_id = $1`, [brechin]))[0].plan_code === 'lite', JSON.stringify(after));
   ok('every account balance is 0.00', (await q(`select a.code, coalesce(sum(case when c.direction='in' then c.amount else -c.amount end), 0)::text b from cl_chart_of_accounts a left join cl_cashbook_entries c on c.coa_account_id = a.id group by 1`)).every((r) => Number(r.b) === 0));
   ok('licences kept, unlinked from the deleted charge, noted TEST, serial not restarted',
     JSON.stringify(await q(`select serial, note, ledger_entry_id from cl_licences order by serial`)) === JSON.stringify([{ serial: 1001, note: 'TEST', ledger_entry_id: null }, { serial: 1002, note: 'TEST', ledger_entry_id: null }]) &&
