@@ -20,3 +20,6 @@ lint-report/
 
 # Supabase CLI cache (tools/licence/deploy-function.js)
 supabase/.temp/
+
+# Task reports (CLAUDE.md "Reports"): local only, may name real shops
+reports/
