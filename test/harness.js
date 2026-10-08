@@ -141,4 +141,18 @@ function makeApp(settings){
   return { api, ctx, db, hook, setField };
 }
 
-module.exports = { makeApp, Compat, src, loadVendorNacl };
+// A fixed test clock for one app: its realm's Date (new Date(), Date.now())
+// reads `iso` instead of the machine's clock, so tests about "today", shifts
+// and the business day pass at any hour (including after midnight).
+// A.setNow(iso) moves it; A.now() is that instant as a Date of this realm.
+// Dates built from explicit values are untouched.
+function fixedClock(A, iso){
+  vm.runInContext(`(function(){ const R = Date; globalThis.__now = R.parse(${JSON.stringify(iso)});
+    class D extends R { constructor(...a){ if(a.length) super(...a); else super(globalThis.__now); } static now(){ return globalThis.__now; } }
+    Date = D; })()`, A.ctx);
+  A.setNow = (s)=>{ A.ctx.__now = Date.parse(s); };
+  A.now = ()=> new Date(A.ctx.__now);
+  return A;
+}
+
+module.exports = { makeApp, Compat, src, loadVendorNacl, fixedClock };

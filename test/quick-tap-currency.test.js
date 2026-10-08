@@ -10,14 +10,14 @@
 // logic to test around.
 "use strict";
 const assert = require("assert");
-const { makeApp } = require("./harness");
+const { makeApp, fixedClock } = require("./harness");
 
 let passed=0, failed=0;
 async function t(name, fn){
   try{ await fn(); passed++; console.log("  ok   "+name); }
   catch(e){ failed++; console.log("  FAIL "+name+"\n       "+(e.stack||e.message).split("\n").slice(0,5).join("\n       ")); }
 }
-function rig(o){ return makeApp(Object.assign({ branch_name:"Boka", branch_type:"main", setup_complete:"1" }, o||{})); }
+function rig(o){ return fixedClock(makeApp(Object.assign({ branch_name:"Boka", branch_type:"main", setup_complete:"1" }, o||{})), NOON); }
 const D = (iso)=> new Date(iso);
 // Test-Infrastructure Fix (Hardcoded Test Dates): see test/multi-currency.test.js's
 // identical comment — completeSale() always checks shiftBlockReason()
@@ -25,7 +25,11 @@ const D = (iso)=> new Date(iso);
 // date looks stale (and blocks every sale) once a real day has passed since
 // this file was written. TODAY/T() derive "today" from the real clock at
 // test-run time instead.
-const TODAY = new Date().toISOString().slice(0,10);
+// A fixed test clock (harness fixedClock): every app here believes it is
+// noon in Harare on TODAY, so the shift opened at T("08:00:00") is today's
+// whatever the real time is (these tests used to fail after midnight).
+const TODAY = "2026-10-06";
+const NOON = TODAY+"T10:00:00Z";
 const T = (hms)=> D(`${TODAY}T${hms}Z`);
 function addProduct(app, o){
   app.api.run("INSERT INTO products(name,price,stock,low_threshold,branch,sku) VALUES(?,?,?,?,?,?)",

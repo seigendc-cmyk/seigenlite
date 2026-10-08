@@ -11,7 +11,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
-const { makeApp } = require("./harness");
+const { makeApp, fixedClock } = require("./harness");
 const { LIVE_STUB } = require("../supabase/tests/live-stub");
 
 let passed=0, failed=0;
@@ -123,7 +123,8 @@ const call = (A, js)=> vm.runInContext(js, A.ctx);
   });
 
   await t("unregistered and single-till shops keep their own setting", async ()=>{
-    const U = makeApp({ setup_complete:"1", branch_name:"Solo", branch_type:"main" });
+    // noon on a fixed day: before 03:00 the app (rightly) refuses a cut-off that would move today's business date
+    const U = fixedClock(makeApp({ setup_complete:"1", branch_name:"Solo", branch_type:"main" }), "2026-10-06T10:00:00Z");
     U.hook("terminalRpc", async ()=>{ throw new Error("must not be called"); });
     U.api.run("INSERT INTO staff(name,role,passcode,branch,active,created_ts) VALUES('Owner','Admin','9999','Solo',1,'x')");
     vm.runInContext(`setBusinessDayCutoff(3, "9999")`, U.ctx);

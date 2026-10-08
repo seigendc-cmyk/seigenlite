@@ -225,7 +225,7 @@ async function buildV4Shop(){
     A.clock("2026-10-07T09:00"); sell(A, [["RICE",1]], "Cash");
     const U = hooks(withClock(boot(makeApp(), A.db)));
     U.clock("2026-10-07T13:00");
-    assert.strictEqual(U.api.shiftBlockReason(new Date()), "", "selling isn't blocked");
+    assert.strictEqual(U.api.shiftBlockReason(new Date(U.ctx.__now)), "", "selling isn't blocked");   // the app's test clock, not the real one
     sell(U, [["RICE",2]], "Cash");
     U.clock("2026-10-07T18:00");
     const e = U.api.completeEOD("80", "");
