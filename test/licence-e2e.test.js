@@ -143,7 +143,10 @@ const callFn = (pathname, token, body)=> fetch(BASE+pathname, { method:"POST",
   body: JSON.stringify(body||{}) }).then(async r=>({ status:r.status, json: await r.json().catch(()=>null) }));
 
 // The real CLI, as a staff member (credentials through the environment).
-function cli(args, who){
+// Each issue here is a deliberate new licence, not a repeated tap: earlier
+// ones are aged past the server's 30-second duplicate guard (20261012120000).
+async function cli(args, who){
+  await pg.exec("update cl_licences set issued_at = issued_at - interval '1 minute'");
   return new Promise((resolve)=>{
     execFile(process.execPath, [path.join(ROOT,"tools","licence","issue.js"), ...args], {
       env: Object.assign({}, process.env, { SUPABASE_URL:BASE, SUPABASE_ANON_KEY:TEST_ANON, LICENCE_FUNCTION_URL:BASE+"/functions/v1/issue-licence",
