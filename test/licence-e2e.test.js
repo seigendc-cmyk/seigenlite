@@ -253,7 +253,7 @@ const msg = (d)=> d.page.textContent("#actMsg");
 (async()=>{
   // ---- server ----
   pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter(f=>!/activation_licences/.test(f)) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter(f=>!/activation_licences|price_plans/.test(f)) });
   await pg.exec(`create or replace view vault.decrypted_secrets as select gen_random_uuid() id, 'cl_jwt_secret'::text name, '${JWT_SECRET}'::text decrypted_secret, now() created_at`);
   const staffId = {};
   for(const s of [STAFF_A, STAFF_B])
@@ -411,6 +411,10 @@ const msg = (d)=> d.page.textContent("#actMsg");
     await t(kind+": activate by LONG code (paste the whole WhatsApp message)", async ()=>{
       const r = await cli(["--device", dev.code, "--app", kind==="desktop"? "desktop" : "phone", "--preview"], STAFF_A);
       assert.strictEqual(r.code, 0, r.out); first = parseIssue(r.out);
+      // price plans: the CLI shows the server's price first (no plan set: Business, main till), and that is the charge
+      assert.ok(r.out.includes("): Business plan (not set: priced as Business) · main till · USD 15.00 x 30/30 = USD 15.00"), r.out);
+      assert.ok(r.out.includes("Total charged: USD 15.00 for 30 days."), r.out);
+      assert.strictEqual((await sq("select (select amount::text from cl_ledger_entries e where e.id = l.ledger_entry_id) c from cl_licences l where serial=$1", [first.serial]))[0].c, "15.00");
       if(kind==="desktop") assert.ok(first.link.startsWith("https://desktoppos-preview.seigendc.workers.dev/#lic="));
       await activate(d, r.out.slice(r.out.indexOf("seiGEN licence for device")));
       await p.waitForSelector("#actDone");
@@ -423,6 +427,8 @@ const msg = (d)=> d.page.textContent("#actMsg");
     await t(kind+": More → About: licensed until …, and Enter a new licence", async ()=>{
       await openAbout(d);
       assert.match(await p.textContent("#licenceLine"), new RegExp("Licensed until .* \\(licence #"+first.serial+"\\)"));
+      await p.waitForFunction(()=> /per 30 days/.test(document.getElementById("licencePlanLine").textContent), null, { timeout:20000 });
+      assert.strictEqual((await p.textContent("#licencePlanLine")).trim(), "Business plan · main till · USD 15.00 per 30 days.");
       await shot(d, "15-about-licensed");
       await p.click("#licenceRenew"); await p.waitForSelector(".modalOverlay #actCode");
       await shot(d, "16-about-enter-new-licence");
@@ -436,6 +442,8 @@ const msg = (d)=> d.page.textContent("#actMsg");
       await waitFor(async()=> d.dialogs.some(m=>/Activated until/.test(m)), "the Activated alert", 20000);
       await openAbout(d);
       assert.match(await p.textContent("#licenceLine"), new RegExp("\\(licence #"+third.serial+"\\)"));
+      await p.waitForFunction(()=> /365 days/.test(document.getElementById("licencePlanLine").textContent), null, { timeout:20000 });
+      assert.strictEqual((await p.textContent("#licencePlanLine")).trim(), "Business plan · main till · USD 15.00 per 30 days (this licence: USD 182.50 for 365 days).");
       await shot(d, "17-activated-short-code");
       assert.strictEqual((await sq("select status, redeemed_via from cl_licences where serial=$1", [third.serial]))[0].status, "redeemed");
       await p.click("#licenceRenew"); await p.waitForSelector(".modalOverlay #actCode");

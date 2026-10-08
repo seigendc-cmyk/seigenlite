@@ -1,5 +1,6 @@
 // node tools/licence/issue.js --device ABCD-K7Q2 [--days 30|90|365] [--app phone|desktop] [--preview] [--note "..."]
 // node tools/licence/issue.js --business <business uuid> [--days ...]      one licence per active till
+// node tools/licence/issue.js --quote (--device ABCD-K7Q2 | --business <uuid>) [--days ...]   the price only, nothing issued
 // node tools/licence/issue.js --list [--device ABCD | --business <uuid>]    licences already issued
 // node tools/licence/issue.js --repeat-installs                             installs sharing a shop phrase (Q8)
 // node tools/licence/issue.js --revoke <serial> --reason "..."              stops its short code / check-in delivery
@@ -17,7 +18,9 @@
 // SUPABASE_URL and SUPABASE_ANON_KEY come from .env too.
 // Output: per licence, the WhatsApp message to send (link + long code +
 // short code). The short code is shown only at issue time (the server keeps
-// only its hash).
+// only its hash). Before issuing it prints the price from cl_licence_quote:
+// the same server function the Console's issue form and the charge use
+// (price plans: plan, till role, fee x days / 30).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -63,6 +66,22 @@ async function postJson(url, headers, body) {
 }
 const errText = (r) => String((r.data && (r.data.error || r.data.message)) || r.text || ('HTTP ' + r.status)).slice(0, 300);
 
+const ROLE_TEXT = { main: 'main till', branch: 'first till of a branch', till: 'extra till' };
+const money = (n, cur) => (cur || '') + ' ' + Number(n).toFixed(2);
+// The quote as text: one line per till, the refusals, the total charged.
+function priceLines(qt) {
+  const out = [];
+  for (const l of qt.lines || []) {
+    const who = [l.business_name || l.shop_name, l.branch, l.till_code].filter(Boolean).join(' · ') || l.install_id;
+    out.push('Price ' + l.install_id + ' (' + who + '): ' + l.plan_name + ' plan' + (l.plan_source === 'default' ? ' (not set: priced as Business)' : '') +
+      ' · ' + (ROLE_TEXT[l.till_role] || l.till_role) + ' · ' + money(l.unit_fee, l.currency) + ' x ' + qt.days + '/30 = ' + money(l.amount, l.currency) +
+      (l.charged ? '' : ' (no vendor record: not charged)'));
+  }
+  for (const r of qt.refused || []) out.push('Refused ' + [r.branch, r.till_code, r.install_id].filter(Boolean).join(' / ') + ': ' + String(r.message || '').replace(/^[A-Z_]+: /, ''));
+  out.push('Total charged: ' + (qt.currency ? money(qt.total, qt.currency) : '0.00') + ' for ' + qt.days + ' days.');
+  return out;
+}
+
 function untilText(isoDate) {
   return new Date(isoDate + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
@@ -86,7 +105,7 @@ function whatsappMessage(l, appKind, preview) {
 
 (async function main() {
   const device = arg('--device'), business = arg('--business');
-  const list = flag('--list'), repeat = flag('--repeat-installs'), revoke = arg('--revoke');
+  const list = flag('--list'), repeat = flag('--repeat-installs'), revoke = arg('--revoke'), quoteOnly = flag('--quote');
   const appKind = (arg('--app') || 'phone').toLowerCase();
   const days = arg('--days') ? Number(arg('--days')) : 30;
   if (!list && !repeat && !revoke && !device && !business) {
@@ -136,7 +155,20 @@ function whatsappMessage(l, appKind, preview) {
     return;
   }
 
-  // 2. Issue through the Edge Function (it holds the signing key; this tool doesn't).
+  // 2. The price, from the server (price plans). Shown before anything is issued.
+  const qr = await staffRpc('cl_licence_quote', { p_device_code: device || null, p_business_id: business || null, p_days: days });
+  if (qr.ok && qr.data) {
+    for (const line of priceLines(qr.data)) console.log(line);
+    console.log('');
+  } else if (qr.status === 404) {
+    console.log('Price: not shown (price plans are not on this server yet).\n');
+  } else {
+    console.error('Price: refused (' + qr.status + '): ' + errText(qr));
+    if (quoteOnly) return void (process.exitCode = 1);
+  }
+  if (quoteOnly) return;
+
+  // 3. Issue through the Edge Function (it holds the signing key; this tool doesn't).
   const fnUrl = cfg.LICENCE_FUNCTION_URL || (cfg.SUPABASE_URL + '/functions/v1/issue-licence');
   const r = await postJson(fnUrl, { apikey: cfg.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token },
     { device_code: device || null, business_id: business || null, days, note: arg('--note') || null });

@@ -137,6 +137,7 @@
     if(c==="TERMINAL_INACTIVE") return TERMINAL_INACTIVE_TEXT;
     const m = String(r.message||"");
     if(/JOIN_LOCKED/.test(m)) return "Too many wrong codes. Wait an hour, then try again.";
+    if(/PLAN_BRANCH_LIMIT/.test(m)) return m.replace(/^.*PLAN_BRANCH_LIMIT:\s*/, "");   // price plans: Lite allows one branch
     if(/secret phrase does not match/i.test(m)) return "This device's activation phrase doesn't match what Digital Commerce has. Check it in Settings → Activation secret phrase.";
     if(/registered to another device/i.test(m)) return "Digital Commerce has this install ID registered to another device. Contact Digital Commerce to re-admit this device.";
     if(/cannot deactivate itself/i.test(m)) return "A till can't deactivate itself. Use another till on the main branch.";

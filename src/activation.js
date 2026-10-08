@@ -529,11 +529,42 @@
     return `<div class="card" id="licenceCard">
       <h3 style="margin-top:0">Licence</h3>
       <p id="licenceLine" style="font-weight:600">${escapeHtml(line)}</p>
+      <p id="licencePlanLine" class="muted" style="margin:0 0 8px">${escapeHtml(licencePlanText(st))}</p>
       <p class="muted" style="margin:0 0 8px">Device code: <b>${escapeHtml(licenceDeviceCode())}</b></p>
       <button class="btn btn-outline" id="licenceRenew">Enter a new licence</button>
     </div>`;
   }
+  // Price plans: the plan comes from the SIGNED licence (works offline);
+  // the till's role and price from cl_licence_terms (this device only),
+  // remembered for when it's offline. Nothing here is editable.
+  const LICENCE_PLAN_NAMES = { 1:"Business", 2:"Lite" };
+  const LICENCE_ROLE_TEXT = { main:"main till", branch:"first till of a branch", till:"extra till" };
+  function licenceTermsCached(){ try{ return JSON.parse(getSetting("licence_terms","")||"null"); }catch(e){ return null; } }
+  function licencePlanText(st){
+    const lic = st && st.source==="licence" ? st.licence : null;
+    if(!lic) return "";
+    const t = licenceTermsCached();
+    const mine = t && t.serial===lic.serial && t.till_role ? t : null;
+    const plan = (mine && mine.plan_name) || LICENCE_PLAN_NAMES[lic.plan];
+    if(!plan) return "";   // a licence issued before price plans
+    let s = plan+" plan";
+    if(mine){
+      s += " · "+(LICENCE_ROLE_TEXT[mine.till_role]||mine.till_role)+" · "+mine.currency+" "+Number(mine.unit_fee).toFixed(2)+" per 30 days";
+      if(Number(mine.days)!==30) s += " (this licence: "+mine.currency+" "+Number(mine.amount).toFixed(2)+" for "+mine.days+" days)";
+    }
+    return s+".";
+  }
+  async function refreshLicenceTerms(){
+    if(typeof terminalRpc!=="function" || typeof terminalAuth!=="function") return;
+    const r = await terminalRpc("cl_licence_terms", terminalAuth());
+    if(!r.ok || !r.data) return;
+    setSetting("licence_terms", JSON.stringify(r.data));
+    const el = document.getElementById("licencePlanLine");
+    if(el) el.textContent = licencePlanText(licenceState());
+  }
   function wireLicenceStatusCard(){
+    const st = licenceState();
+    if(st.source==="licence") refreshLicenceTerms();
     const b = document.getElementById("licenceRenew");
     if(!b) return;
     b.onclick = ()=>{

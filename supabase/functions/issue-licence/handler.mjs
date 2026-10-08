@@ -57,7 +57,7 @@ export function makeHandler(env, fetchImpl) {
 
     const prep = await rpc("cl_licence_prepare", {
       p_device_code: body.device_code ?? null, p_business_id: body.business_id ?? null,
-      p_days: body.days ?? 30, p_plan: body.plan ?? 0, p_key_id: env.keyId, p_note: body.note ?? null,
+      p_days: body.days ?? 30, p_plan: 0, p_key_id: env.keyId, p_note: body.note ?? null,
     });
     const prepText = await prep.text();
     if (!prep.ok) {
@@ -82,6 +82,9 @@ export function makeHandler(env, fetchImpl) {
         serial: l.serial, device_code: l.device_code, install_id: l.install_id, strong_binding: l.strong_binding,
         business_name: l.business_name, branch: l.branch, till_code: l.till_code,
         days: l.days, valid_from: l.valid_from, valid_to: a.valid_to, short_code: l.short_code, licence: a.licence,
+        // price plans (20261013120000): the price snapshotted on the licence, as charged
+        plan_code: l.plan_code ?? null, plan_name: l.plan_name ?? null, till_role: l.till_role ?? null,
+        unit_fee: l.unit_fee ?? null, amount: l.amount ?? null, currency: l.currency ?? null, charged: a.charged ?? null,
       });
     }
     return json(200, { key_id: env.keyId, public_key: signer.publicKeyB64, licences, skipped: prepared.skipped || [] });
