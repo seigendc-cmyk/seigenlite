@@ -2,7 +2,7 @@
   let setupStep = 1;
   let setupData = {shop_name:"",branch_name:"",secret_phrase:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:"",
     join_code:"",till_label:"",
-    rpn:{rpn_name:"",rpn_code:"",rpn_whatsapp:"",city_area:""}};
+    rpn:{rpn_name:"",rpn_code:"",rpn_whatsapp:"",city_area:""}, rpnVerify:{ff:"",pin:""}};
 
   function renderSetup(){
     $app.innerHTML = `
@@ -62,8 +62,11 @@
               <button class="btn btn-primary" id="setupNext2">Continue</button>
             </div>
           ` : setupStep===3? `
-            <h2>RPN (Reseller Partner Network)</h2>
-            <p class="muted">Optional — link the RPN who set you up, for Support later. No lookup happens here; it's stored as entered and you can change it any time from Settings.</p>
+            <h2>RPN (Revenue Partner Network)</h2>
+            <p class="muted">Optional. If an RPN is setting you up, they type their field force number and RPN PIN here; Digital Commerce checks them once you're online. You can also do this later in More → Settings.</p>
+            ${rpnVerifyFieldsHtml("setRpnV")}
+            <p class="muted" id="setRpnVNote" style="margin-top:6px">${setupData.rpnVerify.ff? "Field force number " + escapeHtml(setupData.rpnVerify.ff) + " is ready to be checked." : ""}</p>
+            <p class="muted" style="margin-top:14px">Your RPN's contact, for the Support button (stored as entered):</p>
             ${rpnFieldsHtml("setRpn", setupData.rpn)}
             <div class="row" style="margin-top:16px">
               <button class="btn btn-outline" id="setupBack3">Back</button>
@@ -175,9 +178,21 @@
         setupStep=3; renderSetup();
       };
     } else if(setupStep===3){
-      document.getElementById("setupBack3").onclick=()=>{ setupData.rpn = rpnFieldsFromInputs("setRpn"); setupStep=2; renderSetup(); };
+      // The RPN's field force number + PIN: both or neither; checked by
+      // Digital Commerce after setup (rpn.js requestRpnLink / trySendRpnLink).
+      const readVerify = ()=>{
+        const ff = document.getElementById("setRpnVFf").value.trim(), pin = document.getElementById("setRpnVPin").value.trim();
+        if(ff || pin) setupData.rpnVerify = { ff, pin: pin || setupData.rpnVerify.pin };
+      };
+      document.getElementById("setupBack3").onclick=()=>{ setupData.rpn = rpnFieldsFromInputs("setRpn"); readVerify(); setupStep=2; renderSetup(); };
       document.getElementById("setupNext3").onclick=()=>{
         setupData.rpn = rpnFieldsFromInputs("setRpn");
+        readVerify();
+        const v = setupData.rpnVerify;
+        if(v.ff || v.pin){
+          if(!/^RPN-[0-9]{2,6}$/i.test(v.ff)) return alert("Enter the field force number as it's printed, e.g. RPN-014 (or leave both RPN fields empty).");
+          if(!/^[0-9]{6}$/.test(v.pin)) return alert("The RPN PIN is 6 digits (or leave both RPN fields empty).");
+        }
         setupStep=4; renderSetup();
       };
     } else {
@@ -216,6 +231,10 @@
         // Save from Settings afterward always enqueues (saveRpnLink).
         const rpn = setupData.rpn;
         if(rpn.rpn_name || rpn.rpn_code || rpn.rpn_whatsapp || rpn.city_area) saveRpnLink(rpn);
+        // The verified link waits until this device is registered (the
+        // check-in below sends it: devicecheckin.js -> rpnAfterCheckin).
+        if(setupData.rpnVerify.ff && setupData.rpnVerify.pin) requestRpnLink(setupData.rpnVerify.ff, setupData.rpnVerify.pin);
+        setupData.rpnVerify = { ff:"", pin:"" };
         await persist();
         route="pos"; render();
         // Register with Digital Commerce now, not at the next launch: the

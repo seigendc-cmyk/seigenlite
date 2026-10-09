@@ -10,8 +10,8 @@
 //
 // Two builds: ALL files (every file must apply), and the LIVE SHAPE, which
 // leaves out the files that aren't applied on live (NOT_ON_LIVE_FILES in
-// rebuild-helpers.js, e.g. 20260926160000_vendor_tokens_rpn_and_payment,
-// parked). The live shape must equal live exactly.
+// rebuild-helpers.js: a migration waiting for "apply"; 20260926160000 was
+// retired to supabase/parked/ on 2026-10-09). The live shape must equal live exactly.
 //
 // Live fingerprint: supabase/tests/fixtures/live-catalog-fingerprint.json,
 // made by tools/db/catalog.js from a read-only snapshot (schema only, no rows).
@@ -27,11 +27,6 @@ const ROOT = path.join(__dirname, '..');
 const FILES = migrationFiles();
 const BASELINE = '20260923000000_baseline.sql';
 const FIXTURE = path.join(__dirname, 'fixtures', 'live-catalog-fingerprint.json');
-// 20260926160000's objects: always among the extras of a full build
-const PARKED_OBJECTS = [
-  'col vendor_tokens.rpn_id', 'con vendor_tokens.vendor_tokens_rpn_id_fkey', 'idx vendor_tokens_rpn_id_idx',
-  'fn vendor_tokens_require_payment()', 'grant fn vendor_tokens_require_payment()',
-  'trg public.vendor_tokens.vendor_tokens_require_payment'];
 
 // Known drift in an APPLIED file, not in the baseline: 20260925150000 revokes
 // only delete/truncate from service_role, so a rebuild keeps the default
@@ -103,8 +98,8 @@ async function liveSnapshot() {
   await buildFromRepo(pgLive, { skip: NOT_ON_LIVE_FILES });
   const rebuilt = fingerprint(await snapshot(async (sql) => (await pgLive.query(sql)).rows));
   const extras = diff(full, rebuilt);
-  ok(`the files not on live add ${extras.onlyA.length} objects, including all 6 of 20260926160000`,
-    PARKED_OBJECTS.every((k) => extras.onlyA.includes(k)) && !extras.onlyB.length, show(extras));
+  ok(NOT_ON_LIVE_FILES.length ? `the files not on live add ${extras.onlyA.length} objects (and drop ${extras.onlyB.length})` : 'every migration file is on live: the two builds are the same',
+    NOT_ON_LIVE_FILES.length ? extras.onlyA.length > 0 : (extras.onlyA.length === 0 && extras.onlyB.length === 0), show(extras));
 
   const targets = [['committed live fingerprint', JSON.parse(fs.readFileSync(FIXTURE, 'utf8')).objects]];
   if (process.argv[2] === 'live') {

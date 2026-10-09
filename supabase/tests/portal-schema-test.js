@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const MIG = fs.readFileSync(`${ROOT}/migrations/20260925150000_publish_portal_staff_tokens.sql`, 'utf8');
-const MIG_RPN = fs.readFileSync(`${ROOT}/migrations/20260926160000_vendor_tokens_rpn_and_payment.sql`, 'utf8');
+const MIG_RPN = fs.readFileSync(`${ROOT}/parked/20260926160000_vendor_tokens_rpn_and_payment.sql`, 'utf8');
 const mode = process.argv[2] || 'pglite';
 
 // cl_rpn as it is in the live project (only the columns that matter here).

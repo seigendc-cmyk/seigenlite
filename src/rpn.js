@@ -74,14 +74,123 @@
     return { rpn_name: val(prefix+"Name"), rpn_code: val(prefix+"Code"), rpn_whatsapp: val(prefix+"Wa"), city_area: val(prefix+"City") };
   }
 
+  // ================== Verified RPN link (RPN commissions, 20261015120000) ==================
+  // The RPN who onboards this shop enters their field force number and
+  // 6-digit RPN PIN; Digital Commerce checks them (cl_device_link_rpn: this
+  // device's install ID + phrase + device key) and links the shop (the
+  // business, for a till of one) to that RPN, who then earns commission on
+  // the shop's payments. Offline-first: the pair waits in settings and is
+  // sent as soon as the device is online (and after every check-in); the
+  // PIN is deleted once the server has answered. Once linked, only Digital
+  // Commerce changes it. The free-text contact fields stay for Support.
+  //   settings: rpn_link_state  "" | "pending" | "linked" | "error" | "conflict"
+  //             rpn_link_ff / rpn_link_pin (while pending) / rpn_link_name / rpn_link_message
+  const RPN_FF_RE = /^RPN-[0-9]{2,6}$/;
+  function rpnLinkState(){
+    return { state: getSetting("rpn_link_state",""), ff: getSetting("rpn_link_ff",""), name: getSetting("rpn_link_name",""),
+             message: getSetting("rpn_link_message",""), pending: !!getSetting("rpn_link_pin","") };
+  }
+  // Validates and saves the pair; returns "" or a plain error for the form.
+  function requestRpnLink(ff, pin){
+    ff = String(ff||"").trim().toUpperCase(); pin = String(pin||"").trim();
+    if(!RPN_FF_RE.test(ff)) return "Enter the field force number as it's printed, e.g. RPN-014.";
+    if(!/^[0-9]{6}$/.test(pin)) return "The RPN PIN is 6 digits.";
+    setSetting("rpn_link_ff", ff); setSetting("rpn_link_pin", pin);
+    setSetting("rpn_link_state", "pending"); setSetting("rpn_link_message", "Saved. It will be checked when you're online.");
+    return "";
+  }
+  let _rpnLinkInFlight = null;
+  // Sends a waiting link, if any. Safe to call any time (one at a time).
+  function trySendRpnLink(){
+    if(_rpnLinkInFlight) return _rpnLinkInFlight;
+    _rpnLinkInFlight = (async ()=>{
+      const pin = getSetting("rpn_link_pin","");
+      if(!pin || typeof terminalRpc!=="function") return { sent:false };
+      if(!getSetting("secret_phrase","").trim()){
+        setSetting("rpn_link_message", "Saved. Finish registering this device first (More → Settings → activation phrase); it's sent after that.");
+        await persist(); return { sent:false };
+      }
+      const r = await terminalRpc("cl_device_link_rpn", Object.assign(terminalAuth(), { p_field_force_no: getSetting("rpn_link_ff",""), p_pin: pin }));
+      if(!r.ok && (r.reason==="offline" || r.reason==="network")) return { sent:false };   // stays pending
+      if(!r.ok){
+        // e.g. not registered yet / phrase mismatch: keep it, say why, try again later
+        setSetting("rpn_link_message", /not registered/i.test(r.message||"")
+          ? "Saved. Finish registering this device first; it's sent after that."
+          : "Saved, but Digital Commerce couldn't check it yet: " + (r.message||"try again later") + ".");
+        await persist(); return { sent:false, message: r.message };
+      }
+      const d = r.data || {};
+      setSetting("rpn_link_pin", "");   // answered: the PIN isn't kept
+      if(d.ok){
+        setSetting("rpn_link_state", "linked"); setSetting("rpn_link_name", d.rpn_name||"");
+        setSetting("rpn_link_ff", d.field_force_no||getSetting("rpn_link_ff","")); setSetting("rpn_link_message", "");
+        logAudit("RPN linked", "", (d.rpn_name||"") + " (" + (d.field_force_no||"") + ")");
+      } else {
+        setSetting("rpn_link_state", d.code==="RPN_CONFLICT"? "conflict" : "error");
+        setSetting("rpn_link_message", d.message || "Digital Commerce couldn't link that RPN.");
+      }
+      await persist();
+      return { sent:true, data:d };
+    })().finally(()=>{ _rpnLinkInFlight = null; });
+    return _rpnLinkInFlight;
+  }
+  // The RPN the server has for this shop (shown on More → About): after a
+  // check-in, at most once an hour, and only for a registered device.
+  async function refreshRpnStatus(force){
+    if(typeof terminalRpc!=="function" || !getSetting("secret_phrase","").trim()) return;
+    const last = Date.parse(getSetting("rpn_status_ts","")||"") || 0;
+    if(!force && Date.now() - last < 3600000) return;
+    const r = await terminalRpc("cl_device_rpn_status", terminalAuth());
+    if(!r.ok || !r.data) return;
+    setSetting("rpn_status_ts", new Date().toISOString());
+    if(r.data.linked){
+      setSetting("rpn_link_state", "linked"); setSetting("rpn_link_name", r.data.rpn_name||""); setSetting("rpn_link_ff", r.data.field_force_no||"");
+      setSetting("rpn_link_pin", ""); setSetting("rpn_link_message", "");
+    } else if(getSetting("rpn_link_state","")==="linked"){
+      setSetting("rpn_link_state", ""); setSetting("rpn_link_name", ""); setSetting("rpn_link_ff", "");
+    }
+    await persist();
+  }
+  // Called after every successful check-in (devicecheckin.js).
+  function rpnAfterCheckin(){
+    return trySendRpnLink().then(()=> refreshRpnStatus(false)).catch(()=>{});
+  }
+  function rpnOnboardedByText(){
+    const s = rpnLinkState();
+    return s.state==="linked" && s.name ? "Onboarded by: " + s.name + (s.ff? " (" + s.ff + ")" : "") : "";
+  }
+  // The two fields an RPN fills in (setup step 3 and More → Settings).
+  function rpnVerifyFieldsHtml(prefix){
+    return `
+      <label style="margin-top:0">Field force number</label>
+      <input class="field" id="${prefix}Ff" autocapitalize="characters" placeholder="e.g. RPN-014" value="${escapeHtml(getSetting("rpn_link_state","")==="linked"? "" : getSetting("rpn_link_ff",""))}">
+      <label>RPN PIN</label>
+      <input class="field" id="${prefix}Pin" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="6 digits, typed by your RPN" type="password">`;
+  }
+  function rpnLinkStatusHtml(){
+    const s = rpnLinkState();
+    if(s.state==="linked") return `<p id="rpnLinkStatus" data-state="linked"><b>✓ ${escapeHtml(rpnOnboardedByText())}</b></p>
+      <p class="muted">To change your RPN, ask Digital Commerce.</p>`;
+    if(!s.state) return "";
+    const bad = s.state==="error" || s.state==="conflict";
+    return `<p id="rpnLinkStatus" data-state="${escapeHtml(s.state)}" class="${bad? "" : "muted"}" style="${bad? "color:#b42318" : ""}">${escapeHtml(s.message)}</p>`;
+  }
+
   // ---- Settings card ----
   function rpnSectionHtml(){
+    const linked = rpnLinkState().state==="linked";
     return `
-      <div class="card">
-        <h3>RPN (Reseller Partner Network)</h3>
-        <p class="muted">The RPN who set you up on seiGEN — used for Support, and stored as entered (no lookup against a central registry yet). Optional, and editable any time.</p>
+      <div class="card" id="rpnCard">
+        <h3>RPN (Revenue Partner Network)</h3>
+        ${rpnLinkStatusHtml()}
+        ${linked? "" : `
+          <p class="muted">Link the RPN who set you up: they type their field force number and RPN PIN here. Digital Commerce checks them.</p>
+          ${rpnVerifyFieldsHtml("sRpnV")}
+          <button class="btn btn-primary" id="linkRpnBtn" style="margin-top:12px">Link RPN</button>`}
+        <h4 style="margin-top:18px">RPN contact (for Support)</h4>
+        <p class="muted">Your RPN's name and WhatsApp number, for the Support button. Stored on this device as entered.</p>
         ${rpnFieldsHtml("sRpn", getRpnLink())}
-        <button class="btn btn-primary" id="saveRpnLink" style="margin-top:12px">Save</button>
+        <button class="btn btn-outline" id="saveRpnLink" style="margin-top:12px">Save contact</button>
       </div>`;
   }
   function wireRpnSection(){
@@ -89,6 +198,15 @@
     if(btn) btn.onclick=()=>{
       saveRpnLink(rpnFieldsFromInputs("sRpn"));
       persist(); render();
+    };
+    const link = document.getElementById("linkRpnBtn");
+    if(link) link.onclick=async ()=>{
+      const err = requestRpnLink(document.getElementById("sRpnVFf").value, document.getElementById("sRpnVPin").value);
+      if(err){ alert(err); return; }
+      link.disabled = true;
+      await persist(); render();
+      await trySendRpnLink();
+      render();
     };
   }
 
@@ -99,7 +217,7 @@
     return `
       <div class="card" id="supportCard">
         <h3>Support</h3>
-        <p class="muted">Message your RPN (Reseller Partner Network) contact for help with this app.</p>
+        <p class="muted">Message your RPN (Revenue Partner Network) contact for help with this app.</p>
         <button class="btn btn-primary" id="supportBtn">📲 Contact Support</button>
       </div>`;
   }

@@ -34,6 +34,8 @@ const sampleResponse = {
     const A = rig();
     let captured = null;
     A.hook("fetch", async (url, opts)=>{
+      // after a check-in the app also asks for this shop's RPN (rpn.js); only the check-in is checked here
+      if(!/cl_device_checkin$/.test(url)) return { ok:true, status:200, json: async()=>({}), text: async()=>"{}" };
       captured = { url, opts, body: JSON.parse(opts.body) };
       return { ok:true, json: async()=>sampleResponse };
     });
@@ -237,7 +239,9 @@ const sampleResponse = {
   await t("overlapping check-ins (boot + end of setup + Save phrase) share one request", async ()=>{
     const A = rig();
     let calls = 0, release;
-    A.hook("fetch", ()=>{ calls++; return new Promise(res=>{ release = ()=>res({ ok:true, json: async()=>sampleResponse }); }); });
+    A.hook("fetch", (url)=>{
+      if(!/cl_device_checkin$/.test(url)) return Promise.resolve({ ok:true, status:200, json: async()=>({}), text: async()=>"{}" });   // the RPN status call after it (rpn.js)
+      calls++; return new Promise(res=>{ release = ()=>res({ ok:true, json: async()=>sampleResponse }); }); });
     const p1 = A.api.deviceCheckin(), p2 = A.api.deviceCheckin();
     await new Promise(r=>setTimeout(r, 10));
     release();

@@ -98,7 +98,7 @@ function makeApp(settings){
         moveStock, recordStockMovement, stockLedgerCheck, docDisplay, formatDocNo, currentTillCode, cleanInternalRef, INTERNAL_REF_MAX, receiptLabel, receiptDisplay,
         dnSearchText, dnDisplayFor, ownDnDisplay, dnTillFor, cancelAckFileName, dnVoucherHtml, setTerminalActive, isTerminalInactive, noteTerminalRefusal, TERMINAL_INACTIVE_TEXT,
         receiveTransfer, startCancelCase, commitAckImport, ackCheckBytes, buildAckFromRow, cancelNoticeFor, dnCaseByNo, dnBuildFromDb, grvImportCheckBytes, commitGrvImport,
-        getRpnLink, hasRpnLink, saveRpnLink, rpnFieldsHtml, rpnFieldsFromInputs, rpnSectionHtml, wireRpnSection,
+        getRpnLink, hasRpnLink, saveRpnLink, rpnFieldsHtml, rpnFieldsFromInputs, rpnSectionHtml, wireRpnSection, rpnLinkState, requestRpnLink, trySendRpnLink, refreshRpnStatus, rpnAfterCheckin, rpnOnboardedByText, rpnVerifyFieldsHtml, rpnLinkStatusHtml, licenceStatusCardHtml,
         supportSectionHtml, wireSupportSection, openSupportHandoff, openExternalUrl, waLink, isTauriApp,
         businessDateToday, oldestOpenShift, openShiftForDate, eodOperatorName, eodOperatorStaffId, shiftBlockReason,
         startShift, eodTotalsFor, completeEOD, markEodPrinted, eodPrintSummary, eodWhatsAppText,

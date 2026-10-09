@@ -531,6 +531,7 @@
       <p id="licenceLine" style="font-weight:600">${escapeHtml(line)}</p>
       <p id="licencePlanLine" class="muted" style="margin:0 0 8px">${escapeHtml(licencePlanText(st))}</p>
       <p class="muted" style="margin:0 0 8px">Device code: <b>${escapeHtml(licenceDeviceCode())}</b></p>
+      <p id="rpnOnboardedLine" class="muted" style="margin:0 0 8px">${escapeHtml(typeof rpnOnboardedByText==="function"? rpnOnboardedByText() : "")}</p>
       <button class="btn btn-outline" id="licenceRenew">Enter a new licence</button>
     </div>`;
   }
@@ -565,6 +566,11 @@
   function wireLicenceStatusCard(){
     const st = licenceState();
     if(st.source==="licence") refreshLicenceTerms();
+    // "Onboarded by" (rpn.js): the RPN the server has for this shop
+    if(typeof refreshRpnStatus==="function") refreshRpnStatus(false).then(()=>{
+      const el = document.getElementById("rpnOnboardedLine");
+      if(el) el.textContent = rpnOnboardedByText();
+    }).catch(()=>{});
     const b = document.getElementById("licenceRenew");
     if(!b) return;
     b.onclick = ()=>{

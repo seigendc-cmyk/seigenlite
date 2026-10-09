@@ -7,10 +7,10 @@
 // the Supabase CLI reads (supabase_migrations.schema_migrations), so that
 // `supabase db push` only runs files that are really missing.
 //
-// RECORDED is the explicit list of applied versions. 20260926160000 is
-// deliberately NOT in it: that file is not applied on live (parked for the
-// Console billing work), so `db push` would try to run it. Don't push until
-// that is decided.
+// RECORDED is the explicit list of applied versions. 20260926160000 was
+// never applied; it was retired to supabase/parked/ on 2026-10-09 (replaced
+// by ledger-based RPN commissions, 20261015120000). Never run `db push`:
+// migrations are applied one at a time with tools/db/apply-migration.js.
 //
 // "apply" takes a catalogue snapshot of the whole database (every schema)
 // before and after, and fails loudly if anything other than the new schema,
@@ -26,7 +26,7 @@ const MIG = path.join(ROOT, 'supabase', 'migrations');
 const RECORDED = ['20260923000000', '20260924120000', '20260925120000', '20260925150000', '20260926120000',
   '20261003120000', '20261004120000', '20261004180000', '20261006120000', '20261007120000',
   '20261008120000', '20261008140000', '20261009120000'];
-const NOT_APPLIED = ['20260926160000'];
+const NOT_APPLIED = ['20260926160000', '20261015120000'];   // 20261015120000: waiting for the owner's "apply"
 // Applied later, one at a time, with tools/db/apply-migration.js (which records each itself).
 const APPLIED_LATER = ['20261010120000', '20261011120000', '20261012120000', '20261013120000', '20261014120000'];
 

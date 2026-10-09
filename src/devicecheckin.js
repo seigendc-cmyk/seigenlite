@@ -155,6 +155,8 @@
       // seiGEN issued for it. Fire-and-forget, like the rest of check-in.
       if(typeof licencePullPending==="function" && typeof isTerminalRegistered==="function" && isTerminalRegistered())
         licencePullPending().catch(()=>{});
+      // RPN link (rpn.js): send a waiting field force number + PIN, refresh "Onboarded by".
+      if(typeof rpnAfterCheckin==="function") rpnAfterCheckin();
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —
