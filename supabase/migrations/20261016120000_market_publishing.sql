@@ -36,6 +36,16 @@
 --    (publish, extend, unpublish), token_sales (sell tokens). Token prices:
 --    SysAdmin only.
 -- 5. The delete guards also count packs and token purchases.
+-- 6. Photos don't pile up in the database: a pack's photo data is cleared
+--    (only its checksums stay, in the pack header and the photo rows) once
+--    the pack is published (the photos are in Storage by then), rejected,
+--    replaced or taken off, and undecided packs older than 14 days are
+--    closed ("Not reviewed within 14 days") and cleared. There's no pg_cron:
+--    the clean-up runs inside every send, review decision, publish and
+--    unpublish (cl_market_purge_photos). The photos of a listing that is
+--    replaced or taken off are queued in cl_listing_photo_trash and deleted
+--    from the listing-images bucket by the publish-pack Edge Function (it
+--    holds the Storage key), unless a live listing still uses the same file.
 -- =====================================================================
 
 begin;
@@ -212,9 +222,10 @@ create table public.cl_market_pack_images (
   pack_id           uuid not null references public.cl_market_packs(id) on delete cascade,
   source_product_id text not null,
   sha256            text not null,
-  image_webp        text not null,
+  image_webp        text,                -- cleared once the pack is decided (the sha256 stays)
   thumb_webp        text,
   created_at        timestamptz not null default now(),
+  purged_at         timestamptz,
   primary key (pack_id, source_product_id)
 );
 
@@ -318,14 +329,61 @@ begin
   return jsonb_build_object('pack_uid', k.id, 'status', k.status, 'received', k.image_received, 'expected', k.image_expected);
 end $fn$;
 
+-- Clears photo data the database no longer needs (checksums stay):
+-- decided packs, and undecided packs older than 14 days (closed first).
+create function public.cl_market_purge_photos() returns integer
+language plpgsql security definer set search_path = public as $fn$
+declare n integer;
+begin
+  update cl_market_packs set status = 'rejected', reason = 'Not reviewed within 14 days. Send a fresh pack.', decided_at = now()
+   where status in ('receiving', 'received', 'in_review') and created_at < now() - interval '14 days';
+  update cl_market_pack_images i set image_webp = null, thumb_webp = null, purged_at = now()
+    from cl_market_packs k
+   where k.id = i.pack_id and i.purged_at is null and k.status in ('published', 'rejected', 'replaced', 'unpublished');
+  get diagnostics n = row_count;
+  return n;
+end $fn$;
+
+-- Listing photos to delete from the listing-images bucket (Storage needs the
+-- service key, which only the publish-pack Edge Function holds).
+create table public.cl_listing_photo_trash (
+  id         bigint generated always as identity primary key,
+  path       text not null,           -- inside the bucket, e.g. AC01/<sha256>.webp
+  reason     text not null,
+  created_at timestamptz not null default now(),
+  done_at    timestamptz
+);
+create index cl_listing_photo_trash_open_idx on public.cl_listing_photo_trash (created_at) where done_at is null;
+
+-- Queues the photo files of these listing rows, unless a live listing still
+-- uses the same file (files are content-addressed, so a republish often does).
+create function public.cl_listing_photos_to_trash(p_listing_ids uuid[], p_reason text) returns integer
+language plpgsql security definer set search_path = public as $fn$
+declare n integer;
+begin
+  insert into cl_listing_photo_trash (path, reason)
+  select distinct x.path, p_reason
+    from (select substring(u from '/object/public/listing-images/(.+)$') path
+            from vendor_listings l, unnest(array[l.image_url, l.thumb_url]) u
+           where l.id = any (p_listing_ids) and u is not null) x
+   where x.path is not null
+     and not exists (select 1 from vendor_listings o where o.status = 'published' and o.expires_at > now() and o.id <> all (p_listing_ids)
+                       and (o.image_url like '%/listing-images/' || x.path or o.thumb_url like '%/listing-images/' || x.path))
+     and not exists (select 1 from cl_listing_photo_trash t where t.path = x.path and t.done_at is null);
+  get diagnostics n = row_count;
+  return n;
+end $fn$;
+
 -- 5. Device calls (install ID + phrase + device key) --------------------------
 create function public.cl_device_pack_submit(p_install_id text, p_secret_phrase text, p_device_key text,
                                              p_pack_uid uuid, p_header text, p_header_sha256 text) returns json
 language plpgsql security definer set search_path = public as $fn$
-declare v cl_vendors%rowtype;
+declare v cl_vendors%rowtype; r jsonb;
 begin
   v := cl_install_vendor(p_install_id, p_secret_phrase, p_device_key, false);
-  return cl_market_pack_open(p_pack_uid, v, cl_market_check_header(p_header, p_header_sha256, p_install_id), 'app', null)::json;
+  r := cl_market_pack_open(p_pack_uid, v, cl_market_check_header(p_header, p_header_sha256, p_install_id), 'app', null);
+  perform cl_market_purge_photos();   -- the packs this one replaced, and any left undecided over 14 days
+  return r::json;
 end $fn$;
 
 create function public.cl_device_pack_image(p_install_id text, p_secret_phrase text, p_device_key text,
@@ -496,7 +554,7 @@ language plpgsql stable security definer set search_path = public as $fn$
 begin
   perform cl_rpn_staff(array['market_review', 'market_publish']);
   return coalesce((select json_agg(json_build_object('source_product_id', x.source_product_id, 'thumb', coalesce(x.thumb_webp, x.image_webp))) from (
-    select i.* from cl_market_pack_images i where i.pack_id = p_pack_id order by i.source_product_id
+    select i.* from cl_market_pack_images i where i.pack_id = p_pack_id and i.purged_at is null order by i.source_product_id
      offset greatest(coalesce(p_offset, 0), 0) limit least(greatest(coalesce(p_limit, 50), 1), 100)) x), '[]'::json);
 end $fn$;
 
@@ -508,6 +566,7 @@ begin
   if not found then raise exception 'No such pack'; end if;
   if k.status not in ('receiving', 'received', 'in_review') then raise exception 'That pack was already %', k.status; end if;
   update cl_market_packs set status = 'rejected', reason = v_reason, decided_by = v_staff, decided_at = now() where id = p_pack_id;
+  perform cl_market_purge_photos();
   insert into cl_activity_log (staff_id, action, target_table, target_id, detail)
   values (v_staff, 'market_pack_rejected', 'cl_market_packs', null, jsonb_build_object('pack_id', p_pack_id, 'account', cl_account_name(k.business_id, k.vendor_id), 'reason', v_reason));
   return json_build_object('id', p_pack_id, 'status', 'rejected');
@@ -594,7 +653,7 @@ end $fn$;
 create function public.cl_market_publish_attach(p_pack_id uuid, p_days integer, p_items text[], p_urls jsonb) returns json
 language plpgsql security definer set search_path = public as $fn$
 declare v_staff uuid := cl_rpn_staff(array['market_publish']); k cl_market_packs%rowtype; v_plan jsonb; v_ident cl_vendors%rowtype;
-        v_iv uuid; v_exp timestamptz; v_n integer; l jsonb; u jsonb; v_old integer;
+        v_iv uuid; v_exp timestamptz; v_n integer; l jsonb; u jsonb; v_old integer; v_oldids uuid[]; v_trash integer := 0;
 begin
   perform pg_advisory_xact_lock(hashtext('cl_market_pack:' || p_pack_id::text));
   select * into k from cl_market_packs where id = p_pack_id for update;
@@ -621,6 +680,7 @@ begin
     whatsapp_number = coalesce(excluded.whatsapp_number, vendors.whatsapp_number), city = coalesce(excluded.city, vendors.city)
   returning id into v_iv;
   -- replace the whole live listing
+  select array_agg(id) into v_oldids from vendor_listings where vendor_id = v_iv and status = 'published' and expires_at > now();
   update vendor_listings set status = 'expired', expires_at = least(expires_at, now())
    where vendor_id = v_iv and status = 'published' and expires_at > now();
   get diagnostics v_old = row_count;
@@ -638,15 +698,16 @@ begin
   end loop;
   update cl_market_packs set status = 'published', decided_by = v_staff, decided_at = now(), published_count = v_n, itred_vendor_id = v_iv, expires_at = v_exp
    where id = k.id returning * into k;
-  -- photos of packs decided over 30 days ago are no longer needed
-  delete from cl_market_pack_images i using cl_market_packs d
-   where d.id = i.pack_id and d.status in ('rejected', 'replaced', 'unpublished', 'published') and d.decided_at < now() - interval '30 days';
+  -- the replaced listing's photo files go (unless the new listing reuses the same file),
+  -- and the database keeps no photo data it no longer needs
+  if v_oldids is not null then v_trash := cl_listing_photos_to_trash(v_oldids, 'replaced by ' || coalesce(k.export_no, 'a new pack')); end if;
+  perform cl_market_purge_photos();
   perform itred_expire_vendor_listings();
   insert into cl_activity_log (staff_id, action, target_table, target_id, detail)
   values (v_staff, 'market_published', 'cl_market_packs', null, jsonb_build_object('pack_id', k.id, 'account', cl_account_name(k.business_id, k.vendor_id),
           'products', v_n, 'days_used', p_days, 'expires_at', v_exp, 'replaced_live', v_old));
   return json_build_object('pack_id', k.id, 'status', 'published', 'published', v_n, 'days_used', p_days, 'expires_at', v_exp,
-    'available_after', (cl_token_balance_of(k.business_id, k.vendor_id)->>'available_days')::int);
+    'available_after', (cl_token_balance_of(k.business_id, k.vendor_id)->>'available_days')::int, 'photos_to_delete', v_trash);
 end $fn$;
 
 -- The live listing of an account (its latest published pack).
@@ -686,21 +747,43 @@ end $fn$;
 -- Takes the listing off now and gives back the unused whole days.
 create function public.cl_market_unpublish(p_itred_vendor_id uuid, p_reason text) returns json
 language plpgsql security definer set search_path = public as $fn$
-declare v_staff uuid := cl_rpn_staff(array['market_publish']); v_reason text := cl_rpn_reason(p_reason); k cl_market_packs%rowtype; v_back integer;
+declare v_staff uuid := cl_rpn_staff(array['market_publish']); v_reason text := cl_rpn_reason(p_reason); k cl_market_packs%rowtype; v_back integer; v_ids uuid[]; v_trash integer := 0;
 begin
   k := cl_market_live_pack(p_itred_vendor_id);
   if k.id is null then raise exception 'That vendor has no live listing'; end if;
   perform pg_advisory_xact_lock(hashtext('cl_market_account:' || coalesce(k.business_id, k.vendor_id)::text));
   v_back := greatest(floor(extract(epoch from (k.expires_at - now())) / 86400)::int, 0);
+  select array_agg(id) into v_ids from vendor_listings where vendor_id = p_itred_vendor_id and status = 'published' and expires_at > now();
   update vendor_listings set status = 'expired', expires_at = now() where vendor_id = p_itred_vendor_id and status = 'published' and expires_at > now();
   update cl_market_packs set status = 'unpublished', reason = v_reason, expires_at = now() where id = k.id;
+  if v_ids is not null then v_trash := cl_listing_photos_to_trash(v_ids, 'taken off: ' || v_reason); end if;
+  perform cl_market_purge_photos();
   if v_back > 0 then
     insert into cl_token_uses (business_id, vendor_id, days, kind, pack_id, itred_vendor_id, note, created_by)
     values (k.business_id, k.vendor_id, -v_back, 'refund', k.id, p_itred_vendor_id, v_reason, v_staff);
   end if;
   insert into cl_activity_log (staff_id, action, target_table, target_id, detail)
   values (v_staff, 'market_unpublished', 'cl_market_packs', null, jsonb_build_object('pack_id', k.id, 'account', cl_account_name(k.business_id, k.vendor_id), 'days_back', v_back, 'reason', v_reason));
-  return json_build_object('pack_id', k.id, 'days_back', v_back);
+  return json_build_object('pack_id', k.id, 'days_back', v_back, 'photos_to_delete', v_trash);
+end $fn$;
+
+-- For the publish-pack Edge Function (staff token): photo files waiting to be
+-- deleted from the bucket, and marking them done.
+create function public.cl_market_photo_trash(p_limit integer default 200) returns json
+language plpgsql stable security definer set search_path = public as $fn$
+begin
+  perform cl_rpn_staff(array['market_publish']);
+  return coalesce((select json_agg(json_build_object('id', t.id, 'path', t.path) order by t.id)
+                     from (select * from cl_listing_photo_trash where done_at is null order by id limit least(greatest(coalesce(p_limit, 200), 1), 1000)) t), '[]'::json);
+end $fn$;
+create function public.cl_market_photo_trash_done(p_ids bigint[]) returns integer
+language plpgsql security definer set search_path = public as $fn$
+declare n integer;
+begin
+  perform cl_rpn_staff(array['market_publish']);
+  update cl_listing_photo_trash set done_at = now() where id = any (p_ids) and done_at is null;
+  get diagnostics n = row_count;
+  return n;
 end $fn$;
 
 create function public.cl_market_published() returns json
@@ -813,14 +896,16 @@ alter table public.cl_token_purchases enable row level security;
 alter table public.cl_token_uses enable row level security;
 alter table public.cl_market_packs enable row level security;
 alter table public.cl_market_pack_images enable row level security;
-revoke all on table public.cl_token_prices, public.cl_token_purchases, public.cl_token_uses, public.cl_market_packs, public.cl_market_pack_images
-  from public, anon, authenticated;
+alter table public.cl_listing_photo_trash enable row level security;
+revoke all on table public.cl_token_prices, public.cl_token_purchases, public.cl_token_uses, public.cl_market_packs, public.cl_market_pack_images,
+  public.cl_listing_photo_trash from public, anon, authenticated;
 
 revoke all on function public.cl_account_vendor_ids(uuid, uuid), public.cl_account_identity(uuid, uuid), public.cl_account_name(uuid, uuid),
   public.cl_token_price_at(timestamptz), public.cl_token_balance_of(uuid, uuid), public.cl_market_check_header(text, text, text),
   public.cl_market_listing_problem(jsonb), public.cl_market_pack_open(uuid, cl_vendors, jsonb, text, uuid),
   public.cl_market_pack_put_image(uuid, uuid, text, text, text), public.cl_market_account(uuid, uuid),
-  public.cl_market_plan(cl_market_packs, integer), public.cl_market_live_pack(uuid)
+  public.cl_market_plan(cl_market_packs, integer), public.cl_market_live_pack(uuid), public.cl_market_purge_photos(),
+  public.cl_listing_photos_to_trash(uuid[], text)
   from public, anon, authenticated;
 revoke all on function public.cl_device_pack_submit(text, text, text, uuid, text, text), public.cl_device_pack_image(text, text, text, uuid, text, text, text),
   public.cl_device_pack_status(text, text, text) from public;
@@ -832,7 +917,7 @@ revoke all on function public.cl_token_price_set(numeric, integer, text, integer
   public.cl_market_upload_pack(uuid, text, text), public.cl_market_upload_image(uuid, text, text, text),
   public.cl_market_publish_prepare(uuid, integer, text[]), public.cl_market_pack_image_data(uuid, text),
   public.cl_market_publish_attach(uuid, integer, text[], jsonb), public.cl_market_extend(uuid, integer, text),
-  public.cl_market_unpublish(uuid, text), public.cl_market_published()
+  public.cl_market_unpublish(uuid, text), public.cl_market_published(), public.cl_market_photo_trash(integer), public.cl_market_photo_trash_done(bigint[])
   from public, anon, authenticated;
 grant execute on function public.cl_token_price_set(numeric, integer, text, integer, timestamptz, text), public.cl_token_prices_list(),
   public.cl_sell_tokens(uuid, uuid, integer, text), public.cl_token_balance(uuid, uuid), public.cl_market_queue(text),
@@ -840,7 +925,7 @@ grant execute on function public.cl_token_price_set(numeric, integer, text, inte
   public.cl_market_upload_pack(uuid, text, text), public.cl_market_upload_image(uuid, text, text, text),
   public.cl_market_publish_prepare(uuid, integer, text[]), public.cl_market_pack_image_data(uuid, text),
   public.cl_market_publish_attach(uuid, integer, text[], jsonb), public.cl_market_extend(uuid, integer, text),
-  public.cl_market_unpublish(uuid, text), public.cl_market_published()
+  public.cl_market_unpublish(uuid, text), public.cl_market_published(), public.cl_market_photo_trash(integer), public.cl_market_photo_trash_done(bigint[])
   to authenticated;
 
 commit;

@@ -34,6 +34,7 @@ const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 // a small but real WebP header: RIFF <size> WEBP VP8L ...
 const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.from('RIFF'), Buffer.from([20, 0, 0, 0]), Buffer.from('WEBPVP8L'), crypto.createHash('md5').update(String(seed)).digest(), Buffer.alloc(pad || 0)]).toString('base64');
 
+const BUCKET_URL = 'https://proj.supabase.co/storage/v1/object/public/listing-images/';
 (async () => {
   const pg = await newPglite();
   await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });
@@ -126,6 +127,7 @@ const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.fr
   ok('the app sees "received"', (await status('SD01'))[0].status === 'received');
   const p1b = makePack('SD01', three, { no: 'MKT0002' });
   await sendAll('SD01', p1b);
+  const photoState = async (uid) => (await q(`select count(*)::int n, count(image_webp)::int with_data, count(thumb_webp)::int with_thumb, count(sha256)::int with_sha from cl_market_pack_images where pack_id = $1`, [uid]))[0];
   ok('a newer pack replaces an undecided one', (await q(`select status from cl_market_packs where id = $1`, [p1.uid]))[0].status === 'replaced' &&
     (await status('SD01'))[1].status === 'replaced');
   // a business: a till sends; the business is the account
@@ -147,6 +149,9 @@ const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.fr
   ok('thumbnails page by page (the thumbnail, not the full photo)', th.length === 2 && th[0].thumb === pb.thumbs.B1, JSON.stringify(th).slice(0, 200));
   const rej = j(await as(tok('REV'), `select public.cl_market_reject($1, 'TEST: blurry photos') j`, [pb.uid]));
   const stB = (await status('AC02'))[0];
+  ok('PHOTOS: a replaced pack keeps only its checksums (photo data cleared)', JSON.stringify(await photoState(p1.uid)) === JSON.stringify({ n: 2, with_data: 0, with_thumb: 0, with_sha: 2 }));
+  ok('PHOTOS: a rejected pack keeps only its checksums', JSON.stringify(await photoState(pb.uid)) === JSON.stringify({ n: 2, with_data: 0, with_thumb: 0, with_sha: 2 }) &&
+    (await q(`select header->'listings'->0->>'image_sha256' s from cl_market_packs where id = $1`, [pb.uid]))[0].s === sha(pb.images.B1));
   ok('reject with a reason: the app sees "rejected" and why', rej.status === 'rejected' && stB.status === 'rejected' && stB.reason === 'TEST: blurry photos', JSON.stringify(stB));
   ok('a decided pack takes no more photos', /That pack was already rejected/.test((await image('AC02', pb, 'B1')).e || ''));
   // hand upload
@@ -209,7 +214,8 @@ const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.fr
   const imgData = j(await as(tok('PUB'), `select public.cl_market_pack_image_data($1, 'C1') j`, [p2.uid]));
   ok('the photo data is there for the Edge Function (Market Publishing only)', imgData.image === p2.images.C1 && imgData.thumb === p2.thumbs.C1 &&
     /Not authorized/.test(j(await as(tok('REV'), `select public.cl_market_pack_image_data($1, 'C1') j`, [p2.uid])).e || ''));
-  const urls = { C1: { image_url: 'https://x/listing-images/SD01/' + sha(p2.images.C1) + '.webp', thumb_url: 'https://x/t1.webp' }, C2: { image_url: 'https://x/c2.webp', thumb_url: 'https://x/t2.webp' } };
+  const fileUrl = (pk, id, t) => BUCKET_URL + 'SD01/' + sha(pk.images[id]) + (t ? '-t' : '') + '.webp';
+  const urls = { C1: { image_url: fileUrl(p2, 'C1'), thumb_url: fileUrl(p2, 'C1', true) }, C2: { image_url: fileUrl(p2, 'C2'), thumb_url: fileUrl(p2, 'C2', true) } };
   const attach = (k, pk, days, items, u) => as(tok(k), `select public.cl_market_publish_attach($1, $2, $3, $4) j`, [pk.uid, days, items, JSON.stringify(u || urls)]).then(j);
   const t0 = Date.now();
   const at = await attach('PUB', p2, 3, ['C1', 'C2']);
@@ -217,6 +223,9 @@ const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.fr
   ok('published: 2 listings; expires_at = now + 3 days; 3 days used; 0 left', at.published === 2 && Math.abs(exp - (t0 + 3 * 86400000)) < 60000 && at.days_used === 3 && at.available_after === 0, JSON.stringify(at));
   const pubRows = await as(null, `select product_name, image_url, thumb_url, expires_at from vendor_listings where status = 'published' and expires_at > now()`);
   ok('the public (iTred) read sees them, with photo and thumbnail URLs', pubRows.r && pubRows.r.length === 2 && pubRows.r.every((x) => x.thumb_url && x.image_url), JSON.stringify(pubRows).slice(0, 300));
+  ok('PHOTOS: once published (the photos are in Storage), the pack keeps only its checksums', JSON.stringify(await photoState(p2.uid)) === JSON.stringify({ n: 3, with_data: 0, with_thumb: 0, with_sha: 3 }) ||
+    JSON.stringify(await photoState(p2.uid)) === JSON.stringify({ n: 2, with_data: 0, with_thumb: 0, with_sha: 2 }), JSON.stringify(await photoState(p2.uid)));
+  ok('PHOTOS: nothing to delete from the bucket on a first publish', at.photos_to_delete === 0 && (await q(`select count(*)::int c from cl_listing_photo_trash`))[0].c === 0);
   ok('a double click publishes once', (await attach('PUB', p2, 3, ['C1', 'C2'])).duplicate === true && (await q(`select count(*)::int c from vendor_listings where pack_id = $1`, [p2.uid]))[0].c === 2 &&
     (await bal(null, sd1)).used_days === 3);
   const st2 = (await status('SD01'))[0];
@@ -224,7 +233,15 @@ const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.fr
   // republish while live: replaces the listing, keeps the expiry, uses no days
   const p3 = makePack('SD01', [{ id: 'D1' }], { no: 'MKT0004' });
   await sendAll('SD01', p3);
-  const at3 = await attach('PUB', p3, 0, ['D1'], { D1: { image_url: 'https://x/d1.webp', thumb_url: 'https://x/d1t.webp' } });
+  const at3 = await attach('PUB', p3, 0, ['D1'], { D1: { image_url: urls.C1.image_url, thumb_url: urls.C1.thumb_url } });
+  const trash1 = (await q(`select path, reason from cl_listing_photo_trash where done_at is null order by path`)).map((r) => r.path);
+  ok('PHOTOS: a replaced listing\'s files are queued for deletion from the bucket, except a file the new listing still uses',
+    at3.photos_to_delete === 2 && JSON.stringify(trash1) === JSON.stringify(['SD01/' + sha(p2.images.C2) + '-t.webp', 'SD01/' + sha(p2.images.C2) + '.webp'].sort()), JSON.stringify([at3, trash1]));
+  const tl = j(await as(tok('PUB'), `select public.cl_market_photo_trash(100) j`));
+  ok('PHOTOS: the Edge Function reads the queue (Market Publishing only) and marks files done', tl.length === 2 &&
+    /Not authorized/.test(j(await as(tok('REV'), `select public.cl_market_photo_trash(100) j`)).e || '') &&
+    (await as(tok('PUB'), `select public.cl_market_photo_trash_done($1) j`, ['{' + tl.map((x) => x.id).join(',') + '}'])).r[0].j === 2 &&
+    j(await as(tok('PUB'), `select public.cl_market_photo_trash(100) j`)).length === 0);
   const live3 = { r: await q(`select l.product_name from vendor_listings l join vendors v on v.id = l.vendor_id where v.install_id = 'SD01' and l.status = 'published' and l.expires_at > now()`) };
   ok('republish while live: the whole listing is replaced, the expiry carries over, no days used', at3.published === 1 && Math.abs(Date.parse(at3.expires_at) - exp) < 1000 && at3.days_used === 0 &&
     live3.r.length === 1 && (await q(`select status from cl_market_packs where id = $1`, [p2.uid]))[0].status === 'replaced', JSON.stringify([at3, live3]));
@@ -236,6 +253,8 @@ const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.fr
   ok('extend adds the days to every live row', Math.abs(Date.parse(ex.expires_at) - (exp + 2 * 86400000)) < 1000 &&
     (await q(`select count(*)::int c from vendor_listings where vendor_id = $1 and status = 'published' and abs(extract(epoch from expires_at - $2::timestamptz)) < 1`, [iv, ex.expires_at]))[0].c === 1, JSON.stringify(ex));
   const unp = j(await as(tok('PUB'), `select public.cl_market_unpublish($1, 'TEST: closing for the holidays') j`, [iv]));
+  ok('PHOTOS: unpublish queues the listing\'s files for deletion', unp.photos_to_delete === 2 &&
+    JSON.stringify((await q(`select path from cl_listing_photo_trash where done_at is null order by path`)).map((r) => r.path)) === JSON.stringify([urls.C1.thumb_url, urls.C1.image_url].map((u) => u.slice(BUCKET_URL.length)).sort()), JSON.stringify(unp));
   const bAfter = await bal(null, sd1);
   ok('unpublish: off the Market Place now, the unused whole days come back (4)', unp.days_back === 4 && bAfter.available_days === 4 + 2 &&
     (await as(null, `select count(*)::int c from vendor_listings where vendor_id = $1`, [iv])).r[0].c === 0 && (await status('SD01'))[0].status === 'unpublished', JSON.stringify([unp, bAfter]));
@@ -263,6 +282,15 @@ const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.fr
   // the old portal's path still gets 7 days
   const oldRow = (await q(`insert into vendor_listings (vendor_id, product_name, price, exported_at, published_at, status) values ($1, 'Old portal', 1, now(), now(), 'published') returning expires_at - published_at d`, [iv]))[0];
   ok('a publish that gives no expiry (the old portal) still gets 7 days', oldRow.d && (oldRow.d.days === 7 || /7 days/.test(JSON.stringify(oldRow.d))), JSON.stringify(oldRow));
+
+  // undecided over 14 days: closed and cleared at the next send
+  const old = makePack('SD02', [{ id: 'O1' }]);
+  await sendAll('SD02', old);
+  await q(`update cl_market_packs set created_at = now() - interval '15 days' where id = $1`, [old.uid]);
+  await submit('SD01', makePack('SD01', [{ id: 'O2', photo: false }], { no: 'MKT0010' }));   // any send runs the clean-up
+  const staleRow = (await q(`select status, reason from cl_market_packs where id = $1`, [old.uid]))[0];
+  ok('PHOTOS: a pack left undecided over 14 days is closed ("Not reviewed within 14 days") and its photo data cleared',
+    staleRow.status === 'rejected' && /Not reviewed within 14 days/.test(staleRow.reason) && (await photoState(old.uid)).with_data === 0, JSON.stringify(staleRow));
 
   // ---- who may ----
   ok('anonymous calls to staff functions are refused', /permission denied/.test(j(await as(null, `select public.cl_market_queue(null) j`)).e || ''));

@@ -15,6 +15,11 @@
 //    the live listing replaced, logged. A second click answers "already".
 // If step 2 fails nothing is published or charged; files already stored
 // are harmless and are overwritten next time.
+// 4. Old photo files: the database queues the files of a listing that was
+//    replaced (or taken off: POST { action: "unpublish", itred_vendor_id,
+//    reason }) unless a live listing still uses them (cl_market_photo_trash);
+//    this function deletes them from the bucket and marks them done. A file
+//    it can't delete stays queued and is tried again next time.
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -71,6 +76,32 @@ export function makeHandler(env, fetchImpl) {
       try { return { data: JSON.parse(text) }; } catch { return { error: "Unexpected answer from the database." }; }
     };
 
+    // Deletes queued old photo files from the bucket; never fails the request.
+    const sweep = async () => {
+      let deleted = 0;
+      try {
+        const t = await rpc("cl_market_photo_trash", { p_limit: 500 });
+        const rows = (t.data || []).filter((r) => /^[A-Za-z0-9_-]+\/[0-9a-f]{64}(-t)?\.webp$/.test(r.path));
+        if (!rows.length) return 0;
+        const r = await doFetch(`${env.supabaseUrl}/storage/v1/object/${BUCKET}`, {
+          method: "DELETE",
+          headers: { apikey: env.serviceKey, Authorization: `Bearer ${env.serviceKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ prefixes: rows.map((r) => r.path) }),
+        });
+        if (!r.ok) return 0;
+        const done = await rpc("cl_market_photo_trash_done", { p_ids: rows.map((r) => r.id) });
+        deleted = done.error ? 0 : rows.length;
+      } catch { /* stays queued */ }
+      return deleted;
+    };
+
+    if (body.action === "unpublish") {
+      const un = await rpc("cl_market_unpublish", { p_itred_vendor_id: body.itred_vendor_id ?? null, p_reason: body.reason ?? null });
+      // a refused call by staff with the permission still clears the queue
+      if (un.error) { if (un.status !== 401 && un.status !== 403) await sweep(); return json(un.status === 401 || un.status === 403 ? 403 : 400, { error: un.error }); }
+      return json(200, Object.assign({}, un.data, { photos_deleted: await sweep() }));
+    }
+
     const prep = await rpc("cl_market_publish_prepare", { p_pack_id: body.pack_id ?? null, p_days: days, p_items: items });
     if (prep.error) return json(prep.status === 401 || prep.status === 403 ? 403 : 400, { error: prep.error });
     const install = String(prep.data.itred_install_id || "").replace(/[^A-Za-z0-9_-]/g, "");
@@ -108,6 +139,6 @@ export function makeHandler(env, fetchImpl) {
 
     const att = await rpc("cl_market_publish_attach", { p_pack_id: body.pack_id, p_days: days, p_items: items, p_urls: urls });
     if (att.error) return json(400, { error: att.error });
-    return json(200, att.data);
+    return json(200, Object.assign({}, att.data, { photos_deleted: await sweep() }));
   };
 }

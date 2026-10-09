@@ -9,6 +9,9 @@
 //     listing rows carry those URLs; days used
 //   * a Storage failure publishes nothing and charges nothing
 //   * a second click answers "already published"
+//   * old photo files: a republish deletes the replaced listing's files from
+//     the bucket (except one the new listing reuses), Unpublish deletes the
+//     rest; a failed delete stays queued and goes next time
 //   * the service-role key never appears in any response
 "use strict";
 const assert = require("assert");
@@ -45,14 +48,15 @@ const webp = (seed)=> "data:image/webp;base64," + Buffer.concat([Buffer.from("RI
 
   // the fake Supabase: RPCs run in PGlite with the caller's claims; Storage records
   const stored = {}, calls = [];
-  let storageDown = false;
+  let storageDown = false, deleteDown = false;
+  const deletes = [];
   async function rpc(name, body, c){
     const keys = Object.keys(body);
-    const casts = { p_pack_id:"::uuid", p_pack_uid:"::uuid", p_days:"::integer", p_items:"::text[]", p_urls:"::jsonb", p_vendor_id:"::uuid", p_business_id:"::uuid", p_qty:"::integer", p_amount:"::numeric", p_coa_account_id:"::uuid" };
+    const casts = { p_pack_id:"::uuid", p_pack_uid:"::uuid", p_days:"::integer", p_items:"::text[]", p_urls:"::jsonb", p_vendor_id:"::uuid", p_business_id:"::uuid", p_qty:"::integer", p_amount:"::numeric", p_coa_account_id:"::uuid", p_ids:"::bigint[]", p_limit:"::integer", p_itred_vendor_id:"::uuid" };
     const vals = keys.map((k)=> k === "p_items" ? "{" + body[k].map((x)=> '"' + x + '"').join(",") + "}" : k === "p_urls" ? JSON.stringify(body[k]) : body[k]);
     await pg.exec("set role " + (c ? "authenticated" : "anon"));
     await pg.query("select set_config('request.jwt.claims', $1, false)", [c ? JSON.stringify(c) : ""]);
-    try{ return { status:200, json:(await pg.query(`select public.${name}(${keys.map((k, i)=> `${k}=>$${i+1}${casts[k] || ""}`).join(",")})::json j`, vals)).rows[0].j }; }
+    try{ return { status:200, json:(await pg.query(`select to_json(public.${name}(${keys.map((k, i)=> `${k}=>$${i+1}${casts[k] || ""}`).join(",")})) j`, vals)).rows[0].j }; }
     catch(e){ return { status: /permission denied|42501/.test(e.message + e.code) ? 403 : 400, json:{ message:e.message } }; }
     finally{ await pg.exec("reset role"); await pg.query("select set_config('request.jwt.claims', '', false)"); }
   }
@@ -64,6 +68,12 @@ const webp = (seed)=> "data:image/webp;base64," + Buffer.concat([Buffer.from("RI
       const c = JSON.parse(Buffer.from(auth.split(".")[1], "base64url").toString());
       const r = await rpc(m[1], JSON.parse(opts.body), c);
       return new Response(JSON.stringify(r.json), { status:r.status });
+    }
+    if(/\/storage\/v1\/object\/listing-images$/.test(url) && opts.method === "DELETE"){
+      deletes.push({ auth, prefixes: JSON.parse(opts.body).prefixes });
+      if(deleteDown) return new Response("{}", { status:500 });
+      for(const p of JSON.parse(opts.body).prefixes) delete stored[p];
+      return new Response("[]", { status:200 });
     }
     m = /\/storage\/v1\/object\/listing-images\/(.+)$/.exec(url);
     if(m){
@@ -151,6 +161,44 @@ const webp = (seed)=> "data:image/webp;base64," + Buffer.concat([Buffer.from("RI
     assert.strictEqual(Object.keys(stored).length, before);
     assert.strictEqual((await q(`select count(*)::int c from vendor_listings`))[0].c, 2);
   });
+  // a second pack: A1 again (the same photo, so the same file) + a new B1
+  const images2 = { A1: images.A1, B1: webp("b1") };
+  const header2 = JSON.stringify({ format:"seigen.market_export", format_version:2, export_no:"MKT0002",
+    vendor:{ install_id:"SD01", business_name:"Shop One", whatsapp_number:null, city:"Harare" },
+    listings:[{ source_product_id:"A1", product_name:"Sugar", price:2, currency:"USD", category:null, stock_quantity:3, exported_at:new Date().toISOString(), image_sha256: sha(images2.A1) },
+              { source_product_id:"B1", product_name:"Beans", price:1, currency:"USD", category:null, stock_quantity:3, exported_at:new Date().toISOString(), image_sha256: sha(images2.B1) }] });
+  const uid2 = crypto.randomUUID();
+  await dev("cl_device_pack_submit", { p_install_id:"SD01", p_secret_phrase:"Shop Phrase", p_device_key:deviceKey, p_pack_uid:uid2, p_header:header2, p_header_sha256:sha(header2) });
+  for(const id of ["A1", "B1"]) await dev("cl_device_pack_image", { p_install_id:"SD01", p_secret_phrase:"Shop Phrase", p_device_key:deviceKey, p_pack_uid:uid2, p_source_product_id:id, p_image_webp:images2[id], p_thumb_webp: id === "A1" ? thumbs.A1 : null });
+
+  await t("republish: the replaced listing's old files are deleted from the bucket (with the service key), except the one the new listing reuses", async ()=>{
+    const r = await call("PUB", { pack_id:uid2, days:0, items:["A1", "B1"] });
+    assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+    assert.strictEqual(r.body.photos_to_delete, 1); assert.strictEqual(r.body.photos_deleted, 1);
+    assert.deepStrictEqual(deletes[deletes.length - 1].prefixes, ["SD01/" + sha(images.A2) + ".webp"]);
+    assert.strictEqual(deletes[deletes.length - 1].auth, SERVICE_KEY);
+    assert.ok(stored["SD01/" + sha(images.A1) + ".webp"] && stored["SD01/" + sha(images.A1) + "-t.webp"], "A1's files kept: the new listing uses them");
+    assert.ok(!stored["SD01/" + sha(images.A2) + ".webp"], "A2's file deleted");
+    assert.strictEqual((await q(`select count(*)::int c from cl_listing_photo_trash where done_at is null`))[0].c, 0);
+    assert.strictEqual((await q(`select count(image_webp)::int c from cl_market_pack_images where pack_id = $1`, [uid2]))[0].c, 0, "the pack's photo data cleared once in Storage");
+  });
+  await t("unpublish through the function: off now, days back, and the listing's files deleted; a failed delete stays queued and goes next time", async ()=>{
+    const iv = (await q(`select id from vendors where install_id = 'SD01'`))[0].id;
+    deleteDown = true;
+    const r = await call("PUB", { action:"unpublish", itred_vendor_id:iv, reason:"TEST: closing" });
+    deleteDown = false;
+    assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+    assert.strictEqual(r.body.photos_to_delete, 3); assert.strictEqual(r.body.photos_deleted, 0);
+    assert.strictEqual((await q(`select count(*)::int c from cl_listing_photo_trash where done_at is null`))[0].c, 3, "still queued after a failed delete");
+    // the next call sweeps them (any publish or unpublish); here: a refused unpublish still sweeps nothing, so publish-side sweep is used
+    const r2 = await call("REV", { action:"unpublish", itred_vendor_id:iv, reason:"TEST" });
+    assert.strictEqual(r2.status, 403);
+    const sweepCall = await call("PUB", { action:"unpublish", itred_vendor_id:iv, reason:"TEST again" });
+    assert.strictEqual(sweepCall.status, 400); assert.match(sweepCall.body.error, /no live listing/);
+    assert.strictEqual((await q(`select count(*)::int c from cl_listing_photo_trash where done_at is null`))[0].c, 0, "the next call deleted them");
+    assert.deepStrictEqual(Object.keys(stored).filter((k)=> k.startsWith("SD01/")), [], "no files of the taken-off listing left");
+  });
+
   await t("the service-role key is in no response", async ()=>{
     assert.ok(responses.length >= 7);
     for(const text of responses) assert.ok(!text.includes(SERVICE_KEY));

@@ -15,6 +15,8 @@ begin
   end if;
 end $$;
 
+drop function if exists public.cl_market_photo_trash_done(bigint[]);
+drop function if exists public.cl_market_photo_trash(integer);
 drop function if exists public.cl_market_published();
 drop function if exists public.cl_market_unpublish(uuid, text);
 drop function if exists public.cl_market_extend(uuid, integer, text);
@@ -41,6 +43,8 @@ drop function if exists public.cl_market_pack_put_image(uuid, uuid, text, text, 
 drop function if exists public.cl_market_pack_open(uuid, cl_vendors, jsonb, text, uuid);
 drop function if exists public.cl_market_listing_problem(jsonb);
 drop function if exists public.cl_market_check_header(text, text, text);
+drop function if exists public.cl_listing_photos_to_trash(uuid[], text);
+drop function if exists public.cl_market_purge_photos();
 drop function if exists public.cl_token_balance_of(uuid, uuid);
 
 create or replace function public.cl_vendor_delete_guard() returns trigger
@@ -101,6 +105,7 @@ begin
   return old;
 end $fn$;
 
+drop table public.cl_listing_photo_trash;
 drop table public.cl_market_pack_images;
 drop table public.cl_market_packs;
 drop table public.cl_token_uses;
