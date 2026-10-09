@@ -221,11 +221,12 @@
   // layer only supplies which products, the photos it optimised, and the
   // two one-time settings (city, currency).
   const MARKET_FILE_FORMAT = "seigen.market_export";
-  const MARKET_FILE_VERSION = 1;
+  const MARKET_FILE_VERSION = 2;          // v2 (build v15): pack_uid + a 100x100 thumbnail per photo
   const MARKET_FILE_EXT = ".scl";
   const MARKET_WHATSAPP = "+263789487287"; // Digital Commerce marketing line (same number as Help → About)
   const MARKET_LISTING_DAYS = 7;           // vendor_listings expiry: published_at + 7 days
   const MARKET_MAX_IMAGE_CHARS = 150000;   // a 200x200 WebP is ~5-30 KB; anything far bigger isn't one
+  const MARKET_MAX_THUMB_CHARS = 20000;    // a 100x100 WebP thumbnail (iTred lists show thumbnails only)
   const MARKET_IMAGE_PREFIX = "data:image/webp;base64,";
 
   function marketFileName(exportNo, shopName, date){
@@ -245,6 +246,19 @@
   function marketValidImage(v){
     return typeof v==="string" && v.indexOf(MARKET_IMAGE_PREFIX)===0 && v.length<=MARKET_MAX_IMAGE_CHARS
       && /^[A-Za-z0-9+/=]+$/.test(v.slice(MARKET_IMAGE_PREFIX.length));
+  }
+  function marketValidThumb(v){
+    return typeof v==="string" && v.indexOf(MARKET_IMAGE_PREFIX)===0 && v.length<=MARKET_MAX_THUMB_CHARS
+      && /^[A-Za-z0-9+/=]+$/.test(v.slice(MARKET_IMAGE_PREFIX.length));
+  }
+  // A v4 UUID for the pack (the server answers a resend of the same pack
+  // with "already have it", so a pack is never sent twice).
+  function marketUuid(){
+    if(typeof crypto!=="undefined" && crypto.randomUUID) return crypto.randomUUID();
+    const b = new Uint8Array(16); crypto.getRandomValues(b);
+    b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, x=> x.toString(16).padStart(2,"0")).join("");
+    return h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20);
   }
   function marketVendorIdentity(){
     return {
@@ -271,10 +285,12 @@
         stock_quantity: Math.max(0, r3(p.stock)),
         exported_at: o.exportedAt,
         image_webp: o.images[p.id] || null,
+        thumb_webp: (o.images[p.id] && o.thumbs && o.thumbs[p.id]) || null,
       };
     });
     return {
       format: MARKET_FILE_FORMAT, format_version: MARKET_FILE_VERSION,
+      pack_uid: o.packUid,
       export_no: formatDocNo("MKT", o.exportNo),
       created_iso: o.createdIso,
       exported_at: o.exportedAt,
@@ -332,16 +348,21 @@
     const products = ids.map(id=>byId.get(id)).filter(Boolean);
     // Checked before a number is reserved, so a bad product doesn't burn one.
     if(products.some(p=>!String(p.name||"").trim())) throw new Error("A selected product has no name. Give it a name in Products first.");
-    const images = {};
+    const images = {}, thumbs = {};
     const sent = (args.images && typeof args.images==="object")? args.images : {};
-    for(const p of products){ if(marketValidImage(sent[p.id])) images[p.id] = sent[p.id]; }
+    const sentThumbs = (args.thumbs && typeof args.thumbs==="object")? args.thumbs : {};
+    for(const p of products){
+      if(marketValidImage(sent[p.id])) images[p.id] = sent[p.id];
+      if(images[p.id] && marketValidThumb(sentThumbs[p.id])) thumbs[p.id] = sentThumbs[p.id];
+    }
 
     setSetting("market_city", city);
     setSetting("market_currency", cur);
     vendor.city = city;
     const now = new Date();
     const { n } = reserveDocNumber("MKT");
-    const doc = marketBuildDoc({ products, images, currency:cur, vendor, exportNo:n,
+    const packUid = marketUuid();
+    const doc = marketBuildDoc({ products, images, thumbs, currency:cur, vendor, exportNo:n, packUid,
       createdIso: localIso(now), exportedAt: now.toISOString() });
     doc.checksum = await marketChecksum(doc);
     const text = JSON.stringify(doc);
@@ -352,8 +373,122 @@
       [branch, doc.export_no, fileName, doc.totals.listings, doc.totals.with_image, text.length, doc.checksum, now.toISOString()]);
     await persist();
     await mkfPut(branch, { exportNo:doc.export_no, fileName, text });
+    marketSetSend({ exportNo:doc.export_no, packUid, state:"ready" });
+    await persist();
     return marketStatus();
   }
+
+  // ================== Send to seiGEN (market publishing, 20261016120000) ==================
+  // The pack goes to Digital Commerce's Market Publishing queue in pieces,
+  // with this device's own check (install ID + phrase + device key):
+  // cl_device_pack_submit sends it without photos (the server answers which
+  // photos it still needs), then cl_device_pack_image one product's photo +
+  // thumbnail at a time. Offline-first and resumable: a dropped connection
+  // leaves it "waiting" and the next try (on reconnect, after a check-in, or
+  // a tap) sends only what's missing. The same pack_uid every time, so it's
+  // never received twice. The server's decision (in review, published until
+  // …, not published + why, expired) comes back through cl_device_pack_status.
+  //   setting market_send:<branch> = { exportNo, packUid, state, received, expected, message, server, serverTs }
+  //   state: ready | waiting | sending | sent | error
+  function marketSendKey(){ return "market_send:" + currentBranch(); }
+  function marketSendState(){ try{ return JSON.parse(getSetting(marketSendKey(),"")||"null") || {}; }catch(e){ return {}; } }
+  function marketSetSend(st){ setSetting(marketSendKey(), JSON.stringify(st)); }
+  function marketSendProblemText(r){
+    const m = String((r && r.message) || "");
+    if(/not registered/i.test(m)) return "This device isn't registered with Digital Commerce yet. Finish registering in More → Settings, then tap Send again.";
+    if(/does not match|another device/i.test(m)) return "Digital Commerce has a different activation phrase for this device. Check it in More → Settings.";
+    if(/at most 200/i.test(m)) return "A pack holds at most 200 products. Untick some and prepare it again.";
+    if(/arrived damaged/i.test(m)) return "Part of the pack arrived damaged. Tap Send again.";
+    return m || "Digital Commerce couldn't take the pack. Try again.";
+  }
+  let _marketSending = null;
+  // Sends the waiting pack, if any. One at a time; safe to call any time.
+  function marketSendTick(){
+    if(_marketSending) return _marketSending;
+    _marketSending = (async ()=>{
+      let st = marketSendState();
+      if(st.state!=="waiting" && st.state!=="sending") return st;
+      if(typeof terminalRpc!=="function" || !isOnline()){ if(st.state!=="waiting"){ st.state = "waiting"; marketSetSend(st); await persist(); } return st; }
+      const rec = await mkfGet(currentBranch());
+      if(!rec || rec.exportNo!==st.exportNo){ st.state = "error"; st.message = "The file for "+st.exportNo+" isn't on this device any more. Prepare a fresh file."; marketSetSend(st); await persist(); return st; }
+      let doc; try{ doc = JSON.parse(rec.text); }catch(e){ doc = null; }
+      if(!doc){ st.state = "error"; st.message = "The file is damaged. Prepare a fresh file."; marketSetSend(st); await persist(); return st; }
+      // The pack without photos: each photo replaced by its sha256.
+      const photos = {};
+      const listings = [];
+      for(const l of doc.listings){
+        const c = Object.assign({}, l); delete c.image_webp; delete c.thumb_webp;
+        c.image_sha256 = l.image_webp? await sha256Hex(l.image_webp) : null;
+        if(l.image_webp) photos[l.source_product_id] = { image:l.image_webp, thumb:l.thumb_webp||null };
+        listings.push(c);
+      }
+      const header = JSON.stringify({ format:doc.format, format_version:doc.format_version, pack_uid:st.packUid, export_no:doc.export_no,
+        created_iso:doc.created_iso, exported_at:doc.exported_at, vendor:doc.vendor, listings, totals:doc.totals });
+      st.state = "sending"; st.expected = Object.keys(photos).length; marketSetSend(st);
+      const r = await terminalRpc("cl_device_pack_submit", Object.assign(terminalAuth(), { p_pack_uid:st.packUid, p_header:header, p_header_sha256: await sha256Hex(header) }), { timeoutMs:30000 });
+      if(!r.ok && (r.reason==="offline" || r.reason==="network")){ st.state = "waiting"; marketSetSend(st); await persist(); return st; }
+      if(!r.ok){ st.state = "error"; st.message = marketSendProblemText(r); marketSetSend(st); await persist(); return st; }
+      const missing = (r.data && r.data.missing) || [];
+      st.received = st.expected - missing.length; marketSetSend(st);
+      for(const id of missing){
+        const p = photos[id];
+        if(!p) continue;
+        const ri = await terminalRpc("cl_device_pack_image", Object.assign(terminalAuth(), { p_pack_uid:st.packUid, p_source_product_id:id, p_image_webp:p.image, p_thumb_webp:p.thumb }), { timeoutMs:30000 });
+        if(!ri.ok && (ri.reason==="offline" || ri.reason==="network")){ st.state = "waiting"; marketSetSend(st); await persist(); return st; }
+        if(!ri.ok){
+          if(/already/i.test(ri.message||"")) break;   // decided meanwhile (e.g. replaced): nothing more to send
+          st.state = "error"; st.message = marketSendProblemText(ri); marketSetSend(st); await persist(); return st;
+        }
+        st.received = (ri.data && ri.data.received) || (st.received + 1); marketSetSend(st);
+      }
+      st.state = "sent"; st.message = ""; st.sentTs = new Date().toISOString(); marketSetSend(st);
+      const row = one("SELECT * FROM market_exports WHERE branch=? ORDER BY id DESC LIMIT 1",[currentBranch()]);
+      if(row && row.export_no===st.exportNo && row.status!=="sent") run("UPDATE market_exports SET status='sent', sent_ts=? WHERE id=?",[st.sentTs, row.id]);
+      logAudit("Market pack sent", st.exportNo, (st.expected||0) + " photos");
+      await persist();
+      await marketRefreshServer(true);
+      return marketSendState();
+    })().catch(()=> marketSendState()).finally(()=>{ _marketSending = null; });
+    return _marketSending;
+  }
+  // The decision on the pack, from Digital Commerce (at most every 15
+  // minutes unless asked).
+  async function marketRefreshServer(force){
+    const st = marketSendState();
+    if(st.state!=="sent" || !st.packUid || typeof terminalRpc!=="function") return st;
+    const last = Date.parse(st.serverTs||"") || 0;
+    if(!force && Date.now() - last < 15*60000) return st;
+    const r = await terminalRpc("cl_device_pack_status", terminalAuth());
+    if(!r.ok || !Array.isArray(r.data)) return st;
+    const mine = r.data.find(p=> p.pack_uid===st.packUid);
+    const now = marketSendState();
+    if(mine){ now.server = { status:mine.status, reason:mine.reason||"", expires_at:mine.expires_at||"", published_count:mine.published_count||0,
+      received:mine.received, expected:mine.expected }; }
+    now.serverTs = new Date().toISOString();
+    marketSetSend(now); await persist();
+    return now;
+  }
+  // Called after every successful check-in (devicecheckin.js) and on reconnect.
+  function marketAfterCheckin(){
+    return marketSendTick().then(()=> marketRefreshServer(false)).catch(()=>{});
+  }
+  async function marketSendToSeigen(){
+    const s = marketStatus();
+    if(s.state==="not_exported") throw new Error("Prepare the file first.");
+    if(!dcIsRegistered()) throw new Error("This device isn't registered with Digital Commerce yet. " + marketRegistrationAdvice());
+    let st = marketSendState();
+    if(st.exportNo!==s.exportNo || !st.packUid){
+      const rec = await mkfGet(currentBranch());
+      let uid = ""; try{ uid = JSON.parse(rec.text).pack_uid || ""; }catch(e){}
+      st = { exportNo:s.exportNo, packUid: uid || marketUuid(), state:"ready" };
+    }
+    if(st.state==="sent") return marketStatus();
+    st.state = "waiting"; st.message = isOnline()? "" : "Saved. It will send when you're online.";
+    marketSetSend(st); await persist();
+    await marketSendTick();
+    return marketStatus();
+  }
+  if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", ()=>{ marketSendTick(); });
 
   // not_exported -> exported (file built, timestamp) -> sent (the shop says
   // so: nothing can see a WhatsApp send succeed). A new export starts over
@@ -363,7 +498,13 @@
     if(!row) return { state:"not_exported" };
     const out = { state:row.status, exportNo:row.export_no, fileName:row.file_name, productCount:row.product_count,
       imageCount:row.image_count, exportedTs:row.exported_ts, sentTs:row.sent_ts||"", expiresTs:"", expiring:false };
-    if(row.status==="sent" && row.sent_ts){
+    const send = marketSendState();
+    if(send.exportNo===row.export_no) out.send = send;
+    if(out.send && out.send.state==="sent"){
+      // the server's word decides from here: published until …, expired, …
+      const sv = out.send.server || {};
+      if(sv.expires_at){ out.expiresTs = sv.expires_at; out.expiring = sv.status==="expired" || Date.now() >= Date.parse(sv.expires_at); }
+    } else if(row.status==="sent" && row.sent_ts){
       const exp = new Date(new Date(row.sent_ts).getTime() + MARKET_LISTING_DAYS*86400000);
       out.expiresTs = exp.toISOString();
       out.expiring = Date.now() >= exp.getTime();
@@ -428,6 +569,8 @@
     buildExport: (args)=> marketBuildExport(args),
     getStatus: ()=> marketStatus(),
     shareExport: ()=> marketShareExport(),
+    sendToSeigen: ()=> marketSendToSeigen(),
+    refreshSend: async ()=>{ await marketSendTick(); await marketRefreshServer(true); return marketStatus(); },
     openWhatsAppChat: ()=>{ openExternalUrl(waLink(MARKET_WHATSAPP, marketWhatsAppText())); return true; },
     markSent: ()=> marketMarkSent(),
   };

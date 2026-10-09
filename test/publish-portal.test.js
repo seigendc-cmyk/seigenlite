@@ -218,7 +218,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
   await t("not an .scl file, the wrong version, or no products: refused with a plain reason", async ()=>{
     assert.match(parseScl("{not json").fileProblems[0], /isn't readable JSON/);
     assert.match(parseScl(JSON.stringify({ format:"seigen.dn" })).fileProblems[0], /isn't a marketing export/);
-    assert.match(parseScl(JSON.stringify({ format:"seigen.market_export", format_version:2 })).fileProblems[0], /format version 2/);
+    assert.match(parseScl(JSON.stringify({ format:"seigen.market_export", format_version:3 })).fileProblems[0], /format version 3; the portal reads versions 1 and 2/);
     assert.ok(parseScl(await makeScl({ products:[], images:{} })).fileProblems.some(x=> /no products/.test(x)));
   });
 

@@ -399,7 +399,7 @@ const APP_VERSION = "1.09.01";
   let screen = "picker";   // "picker" | "export"
   let status = { state:"not_exported" }; // from the core app: see marketStatus() in src/marketing.js
   let shareNote = "";      // what happened on the last Send tap, in plain words
-  let showChatButton = false;
+  let showChatButton = false;   // (build v14 and older: the WhatsApp hand-off)
   let busy = false;
   let setupInfo = { marketWhatsApp:"" }; // shop identity + saved city/currency, from the core app
 
@@ -562,67 +562,110 @@ const APP_VERSION = "1.09.01";
     return isNaN(d)? "" : d.toLocaleDateString(undefined, { day:"numeric", month:"short", year:"numeric" })
       + " " + d.toLocaleTimeString(undefined, { hour:"2-digit", minute:"2-digit" });
   };
+  // The pack's state. Send to seiGEN (build v15) sends it to Digital
+  // Commerce's Market Publishing queue; the decision comes back from there.
+  // "Save file" keeps the old way as a backup (Digital Commerce can upload a
+  // saved file by hand).
   function statusCardHtml(){
     const s = status;
     const note = shareNote? `<p class="muted mk-share-note" id="mkShareNote">${escapeHtml(shareNote)}</p>` : "";
-    const chat = showChatButton? `<button class="btn btn-sm btn-outline" id="mkOpenChat">Open WhatsApp chat</button>` : "";
     if(s.state==="not_exported"){
       return `<div class="card mk-status" data-state="not_exported"><p class="mk-status-line"><span class="pill mk-pill-muted">Not exported</span>
-        No listing file sent yet. Choose products below, then Continue to export.</p></div>`;
+        No pack sent yet. Choose products below, then Continue to export.</p></div>`;
     }
     const counts = `${s.productCount} product${s.productCount===1?"":"s"}, ${s.imageCount} with photo`;
-    if(s.state==="exported"){
-      return `<div class="card mk-status" data-state="exported">
-        <p class="mk-status-line"><span class="pill">Exported</span> <b>${escapeHtml(s.exportNo)}</b> · ${escapeHtml(fmtDate(s.exportedTs))}</p>
-        <p class="muted">${escapeHtml(counts)}. Not sent yet: send it to Digital Commerce on WhatsApp, then tap “I've sent it”.</p>
-        <div class="mk-actions">
-          <button class="btn btn-sm btn-primary" id="mkSend">Send via WhatsApp</button>
-          ${chat}
-          <button class="btn btn-sm btn-outline" id="mkMarkSent">I've sent it</button>
-        </div>${note}</div>`;
+    const head = (pill, cls)=> `<p class="mk-status-line"><span class="pill ${cls||""}">${pill}</span> <b>${escapeHtml(s.exportNo)}</b> · ${escapeHtml(fmtDate(s.exportedTs))}</p>`;
+    const save = `<button class="btn btn-sm btn-outline" id="mkSaveFile">Save file</button>`;
+    const fresh = `<button class="btn btn-sm btn-primary" id="mkRefresh">Prepare a fresh pack</button>`;
+    const check = `<button class="btn btn-sm btn-ghost" id="mkCheckStatus">Check status</button>`;
+    const sd = s.send || null;
+    // a pack shared by hand before build v15 (no Send to seiGEN record)
+    if(!sd && s.state==="sent"){
+      if(s.expiring) return `<div class="card mk-status mk-expiring" data-state="expiring">${head("Expired")}<p class="muted">Listings last for the days paid; this one's due now. Prepare a fresh pack and send it to seiGEN.</p><div class="mk-actions">${fresh}</div></div>`;
+      return `<div class="card mk-status" data-state="sent">${head("Sent", "ok")}<p class="muted">${escapeHtml(counts)}. Shared by hand on ${escapeHtml(fmtDate(s.sentTs))}.</p><div class="mk-actions">${fresh}</div>${note}</div>`;
     }
-    if(s.expiring){
-      return `<div class="card mk-status mk-expiring" data-state="expiring">
-        <p class="mk-status-line"><b>Listing expiring — re-send</b></p>
-        <p class="muted">${escapeHtml(s.exportNo)} was sent on ${escapeHtml(fmtDate(s.sentTs))}. iTred listings last 7 days, so it's due now.
-          Prepare a fresh file (current prices and stock) and send it again.</p>
-        <div class="mk-actions"><button class="btn btn-sm btn-primary" id="mkRefresh">Prepare a fresh file</button></div></div>`;
+    const st = sd? sd.state : "ready";
+    if(st==="ready" || !st){
+      return `<div class="card mk-status" data-state="exported">${head("Ready")}
+        <p class="muted">${escapeHtml(counts)}. Send it to Digital Commerce; they review it and put it on the iTred Market Place.</p>
+        <div class="mk-actions"><button class="btn btn-sm btn-primary" id="mkSendSeigen">Send to seiGEN</button>${save}</div>${note}</div>`;
     }
-    return `<div class="card mk-status" data-state="sent">
-      <p class="mk-status-line"><span class="pill ok">Sent</span> <b>${escapeHtml(s.exportNo)}</b> · ${escapeHtml(fmtDate(s.sentTs))}</p>
-      <p class="muted">${escapeHtml(counts)}. Re-send reminder on ${escapeHtml(fmtDate(s.expiresTs))}.</p>
-      <div class="mk-actions"><button class="btn btn-sm btn-ghost" id="mkSend">Send again</button>${chat}</div>${note}</div>`;
+    if(st==="waiting"){
+      return `<div class="card mk-status" data-state="waiting">${head("Waiting to send")}
+        <p class="muted">Saved. It will send when you're online.</p>
+        <div class="mk-actions"><button class="btn btn-sm btn-primary" id="mkSendSeigen">Send now</button>${save}</div>${note}</div>`;
+    }
+    if(st==="sending"){
+      return `<div class="card mk-status" data-state="sending">${head("Sending…")}
+        <p class="muted">Sending to Digital Commerce: ${Number(sd.received||0)} of ${Number(sd.expected||0)} photos. You can keep working; it carries on later if the connection drops.</p></div>`;
+    }
+    if(st==="error"){
+      return `<div class="card mk-status" data-state="error">${head("Not sent")}
+        <p style="color:#b42318">${escapeHtml(sd.message||"It couldn't be sent.")}</p>
+        <div class="mk-actions"><button class="btn btn-sm btn-primary" id="mkSendSeigen">Send again</button>${save}</div>${note}</div>`;
+    }
+    const sv = sd.server || {};
+    const until = sv.expires_at? fmtDate(sv.expires_at) : "";
+    if(sv.status==="published") return `<div class="card mk-status" data-state="published">${head("Published", "ok")}
+        <p>On the iTred Market Place until <b>${escapeHtml(until)}</b> (${Number(sv.published_count||0)} products).</p>
+        <div class="mk-actions">${check}${fresh}</div></div>`;
+    if(sv.status==="rejected") return `<div class="card mk-status" data-state="rejected">${head("Not published")}
+        <p style="color:#b42318">Digital Commerce didn't publish it: ${escapeHtml(sv.reason||"no reason given")}.</p>
+        <div class="mk-actions">${fresh}</div></div>`;
+    if(sv.status==="expired") return `<div class="card mk-status mk-expiring" data-state="expired">${head("Expired")}
+        <p class="muted">The listing ended on ${escapeHtml(until)}. Prepare a fresh pack (current prices and stock) and send it; Digital Commerce extends it when you've paid for more days.</p>
+        <div class="mk-actions">${fresh}</div></div>`;
+    if(sv.status==="unpublished") return `<div class="card mk-status" data-state="unpublished">${head("Taken off")}
+        <p class="muted">Digital Commerce took the listing off iTred${sv.reason? ": "+escapeHtml(sv.reason) : ""}.</p><div class="mk-actions">${fresh}</div></div>`;
+    if(sv.status==="replaced") return `<div class="card mk-status" data-state="replaced">${head("Replaced")}
+        <p class="muted">A newer pack from your business replaced this one.</p><div class="mk-actions">${check}${fresh}</div></div>`;
+    if(sv.status==="in_review") return `<div class="card mk-status" data-state="in_review">${head("In review", "ok")}
+        <p class="muted">Digital Commerce is reviewing it (${escapeHtml(counts)}).</p><div class="mk-actions">${check}</div></div>`;
+    return `<div class="card mk-status" data-state="sent">${head("Sent", "ok")}
+        <p class="muted">Sent to Digital Commerce (${escapeHtml(counts)}). Waiting for review.</p><div class="mk-actions">${check}${save}</div>${note}</div>`;
   }
+  let _statusPoll = null;
   function refreshStatusCard(){
     const el = document.getElementById("mkStatus");
     if(el){ el.innerHTML = statusCardHtml(); wireStatusCard(); }
+    // while it's sending, keep the photo count moving
+    const busySend = status.send && (status.send.state==="sending");
+    if(busySend && !_statusPoll){
+      _statusPoll = setInterval(async ()=>{
+        try{ status = await ask("getStatus"); }catch(e){}
+        if(!(status.send && status.send.state==="sending")){ clearInterval(_statusPoll); _statusPoll = null; }
+        const el2 = document.getElementById("mkStatus");
+        if(el2){ el2.innerHTML = statusCardHtml(); wireStatusCard(); }
+      }, 1200);
+    }
   }
-  // What each share outcome means for the shop, in the words the Delivery
-  // Note screen already uses.
+  // What "Save file" did, in plain words.
   function shareOutcomeText(r){
-    if(r.method==="shared") return "Shared. If you picked WhatsApp, check it went to Digital Commerce ("+setupInfo.marketWhatsApp+"), then tap “I've sent it”.";
-    if(r.method==="cancelled") return "Sharing was cancelled. Nothing was sent.";
-    if(r.method==="saved-folder") return "Saved to "+r.path+". The folder and a WhatsApp chat with Digital Commerce have been opened: attach the file there, send it, then tap “I've sent it”.";
-    return "This device can't share files directly, so the file was downloaded. Tap Open WhatsApp chat, then attach (📎) → Document and pick the file from your Downloads. Tap “I've sent it” once it's sent.";
+    if(r.method==="shared") return "Shared. Keep it as a backup; Digital Commerce can upload it by hand if needed.";
+    if(r.method==="cancelled") return "Saving was cancelled.";
+    if(r.method==="saved-folder") return "Saved to "+r.path+".";
+    return "Downloaded to this device's Downloads folder.";
   }
   function wireStatusCard(){
-    const send = document.getElementById("mkSend");
+    const send = document.getElementById("mkSendSeigen");
     if(send) send.onclick = async ()=>{
-      send.disabled = true;
-      try{
-        const r = await ask("shareExport");
-        shareNote = shareOutcomeText(r);
-        showChatButton = r.method==="downloaded";
-      }catch(e){ shareNote = e.message; }
+      send.disabled = true; shareNote = "";
+      const p = ask("sendToSeigen");
+      // show "Sending…" straight away
+      setTimeout(async ()=>{ try{ status = await ask("getStatus"); refreshStatusCard(); }catch(e){} }, 300);
+      try{ status = await p; }catch(e){ shareNote = e.message; }
       refreshStatusCard();
     };
-    const chat = document.getElementById("mkOpenChat");
-    if(chat) chat.onclick = ()=>{ ask("openWhatsAppChat").catch(()=>{}); };
-    const sent = document.getElementById("mkMarkSent");
-    if(sent) sent.onclick = async ()=>{
-      sent.disabled = true;
-      try{ status = await ask("markSent"); shareNote = ""; showChatButton = false; }
-      catch(e){ shareNote = e.message; }
+    const save = document.getElementById("mkSaveFile");
+    if(save) save.onclick = async ()=>{
+      save.disabled = true;
+      try{ shareNote = shareOutcomeText(await ask("shareExport")); }catch(e){ shareNote = e.message; }
+      refreshStatusCard();
+    };
+    const chk = document.getElementById("mkCheckStatus");
+    if(chk) chk.onclick = async ()=>{
+      chk.disabled = true;
+      try{ status = await ask("refreshSend"); }catch(e){ shareNote = e.message; }
       refreshStatusCard();
     };
     const fresh = document.getElementById("mkRefresh");
@@ -632,7 +675,7 @@ const APP_VERSION = "1.09.01";
     };
   }
 
-  // ---- photos: any stored product image -> exactly 200x200 WebP ----
+  // ---- photos: any stored product image -> exactly 200x200 WebP (+ a 100x100 thumbnail for iTred lists) ----
   // Whole photo kept (fit inside, not cropped) and centred on white, so a
   // tall bottle or a wide pack isn't cut off. Sequential, one photo in
   // memory at a time, so a 200-product export doesn't spike a cheap phone.
@@ -645,7 +688,8 @@ const APP_VERSION = "1.09.01";
     }
     return _webp;
   }
-  function optimizeImage(dataUri){
+  function optimizeImage(dataUri, size, quality){
+    const SIZE = size || IMG_SIZE, Q = quality || IMG_QUALITY;
     return new Promise(resolve=>{
       if(!dataUri || !canEncodeWebP()) return resolve(null);
       const img = new Image();
@@ -654,14 +698,14 @@ const APP_VERSION = "1.09.01";
       img.onload = ()=>{
         clearTimeout(timer);
         try{
-          const c = document.createElement("canvas"); c.width = c.height = IMG_SIZE;
+          const c = document.createElement("canvas"); c.width = c.height = SIZE;
           const g = c.getContext("2d");
-          g.fillStyle = "#fff"; g.fillRect(0, 0, IMG_SIZE, IMG_SIZE);
-          const scale = Math.min(IMG_SIZE/img.width, IMG_SIZE/img.height);
+          g.fillStyle = "#fff"; g.fillRect(0, 0, SIZE, SIZE);
+          const scale = Math.min(SIZE/img.width, SIZE/img.height);
           const w = img.width*scale, h = img.height*scale;
           g.imageSmoothingQuality = "high";
-          g.drawImage(img, (IMG_SIZE-w)/2, (IMG_SIZE-h)/2, w, h);
-          const out = c.toDataURL("image/webp", IMG_QUALITY);
+          g.drawImage(img, (SIZE-w)/2, (SIZE-h)/2, w, h);
+          const out = c.toDataURL("image/webp", Q);
           resolve(out.indexOf("data:image/webp;base64,")===0? out : null);
         }catch(e){ resolve(null); }
       };
@@ -700,7 +744,7 @@ const APP_VERSION = "1.09.01";
       <div class="card">
         <p style="margin:0"><b>${chosen.length}</b> product${chosen.length===1?"":"s"} selected${noPhoto? ` · ${noPhoto} without a photo` : ""}.</p>
         ${canEncodeWebP()? "" : `<p class="mk-warn">This browser can't make WebP photos, so the file will go without photos. Use Chrome for photos.</p>`}
-        <p class="muted" style="margin-bottom:0">Photos are resized to 200×200 on this device. Name, price, category and stock come from your Products list as they are right now.</p>
+        <p class="muted" style="margin-bottom:0">Photos are resized to 200×200 (and a 100×100 thumbnail) on this device. Name, price, category and stock come from your Products list as they are right now.</p>
       </div>
       <p class="mk-warn" id="mkExportError" style="display:none"></p>
       <div id="mkProgress" class="muted" style="margin:0 2px 10px"></div>
@@ -729,16 +773,20 @@ const APP_VERSION = "1.09.01";
     try{
       await flushSelection();
       const chosen = products.filter(p=>selected.has(p.id));
-      const images = {};
+      const images = {}, thumbs = {};
       const withPhoto = chosen.filter(p=>p.hasImage);
       for(let i=0;i<withPhoto.length;i++){
         prog.textContent = "Resizing photos… "+(i+1)+" of "+withPhoto.length;
         const src = await ask("getProductImage", { id: withPhoto[i].id });
         const out = await optimizeImage(src);
-        if(out) images[withPhoto[i].id] = out;
+        if(out){
+          images[withPhoto[i].id] = out;
+          const th = await optimizeImage(src, 100, 0.7);
+          if(th) thumbs[withPhoto[i].id] = th;
+        }
       }
       prog.textContent = "Building the file…";
-      status = await ask("buildExport", { city, currency, images });
+      status = await ask("buildExport", { city, currency, images, thumbs });
       setupInfo = await ask("getExportSetup");
       shareNote = ""; showChatButton = false;
       screen = "picker"; render();

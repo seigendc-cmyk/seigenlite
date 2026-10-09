@@ -9,6 +9,9 @@ const crypto = require("crypto");
 
 const FORMAT = "seigen.market_export";
 const FORMAT_VERSION = 1;
+// v2 (build v15) only adds pack_uid and a thumbnail per photo; this portal
+// (retiring: the Console's Market Publishing replaces it) ignores both.
+const FORMAT_VERSIONS = [1, 2];
 const MAX_PRODUCTS = 200;              // src/marketing.js MARKET_MAX_PRODUCTS
 const IMAGE_PREFIX = "data:image/webp;base64,";
 const MAX_IMAGE_CHARS = 150000;        // src/marketing.js MARKET_MAX_IMAGE_CHARS
@@ -100,7 +103,7 @@ function parseScl(text){
   let doc;
   try{ doc = JSON.parse(text); }catch(e){ return fail("This isn't a marketing export (.scl) file — it isn't readable JSON."); }
   if(!isObj(doc) || doc.format !== FORMAT) return fail("This isn't a marketing export (.scl) file.");
-  if(doc.format_version !== FORMAT_VERSION) return fail(`This file is format version ${doc.format_version}; the portal reads version ${FORMAT_VERSION}. Update the portal.`);
+  if(FORMAT_VERSIONS.indexOf(doc.format_version) === -1) return fail(`This file is format version ${doc.format_version}; the portal reads versions ${FORMAT_VERSIONS.join(" and ")}. Use the Console's Market Publishing page.`);
   const fileProblems = [];
   if(typeof doc.checksum !== "string" || checksumOf(doc) !== doc.checksum)
     fileProblems.push("The file's checksum doesn't match its contents — it was changed or damaged after the app made it. Ask the vendor to send it again.");

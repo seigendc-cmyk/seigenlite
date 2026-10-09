@@ -12,9 +12,12 @@
 //     plays the core app's side of the bridge with 205 products (adding
 //     205 products through the real UI would make this suite very slow;
 //     the core app's own cap is covered in test/marketing-bridge.test.js)
-//   * the whole export: a real uploaded photo comes out as a 200x200 WebP,
-//     the downloaded .scl matches vendors/vendor_listings, Send / Open
-//     WhatsApp chat / I've sent it, and the re-send prompt 7+ days later
+//   * the whole export: a real uploaded photo comes out as a 200x200 WebP
+//     plus a 100x100 thumbnail (pack v2), "Save file" downloads the .scl,
+//     and "Send to seiGEN" (a fake Digital Commerce answers the pack calls):
+//     offline it waits, back online it sends (photos separately, never
+//     twice), then each decision shows: in review, published until …, not
+//     published + why, expired -> a fresh pack
 //   * market.html opened on its own -> explains itself, does nothing
 "use strict";
 const assert = require("assert");
@@ -32,6 +35,8 @@ catch(e){
 }
 
 const ROOT = path.join(__dirname, "..");
+const SHOTS = process.env.SHOT_DIR || "";
+if(SHOTS) fs.mkdirSync(SHOTS, { recursive:true });
 const CORE = path.join(ROOT, "dist", "index.html");
 const MARKET = path.join(ROOT, "dist-market", "market.html");
 for(const f of [CORE, MARKET]){
@@ -219,8 +224,24 @@ async function addProduct(page, name, price, stock){
     await page.close();
   });
 
-  await t("full export: photo -> 200x200 WebP, .scl file matches vendor_listings, send, open chat, mark sent, expiry prompt after 7 days", async ()=>{
+  await t("full export: photo -> 200x200 WebP + 100x100 thumbnail (pack v2), Save file, Send to seiGEN (offline waits, then sends once), and every decision shown", async ()=>{
     const { page, pageErrors } = await setUpCore(browser, tempFolder(true));
+    const shot = async (n)=>{ if(SHOTS) await page.screenshot({ path: path.join(SHOTS, "app-" + n + ".png") }); };
+    // A fake Digital Commerce for the pack calls (routes added last win over dc-fake's).
+    const server = { submits:[], images:[], decision:null };
+    await page.route(/urbopdsubwawtybwrxjd\.supabase\.co\/rest\/v1\/rpc\/cl_device_pack_(submit|image|status)$/, async (route)=>{
+      const name = route.request().url().split("/rpc/")[1];
+      const body = JSON.parse(route.request().postData() || "{}");
+      const reply = (o)=> route.fulfill({ status:200, contentType:"application/json", body: JSON.stringify(o) });
+      if(name === "cl_device_pack_submit"){
+        server.submits.push(body);
+        const h = JSON.parse(body.p_header);
+        server.uid = body.p_pack_uid; server.want = h.listings.filter(l=>l.image_sha256).map(l=>l.source_product_id);
+        return reply({ pack_uid: body.p_pack_uid, status:"receiving", missing: server.want.filter(id=> !server.images.some(i=> i.p_source_product_id===id)) });
+      }
+      if(name === "cl_device_pack_image"){ server.images.push(body); return reply({ pack_uid: body.p_pack_uid, status:"received", received: server.images.length, expected: server.want.length }); }
+      return reply(server.decision? [Object.assign({ pack_uid: server.uid, from_this_device:true, received:1, expected:1 }, server.decision)] : []);
+    });
     // A product with a real photo, uploaded through the real Add Product form.
     const png = Buffer.from(await page.evaluate(()=>{
       const c = document.createElement("canvas"); c.width = 640; c.height = 400;
@@ -255,57 +276,105 @@ async function addProduct(page, name, price, stock){
     await frame.locator("#mkCity").fill("Harare");
     await frame.locator("#mkPrepare").click();
 
-    // Back on the picker with an Exported status card.
+    // Ready to send.
     await frame.locator('.mk-status[data-state="exported"]').waitFor({ timeout: 15000 });
-    assert.match(await frame.locator(".mk-status").textContent(), /MKT0001/);
-    assert.match(await frame.locator(".mk-status").textContent(), /2 products, 1 with photo/);
+    assert.match(await frame.locator(".mk-status").textContent(), /MKT0001[\s\S]*2 products, 1 with photo/);
+    assert.ok(await frame.locator("#mkSendSeigen").isVisible() && await frame.locator("#mkSaveFile").isVisible());
+    await shot("40-market-ready");
 
-    // Send via WhatsApp -> this browser can't share a .scl file, so it downloads.
-    const [download] = await Promise.all([ page.waitForEvent("download"), frame.locator("#mkSend").click() ]);
+    // Save file (the backup) -> this browser can't share a .scl file, so it downloads.
+    const [download] = await Promise.all([ page.waitForEvent("download"), frame.locator("#mkSaveFile").click() ]);
     assert.match(download.suggestedFilename(), /^MKT0001-TestShop-\d{2}[A-Z][a-z]{2}\d{2}-\d{4}[AP]M\.scl$/);
     const doc = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
     assert.strictEqual(doc.format, "seigen.market_export");
+    assert.strictEqual(doc.format_version, 2);
+    assert.match(doc.pack_uid, /^[0-9a-f-]{36}$/);
     assert.strictEqual(doc.vendor.business_name, "Test Shop");
     assert.strictEqual(doc.vendor.city, "Harare");
-    assert.ok(doc.vendor.install_id, "install_id present");
     assert.deepStrictEqual(doc.listings.map(l=>[l.product_name, l.price, l.currency, l.stock_quantity]),
       [["Cooking Oil 2L",4.2,"USD",8], ["Bread",1,"USD",0]]); // in the order they were ticked
     const oil = doc.listings.find(l=>l.product_name==="Cooking Oil 2L");
     assert.match(oil.image_webp, /^data:image\/webp;base64,/);
+    assert.match(oil.thumb_webp, /^data:image\/webp;base64,/);
     assert.strictEqual(doc.listings.find(l=>l.product_name==="Bread").image_webp, null);
-    const dims = await page.evaluate((src)=> new Promise(r=>{ const i = new Image(); i.onload = ()=>r([i.naturalWidth, i.naturalHeight]); i.src = src; }), oil.image_webp);
-    assert.deepStrictEqual(dims, [200, 200]);
+    const dims = (src)=> page.evaluate((src)=> new Promise(r=>{ const i = new Image(); i.onload = ()=>r([i.naturalWidth, i.naturalHeight]); i.src = src; }), src);
+    assert.deepStrictEqual(await dims(oil.image_webp), [200, 200]);
+    assert.deepStrictEqual(await dims(oil.thumb_webp), [100, 100], "a 100x100 thumbnail for iTred lists");
     await frame.locator("#mkShareNote").waitFor();
-    assert.match(await frame.locator("#mkShareNote").textContent(), /downloaded/);
-    assert.strictEqual(await frame.locator(".mk-status").getAttribute("data-state"), "exported", "sharing never marks it sent by itself");
+    assert.match(await frame.locator("#mkShareNote").textContent(), /Downloaded/);
 
-    // Open WhatsApp chat -> a wa.me chat with Digital Commerce's number.
-    const [popup] = await Promise.all([ page.waitForEvent("popup"), frame.locator("#mkOpenChat").click() ]);
-    assert.match(popup.url(), /^https:\/\/(wa\.me|api\.whatsapp\.com)\/.*263789487287/);
-    await popup.close();
+    // Send to seiGEN while offline: it waits.
+    await page.context().setOffline(true);
+    await frame.locator("#mkSendSeigen").click();
+    await frame.locator('.mk-status[data-state="waiting"]').waitFor({ timeout: 10000 });
+    assert.match(await frame.locator(".mk-status").textContent(), /Saved\. It will send when you're online\./);
+    assert.strictEqual(server.submits.length, 0);
+    await shot("41-market-waiting-offline");
+    // Back online: it goes by itself.
+    await page.context().setOffline(false);
+    await page.evaluate(()=> window.dispatchEvent(new Event("online")));
+    await frame.locator('.mk-status[data-state="sent"]').waitFor({ timeout: 15000 });
+    assert.match(await frame.locator(".mk-status").textContent(), /Sent to Digital Commerce[\s\S]*Waiting for review/);
+    assert.strictEqual(server.submits.length, 1, "sent once");
+    const header = JSON.parse(server.submits[0].p_header);
+    assert.strictEqual(server.submits[0].p_pack_uid, doc.pack_uid, "the same pack ID as the saved file");
+    assert.ok(header.listings.every(l=> !("image_webp" in l) && !("thumb_webp" in l)), "the pack goes without photos first");
+    assert.strictEqual(server.images.length, 1);
+    assert.strictEqual(server.images[0].p_image_webp, oil.image_webp);
+    assert.strictEqual(server.images[0].p_thumb_webp, oil.thumb_webp);
+    assert.ok(server.submits[0].p_install_id && server.submits[0].p_secret_phrase && server.submits[0].p_device_key, "the device's own check");
+    await shot("42-market-sent");
 
-    // The shop confirms the send.
-    await frame.locator("#mkMarkSent").click();
-    await frame.locator('.mk-status[data-state="sent"]').waitFor();
-    assert.match(await frame.locator(".mk-status").textContent(), /Re-send reminder on/);
+    // Each decision, as Digital Commerce gives it (Check status).
+    const decide = async (d, state, re)=>{
+      server.decision = d;
+      await frame.locator("#mkCheckStatus").click();
+      await frame.locator('.mk-status[data-state="' + state + '"]').waitFor({ timeout: 10000 });
+      assert.match(await frame.locator(".mk-status").textContent(), re);
+    };
+    await decide({ status:"in_review" }, "in_review", /In review[\s\S]*reviewing it/);
+    await shot("43-market-in-review");
+    const until = new Date(Date.now() + 7*86400000).toISOString();
+    await decide({ status:"published", expires_at: until, published_count:2 }, "published", /On the iTred Market Place until [\s\S]*\(2 products\)/);
+    await shot("44-market-published");
+    await decide({ status:"expired", expires_at: new Date(Date.now() - 3600000).toISOString(), published_count:2 }, "expired", /Expired[\s\S]*The listing ended on/);
+    await shot("46-market-expired");
+    // a check-in after it was sent never sends it again
+    await page.evaluate(()=> window.dispatchEvent(new Event("online")));
+    await page.waitForTimeout(800);
+    assert.strictEqual(server.submits.length, 1, "never sent twice");
+    await page.close();
+    assert.deepStrictEqual(pageErrors, []);
+  });
 
-    // Still sent after leaving and coming back; city is remembered.
-    await page.click('[data-route="pos"]');
+  await t("not published (with the reason) -> Prepare a fresh pack: a new pack, city remembered", async ()=>{
+    const { page, pageErrors } = await setUpCore(browser, tempFolder(true));
+    const shot = async (n)=>{ if(SHOTS) await page.screenshot({ path: path.join(SHOTS, "app-" + n + ".png") }); };
+    const server = { decision:{ status:"rejected", reason:"TEST: blurry photos" } };
+    await page.route(/urbopdsubwawtybwrxjd\.supabase\.co\/rest\/v1\/rpc\/cl_device_pack_(submit|image|status)$/, async (route)=>{
+      const name = route.request().url().split("/rpc/")[1];
+      const body = JSON.parse(route.request().postData() || "{}");
+      const reply = (o)=> route.fulfill({ status:200, contentType:"application/json", body: JSON.stringify(o) });
+      if(name === "cl_device_pack_submit"){ server.uid = body.p_pack_uid; return reply({ pack_uid: body.p_pack_uid, status:"received", missing:[] }); }
+      if(name === "cl_device_pack_image") return reply({ status:"received" });
+      return reply([Object.assign({ pack_uid: server.uid }, server.decision)]);
+    });
+    await page.click('[data-route="products"]');
+    await addProduct(page, "Bread", 1, 3);
     await page.click('[data-route="marketing"]');
-    frame = page.frameLocator("#marketFrame");
-    await frame.locator('.mk-status[data-state="sent"]').waitFor({ timeout: 10000 });
-
-    // 8 days later: the expiry prompt, and it leads to a fresh export with city/currency already set.
-    await page.clock.setFixedTime(new Date(Date.now() + 8*86400000));
-    await page.click('[data-route="pos"]');
-    await page.click('[data-route="marketing"]');
-    frame = page.frameLocator("#marketFrame");
-    await frame.locator('.mk-status[data-state="expiring"]').waitFor({ timeout: 10000 });
-    assert.match(await frame.locator(".mk-status").textContent(), /Listing expiring — re-send/);
+    let frame = page.frameLocator("#marketFrame");
+    await frame.locator(".mk-row").first().waitFor({ timeout: 10000 });
+    await frame.locator(".mk-row .mk-check").first().check();
+    await frame.locator("#mkContinue").click();
+    await frame.locator("#mkCity").fill("Harare");
+    await frame.locator("#mkPrepare").click();
+    await frame.locator("#mkSendSeigen").click();
+    await frame.locator('.mk-status[data-state="rejected"]').waitFor({ timeout: 15000 });
+    assert.match(await frame.locator(".mk-status").textContent(), /Not published[\s\S]*didn't publish it: TEST: blurry photos\./);
+    await shot("45-market-not-published");
     await frame.locator("#mkRefresh").click();
     await frame.locator("#mkPrepare").waitFor();
-    assert.strictEqual(await frame.locator("#mkCityField").isVisible(), false);
-    assert.match(await frame.locator(".mk-idtable").textContent(), /Harare/);
+    assert.strictEqual(await frame.locator("#mkCityField").isVisible(), false, "city remembered");
     await frame.locator("#mkPrepare").click();
     await frame.locator('.mk-status[data-state="exported"]').waitFor({ timeout: 15000 });
     assert.match(await frame.locator(".mk-status").textContent(), /MKT0002/);

@@ -158,25 +158,26 @@ function rig(settings){
     const sugar = add("Sugar 2kg", { price:3.456, stock:12, category:"Groceries", image:WEBP });
     const bread = add("  Bread  ", { price:1, stock:2.5 });
     await ops.setSelection({ ids:[sugar, bread] });
-    const st = await ops.buildExport({ city:"  Harare ", currency:"usd", images:{ [sugar]:WEBP } });
+    const st = await ops.buildExport({ city:"  Harare ", currency:"usd", images:{ [sugar]:WEBP }, thumbs:{ [sugar]:WEBP, [bread]:WEBP } });
     assert.strictEqual(st.state, "exported");
     assert.strictEqual(st.exportNo, "MKT0001");
     assert.match(st.fileName, /^MKT0001-BokaGeneralDealer-\d{2}[A-Z][a-z]{2}\d{2}-\d{4}[AP]M\.scl$/);
     const rec = files.get("Boka");
     assert.strictEqual(rec.fileName, st.fileName);
     const doc = JSON.parse(rec.text);
-    assert.deepStrictEqual(Object.keys(doc), ["format","format_version","export_no","created_iso","exported_at","vendor","listings","totals","checksum"]);
+    assert.deepStrictEqual(Object.keys(doc), ["format","format_version","pack_uid","export_no","created_iso","exported_at","vendor","listings","totals","checksum"]);
     assert.strictEqual(doc.format, "seigen.market_export");
-    assert.strictEqual(doc.format_version, 1);
+    assert.strictEqual(doc.format_version, 2, "v2 from build v15: pack_uid + thumbnails");
+    assert.match(doc.pack_uid, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     assert.deepStrictEqual(doc.vendor, { install_id:"INST-1234", business_name:"Boka General Dealer", whatsapp_number:"0771234567", city:"Harare" });
     assert.deepStrictEqual(doc.listings.map(l=>Object.keys(l)), [
-      ["source_product_id","product_name","price","currency","category","stock_quantity","exported_at","image_webp"],
-      ["source_product_id","product_name","price","currency","category","stock_quantity","exported_at","image_webp"]]);
+      ["source_product_id","product_name","price","currency","category","stock_quantity","exported_at","image_webp","thumb_webp"],
+      ["source_product_id","product_name","price","currency","category","stock_quantity","exported_at","image_webp","thumb_webp"]]);
     const [l1, l2] = doc.listings;
     assert.deepStrictEqual(l1, { source_product_id:String(sugar), product_name:"Sugar 2kg", price:3.46, currency:"USD",
-      category:"Groceries", stock_quantity:12, exported_at:doc.exported_at, image_webp:WEBP });
+      category:"Groceries", stock_quantity:12, exported_at:doc.exported_at, image_webp:WEBP, thumb_webp:WEBP });
     assert.deepStrictEqual(l2, { source_product_id:String(bread), product_name:"Bread", price:1, currency:"USD",
-      category:null, stock_quantity:2.5, exported_at:doc.exported_at, image_webp:null });
+      category:null, stock_quantity:2.5, exported_at:doc.exported_at, image_webp:null, thumb_webp:null }, "no photo, so no thumbnail either");
     assert.deepStrictEqual(doc.totals, { listings:2, with_image:1 });
     assert.ok(!isNaN(Date.parse(doc.exported_at)));
     // city + currency are saved for next time
@@ -366,10 +367,10 @@ function rig(settings){
     assert.match(decodeURIComponent(opened[0]), /MKT0001/);
   });
 
-  await t("the bridge has no op that writes products or talks to the network", async ()=>{
+  await t("the bridge has no op that writes products; only Send to seiGEN / Check status talk to the network (with this device's own check)", async ()=>{
     const { ops } = rig();
     assert.deepStrictEqual(plain(Object.keys(ops).sort()), ["buildExport","context","getExportSetup","getProductImage","getSelection",
-      "getStatus","listProducts","markSent","openWhatsAppChat","setSelection","shareExport"]);
+      "getStatus","listProducts","markSent","openWhatsAppChat","refreshSend","sendToSeigen","setSelection","shareExport"]);
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
