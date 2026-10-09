@@ -11,7 +11,7 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v15 — Marketing: "Send to seiGEN" sends the pack (with 100x100 thumbnails) to Digital Commerce's Market Publishing queue; the decision shows in Marketing
+// build: v16 — seiGEN dispatches: Incoming with counts, differences, cancel before the GRV, delivery cost; supplier GRV with invoice numbers (B2 waits for its migration)
 // v14: RPN link: the RPN types their field force number + PIN (setup or More → Settings); About shows "Onboarded by"
 // v13: Marketing add-on (market.html) is built into dist-pwa and dist-tauri, so no deploy can drop it again
 // v12: price plans: More → About shows the plan, the till's role and its price; Lite's one-branch limit explained
