@@ -31,7 +31,7 @@ function ok(name, cond, extra) {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261016120000_market_publishing.sql']) });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const tryQ = async (sql, p) => { try { return { r: await q(sql, p) }; } catch (e) { return { e: e.message }; } };
   const before = fingerprint(await snapshot(q));
