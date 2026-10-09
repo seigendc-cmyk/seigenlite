@@ -259,6 +259,7 @@ function buildPWA() {
   fs.copyFileSync(path.join(ROOT, "manifest.json"), path.join(DIST_PWA, "manifest.json"));
   copyBrand(DIST_PWA);
   fs.copyFileSync(path.join(ROOT, "sw-pwa.js"), path.join(DIST_PWA, "sw.js"));
+  addMarket(DIST_PWA);
 
   console.log("Built dist-pwa/index.html (" + html.length + " bytes) from " + scriptOrder.length + " src files.");
   logObfuscationSize(jsBytesBefore, jsBytesAfter);
@@ -299,6 +300,7 @@ function buildTauri() {
   fs.copyFileSync(path.join(ROOT, "manifest.json"), path.join(DIST_TAURI, "manifest.json"));
   copyBrand(DIST_TAURI);
   fs.copyFileSync(path.join(ROOT, "sw-pwa.js"), path.join(DIST_TAURI, "sw.js"));
+  addMarket(DIST_TAURI);
 
   console.log("Built dist-tauri/index.html (" + html.length + " bytes) from " + scriptOrder.length + " src files.");
   logObfuscationSize(jsBytesBefore, jsBytesAfter);
@@ -332,6 +334,19 @@ function buildMarket() {
   fs.mkdirSync(DIST_MARKET, { recursive: true });
   fs.writeFileSync(path.join(DIST_MARKET, "market.html"), html);
   console.log("Built dist-market/market.html (" + html.length + " bytes) from " + MARKET_SCRIPTS.length + " src file(s).");
+  return html;
+}
+
+// The hosted builds carry the Marketing add-on next to their index.html.
+// Every Cloudflare deploy replaces the whole site with the folder it's
+// given, and from 4 Oct each deploy of dist-pwa / dist-tauri (which didn't
+// have it) silently removed market.html, so Marketing showed "not
+// installed" everywhere. Building it in here means a deploy folder can't
+// be assembled without it (tools/cf/deploy-app.js also refuses one).
+function addMarket(destDir) {
+  const html = buildMarket();
+  fs.writeFileSync(path.join(destDir, "market.html"), html);
+  console.log("  + market.html in " + path.basename(destDir) + "/");
 }
 
 // The public iTred Market Place site — a separate website for customers,

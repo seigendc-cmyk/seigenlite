@@ -43,7 +43,9 @@ async function t(name, fn){
 function deploy(buildDir, withMarket=true){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-hosted-"));
   for(const f of fs.readdirSync(path.join(ROOT, buildDir))) fs.copyFileSync(path.join(ROOT, buildDir, f), path.join(dir, f));
+  // the builds carry market.html themselves now; "not deployed" takes it out
   if(withMarket) fs.copyFileSync(MARKET, path.join(dir, "market.html"));
+  else fs.rmSync(path.join(dir, "market.html"), { force: true });
   const types = { ".html":"text/html", ".js":"text/javascript", ".json":"application/json", ".png":"image/png", ".ico":"image/x-icon" };
   const server = http.createServer((req, res)=>{
     const rel = decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html";

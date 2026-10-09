@@ -92,6 +92,15 @@ both any time; neither depends on the other having been built first.
 optional layer behind the Marketing tab (`src/marketing.js`), and the tab
 loads it from `market.html` in the same folder as the app's `index.html`.
 If the file isn't there, the tab shows a "not installed" card.
+`node build.js --pwa` and `--tauri` build it and put it into `dist-pwa/`
+and `dist-tauri/` themselves.
+
+Deploy the hosted app only with `node tools/cf/deploy-app.js <preview|production> <mobile|desktop>`
+(production also needs `--production`). A Cloudflare deploy replaces the
+whole site, so the script refuses a folder without `market.html` (or the
+other core files, or with `index.html` and `sw.js` from different builds),
+and afterwards checks the live URL serves them. From 4 Oct to 9 Oct every
+deploy had silently dropped `market.html`.
 
 ### Marketing tab: follow-ups
 
