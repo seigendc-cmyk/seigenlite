@@ -106,6 +106,19 @@ const webp = (seed)=> "data:image/webp;base64," + Buffer.concat([Buffer.from("RI
   await dev("cl_device_pack_submit", { p_install_id:"SD01", p_secret_phrase:"Shop Phrase", p_device_key:deviceKey, p_pack_uid:uid, p_header:header, p_header_sha256:sha(header) });
   for(const id of ["A1", "A2"]) await dev("cl_device_pack_image", { p_install_id:"SD01", p_secret_phrase:"Shop Phrase", p_device_key:deviceKey, p_pack_uid:uid, p_source_product_id:id, p_image_webp:images[id], p_thumb_webp:thumbs[id] || null });
 
+  await t("CORS: the browser preflight answers 200, and every answer (errors too) carries the same headers", async ()=>{
+    const want = { "access-control-allow-origin":"*", "access-control-allow-headers":"authorization, apikey, content-type, x-client-info", "access-control-allow-methods":"POST, OPTIONS" };
+    const pre = await handler(new Request("https://edge/functions/v1/publish-pack", { method:"OPTIONS", headers:{ Origin:"https://sclconsole-preview.seigendc.workers.dev" } }));
+    assert.strictEqual(pre.status, 200);
+    const answers = [pre,
+      await handler(new Request("https://edge/functions/v1/publish-pack", { method:"GET" })),
+      await handler(new Request("https://edge/functions/v1/publish-pack", { method:"POST", body:"{}" })),
+      await handler(new Request("https://edge/functions/v1/publish-pack", { method:"POST", headers:{ Authorization:"Bearer " + tokenFor(claims("PUB")) }, body:"not json" })),
+      await handler(new Request("https://edge/functions/v1/publish-pack", { method:"POST", headers:{ Authorization:"Bearer " + tokenFor(claims("PUB")) }, body: JSON.stringify({ pack_id:uid, days:99999, items:["A1"] }) }))];
+    assert.deepStrictEqual(answers.map((r)=> r.status), [200, 405, 401, 400, 400]);
+    for(const r of answers) for(const k of Object.keys(want)) assert.strictEqual(r.headers.get(k), want[k], r.status + " " + k);
+  });
+
   await t("no token: 401; not a staff token: 403", async ()=>{
     assert.strictEqual((await call(null, { pack_id:uid, days:2, items:["A1"] })).status, 401);
     assert.strictEqual((await call({ role:"authenticated", sub:"x", user_type:"rpn" }, { pack_id:uid, days:2, items:["A1"] })).status, 403);
