@@ -247,6 +247,11 @@
     CREATE TABLE IF NOT EXISTS srv_dispatches(
       id TEXT PRIMARY KEY, dir TEXT NOT NULL, status TEXT, json TEXT NOT NULL, pulled_ts TEXT
     );
+    -- One supplier list per business (supplier-grv.js), kept on the main
+    -- branch; srv=1 once seiGEN has it.
+    CREATE TABLE IF NOT EXISTS suppliers(
+      uid TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT DEFAULT '', notes TEXT DEFAULT '', active INTEGER DEFAULT 1, srv INTEGER DEFAULT 0, updated_ts TEXT
+    );
     CREATE TABLE IF NOT EXISTS srv_pending(
       key TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL, created_ts TEXT NOT NULL, tries INTEGER DEFAULT 0, error TEXT DEFAULT ''
     );
@@ -477,7 +482,17 @@
       "ALTER TABLE dispatch_docs ADD COLUMN srv_error TEXT DEFAULT ''",
       "ALTER TABLE dispatch_docs ADD COLUMN srv_grv_id TEXT",
       "ALTER TABLE dispatch_docs ADD COLUMN delivery_cost REAL DEFAULT 0",
-      "ALTER TABLE dispatch_docs ADD COLUMN delivery_currency TEXT DEFAULT ''"
+      "ALTER TABLE dispatch_docs ADD COLUMN delivery_currency TEXT DEFAULT ''",
+      // The supplier GRV (supplier-grv.js): each purchase line knows its
+      // invoice, GRV, supplier and landed cost; srv_status queued|sent|error|reversed.
+      "ALTER TABLE purchases ADD COLUMN invoice_no TEXT",
+      "ALTER TABLE purchases ADD COLUMN grv_no INTEGER",
+      "ALTER TABLE purchases ADD COLUMN grv_till TEXT",
+      "ALTER TABLE purchases ADD COLUMN grv_uid TEXT",
+      "ALTER TABLE purchases ADD COLUMN supplier_uid TEXT",
+      "ALTER TABLE purchases ADD COLUMN landed_cost REAL",
+      "ALTER TABLE purchases ADD COLUMN delivery_cost REAL DEFAULT 0",
+      "ALTER TABLE purchases ADD COLUMN srv_status TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}

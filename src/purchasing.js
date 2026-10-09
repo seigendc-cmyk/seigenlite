@@ -7,23 +7,55 @@
   // with what's already in the database. Typing something with no match
   // is still allowed to stand as a brand-new product, same find-or-create
   // fallback the single-item version used.
+  // Dispatch & GRV B2 (supplier-grv.js): a purchase is a supplier GRV: the
+  // supplier comes from the business's list, the invoice number is required
+  // (the same invoice twice is refused), a delivery cost is landed on the
+  // lines by value, and a line may carry a new selling price (Admin passcode).
   function recordPurchaseModal(){
     const branch = currentBranch();
     let lineSeq = 0;
-    const newLine = ()=>({ id: lineSeq++, query:"", product:null, qty:"", unitCost:"" });
+    const newLine = ()=>({ id: lineSeq++, query:"", product:null, qty:"", unitCost:"", newPrice:"" });
     let lines = [ newLine() ];
+    let supplierUid = "";
 
-    const wrap = openModal("Record Purchase", `
+    const wrap = openModal("Receive from a supplier (GRV)", `
       <label>Supplier</label>
-      <input class="field" id="puSupplier" placeholder="e.g. Metro Wholesalers">
+      <div style="display:flex;gap:6px"><select class="field" id="puSupplier" style="flex:1"></select><button type="button" class="btn btn-outline btn-sm" id="puNewSupplier">+ New</button></div>
+      <div id="puNewSupplierBox"></div>
+      <label>Invoice number</label>
+      <input class="field" id="puInvoice" maxlength="40" placeholder="As printed on the supplier's invoice" autocomplete="off">
+      <div class="row">
+        <div><label>Delivery cost (optional)</label><input class="field" id="puDelCost" inputmode="decimal" placeholder="0.00"></div>
+        <div><label>Currency</label><input class="field" id="puDelCur" maxlength="3" value="${escapeHtml(getSetting("ds_currency","USD"))}"></div>
+      </div>
       <label>Note (optional)</label>
-      <input class="field" id="puNote" placeholder="e.g. invoice #1234">
+      <input class="field" id="puNote" placeholder="e.g. two boxes, delivered by van">
       <div class="hr"></div>
       <div id="puLines"></div>
       <button class="btn btn-outline btn-sm" id="puAddLine" style="margin-top:4px">+ Add Line</button>
-      <button class="btn btn-primary" id="puConfirm" style="margin-top:14px">Record Purchase</button>
+      <div id="puPassBox" style="display:none"><label>Admin passcode (for the new selling prices)</label><input class="field" id="puPass" type="password" autocomplete="off"></div>
+      <div id="puErr" style="color:#b42318;font-size:12.5px;margin-top:6px"></div>
+      <button class="btn btn-primary" id="puConfirm" style="margin-top:14px">Receive the goods</button>
     `);
     const linesEl = wrap.querySelector("#puLines");
+    const supSel = wrap.querySelector("#puSupplier");
+    function renderSuppliers(){
+      const list = sgSuppliers();
+      supSel.innerHTML = `<option value="">Choose the supplier…</option>` + list.map(s=>`<option value="${escapeHtml(s.uid)}" ${s.uid===supplierUid?"selected":""}>${escapeHtml(s.name)}</option>`).join("");
+    }
+    renderSuppliers();
+    supSel.onchange = ()=>{ supplierUid = supSel.value; };
+    wrap.querySelector("#puNewSupplier").onclick = ()=>{
+      const box = wrap.querySelector("#puNewSupplierBox");
+      box.innerHTML = `<div class="card" style="padding:8px;margin-top:6px"><label style="margin-top:0">New supplier's name</label><input class="field" id="puSupName" maxlength="80">
+        <label>Phone (optional)</label><input class="field" id="puSupPhone" inputmode="tel">
+        <div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="btn btn-sm btn-primary" id="puSupSave">Add supplier</button><button type="button" class="btn btn-sm btn-ghost" id="puSupCancel">Cancel</button></div></div>`;
+      box.querySelector("#puSupCancel").onclick = ()=>{ box.innerHTML = ""; };
+      box.querySelector("#puSupSave").onclick = ()=>{
+        try{ const s = sgSaveSupplier({ name:box.querySelector("#puSupName").value, phone:box.querySelector("#puSupPhone").value }); supplierUid = s.uid; persist(); box.innerHTML = ""; renderSuppliers(); if(typeof sgSendPending==="function") sgSendPending(); }
+        catch(e){ wrap.querySelector("#puErr").textContent = e.message||String(e); }
+      };
+    };
 
     function dropdownHtml(line){
       if(line.product || !line.query.trim()) return "";
@@ -54,15 +86,17 @@
           </div>
           <label style="margin-top:0">Product</label>
           ${line.product
-            ? `<p class="muted" style="margin:0 0 4px">Matched: <b>${escapeHtml(line.product.sku?line.product.sku+" — ":"")}${escapeHtml(line.product.name)}</b> <button type="button" data-clear-match="${line.id}" style="background:none;border:none;color:var(--orange);text-decoration:underline;padding:0;font-size:12px;margin-left:4px">change</button></p>`
+            ? `<p class="muted" style="margin:0 0 4px">Matched: <b>${escapeHtml(line.product.sku?line.product.sku+" — ":"")}${escapeHtml(line.product.name)}</b> · selling ${currency}${Number(line.product.price||0).toFixed(2)} <button type="button" data-clear-match="${line.id}" style="background:none;border:none;color:var(--orange);text-decoration:underline;padding:0;font-size:12px;margin-left:4px">change</button></p>`
             : `<input class="field" data-product-input="${line.id}" placeholder="Search by name or SKU, or type a new item" value="${escapeHtml(line.query)}" autocomplete="off">
                <div data-dropdown="${line.id}">${dropdownHtml(line)}</div>`}
           <div class="row" style="margin-top:8px">
             <div><label>Qty</label><input class="field" data-qty="${line.id}" type="number" min="1" value="${escapeHtml(String(line.qty))}" placeholder="0"></div>
             <div><label>Unit Cost (${currency})</label><input class="field" data-unitcost="${line.id}" type="number" step="0.01" value="${escapeHtml(String(line.unitCost))}" placeholder="0.00"></div>
+            <div><label>New selling price</label><input class="field" data-newprice="${line.id}" type="number" step="0.01" value="${escapeHtml(String(line.newPrice))}" placeholder="unchanged"></div>
           </div>
         </div>`;
     }
+    function showPass(){ wrap.querySelector("#puPassBox").style.display = lines.some(l=>String(l.newPrice).trim()!=="")? "" : "none"; }
     function renderLines(){
       linesEl.innerHTML = lines.map((l,i)=>lineRowHtml(l,i)).join("");
       lines.forEach(line=>{
@@ -80,6 +114,8 @@
         if(qtyInput) qtyInput.oninput=(e)=>{ line.qty = e.target.value; };
         const costInput = linesEl.querySelector(`[data-unitcost="${line.id}"]`);
         if(costInput) costInput.oninput=(e)=>{ line.unitCost = e.target.value; };
+        const priceInput = linesEl.querySelector(`[data-newprice="${line.id}"]`);
+        if(priceInput) priceInput.oninput=(e)=>{ line.newPrice = e.target.value; showPass(); };
         const removeBtn = linesEl.querySelector(`[data-remove-line="${line.id}"]`);
         if(removeBtn) removeBtn.onclick=()=>{
           if(lines.length===1) lines[0] = newLine();
@@ -87,56 +123,34 @@
           renderLines();
         };
       });
+      showPass();
     }
     renderLines();
     wrap.querySelector("#puAddLine").onclick=()=>{ lines.push(newLine()); renderLines(); };
 
-    wrap.querySelector("#puConfirm").onclick=()=>{
-      const supplier = wrap.querySelector("#puSupplier").value.trim();
-      const note = wrap.querySelector("#puNote").value.trim();
-      if(!supplier) return alert("Enter the supplier");
-      for(let i=0;i<lines.length;i++){
-        const l = lines[i];
-        const typed = l.product? l.product.name : l.query.trim();
-        const qty = parseInt(l.qty)||0;
-        const unitCost = parseFloat(l.unitCost);
-        if(!typed) return alert(`Line ${i+1}: enter or select a product`);
-        if(qty<1) return alert(`Line ${i+1}: enter a quantity of at least 1`);
-        if(isNaN(unitCost) || unitCost<0) return alert(`Line ${i+1}: enter a valid unit cost`);
-      }
-      const ts = new Date().toISOString();
-      const newProductNames = [];
-      lines.forEach(l=>{
-        const typed = l.product? l.product.name : l.query.trim();
-        const qty = parseInt(l.qty)||0;
-        const unitCost = parseFloat(l.unitCost)||0;
-        const totalCost = qty*unitCost;
-        let prod = l.product;
-        if(!prod){
-          prod = one("SELECT * FROM products WHERE branch=? AND lower(sku)=lower(?)",[branch,typed])
-               || one("SELECT * FROM products WHERE branch=? AND lower(name)=lower(?)",[branch,typed]);
-        }
-        const existed = !!prod;
-        if(prod){
-          run("UPDATE products SET cost=? WHERE id=?",[unitCost,prod.id]);
-        } else {
-          run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description) VALUES(?,?,?,?,?,?,?,?,?,?)",
-            [typed,0,qty,5,"",branch,"",unitCost,ts,""]);
-          prod = { id: one("SELECT last_insert_rowid() as id").id, name: typed, sku:"" };
-          newProductNames.push(typed);
-        }
-        run("INSERT INTO purchases(ts,branch,user,supplier,product_id,product_name,sku,qty,unit_cost,total_cost,note) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-          [ts,branch,sessionUser||"",supplier,prod.id,prod.name,prod.sku||"",qty,unitCost,totalCost,note]);
-        const pu = one("SELECT uid FROM purchases WHERE id=last_insert_rowid()");
-        const mv = { kind:"purchase", docType:"purchase", docUid:pu? pu.uid : null, docNo:supplier, ts, note:"Purchased from "+supplier };
-        if(existed) moveStock(Object.assign({ productId:prod.id, delta:qty }, mv));
-        else recordStockMovement(prod.id, qty, mv);
-        run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
-          [ts,prod.id,prod.name,qty,`Purchased from ${supplier}`,branch,sessionUser||""]);
-      });
-      logAudit("Record Purchase", "", `${lines.length} item${lines.length===1?"":"s"} from ${supplier}`);
-      persist(); wrap.remove(); render();
-      if(newProductNames.length) alert(`${newProductNames.join(", ")} ${newProductNames.length===1?"was":"were"} created with no selling price — set ${newProductNames.length===1?"it":"them"} via Edit on the Products page.`);
+    let busy = false;
+    wrap.querySelector("#puConfirm").onclick=async ()=>{
+      if(busy) return;
+      const err = wrap.querySelector("#puErr");
+      err.textContent = "";
+      const o = {
+        supplierUid, invoiceNo: wrap.querySelector("#puInvoice").value, note: wrap.querySelector("#puNote").value,
+        delivery: { cost: wrap.querySelector("#puDelCost").value.trim()===""? 0 : Number(wrap.querySelector("#puDelCost").value), currency: wrap.querySelector("#puDelCur").value },
+        passcode: wrap.querySelector("#puPass").value,
+        lines: lines.map(l=>({ product:l.product, name:l.product? l.product.name : l.query.trim(),
+          qty: /^\d+$/.test(String(l.qty).trim())? Number(l.qty) : NaN, unitCost: String(l.unitCost).trim()===""? NaN : Number(l.unitCost),
+          newPrice: String(l.newPrice).trim()===""? null : Number(l.newPrice) }))
+      };
+      busy = true;
+      const btn = wrap.querySelector("#puConfirm"); btn.disabled = true; btn.textContent = "Receiving…";
+      let r;
+      try{ r = await sgPostGrv(o); }
+      catch(e){ busy = false; btn.disabled = false; btn.textContent = "Receive the goods"; err.textContent = e.message||String(e); return; }
+      if(o.delivery.cost>0) setSetting("ds_currency", String(o.delivery.currency).trim().toUpperCase());
+      wrap.remove(); render();
+      const created = r.lines.filter(l=>l.created && l.new_price==null).map(l=>l.name);
+      alert(r.grv.text+": goods received."+(r.warning? "\n\n"+r.warning : "")
+        +(created.length? "\n\n"+created.join(", ")+" "+(created.length===1?"was":"were")+" created with no selling price — set "+(created.length===1?"it":"them")+" via Edit on the Products page." : ""));
     };
   }
   function renderPurchasing(main){
@@ -147,6 +161,7 @@
     const fullyRecovered = seedMoney>0 && cogsRecovered>=seedMoney;
     const purchases = all("SELECT * FROM purchases WHERE branch=? ORDER BY ts DESC LIMIT 200",[branch]);
     const groups = groupPurchases(purchases);
+    const SRV = { queued:"waiting to send to seiGEN", sent:"on seiGEN", error:"not sent to seiGEN", reversed:"TAKEN BACK: the invoice was already received" };
     main.innerHTML = `
       <div class="card">
         <h3>Capital Recovery</h3>
@@ -158,15 +173,17 @@
           : `<div class="subline"><span>Remaining to Recover</span><span>${currency}${Math.max(0,seedMoney-cogsRecovered).toFixed(2)}</span></div>`}
         <button class="btn btn-outline btn-sm" id="editSeedMoney" style="margin-top:8px">Edit Seed Money in Settings</button>
       </div>
-      <button class="btn btn-primary" id="openRecordPurchase" style="margin-bottom:12px">+ Record Purchase</button>
+      <button class="btn btn-primary" id="openRecordPurchase" style="margin-bottom:12px">+ Receive from a supplier (GRV)</button>
       <h3>Recent Purchases</h3>
       ${groups.length===0? `<p class="muted">No purchases recorded yet.</p>` : groups.map(g=>{
         const groupTotal = g.items.reduce((s,it)=>s+it.total_cost,0);
+        const first = g.items[0], dc = g.items.reduce((s,it)=>s+(Number(it.delivery_cost)||0),0);
         return `<div class="card">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
             <div>
               <div style="font-weight:700">${escapeHtml(g.supplier)}</div>
               <div class="muted">${new Date(g.ts).toLocaleString()}${g.note? ` · ${escapeHtml(g.note)}` : ""}</div>
+              ${first.grv_no? `<div class="muted pu-grv">${escapeHtml(docDisplay("GRV",first.grv_no,first.grv_till))} · invoice ${escapeHtml(first.invoice_no||"")}${dc>0? " · delivery "+dc.toFixed(2) : ""}${first.srv_status? " · "+escapeHtml(SRV[first.srv_status]||first.srv_status) : ""}</div>` : ""}
             </div>
             <div style="font-weight:700;flex:none">${currency}${groupTotal.toFixed(2)}</div>
           </div>
@@ -175,7 +192,7 @@
             <div class="product-row" style="padding:6px 0">
               <div>
                 <div class="pname">${escapeHtml(it.product_name)}</div>
-                <div class="pmeta">Qty ${it.qty} @ ${currency}${it.unit_cost.toFixed(2)}</div>
+                <div class="pmeta">Qty ${it.qty} @ ${currency}${it.unit_cost.toFixed(2)}${it.landed_cost!=null && Math.abs(it.landed_cost-it.unit_cost)>0.00005? " · landed "+currency+Number(it.landed_cost).toFixed(2) : ""}</div>
               </div>
               <div>${currency}${it.total_cost.toFixed(2)}</div>
             </div>`).join("")}
@@ -185,13 +202,12 @@
     document.getElementById("editSeedMoney").onclick=()=>{ moreTab="settings"; render(); };
     document.getElementById("openRecordPurchase").onclick=()=>recordPurchaseModal();
   }
-  // Lines recorded together via recordPurchaseModal() share one ts+supplier,
-  // which is the only signal we have to regroup them for display — there's
-  // no separate "purchase batch" id in the schema.
+  // Lines recorded together share one ts+supplier (and, since B2, one GRV),
+  // which is how they are regrouped for display.
   function groupPurchases(purchases){
     const groups = {}; const order = [];
     purchases.forEach(p=>{
-      const key = p.ts+"|"+p.supplier;
+      const key = p.grv_uid || (p.ts+"|"+p.supplier);
       if(!groups[key]){ groups[key] = { ts:p.ts, supplier:p.supplier, note:p.note, items:[] }; order.push(key); }
       groups[key].items.push(p);
     });

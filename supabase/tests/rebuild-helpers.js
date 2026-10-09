@@ -17,6 +17,7 @@ const migrationFiles = () => fs.readdirSync(MIG).filter((f) => /^\d{14}_\w+\.sql
 // supabase_migrations.schema_migrations there).
 const NOT_ON_LIVE_FILES = [
   '20261017120000_dispatch_grv.sql',                     // waiting for the owner's "apply"
+  '20261018120000_supplier_grv.sql',                     // waiting for the owner's "apply" (after 20261017120000)
 ];
 
 // Supabase's own objects that the schema depends on (never part of a migration).

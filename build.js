@@ -139,6 +139,7 @@ const SCRIPT_ORDER = [
   "shared-stock.js",
   "rpn.js",
   "dispatch-srv.js",
+  "supplier-grv.js",
   "marketing.js",
   "staff.js",
   "scanner.js",
