@@ -180,6 +180,8 @@
         await storePut("notes", n);
       }
     }
+    // …and so can full onboarding records (onboarding.js).
+    if (typeof obSignedInAgain === "function") obSignedInAgain(r.session.rpnId);
     kickOutbox();
     return r;
   }
@@ -253,6 +255,8 @@
       if (res.result === "auth") field.again = true; // so every other note shows "Sign in to send" too
       if (res.result === "failed" && !res.permanent) break; // no connection: don't hammer with the rest
     }
+    // Full onboarding records go in the same run, after the notes (onboarding.js).
+    if (typeof obPass === "function") await obPass();
   }
   // Wake up for the next due retry, or when the sign-in runs out.
   function scheduleOutbox() {
@@ -260,6 +264,7 @@
     const now = fieldNow();
     const due = field.notes.filter((n) => n.status === "failed" && !n.permanent && n.nextAttemptAt).map((n) => n.nextAttemptAt);
     if (field.session && field.notes.some((n) => n.status === "saved")) due.push(field.session.exp - SESSION_MARGIN_MS);
+    if (typeof obDueTimes === "function") due.push.apply(due, obDueTimes());
     if (!due.length) return;
     const wait = Math.max(1000, Math.min.apply(null, due) - now);
     field.timer = setTimeout(kickOutbox, Math.min(wait, OUTBOX_MAX_DELAY_MS));

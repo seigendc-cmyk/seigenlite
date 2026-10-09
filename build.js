@@ -355,8 +355,8 @@ function buildItred() {
 // whole manual inside index.html and works offline from the first load.
 const RPN_SCRIPTS = [
   "fieldguide/store.js", "fieldguide/coach-engine.js", "fieldguide/search.js",
-  "fieldguide/console-api.js", "fieldguide/outbox.js",
-  "fieldguide/coach-ui.js", "fieldguide/search-ui.js", "fieldguide/field-ui.js", "fieldguide/app.js",
+  "fieldguide/console-api.js", "fieldguide/outbox.js", "fieldguide/onboarding.js",
+  "fieldguide/coach-ui.js", "fieldguide/search-ui.js", "fieldguide/onboarding-ui.js", "fieldguide/field-ui.js", "fieldguide/app.js",
 ];
 const RPN_DATA = {
   MANUAL: "fieldguide/content/manual.json",

@@ -3,6 +3,7 @@
   //   #/field              onboarding notes, each with its sending status
   //   #/field/new          the onboarding note form
   //   #/field/note/<id>    one note: what was written, where it is, Retry
+  //   #/field/ob/…         full vendor onboarding (onboarding-ui.js)
   // plus the sign-in card on the Me tab (cl_login).
   //
   // Buttons carry data-act "f-…"; app.js sends clicks, submits and typing
@@ -36,7 +37,9 @@
   function refreshFieldScreens() {
     const main = document.getElementById("fgMain");
     if (!main || screenHasTyping(main)) return;
-    if ((state.tab === "field" && state.sub[0] !== "new") || state.tab === "me") render(false);
+    // Never the forms: a note being written, or an onboarding section.
+    const onForm = state.tab === "field" && (state.sub[0] === "new" || (state.sub[0] === "ob" && (state.sub[1] === "new" || state.sub.length > 2)));
+    if ((state.tab === "field" && !onForm) || state.tab === "me") render(false);
   }
   // The sign-in button and its "needs internet" line, updated in place.
   function patchSignInOnline(online) {
@@ -71,8 +74,9 @@
       '<p class="fg-lead">Notes for the vendors you visit. They save on this phone first and go to the Console when you\'re online and signed in.</p>' +
       identityHtml() +
       (offline ? '<p class="fg-offline-note" role="status">Offline: new notes wait on this phone.</p>' : "") +
-      '<button type="button" class="btn btn-primary fg-newnote" data-act="f-new"' + (field.identity ? "" : " disabled") + ">+ New onboarding note</button>" +
+      obListBlockHtml() +
       '<h2 class="fg-sec">Onboarding notes</h2>' +
+      '<button type="button" class="btn btn-outline fg-newnote" data-act="f-new"' + (field.identity ? "" : " disabled") + ">+ New onboarding note</button>" +
       (rows ? '<div class="fg-notes">' + rows + "</div>" : '<p class="muted">No notes yet.</p>') +
       '<h2 class="fg-sec">Coming later</h2>' +
       '<div class="card fg-tile"><div class="fg-tile-ic">' + ICONS.tasks + '</div><div class="fg-tile-body"><div class="fg-tile-title">Support tasks</div><div class="fg-tile-sub">Log support work and follow-ups.</div></div><span class="pill fg-pill-grey">Soon</span></div>'
@@ -160,6 +164,7 @@
     if (!field.loaded) return '<h1 class="fg-h1" tabindex="-1">Field</h1><p class="fg-lead">Loading…</p>';
     if (sub[0] === "new") return fieldFormHtml();
     if (sub[0] === "note") return fieldNoteHtml(sub[1]);
+    if (sub[0] === "ob") return obScreen(sub.slice(1));
     return fieldListHtml();
   }
 

@@ -122,6 +122,7 @@
       const el = e.target.closest("[data-act]");
       if (!el || el.tagName !== "BUTTON" || el.disabled) return;
       if (el.dataset.act.startsWith("f-")) fieldAction(el.dataset.act, el);
+      else if (el.dataset.act.startsWith("o-")) obAction(el.dataset.act, el);
       else coachAction(el.dataset.act, el);
     });
     main.addEventListener("submit", (e) => {
@@ -129,11 +130,13 @@
       if (!form) return;
       e.preventDefault();
       if (form.dataset.act.startsWith("f-")) fieldSubmit(form.dataset.act, form);
+      else if (form.dataset.act.startsWith("o-")) obSubmitForm(form.dataset.act, form);
       else coachSubmit(form.dataset.act, form);
     });
     main.addEventListener("input", (e) => {
       if (!e.target.dataset || !e.target.dataset.act) return;
       if (e.target.dataset.act === "note-field") fieldInput(e.target);
+      else if (e.target.dataset.act === "ob-field") obInput(e.target);
       else coachInput(e.target);
     });
 
@@ -416,3 +419,4 @@
   registerWorker();
   coachInit();
   fieldInit();
+  obInit();

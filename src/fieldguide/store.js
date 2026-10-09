@@ -8,6 +8,8 @@
   //   meta      {key, value}                    e.g. activeProfileId, consoleSession
   //   notes     {id, rpnId, fields, status, …}  onboarding notes and their sending
   //                                             state (outbox.js); version 2
+  //   records   {id, rpnId, data, savedAt, …}   full onboarding records and their
+  //                                             sending state (onboarding.js); version 3
   //
   // Keeping each learner's progress in its own row is what keeps profiles
   // apart: switching loads exactly one row, and nothing reads across rows.
@@ -16,12 +18,12 @@
   // the same calls work on an in-memory copy instead, and storeMode says
   // "memory" so the app can warn that progress won't be kept.
   const STORE_DB_NAME = "rpn-field-guide";
-  const STORE_DB_VERSION = 2; // 2: + notes (Phase 4). Upgrading only adds stores.
-  const STORE_NAMES = { profiles: "id", progress: "profileId", meta: "key", notes: "id" };
+  const STORE_DB_VERSION = 3; // 2: + notes (Phase 4); 3: + records (full onboarding). Upgrading only adds stores.
+  const STORE_NAMES = { profiles: "id", progress: "profileId", meta: "key", notes: "id", records: "id" };
   let storeMode = "idb"; // "idb" | "memory"
   let storeDb = null;
   let storeReady = null; // one open, shared by everything that calls storeInit()
-  const storeMemory = { profiles: new Map(), progress: new Map(), meta: new Map(), notes: new Map() };
+  const storeMemory = { profiles: new Map(), progress: new Map(), meta: new Map(), notes: new Map(), records: new Map() };
 
   function storeOpen() {
     return new Promise((resolve, reject) => {

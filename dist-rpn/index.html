@@ -54,14 +54,28 @@
   }
   .topbar .brand-mark{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:none;background:var(--orange-light);}
   .topbar .brand-mark.placeholder{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--orange);border:1px solid var(--border);}
-  .topbar .names{flex:1;min-width:0;}
+  .topbar .names{flex:0 1 auto;min-width:0;}   /* sized to its text so Log out sits right beside the user name */
   .topbar .shop{font-weight:700;font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .topbar .branch{font-size:12px;color:var(--ink-soft);}
   .topbar .cart-btn{
     position:relative;background:var(--orange);color:#fff;border:none;
     width:42px;height:42px;border-radius:50%;font-size:19px;
     display:flex;align-items:center;justify-content:center;flex:none;
+    margin-left:auto;   /* pushed to the right edge, as before */
   }
+  /* Log out (staff.js logoutSession): outline icon button beside the user name */
+  .topbar .logout-btn{
+    width:40px;height:40px;border-radius:50%;flex:none;padding:0;
+    background:none;border:1px solid var(--border);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .topbar .logout-btn:hover,.topbar .logout-btn:focus-visible{background:var(--orange-light);color:var(--orange-dark);border-color:var(--orange);}
+  /* Start screen (staff.js renderStart): the brand globe, square so it never distorts */
+  .start-globe{display:block;width:180px;height:180px;object-fit:contain;margin:0 auto 14px;}
+  @media (min-width:900px){ .start-globe{width:240px;height:240px;} }
+  /* fallback when the globe image isn't beside index.html: the storefront mark, as in the old icon */
+  .start-mark{width:88px;height:88px;border-radius:22px;background:var(--orange-light);color:var(--orange);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .cart-badge{
     position:absolute;top:-4px;right:-4px;background:var(--ink);color:#fff;
     font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;
@@ -149,6 +163,7 @@
   .hr{border:none;border-top:1px solid var(--border);margin:14px 0;}
   .pill{display:inline-block;background:var(--orange-light);color:var(--orange-dark);font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:20px;}
   .pill.low{background:var(--danger-bg);color:var(--danger);}
+  .pill.neg{background:#b42318;color:#fff;}
   .pill.ok{background:var(--success-bg);color:var(--success);}
   .center{text-align:center;}
   .banner-img{width:100%;max-height:120px;object-fit:cover;border-radius:var(--radius);margin-bottom:12px;border:1px solid var(--border);}
@@ -250,6 +265,18 @@
   .kebab-menu.moretab-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);min-width:0;max-height:60vh;overflow-y:auto;}
   .rep-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
   .icon-btn{flex:none;width:auto;padding:10px 13px;}
+
+  /* Phase 3c returns: the step strip and the credit note slip (on screen, PDF and print) */
+  .rt-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .rt-steps span{flex:1 1 auto;text-align:center;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:700;
+    background:var(--bg,#f4f4f4);color:var(--ink-soft);border:1px solid var(--border);white-space:nowrap;}
+  .rt-steps span.on{background:var(--orange-light);color:var(--orange);border-color:var(--orange);}
+  .cn-slip .line{display:flex;justify-content:space-between;gap:10px;}
+  .cn-slip .line > :last-child{white-space:nowrap;}
+  .cn-slip h3{text-align:center;margin:2px 0;}
+  .cn-slip hr{border:none;border-top:1px dashed #999;margin:6px 0;}
+  .modal-body .cn-slip{font-family:monospace;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:#fff;}
+  #printArea .cn-slip.report-print{max-width:120mm;margin:0 auto;font-size:14px;}
 
   #printArea{display:none;}
   @media print{
@@ -629,6 +656,30 @@
   .fg-status-signin{border-color:#EAD9A0;background:var(--warn-bg);}
   .fg-rows-wide .fg-row{align-items:flex-start;}
   .fg-rows-wide dd{font-weight:600;max-width:60%;overflow-wrap:anywhere;}
+
+  /* ---- Field: full vendor onboarding (onboarding-ui.js) ---- */
+  .fg-ob-intro{margin:-2px 0 10px;font-size:13.5px;line-height:1.45;}
+  .fg-ob-list{margin-top:10px;}
+  .fg-ob-blank{width:100%;min-height:52px;font-size:15px;}
+  .fg-ob-n{flex:none;width:32px;height:32px;border-radius:50%;background:var(--orange-light);color:var(--orange-dark);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;}
+  .fg-ob-submit{margin-top:18px;}
+  .fg-ob-submit p{margin:0 0 10px;font-size:14px;line-height:1.45;}
+  .fg-ob-submit .btn{min-height:48px;}
+  .fg-ob-submit .btn[disabled]{opacity:.5;cursor:default;}
+  .fg-ob-item{margin:0 0 10px;padding:12px;border:1px solid var(--border);}
+  .fg-ob-item legend{font-weight:800;font-size:13px;color:var(--orange-dark);padding:0 4px;}
+  .fg-ob-remove{width:auto;min-height:44px;margin-top:10px;}
+  .fg-ob-add{width:100%;min-height:48px;margin:2px 0 6px;}
+  .fg-ob-modules{padding:4px 12px;}
+  .fg-ob-mod{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);}
+  .fg-ob-mod:first-child{border-top:none;}
+  .fg-ob-mod label{flex:1;min-width:0;font-size:14.5px;font-weight:600;}
+  .fg-ob-mod .field{flex:none;width:44%;min-width:132px;}
+  .fg-ob-check label{display:flex;align-items:flex-start;gap:10px;min-height:48px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--paper);font-size:15px;line-height:1.4;}
+  .fg-ob-check input{width:22px;height:22px;flex:none;margin:1px 0 0;accent-color:var(--orange);}
+  .fg-ob-check.is-invalid label{border-color:var(--danger);background:var(--danger-bg);}
+  .fg-ob-form .field[disabled]{background:var(--surface);color:var(--ink);opacity:1;}
 </style>
 </head>
 <body>
@@ -652,6 +703,8 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
   //   meta      {key, value}                    e.g. activeProfileId, consoleSession
   //   notes     {id, rpnId, fields, status, …}  onboarding notes and their sending
   //                                             state (outbox.js); version 2
+  //   records   {id, rpnId, data, savedAt, …}   full onboarding records and their
+  //                                             sending state (onboarding.js); version 3
   //
   // Keeping each learner's progress in its own row is what keeps profiles
   // apart: switching loads exactly one row, and nothing reads across rows.
@@ -660,12 +713,12 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
   // the same calls work on an in-memory copy instead, and storeMode says
   // "memory" so the app can warn that progress won't be kept.
   const STORE_DB_NAME = "rpn-field-guide";
-  const STORE_DB_VERSION = 2; // 2: + notes (Phase 4). Upgrading only adds stores.
-  const STORE_NAMES = { profiles: "id", progress: "profileId", meta: "key", notes: "id" };
+  const STORE_DB_VERSION = 3; // 2: + notes (Phase 4); 3: + records (full onboarding). Upgrading only adds stores.
+  const STORE_NAMES = { profiles: "id", progress: "profileId", meta: "key", notes: "id", records: "id" };
   let storeMode = "idb"; // "idb" | "memory"
   let storeDb = null;
   let storeReady = null; // one open, shared by everything that calls storeInit()
-  const storeMemory = { profiles: new Map(), progress: new Map(), meta: new Map(), notes: new Map() };
+  const storeMemory = { profiles: new Map(), progress: new Map(), meta: new Map(), notes: new Map(), records: new Map() };
 
   function storeOpen() {
     return new Promise((resolve, reject) => {
@@ -1647,6 +1700,33 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
     return { result: "failed", permanent: true, message: "The Console refused this note: " + message };
   }
 
+  // ================== Full onboarding records (2026-10-09) ==================
+  //   consoleSaveOnboarding(session, params) -> rpc cl_rpn_save_onboarding
+  //   consoleFetchOnboardingStatus(session)  -> this RPN's records' status (RLS: own rows)
+  //
+  // Outcomes, as for notes, plus one:
+  //   sent     saved (body = {id, status, result, office_reason, verified_at})
+  //   auth     sign in again
+  //   locked   the Console has it as submitted / approved / rejected already
+  //   failed   permanent (refused: shown, retried by hand) or passing (backoff)
+  async function consoleSaveOnboarding(session, params) {
+    const r = await consoleFetch("/rest/v1/rpc/cl_rpn_save_onboarding", { method: "POST", body: JSON.stringify(params) }, session.token);
+    if (r.network) return { result: "failed", permanent: false, message: "No connection to the Console" };
+    if (r.status === 200 && r.body && r.body.status) return { result: "sent", body: r.body };
+    const code = (r.body && r.body.code) || "";
+    const message = (r.body && r.body.message) || "HTTP " + r.status;
+    if (r.status === 401 && code !== "42501") return { result: "auth" };
+    if (code === "55000") return { result: "locked", message: message };
+    if (code === "42501") return { result: "failed", permanent: true, message: "The Console didn't accept this from your account (" + message + ")" };
+    if (r.status >= 500 || r.status === 429 || r.status === 408 || (r.status === 200 && !r.body)) return { result: "failed", permanent: false, message: "The Console had a problem (" + r.status + ")" };
+    return { result: "failed", permanent: true, message: "The Console refused this: " + message };
+  }
+  async function consoleFetchOnboardingStatus(session) {
+    const r = await consoleFetch("/rest/v1/rpn_onboarding_records?select=id,status,office_reason,verified_at", { method: "GET" }, session.token);
+    if (r.status === 200 && Array.isArray(r.body)) return { ok: true, rows: r.body };
+    return { ok: false };
+  }
+
   // ================== RPN Field Guide — onboarding notes outbox (Phase 4) ==================
   // Notes are saved on the phone first (IndexedDB "notes" store, store.js)
   // and sent to the Console when the phone is online AND the RPN is signed
@@ -1829,6 +1909,8 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
         await storePut("notes", n);
       }
     }
+    // …and so can full onboarding records (onboarding.js).
+    if (typeof obSignedInAgain === "function") obSignedInAgain(r.session.rpnId);
     kickOutbox();
     return r;
   }
@@ -1902,6 +1984,8 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
       if (res.result === "auth") field.again = true; // so every other note shows "Sign in to send" too
       if (res.result === "failed" && !res.permanent) break; // no connection: don't hammer with the rest
     }
+    // Full onboarding records go in the same run, after the notes (onboarding.js).
+    if (typeof obPass === "function") await obPass();
   }
   // Wake up for the next due retry, or when the sign-in runs out.
   function scheduleOutbox() {
@@ -1909,6 +1993,7 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
     const now = fieldNow();
     const due = field.notes.filter((n) => n.status === "failed" && !n.permanent && n.nextAttemptAt).map((n) => n.nextAttemptAt);
     if (field.session && field.notes.some((n) => n.status === "saved")) due.push(field.session.exp - SESSION_MARGIN_MS);
+    if (typeof obDueTimes === "function") due.push.apply(due, obDueTimes());
     if (!due.length) return;
     const wait = Math.max(1000, Math.min.apply(null, due) - now);
     field.timer = setTimeout(kickOutbox, Math.min(wait, OUTBOX_MAX_DELAY_MS));
@@ -1920,6 +2005,547 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
     Object.assign(note, { status: "saved", nextAttemptAt: fieldNow(), permanent: false });
     await storePut("notes", note);
     kickOutbox();
+  }
+
+  // ================== RPN Field Guide — full vendor onboarding (model + sending) ==================
+  // An onboarding record is the RPN's account of onboarding one vendor,
+  // worked on over several visits:
+  //   1 vendor & plan · 2 installation & activation · 3 implementation &
+  //   stocktake · 4 training & handover (with the vendor's acceptance)
+  // then sent for office verification (Section 5, done in the Console).
+  //
+  // Saved on the phone first (IndexedDB "records" store, store.js v3) and
+  // sent with the RPN's own Console sign-in by the same outbox run as the
+  // notes (outbox.js calls obPass), with the same backoff. The database side
+  // is supabase/migrations/20261009160000_rpn_onboarding_records.sql:
+  //   cl_rpn_save_onboarding  — create/update own draft, or submit it
+  //   rpn_onboarding_records  — read own rows: the office's answer comes back
+  //
+  // A record, on the phone:
+  //   {id, rpnId, rpnName, noteId, data:{vendor, installation, implementation, training},
+  //    createdAt, savedAt (last change on the phone), sentSavedAt (the copy
+  //    the Console has), submitRequested, serverStatus (draft | submitted |
+  //    returned | approved | rejected | null), officeReason, verifiedAt,
+  //    sync (pending | failed | signin), attempts, nextAttemptAt, permanent, lastError}
+  //
+  // It can be changed while it is a draft or returned, and not after the RPN
+  // taps Submit (unless the Console refuses the submit, or the office
+  // returns it).
+
+  // ---------------- what the form asks ----------------
+  const YES_NO = [["", "Choose…"], ["yes", "Yes"], ["no", "No"]];
+  const OB_MODULES = [
+    ["sell", "Sell (cart and receipts)"], ["products", "Products"], ["credit", "Credit (debtors)"],
+    ["reports", "Reports"], ["reportwriter", "Report Writer"], ["stocktake", "Stocktake"],
+    ["purchasing", "Purchasing"], ["requests", "Requests"], ["directory", "Directory"],
+    ["staff", "Staff and PINs"], ["shift", "Shift, float and EOD"], ["printing", "Printing"],
+    ["whatsapp", "WhatsApp sharing"], ["backup", "Backup and merge"], ["marketing", "Marketing"],
+  ];
+  const OB_LEVELS = [["", "Not covered"], ["needs_help", "Needs help"], ["ok", "OK"], ["confident", "Confident"]];
+
+  // type: text | tel | number | money | date | choice | check | textarea | list | modules
+  // req: true, or a function of the section's values (required only then)
+  // show: a function of the section's values (hidden, and not checked, otherwise)
+  const OB_SECTIONS = [
+    {
+      key: "vendor", n: 1, title: "Vendor & plan", sub: "Who the vendor is and what they are paying for.",
+      fields: [
+        { name: "business_name", label: "Business name", req: true, max: 120 },
+        { name: "owner_name", label: "Owner's name", req: true, max: 120 },
+        { name: "phone", label: "Phone (WhatsApp)", req: true, type: "tel", hint: "e.g. 0771 234 567" },
+        { name: "city", label: "City or town", req: true, max: 80 },
+        { name: "location", label: "Area or street", max: 200 },
+        { name: "business_type", label: "Type of business", max: 80, hint: "e.g. grocery, hardware, salon" },
+        { name: "plan", label: "Plan", req: true, type: "choice", options: [["", "Choose…"], ["business", "Business (retail or wholesale)"], ["lite", "Lite (flea market, tuckshop, canteen)"]], hint: "Lite is for one branch only." },
+        { name: "branches", label: "Branches", req: true, type: "number", min: 1, max: 200 },
+        { name: "tills", label: "Tills in total (all branches)", req: true, type: "number", min: 1, max: 1000 },
+        { name: "features_taken", label: "Features taken", req: true, type: "textarea", max: 1000, rows: 3, hint: "Branches, tills and add-ons the vendor is taking." },
+        { name: "subscription_amount", label: "Monthly subscription (USD)", req: true, type: "money", max: 100000, hint: "The amount for the features above. The office confirms it." },
+        { name: "first_visit_date", label: "Date of first visit", req: true, type: "date" },
+      ],
+    },
+    {
+      key: "installation", n: 2, title: "Installation & activation", sub: "Every device set up, the secret phrase, activation and the printer.",
+      fields: [
+        {
+          name: "devices", label: "Devices", type: "list", item: "Device", min: 1, maxItems: 30, req: true,
+          fields: [
+            { name: "device_type", label: "Device", req: true, type: "choice", options: [["", "Choose…"], ["phone", "Phone"], ["laptop", "Laptop"], ["desktop", "Desktop computer"]] },
+            { name: "install_type", label: "Installed as", req: true, type: "choice", options: [["", "Choose…"], ["pwa", "Installed web app"], ["desktop", "Desktop app"]] },
+            { name: "branch", label: "Branch", req: true, max: 80 },
+            { name: "till", label: "Till", max: 40, hint: "e.g. Till 2" },
+            { name: "result", label: "Result", req: true, type: "choice", options: [["", "Choose…"], ["installed", "Installed and working"], ["failed", "Failed"]] },
+            { name: "failure_reason", label: "What went wrong", max: 200, req: (d) => d.result === "failed", show: (d) => d.result === "failed" },
+          ],
+        },
+        { name: "secret_phrase_set", label: "Secret phrase set by the vendor", req: true, type: "choice", options: YES_NO, hint: "Never write the phrase itself here." },
+        { name: "join_codes_used", label: "Extra devices joined with a branch join code", req: true, type: "choice", options: [["", "Choose…"], ["yes", "Yes"], ["no", "No"], ["na", "Only one device"]] },
+        { name: "activation_requested", label: "Activation requested", req: true, type: "choice", options: YES_NO, hint: "Never write the activation code here." },
+        { name: "activation_date", label: "Date activation was requested", type: "date", req: (d) => d.activation_requested === "yes", show: (d) => d.activation_requested === "yes" },
+        { name: "printer", label: "Printer", req: true, type: "choice", options: [["", "Choose…"], ["none", "No printer"], ["usb", "USB thermal printer"], ["bluetooth", "Bluetooth thermal printer"]] },
+        { name: "test_print", label: "Test print worked", type: "choice", options: YES_NO, req: (d) => d.printer === "usb" || d.printer === "bluetooth", show: (d) => d.printer === "usb" || d.printer === "bluetooth" },
+        { name: "install_issues", label: "Problems during installation", type: "textarea", max: 1000 },
+      ],
+    },
+    {
+      key: "implementation", n: 3, title: "Implementation & stocktake", sub: "Products, the first stocktake, staff and the first day.",
+      fields: [
+        { name: "product_source", label: "How products were loaded", req: true, type: "choice", options: [["", "Choose…"], ["excel", "Excel import"], ["manual", "Typed in"], ["stocktake", "Counted in a stocktake"]] },
+        { name: "products_loaded", label: "Products loaded", req: true, type: "number", min: 0, max: 1000000 },
+        { name: "import_issues", label: "Problems loading products", type: "textarea", max: 1000 },
+        { name: "stocktake_done", label: "Initial stocktake done", req: true, type: "choice", options: YES_NO },
+        { name: "stocktake_date", label: "Stocktake date", type: "date", req: (d) => d.stocktake_done === "yes", show: (d) => d.stocktake_done === "yes" },
+        { name: "stocktake_lines", label: "Lines counted", type: "number", min: 0, max: 1000000, req: (d) => d.stocktake_done === "yes", show: (d) => d.stocktake_done === "yes" },
+        { name: "variance_notes", label: "Variances found", type: "textarea", max: 1000, show: (d) => d.stocktake_done === "yes" },
+        { name: "staff_count", label: "Staff set up", req: true, type: "number", min: 0, max: 500 },
+        { name: "single_operator", label: "Single operator mode on (no staff PINs)", req: true, type: "choice", options: YES_NO },
+        { name: "first_shift_eod", label: "First shift opened with a float and closed with EOD", req: true, type: "choice", options: YES_NO },
+        { name: "backup_explained", label: "Backup and merge explained", req: true, type: "choice", options: YES_NO },
+        { name: "debtor_balances", label: "Debtors' opening balances", req: true, type: "choice", options: [["", "Choose…"], ["yes", "Captured"], ["no", "Not yet"], ["none", "No debtors"]] },
+      ],
+    },
+    {
+      key: "training", n: 4, title: "Training & handover", sub: "Who was trained on what, and the vendor's acceptance.",
+      fields: [
+        {
+          name: "sessions", label: "Training sessions", type: "list", item: "Session", min: 1, maxItems: 30, req: true,
+          fields: [
+            { name: "date", label: "Date", req: true, type: "date" },
+            { name: "duration_min", label: "Minutes", req: true, type: "number", min: 1, max: 600 },
+            { name: "staff_names", label: "Staff trained", req: true, max: 200, hint: "Names, separated by commas." },
+          ],
+        },
+        { name: "modules", label: "What was covered, and how confident they are", type: "modules", req: true },
+        { name: "support_contacts_given", label: "Support contacts given to the vendor", req: true, type: "choice", options: YES_NO },
+        { name: "outstanding", label: "Still to do", type: "textarea", max: 1000 },
+        { name: "follow_up_date", label: "Follow-up visit", type: "date", future: true },
+        { name: "vendor_full_name", label: "Vendor's full name", req: true, max: 120, group: "Vendor acceptance" },
+        { name: "vendor_confirms", label: "The vendor confirms the system was installed and their staff were trained.", req: true, type: "check" },
+        { name: "acceptance_date", label: "Date of acceptance", req: true, type: "date" },
+        { name: "rpn_declares", label: "I declare this onboarding record is true and complete.", req: true, type: "check", group: "Your declaration" },
+      ],
+    },
+  ];
+  const OB_SECTION_BY_KEY = {};
+  for (const s of OB_SECTIONS) OB_SECTION_BY_KEY[s.key] = s;
+
+  function obEmptySection(sec, now) {
+    const d = {};
+    for (const f of sec.fields) {
+      if (f.type === "list") d[f.name] = [obEmptyItem(f, now)];
+      else if (f.type === "modules") d[f.name] = {};
+      else if (f.type === "check") d[f.name] = false;
+      else d[f.name] = "";
+    }
+    if (sec.key === "vendor") d.first_visit_date = localDateKey(now);
+    return d;
+  }
+  function obEmptyItem(listDef, now) {
+    const it = {};
+    for (const f of listDef.fields) it[f.name] = f.type === "date" ? localDateKey(now) : "";
+    return it;
+  }
+  function obEmptyData(now) {
+    const data = {};
+    for (const s of OB_SECTIONS) data[s.key] = obEmptySection(s, now);
+    return data;
+  }
+
+  // ---------------- checks ----------------
+  const isReq = (f, d) => (typeof f.req === "function" ? !!f.req(d) : !!f.req);
+  const isShown = (f, d) => (f.show ? !!f.show(d) : true);
+  const blank = (v) => v == null || String(v).trim() === "";
+
+  // One value. -> error message or "" (and the cleaned value via out.value)
+  function obCheckValue(f, raw, d, now, out) {
+    const label = f.label;
+    if (f.type === "check") {
+      out.value = raw === true;
+      return isReq(f, d) && raw !== true ? "Tick to confirm." : "";
+    }
+    const s = raw == null ? "" : String(raw);
+    const v = f.type === "textarea" ? s.trim() : s.replace(/\s+/g, " ").trim();
+    out.value = v;
+    if (!v) return isReq(f, d) ? (f.type === "choice" ? "Choose one." : label + " is needed.") : "";
+    if (f.max && (f.type === "text" || f.type === "textarea" || !f.type) && v.length > f.max) return "Keep it under " + f.max + " characters.";
+    if (f.type === "tel") {
+      const p = normalizePhone(v);
+      const digits = p.replace(/[^0-9]/g, "");
+      if (!PHONE_RULE.test(p) || digits.length < 9 || digits.length > 15) return "Enter a phone number, e.g. 0771 234 567.";
+      out.value = p;
+    }
+    if (f.type === "number") {
+      if (!/^[0-9]+$/.test(v)) return "A whole number.";
+      const n = Number(v);
+      if (f.min != null && n < f.min) return "At least " + f.min + ".";
+      if (f.max != null && n > f.max) return "At most " + f.max.toLocaleString("en-US") + ".";
+    }
+    if (f.type === "money") {
+      if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(v)) return "An amount, e.g. 18 or 18.50.";
+      if (Number(v) > f.max) return "At most " + f.max.toLocaleString("en-US") + ".";
+    }
+    if (f.type === "choice" && !f.options.some((o) => o[0] === v)) return "Choose one.";
+    if (f.type === "date") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || isNaN(new Date(v + "T00:00:00").getTime())) return "Enter a date.";
+      if (!f.future && v > localDateKey(now)) return "This date can't be in the future.";
+    }
+    return "";
+  }
+
+  // A section's values -> {errors: {path: message}, complete, started}
+  // Paths: "plan", "devices.0.branch", "devices" (the list itself), "modules".
+  function obCheckSection(secKey, d, now) {
+    const sec = OB_SECTION_BY_KEY[secKey];
+    const errors = {};
+    let started = false;
+    for (const f of sec.fields) {
+      if (f.type === "list") {
+        const items = Array.isArray(d[f.name]) ? d[f.name] : [];
+        items.forEach((it, i) => {
+          for (const sf of f.fields) {
+            if (!isShown(sf, it)) continue;
+            if (!blank(it[sf.name]) && sf.type !== "date") started = true;
+            const e = obCheckValue(sf, it[sf.name], it, now, {});
+            if (e) errors[f.name + "." + i + "." + sf.name] = e;
+          }
+        });
+        if (items.length < (f.min || 0)) errors[f.name] = "Add at least one " + f.item.toLowerCase() + ".";
+        continue;
+      }
+      if (f.type === "modules") {
+        const m = d[f.name] || {};
+        const covered = OB_MODULES.filter(([k]) => m[k]);
+        if (covered.length) started = true;
+        for (const [k] of OB_MODULES) if (m[k] && !OB_LEVELS.some((o) => o[0] === m[k])) errors[f.name] = "Choose a level for each module.";
+        if (isReq(f, d) && !covered.length) errors[f.name] = "Mark at least one module as covered.";
+        continue;
+      }
+      if (!isShown(f, d)) continue;
+      const raw = d[f.name];
+      if (f.type === "check" ? raw === true : !blank(raw) && f.type !== "date") started = true;
+      const e = obCheckValue(f, raw, d, now, {});
+      if (e) errors[f.name] = e;
+    }
+    if (secKey === "vendor") {
+      const branches = Number(d.branches), tills = Number(d.tills);
+      if (!errors.branches && d.plan === "lite" && branches > 1) errors.branches = "Lite is for one branch. Choose Business for more branches.";
+      if (!errors.tills && !errors.branches && d.branches && d.tills && tills < branches) errors.tills = "At least one till per branch (" + branches + ").";
+    }
+    return { errors, complete: Object.keys(errors).length === 0, started };
+  }
+
+  // "Not started" | "In progress" | "Done"
+  function obSectionProgress(rec, secKey, now) {
+    const c = obCheckSection(secKey, rec.data[secKey] || {}, now);
+    return c.complete ? "done" : c.started ? "progress" : "none";
+  }
+  function obAllDone(rec, now) {
+    return OB_SECTIONS.every((s) => obCheckSection(s.key, rec.data[s.key] || {}, now).complete);
+  }
+
+  // The parameters for cl_rpn_save_onboarding. A draft can be sent as soon
+  // as the four identity fields are valid; any typed column whose own check
+  // fails is sent as null, so the database never refuses a draft.
+  function obCanSendDraft(rec, now) {
+    const e = obCheckSection("vendor", rec.data.vendor || {}, now).errors;
+    return !e.business_name && !e.owner_name && !e.phone && !e.city && !blank(rec.data.vendor.business_name);
+  }
+  function obRpcParams(rec, submit, now) {
+    const v = rec.data.vendor || {};
+    const e = obCheckSection("vendor", v, now).errors;
+    const ok = (name) => !e[name] && !blank(v[name]);
+    const tidy = (s) => String(s).replace(/\s+/g, " ").trim();
+    const sections = {};
+    for (const s of OB_SECTIONS) sections[s.key] = obCleanSection(s.key, rec.data[s.key] || {}, now);
+    return {
+      p_id: rec.id,
+      p_note_id: rec.noteId || null,
+      p_business_name: tidy(v.business_name),
+      p_owner_name: tidy(v.owner_name),
+      p_phone: normalizePhone(v.phone),
+      p_city: tidy(v.city),
+      p_plan: ok("plan") ? v.plan : null,
+      p_branches: ok("branches") ? Number(v.branches) : null,
+      p_tills: ok("tills") && ok("branches") ? Number(v.tills) : null,
+      p_subscription_amount: ok("subscription_amount") ? Number(v.subscription_amount) : null,
+      p_features_taken: ok("features_taken") ? String(v.features_taken).trim() : null,
+      p_sections: sections,
+      p_client_saved_at: new Date(rec.savedAt).toISOString(),
+      p_submit: !!submit,
+    };
+  }
+  // A section as the Console sees it: hidden fields left out, values tidied.
+  function obCleanSection(secKey, d, now) {
+    const sec = OB_SECTION_BY_KEY[secKey];
+    const out = {};
+    for (const f of sec.fields) {
+      if (f.type === "list") {
+        out[f.name] = (Array.isArray(d[f.name]) ? d[f.name] : []).map((it) => {
+          const o = {};
+          for (const sf of f.fields) {
+            if (!isShown(sf, it)) continue;
+            const c = {};
+            obCheckValue(sf, it[sf.name], it, now, c);
+            if (c.value !== "") o[sf.name] = c.value;
+          }
+          return o;
+        });
+      } else if (f.type === "modules") {
+        const m = d[f.name] || {};
+        const o = {};
+        for (const [k] of OB_MODULES) if (m[k]) o[k] = m[k];
+        out[f.name] = o;
+      } else if (isShown(f, d)) {
+        const c = {};
+        obCheckValue(f, d[f.name], d, now, c);
+        if (f.type === "check" || c.value !== "") out[f.name] = c.value;
+      }
+    }
+    return out;
+  }
+
+  // ---------------- state ----------------
+  const OB_PULL_EVERY_MS = 60 * 1000; // ask the Console for the office's answers at most once a minute
+  const ob = {
+    loaded: false,
+    records: [], // newest change first
+    sending: new Set(),
+    showErrors: {}, // "recId:secKey" -> true once Save was tapped there
+    lastPull: 0,
+  };
+  const OB_EDITABLE = { draft: true, returned: true };
+
+  function obEditable(rec) {
+    if (rec.submitRequested) return false;
+    return !rec.serverStatus || !!OB_EDITABLE[rec.serverStatus];
+  }
+  function obPending(rec) {
+    return rec.savedAt > (rec.sentSavedAt || 0) || (rec.submitRequested && rec.serverStatus !== "submitted" && !OB_FINAL[rec.serverStatus]);
+  }
+  const OB_FINAL = { approved: true, rejected: true };
+
+  async function obInit() {
+    await storeInit();
+    try {
+      ob.records = (await storeGetAll("records")).sort((a, b) => b.savedAt - a.savedAt);
+    } catch (e) { /* storage refused: start empty */ }
+    ob.loaded = true;
+    if (state.tab === "field") render(false);
+    kickOutbox();
+  }
+  async function obPut(rec) {
+    await storePut("records", rec);
+    const i = ob.records.findIndex((r) => r.id === rec.id);
+    if (i === -1) ob.records.unshift(rec);
+    else ob.records[i] = rec;
+  }
+
+  // A new record for the RPN signed in on this phone, blank or from one of
+  // their onboarding notes (its details copied in; the note stays as it is).
+  async function obCreate(noteId) {
+    const now = fieldNow();
+    const rec = {
+      id: newNoteId(), rpnId: field.identity.rpnId, rpnName: field.identity.name, noteId: null,
+      data: obEmptyData(now), createdAt: now, savedAt: now, sentSavedAt: 0,
+      submitRequested: false, serverStatus: null, officeReason: "", verifiedAt: null,
+      sync: "pending", attempts: 0, nextAttemptAt: now, permanent: false, lastError: "",
+    };
+    const note = noteId ? field.notes.find((n) => n.id === noteId) : null;
+    if (note) {
+      // Only a note the Console has can be linked (the database checks it is this RPN's).
+      if (note.status === "sent" && note.rpnId === rec.rpnId) rec.noteId = note.id;
+      const v = rec.data.vendor;
+      for (const k of ["business_name", "owner_name", "phone", "city", "location", "business_type"]) v[k] = note.fields[k] || "";
+      if (note.fields.visit_date) v.first_visit_date = note.fields.visit_date;
+    }
+    await obPut(rec);
+    return rec;
+  }
+
+  // Typing: the value goes into the record at once (kept on the phone after
+  // a short pause); nothing is sent until the RPN saves the section.
+  const OB_SAVE_MS = 400;
+  let obSaveTimer = null;
+  let obDirty = null;
+  function obSetValue(rec, secKey, path, value) {
+    if (!obEditable(rec)) return;
+    const d = rec.data[secKey];
+    const parts = path.split(".");
+    if (parts.length === 3) d[parts[0]][Number(parts[1])][parts[2]] = value;
+    else if (parts.length === 2) { d[parts[0]] = d[parts[0]] || {}; d[parts[0]][parts[1]] = value; }
+    else d[path] = value;
+    obTouch(rec);
+    obDirty = rec;
+    clearTimeout(obSaveTimer);
+    obSaveTimer = setTimeout(obFlush, OB_SAVE_MS);
+  }
+  function obTouch(rec) {
+    rec.savedAt = Math.max(fieldNow(), (rec.savedAt || 0) + 1); // always moves forward
+    rec.sync = "pending";
+    rec.permanent = false;
+    rec.lastError = "";
+    rec.nextAttemptAt = rec.savedAt;
+  }
+  async function obFlush() {
+    clearTimeout(obSaveTimer);
+    const rec = obDirty;
+    obDirty = null;
+    if (rec) await storePut("records", rec).catch(() => {});
+  }
+  async function obAddItem(rec, secKey, listName) {
+    if (!obEditable(rec)) return;
+    const f = OB_SECTION_BY_KEY[secKey].fields.find((x) => x.name === listName);
+    const items = rec.data[secKey][listName];
+    if (items.length >= f.maxItems) return;
+    items.push(obEmptyItem(f, fieldNow()));
+    obTouch(rec);
+    await obPut(rec);
+  }
+  async function obRemoveItem(rec, secKey, listName, index) {
+    if (!obEditable(rec)) return;
+    rec.data[secKey][listName].splice(index, 1);
+    obTouch(rec);
+    await obPut(rec);
+  }
+  // "Save section": shows its problems from now on, keeps it, and sends.
+  async function obSaveSection(rec, secKey) {
+    ob.showErrors[rec.id + ":" + secKey] = true;
+    await obFlush();
+    await obPut(rec);
+    kickOutbox();
+    return obCheckSection(secKey, rec.data[secKey], fieldNow());
+  }
+  // Submit for office verification: every section must be done.
+  async function obSubmit(rec) {
+    const now = fieldNow();
+    if (!obEditable(rec) || !obAllDone(rec, now)) return false;
+    rec.submitRequested = true;
+    obTouch(rec);
+    await obPut(rec);
+    kickOutbox();
+    return true;
+  }
+  async function obRetry(id) {
+    const rec = ob.records.find((r) => r.id === id);
+    if (!rec) return;
+    Object.assign(rec, { sync: "pending", permanent: false, nextAttemptAt: fieldNow(), lastError: "" });
+    await obPut(rec);
+    kickOutbox();
+  }
+
+  // ---------------- sending (called from outbox.js's run) ----------------
+  function obNeedsSending(rec) {
+    return obPending(rec) && !OB_FINAL[rec.serverStatus];
+  }
+  async function obPass() {
+    if (!ob.loaded) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    const queue = ob.records.filter((r) => obNeedsSending(r) && (r.sync !== "failed" || !r.permanent)).sort((a, b) => a.savedAt - b.savedAt);
+    for (const rec of queue) {
+      const now = fieldNow();
+      if (rec.sync === "failed" && rec.nextAttemptAt > now) continue;
+      if (!canSend(rec, now)) {
+        if (rec.sync !== "signin") { rec.sync = "signin"; await storePut("records", rec); refreshFieldScreens(); }
+        continue;
+      }
+      if (!obCanSendDraft(rec, now)) continue; // waits on the phone until the vendor's details are filled in
+      const submit = rec.submitRequested;
+      const params = obRpcParams(rec, submit, now);
+      const sentAt = rec.savedAt;
+      ob.sending.add(rec.id);
+      refreshFieldScreens();
+      const res = await consoleSaveOnboarding(field.session, params);
+      ob.sending.delete(rec.id);
+      const after = fieldNow();
+      if (res.result === "sent") {
+        rec.sentSavedAt = Math.max(rec.sentSavedAt || 0, sentAt);
+        Object.assign(rec, { sync: "pending", attempts: 0, permanent: false, lastError: "", nextAttemptAt: null });
+        obApplyServer(rec, res.body);
+      } else if (res.result === "auth") {
+        field.session = null;
+        await storeDelete("meta", "consoleSession");
+        rec.sync = "signin";
+      } else if (res.result === "locked") {
+        // The Console already has it as submitted/approved/rejected: take its word.
+        Object.assign(rec, { sync: "failed", permanent: true, lastError: res.message });
+        ob.lastPull = 0;
+      } else {
+        rec.attempts = (rec.attempts || 0) + 1;
+        Object.assign(rec, {
+          sync: "failed", lastError: res.message, permanent: !!res.permanent,
+          nextAttemptAt: res.permanent ? null : after + outboxBackoffMs(rec.attempts),
+        });
+        // A refused submit: give the record back to the RPN to fix.
+        if (res.permanent && submit) rec.submitRequested = false;
+      }
+      await storePut("records", rec);
+      refreshFieldScreens();
+      if (res.result === "auth") { field.again = true; break; }
+      if (res.result === "failed" && !res.permanent) break;
+    }
+    await obPull();
+  }
+  // The Console's answer for one record (from a save or a pull).
+  function obApplyServer(rec, srv) {
+    if (!srv || !srv.status) return;
+    const was = rec.serverStatus;
+    rec.serverStatus = srv.status;
+    rec.officeReason = srv.office_reason || "";
+    rec.verifiedAt = srv.verified_at || null;
+    if (srv.status === "returned" && was !== "returned") rec.submitRequested = false; // back to the RPN to fix
+    if (srv.status === "submitted") rec.submitRequested = true; // locked until the office answers
+    if (srv.status === "returned" || srv.status === "draft") {
+      // A "locked" refusal from before no longer applies.
+      if (rec.sync === "failed" && rec.permanent && /can no longer be changed/.test(rec.lastError)) Object.assign(rec, { sync: "pending", permanent: false, lastError: "" });
+    }
+  }
+  // The office's answers for this RPN's records: at most once a minute,
+  // only when signed in.
+  async function obPull(force) {
+    const now = fieldNow();
+    if (!sessionValid(field.session, now)) return;
+    if (!force && now - ob.lastPull < OB_PULL_EVERY_MS) return;
+    const mine = ob.records.filter((r) => r.rpnId === field.session.rpnId && (r.sentSavedAt || r.serverStatus));
+    if (!mine.length) { ob.lastPull = now; return; }
+    const res = await consoleFetchOnboardingStatus(field.session);
+    if (!res.ok) return;
+    ob.lastPull = now;
+    const byId = {};
+    for (const row of res.rows) byId[row.id] = row;
+    let changed = false;
+    for (const rec of mine) {
+      const row = byId[rec.id];
+      if (!row) continue;
+      if (row.status !== rec.serverStatus || (row.office_reason || "") !== (rec.officeReason || "")) {
+        obApplyServer(rec, row);
+        await storePut("records", rec);
+        changed = true;
+      }
+    }
+    if (changed) refreshFieldScreens();
+  }
+  // When outbox.js should wake up for records.
+  function obDueTimes() {
+    return ob.records.filter((r) => r.sync === "failed" && !r.permanent && r.nextAttemptAt).map((r) => r.nextAttemptAt);
+  }
+  function obSignedInAgain(rpnId) {
+    for (const r of ob.records) if (r.sync === "signin" && r.rpnId === rpnId) { r.sync = "pending"; r.nextAttemptAt = fieldNow(); }
+  }
+
+  // What the RPN sees about a record. -> {key, text}
+  function obStatus(rec) {
+    if (ob.sending.has(rec.id)) return { key: "sending", text: "Sending…" };
+    if (rec.serverStatus === "approved") return { key: "approved", text: "Verified" };
+    if (rec.serverStatus === "rejected") return { key: "rejected", text: "Rejected" };
+    if (obPending(rec)) {
+      if (rec.sync === "signin") return { key: "signin", text: "Sign in to send" };
+      if (rec.sync === "failed") return { key: "failed", text: "Failed - retry" };
+      if (rec.submitRequested) return { key: "saved", text: "Submit waiting" };
+      return { key: "saved", text: "Saved on phone" };
+    }
+    if (rec.serverStatus === "submitted") return { key: "submitted", text: "With the office" };
+    if (rec.serverStatus === "returned") return { key: "returned", text: "Returned to you" };
+    return { key: "sent", text: "Draft sent" };
   }
 
   // ================== RPN Field Guide — Coach tab + learner profiles (Phase 2) ==================
@@ -2637,11 +3263,318 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
     else if (items[next]) items[next].focus();
   }
 
+  // ================== RPN Field Guide — full vendor onboarding (screens) ==================
+  // Screens, under the Field tab:
+  //   #/field                    "Vendor onboarding" block (fieldListHtml calls obListBlockHtml)
+  //   #/field/ob/new             start: blank, or from one of the RPN's onboarding notes
+  //   #/field/ob/<id>            the record: status, the four sections, Submit
+  //   #/field/ob/<id>/<section>  one section's form (vendor | installation | implementation | training)
+  //
+  // Buttons carry data-act "o-…" (app.js sends clicks and submits here:
+  // obAction / obSubmitForm); every input carries data-act "ob-field" with
+  // data-sec and data-path (app.js sends typing here: obInput). Values go
+  // straight into the record (onboarding.js obSetValue), so going offline or
+  // online, a status change, or leaving the form never loses them.
+
+  const OB_PILL = {
+    sending: "fg-pill-grey", saved: "fg-pill-grey", sent: "fg-pill-grey", signin: "fg-pill-warn", failed: "low",
+    submitted: "fg-pill-warn", returned: "low", approved: "ok", rejected: "low",
+  };
+  const OB_PROGRESS = { none: ["Not started", "fg-pill-grey"], progress: ["In progress", "fg-pill-warn"], done: ["Done", "ok"] };
+
+  function obPillHtml(rec) {
+    const s = obStatus(rec);
+    return '<span class="pill ' + OB_PILL[s.key] + '">' + esc(s.text) + "</span>";
+  }
+  function obTitle(rec) {
+    const n = (rec.data.vendor.business_name || "").replace(/\s+/g, " ").trim();
+    return n || "New vendor";
+  }
+
+  // ---------------- the block on the Field list ----------------
+  function obListBlockHtml() {
+    if (!ob.loaded) return "";
+    const rows = ob.records.map((r) => {
+      const v = r.data.vendor;
+      const done = OB_SECTIONS.filter((s) => obSectionProgress(r, s.key, fieldNow()) === "done").length;
+      const sub = [v.city, done + " of 4 sections done"].filter(Boolean).join(" · ") +
+        (r.rpnId !== (field.identity && field.identity.rpnId) ? " · " + r.rpnName : "");
+      return '<button type="button" class="fg-note-row" data-act="o-open" data-id="' + r.id + '">' +
+        '<span class="fg-note-main"><span class="fg-note-t">' + esc(obTitle(r)) + '</span><span class="fg-note-s">' + esc(sub) + "</span></span>" +
+        obPillHtml(r) + "</button>";
+    }).join("");
+    return (
+      '<h2 class="fg-sec">Vendor onboarding</h2>' +
+      '<p class="muted fg-ob-intro">The full record of onboarding a vendor: installation, implementation, training and handover. Sent to the office to verify.</p>' +
+      '<button type="button" class="btn btn-primary fg-newnote" data-act="o-new"' + (field.identity ? "" : " disabled") + ">+ Start vendor onboarding</button>" +
+      (rows ? '<div class="fg-notes fg-ob-list">' + rows + "</div>" : '<p class="muted">No vendor onboardings yet.</p>')
+    );
+  }
+
+  // ---------------- start ----------------
+  function obStartHtml() {
+    if (!field.identity) return fieldListHtml();
+    const mine = field.notes.filter((n) => n.rpnId === field.identity.rpnId);
+    const used = new Set(ob.records.map((r) => r.noteId).filter(Boolean));
+    const rows = mine.map((n) =>
+      '<button type="button" class="fg-note-row" data-act="o-start" data-note="' + n.id + '"' + (used.has(n.id) ? ' aria-describedby="fgObUsed"' : "") + ">" +
+        '<span class="fg-note-main"><span class="fg-note-t">' + esc(n.fields.business_name) + '</span><span class="fg-note-s">' +
+        esc(n.fields.city + " · " + dateOf(n.fields.visit_date) + (used.has(n.id) ? " · already used" : "")) + "</span></span></button>").join("");
+    return (
+      '<div class="fg-subhead"><button type="button" class="fg-back" data-act="f-back">‹ Field</button></div>' +
+      '<h1 class="fg-h1" tabindex="-1">Start vendor onboarding</h1>' +
+      '<p class="fg-lead">Start from one of your onboarding notes, so the vendor\'s details are filled in, or start blank.</p>' +
+      '<button type="button" class="btn btn-outline fg-ob-blank" data-act="o-start">Start blank</button>' +
+      '<h2 class="fg-sec">From an onboarding note</h2>' +
+      (rows ? '<div class="fg-notes">' + rows + "</div>" + '<p class="muted" id="fgObUsed">Only a note already sent to the Console is linked to the onboarding; the details of the others are copied.</p>'
+            : '<p class="muted">You have no onboarding notes on this phone.</p>')
+    );
+  }
+
+  // ---------------- one record ----------------
+  function obStatusText(rec) {
+    const s = obStatus(rec).key;
+    const now = fieldNow();
+    if (s === "approved") return "The office verified this onboarding" + (rec.verifiedAt ? " on " + new Date(rec.verifiedAt).toLocaleDateString() : "") + ".";
+    if (s === "rejected") return "The office rejected this onboarding." + (rec.officeReason ? " Reason: " + rec.officeReason : "");
+    if (s === "returned") return "The office returned this to you: " + (rec.officeReason || "no reason given") + ". Fix it and submit again.";
+    if (s === "submitted") return "Submitted. Waiting for the office to verify it.";
+    if (s === "sent") return "Your draft is with the Console. Finish all four sections, then submit.";
+    if (s === "sending") return "Sending now…";
+    if (s === "signin") return field.identity && field.identity.rpnId !== rec.rpnId ? "Sign in as " + rec.rpnName + " to send this." : "Sign in to send this.";
+    if (s === "failed") {
+      const reason = /[.!?]$/.test(rec.lastError) ? rec.lastError : rec.lastError + ".";
+      return reason + (rec.permanent ? " It won't be sent again until you tap Retry." : rec.nextAttemptAt ? " Trying again at " + timeOf(rec.nextAttemptAt) + "." : "");
+    }
+    if (!obCanSendDraft(rec, now)) return "Saved on this phone. It is sent once the business name, owner, phone and city are filled in.";
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return "Saved on this phone. Waiting for internet.";
+    return rec.submitRequested ? "Submit saved on this phone. Waiting to send." : "Saved on this phone. Waiting to send.";
+  }
+  function obRecordHtml(id) {
+    const rec = ob.records.find((r) => r.id === id);
+    if (!rec) return fieldListHtml();
+    const now = fieldNow();
+    const s = obStatus(rec).key;
+    const editable = obEditable(rec);
+    const cardClass = { approved: "sent", sent: "sent", failed: "failed", rejected: "failed", returned: "failed", signin: "signin", submitted: "signin" }[s] || "saved";
+    const secRows = OB_SECTIONS.map((sec) => {
+      const p = OB_PROGRESS[obSectionProgress(rec, sec.key, now)];
+      return '<button type="button" class="fg-note-row" data-act="o-sec" data-id="' + rec.id + '" data-sec="' + sec.key + '">' +
+        '<span class="fg-ob-n" aria-hidden="true">' + sec.n + "</span>" +
+        '<span class="fg-note-main"><span class="fg-note-t">' + esc(sec.title) + '</span><span class="fg-note-s">' + esc(sec.sub) + "</span></span>" +
+        '<span class="pill ' + p[1] + '">' + p[0] + "</span></button>";
+    }).join("");
+    const allDone = obAllDone(rec, now);
+    const remaining = OB_SECTIONS.filter((sec) => obSectionProgress(rec, sec.key, now) !== "done").length;
+    let submitBlock = "";
+    if (editable) {
+      submitBlock = '<div class="card fg-ob-submit"><h2 class="fg-card-title">Send for office verification</h2>' +
+        '<p class="muted">' + (allDone ? "All four sections are done. Once submitted, you can't change it unless the office returns it." : remaining + " section" + (remaining === 1 ? " is" : "s are") + " not done yet.") + "</p>" +
+        '<button type="button" class="btn btn-primary" data-act="o-submit" data-id="' + rec.id + '"' + (allDone ? "" : " disabled") + ">Submit for verification</button></div>";
+    }
+    return (
+      '<div class="fg-subhead"><button type="button" class="fg-back" data-act="f-back">‹ Field</button>' + obPillHtml(rec) + "</div>" +
+      '<h1 class="fg-h1" tabindex="-1">' + esc(obTitle(rec)) + "</h1>" +
+      '<div class="card fg-status fg-status-' + cardClass + '" role="status"><p>' + esc(obStatusText(rec)) + "</p>" +
+        (s === "failed" ? '<button type="button" class="btn btn-primary btn-sm" data-act="o-retry" data-id="' + rec.id + '">Retry now</button>' : "") +
+        (s === "signin" ? '<button type="button" class="btn btn-primary btn-sm" data-act="f-go-me">Sign in</button>' : "") +
+      "</div>" +
+      '<h2 class="fg-sec">Sections</h2><div class="fg-notes">' + secRows + "</div>" +
+      submitBlock +
+      '<p class="muted">Started ' + esc(new Date(rec.createdAt).toLocaleString()) + " by " + esc(rec.rpnName) + "." +
+        (rec.noteId ? " Linked to your onboarding note." : "") + "</p>"
+    );
+  }
+
+  // ---------------- one section ----------------
+  function obInputHtml(rec, secKey, f, values, path, errors, locked) {
+    const id = "fgOb-" + secKey + "-" + path.replace(/\./g, "-");
+    const raw = values[f.name];
+    const err = errors[path];
+    const req = isReq(f, values);
+    const aria = ' aria-invalid="' + (err ? "true" : "false") + '" aria-describedby="' + id + "-help" + (err ? " " + id + "-err" : "") + '"';
+    const common = ' id="' + id + '" name="' + esc(path) + '" data-act="ob-field" data-sec="' + secKey + '" data-path="' + esc(path) + '"' + (req ? " required" : "") + aria + (locked ? " disabled" : "");
+    const value = raw == null ? "" : String(raw);
+    let control;
+    if (f.type === "check") {
+      return '<div class="fg-fld fg-ob-check' + (err ? " is-invalid" : "") + '">' +
+        '<label for="' + id + '"><input type="checkbox"' + common + (raw === true ? " checked" : "") + "><span>" + esc(f.label) + "</span></label>" +
+        '<p class="fg-help" id="' + id + '-help"></p>' +
+        (err ? '<p class="fg-err" id="' + id + '-err">' + esc(err) + "</p>" : "") + "</div>";
+    }
+    if (f.type === "textarea") {
+      control = '<textarea class="field fg-ta"' + common + ' rows="' + (f.rows || 3) + '" maxlength="' + f.max + '">' + esc(value) + "</textarea>";
+    } else if (f.type === "choice") {
+      control = '<select class="field"' + common + ">" + f.options.map(([v, l]) => '<option value="' + v + '"' + (v === value ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>";
+    } else if (f.type === "date") {
+      control = '<input class="field" type="date"' + common + ' value="' + esc(value) + '"' + (f.future ? "" : ' max="' + localDateKey(fieldNow()) + '"') + ">";
+    } else if (f.type === "number" || f.type === "money") {
+      control = '<input class="field" type="text" inputmode="' + (f.type === "money" ? "decimal" : "numeric") + '" autocomplete="off"' + common + ' value="' + esc(value) + '">';
+    } else {
+      control = '<input class="field" type="' + (f.type === "tel" ? "tel" : "text") + '"' + common + ' value="' + esc(value) + '"' + (f.max ? ' maxlength="' + f.max + '"' : "") +
+        (f.type === "tel" ? ' autocomplete="tel" inputmode="tel"' : ' autocomplete="off"') + ">";
+    }
+    return '<div class="fg-fld' + (err ? " is-invalid" : "") + '">' +
+      '<label class="fg-label" for="' + id + '">' + esc(f.label) + (req ? ' <span class="fg-req">required</span>' : "") + "</label>" +
+      control +
+      '<p class="fg-help" id="' + id + '-help">' + esc(f.hint || "") + "</p>" +
+      (err ? '<p class="fg-err" id="' + id + '-err">' + esc(err) + "</p>" : "") + "</div>";
+  }
+  function obListHtml(rec, secKey, f, d, errors, locked) {
+    const items = d[f.name] || [];
+    const body = items.map((it, i) =>
+      '<fieldset class="card fg-ob-item"><legend>' + esc(f.item + " " + (i + 1)) + "</legend>" +
+        f.fields.filter((sf) => isShown(sf, it)).map((sf) => obInputHtml(rec, secKey, sf, it, f.name + "." + i + "." + sf.name, errors, locked)).join("") +
+        (!locked && items.length > (f.min || 0) ? '<button type="button" class="btn btn-outline btn-sm fg-ob-remove" data-act="o-remove" data-list="' + f.name + '" data-index="' + i + '">Remove ' + esc(f.item.toLowerCase() + " " + (i + 1)) + "</button>" : "") +
+      "</fieldset>").join("");
+    const err = errors[f.name];
+    return '<h2 class="fg-sec">' + esc(f.label) + "</h2>" + body +
+      (err ? '<p class="fg-err" id="fgOb-' + secKey + "-" + f.name + '-err">' + esc(err) + "</p>" : "") +
+      (!locked && items.length < f.maxItems ? '<button type="button" class="btn btn-outline fg-ob-add" data-act="o-add" data-list="' + f.name + '">+ Add ' + esc(f.item.toLowerCase()) + "</button>" : "");
+  }
+  function obModulesHtml(rec, secKey, f, d, errors, locked) {
+    const m = d[f.name] || {};
+    const err = errors[f.name];
+    return '<h2 class="fg-sec">' + esc(f.label) + "</h2>" +
+      '<div class="card fg-ob-modules">' + OB_MODULES.map(([k, label]) => {
+        const id = "fgOb-" + secKey + "-modules-" + k;
+        return '<div class="fg-ob-mod"><label for="' + id + '">' + esc(label) + "</label>" +
+          '<select class="field" id="' + id + '" data-act="ob-field" data-sec="' + secKey + '" data-path="modules.' + k + '"' + (locked ? " disabled" : "") + ">" +
+          OB_LEVELS.map(([v, l]) => '<option value="' + v + '"' + (v === (m[k] || "") ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select></div>";
+      }).join("") + "</div>" +
+      (err ? '<p class="fg-err" id="fgOb-' + secKey + '-modules-err">' + esc(err) + "</p>" : "");
+  }
+  function obSectionHtml(id, secKey) {
+    const rec = ob.records.find((r) => r.id === id);
+    const sec = OB_SECTION_BY_KEY[secKey];
+    if (!rec || !sec) return fieldListHtml();
+    const now = fieldNow();
+    const d = rec.data[secKey];
+    const locked = !obEditable(rec);
+    const check = obCheckSection(secKey, d, now);
+    const errors = ob.showErrors[rec.id + ":" + secKey] && !locked ? check.errors : {};
+    const errorCount = Object.keys(errors).length;
+    let lastGroup = null;
+    const body = sec.fields.map((f) => {
+      if (f.type === "list") return obListHtml(rec, secKey, f, d, errors, locked);
+      if (f.type === "modules") return obModulesHtml(rec, secKey, f, d, errors, locked);
+      if (!isShown(f, d)) return "";
+      let head = "";
+      if (f.group && f.group !== lastGroup) { head = '<h2 class="fg-sec">' + esc(f.group) + "</h2>"; lastGroup = f.group; }
+      return head + obInputHtml(rec, secKey, f, d, f.name, errors, locked);
+    }).join("");
+    const next = OB_SECTIONS[sec.n] || null;
+    return (
+      '<div class="fg-subhead"><button type="button" class="fg-back" data-act="o-open" data-id="' + rec.id + '">‹ ' + esc(obTitle(rec)) + "</button>" +
+        '<span class="pill ' + OB_PROGRESS[obSectionProgress(rec, secKey, now)][1] + '">' + OB_PROGRESS[obSectionProgress(rec, secKey, now)][0] + "</span></div>" +
+      '<h1 class="fg-h1" tabindex="-1">' + sec.n + ". " + esc(sec.title) + "</h1>" +
+      '<p class="fg-lead">' + esc(sec.sub) + "</p>" +
+      (locked ? '<div class="fg-warn" role="status">This onboarding has been submitted, so it can\'t be changed here.</div>' : "") +
+      (errorCount ? '<div class="fg-warn fg-errsum" role="alert">Check ' + (errorCount === 1 ? "the field" : "the " + errorCount + " fields") + " marked below.</div>" : "") +
+      '<form class="fg-noteform fg-ob-form" data-act="o-save" data-id="' + rec.id + '" data-sec="' + secKey + '" novalidate>' +
+        body +
+        (locked ? "" : '<div class="fg-formbtns"><button type="submit" class="btn btn-primary">' + (next ? "Save and continue" : "Save section") + "</button></div>") +
+      "</form>"
+    );
+  }
+
+  function obScreen(sub) {
+    if (!ob.loaded) return '<h1 class="fg-h1" tabindex="-1">Field</h1><p class="fg-lead">Loading…</p>';
+    if (sub[0] === "new") return obStartHtml();
+    if (sub[1]) return obSectionHtml(sub[0], sub[1]);
+    return obRecordHtml(sub[0]);
+  }
+
+  // ---------------- events ----------------
+  function obCurrent() {
+    const sub = state.sub;
+    return sub[0] === "ob" ? ob.records.find((r) => r.id === sub[1]) : null;
+  }
+  // Redraw the section after a change that shows or hides fields, keeping
+  // the focus where it was.
+  function obRedrawKeepFocus() {
+    const active = document.activeElement;
+    const id = active && active.id;
+    const y = window.scrollY;
+    render(false);
+    window.scrollTo(0, y);
+    if (id) { const el = document.getElementById(id); if (el) el.focus({ preventScroll: true }); }
+  }
+  async function obAction(act, el) {
+    switch (act) {
+      case "o-new": location.hash = "#/field/ob/new"; return;
+      case "o-start": {
+        if (!field.identity) return;
+        const rec = await obCreate(el.dataset.note || null);
+        location.hash = "#/field/ob/" + rec.id + "/vendor";
+        return;
+      }
+      case "o-open": await obFlush(); location.hash = "#/field/ob/" + el.dataset.id; kickOutbox(); return;
+      case "o-sec": location.hash = "#/field/ob/" + el.dataset.id + "/" + el.dataset.sec; return;
+      case "o-retry": await obRetry(el.dataset.id); render(false); return;
+      case "o-add": case "o-remove": {
+        const rec = obCurrent();
+        if (!rec) return;
+        if (act === "o-add") {
+          await obAddItem(rec, state.sub[2], el.dataset.list);
+          render(false);
+          const items = rec.data[state.sub[2]][el.dataset.list];
+          const first = document.querySelector('[data-path^="' + el.dataset.list + "." + (items.length - 1) + '."]');
+          if (first) { first.focus(); first.scrollIntoView({ block: "center" }); }
+        } else {
+          const ok = await fgDialog({ title: "Remove " + el.textContent.replace(/^Remove /, "") + "?", text: "What is typed in it is removed.", okLabel: "Remove", danger: true });
+          if (!ok) return;
+          await obRemoveItem(rec, state.sub[2], el.dataset.list, Number(el.dataset.index));
+          obRedrawKeepFocus();
+        }
+        return;
+      }
+      case "o-submit": {
+        const rec = ob.records.find((r) => r.id === el.dataset.id);
+        if (!rec) return;
+        const ok = await fgDialog({
+          title: "Submit for verification?",
+          text: "The office checks it with the vendor. You can't change it after this unless they return it to you.",
+          okLabel: "Submit",
+        });
+        if (!ok) return;
+        await obSubmit(rec);
+        render(false);
+        return;
+      }
+    }
+  }
+  async function obSubmitForm(act, form) {
+    if (act !== "o-save") return;
+    const rec = ob.records.find((r) => r.id === form.dataset.id);
+    if (!rec || !obEditable(rec)) return;
+    const secKey = form.dataset.sec;
+    const check = await obSaveSection(rec, secKey);
+    if (!check.complete) {
+      render(false);
+      const first = document.querySelector("#fgMain .is-invalid input, #fgMain .is-invalid select, #fgMain .is-invalid textarea") || document.querySelector("#fgMain .fg-err");
+      if (first) { if (first.focus) first.focus(); first.scrollIntoView({ block: "center" }); }
+      return;
+    }
+    const sec = OB_SECTION_BY_KEY[secKey];
+    const next = OB_SECTIONS[sec.n];
+    location.hash = "#/field/ob/" + rec.id + (next ? "/" + next.key : "");
+  }
+  function obInput(el) {
+    const rec = obCurrent();
+    if (!rec || el.dataset.sec !== state.sub[2]) return;
+    const value = el.type === "checkbox" ? el.checked : el.value;
+    obSetValue(rec, el.dataset.sec, el.dataset.path, value);
+    // A choice can show or hide other fields: redraw (the typing is all in the record).
+    if (el.tagName === "SELECT" || el.type === "checkbox") obRedrawKeepFocus();
+  }
+
   // ================== RPN Field Guide — Field tab + Console sign-in (Phase 4) ==================
   // Screens:
   //   #/field              onboarding notes, each with its sending status
   //   #/field/new          the onboarding note form
   //   #/field/note/<id>    one note: what was written, where it is, Retry
+  //   #/field/ob/…         full vendor onboarding (onboarding-ui.js)
   // plus the sign-in card on the Me tab (cl_login).
   //
   // Buttons carry data-act "f-…"; app.js sends clicks, submits and typing
@@ -2675,7 +3608,9 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
   function refreshFieldScreens() {
     const main = document.getElementById("fgMain");
     if (!main || screenHasTyping(main)) return;
-    if ((state.tab === "field" && state.sub[0] !== "new") || state.tab === "me") render(false);
+    // Never the forms: a note being written, or an onboarding section.
+    const onForm = state.tab === "field" && (state.sub[0] === "new" || (state.sub[0] === "ob" && (state.sub[1] === "new" || state.sub.length > 2)));
+    if ((state.tab === "field" && !onForm) || state.tab === "me") render(false);
   }
   // The sign-in button and its "needs internet" line, updated in place.
   function patchSignInOnline(online) {
@@ -2710,8 +3645,9 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
       '<p class="fg-lead">Notes for the vendors you visit. They save on this phone first and go to the Console when you\'re online and signed in.</p>' +
       identityHtml() +
       (offline ? '<p class="fg-offline-note" role="status">Offline: new notes wait on this phone.</p>' : "") +
-      '<button type="button" class="btn btn-primary fg-newnote" data-act="f-new"' + (field.identity ? "" : " disabled") + ">+ New onboarding note</button>" +
+      obListBlockHtml() +
       '<h2 class="fg-sec">Onboarding notes</h2>' +
+      '<button type="button" class="btn btn-outline fg-newnote" data-act="f-new"' + (field.identity ? "" : " disabled") + ">+ New onboarding note</button>" +
       (rows ? '<div class="fg-notes">' + rows + "</div>" : '<p class="muted">No notes yet.</p>') +
       '<h2 class="fg-sec">Coming later</h2>' +
       '<div class="card fg-tile"><div class="fg-tile-ic">' + ICONS.tasks + '</div><div class="fg-tile-body"><div class="fg-tile-title">Support tasks</div><div class="fg-tile-sub">Log support work and follow-ups.</div></div><span class="pill fg-pill-grey">Soon</span></div>'
@@ -2799,6 +3735,7 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
     if (!field.loaded) return '<h1 class="fg-h1" tabindex="-1">Field</h1><p class="fg-lead">Loading…</p>';
     if (sub[0] === "new") return fieldFormHtml();
     if (sub[0] === "note") return fieldNoteHtml(sub[1]);
+    if (sub[0] === "ob") return obScreen(sub.slice(1));
     return fieldListHtml();
   }
 
@@ -3026,6 +3963,7 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
       const el = e.target.closest("[data-act]");
       if (!el || el.tagName !== "BUTTON" || el.disabled) return;
       if (el.dataset.act.startsWith("f-")) fieldAction(el.dataset.act, el);
+      else if (el.dataset.act.startsWith("o-")) obAction(el.dataset.act, el);
       else coachAction(el.dataset.act, el);
     });
     main.addEventListener("submit", (e) => {
@@ -3033,11 +3971,13 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
       if (!form) return;
       e.preventDefault();
       if (form.dataset.act.startsWith("f-")) fieldSubmit(form.dataset.act, form);
+      else if (form.dataset.act.startsWith("o-")) obSubmitForm(form.dataset.act, form);
       else coachSubmit(form.dataset.act, form);
     });
     main.addEventListener("input", (e) => {
       if (!e.target.dataset || !e.target.dataset.act) return;
       if (e.target.dataset.act === "note-field") fieldInput(e.target);
+      else if (e.target.dataset.act === "ob-field") obInput(e.target);
       else coachInput(e.target);
     });
 
@@ -3320,6 +4260,7 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
   registerWorker();
   coachInit();
   fieldInit();
+  obInit();
 
 })();
 </script>

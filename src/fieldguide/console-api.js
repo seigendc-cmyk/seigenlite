@@ -110,3 +110,30 @@
     if (r.status >= 500 || r.status === 429 || r.status === 408) return { result: "failed", permanent: false, message: "The Console had a problem (" + r.status + ")" };
     return { result: "failed", permanent: true, message: "The Console refused this note: " + message };
   }
+
+  // ================== Full onboarding records (2026-10-09) ==================
+  //   consoleSaveOnboarding(session, params) -> rpc cl_rpn_save_onboarding
+  //   consoleFetchOnboardingStatus(session)  -> this RPN's records' status (RLS: own rows)
+  //
+  // Outcomes, as for notes, plus one:
+  //   sent     saved (body = {id, status, result, office_reason, verified_at})
+  //   auth     sign in again
+  //   locked   the Console has it as submitted / approved / rejected already
+  //   failed   permanent (refused: shown, retried by hand) or passing (backoff)
+  async function consoleSaveOnboarding(session, params) {
+    const r = await consoleFetch("/rest/v1/rpc/cl_rpn_save_onboarding", { method: "POST", body: JSON.stringify(params) }, session.token);
+    if (r.network) return { result: "failed", permanent: false, message: "No connection to the Console" };
+    if (r.status === 200 && r.body && r.body.status) return { result: "sent", body: r.body };
+    const code = (r.body && r.body.code) || "";
+    const message = (r.body && r.body.message) || "HTTP " + r.status;
+    if (r.status === 401 && code !== "42501") return { result: "auth" };
+    if (code === "55000") return { result: "locked", message: message };
+    if (code === "42501") return { result: "failed", permanent: true, message: "The Console didn't accept this from your account (" + message + ")" };
+    if (r.status >= 500 || r.status === 429 || r.status === 408 || (r.status === 200 && !r.body)) return { result: "failed", permanent: false, message: "The Console had a problem (" + r.status + ")" };
+    return { result: "failed", permanent: true, message: "The Console refused this: " + message };
+  }
+  async function consoleFetchOnboardingStatus(session) {
+    const r = await consoleFetch("/rest/v1/rpn_onboarding_records?select=id,status,office_reason,verified_at", { method: "GET" }, session.token);
+    if (r.status === 200 && Array.isArray(r.body)) return { ok: true, rows: r.body };
+    return { ok: false };
+  }
