@@ -15,7 +15,11 @@
   function branchDestinations(){
     ensureSelfInRegister();
     const me = currentBranch().toLowerCase();
-    return all("SELECT * FROM branch_register ORDER BY name").filter(b=>b.name.toLowerCase()!==me);
+    const reg = all("SELECT * FROM branch_register ORDER BY name").filter(b=>b.name.toLowerCase()!==me);
+    // branches joined to the business on seiGEN are destinations too (dispatch-srv.js)
+    const joined = (typeof dsDestinationNames==="function"? dsDestinationNames() : [])
+      .filter(n=>!reg.some(b=>sameBranchName(b.name,n))).map(n=>({ name:n, whatsapp:"" }));
+    return joined.length? reg.concat(joined).sort((a,b)=>a.name.localeCompare(b.name)) : reg;
   }
   function branchRegisterCardHtml(){
     ensureSelfInRegister();
@@ -216,6 +220,8 @@
              VALUES(?,?,?,?,?,?,?,?,'Dispatched',?,?)`,
           [ts,o.branch,o.toBranch,l.product.name,l.product.sku||"",qty,dn.text,sessionUser||"",dn.n,branchId]);
       });
+      // to a branch of this business on seiGEN: queued to send, in this same transaction (dispatch-srv.js)
+      if(o.srv) dsQueueDispatch(dnUid, dn, o.srv, o.lines, localIso(o.now), internalRef);
       recordDnEvent({ dnBranchId:branchId, dnNo:dn.n, type:"dispatched", actorBranchId:branchId, actorName:o.branch, fromName:o.branch, toName:o.toBranch, ts,
         detail:{ dn_created_iso:localIso(o.now), lines:o.lines.length, units }, dnTill:dn.till||null });
       logAudit("Dispatch Stock", "", `${dn.text}: ${o.lines.length} item${o.lines.length===1?"":"s"} to ${o.toBranch}`);
@@ -241,6 +247,16 @@
     const body = wrap.querySelector(".modal-body");
     let toName = "";
     let internalRef = "";                    // Phase 2: the shop's own optional reference ("Internal ref.")
+    // To a branch of this business on seiGEN, the dispatch also goes through seiGEN, with an optional delivery cost.
+    const delivery = { cost:"", currency:getSetting("ds_currency","USD"), carrier:"", ref:"" };
+    const srvFor = ()=> typeof dsBranchFor==="function"? dsBranchFor(toName) : null;
+    function deliveryProblem(){
+      if(!srvFor()) return "";
+      const raw = String(delivery.cost).trim();
+      if(raw && !(/^\d+(\.\d{1,2})?$/.test(raw))) return "Delivery cost: a number like 12 or 12.50.";
+      if(Number(raw)>0 && !/^[A-Za-z]{3}$/.test(String(delivery.currency).trim())) return "Delivery cost: the currency in 3 letters, e.g. USD.";
+      return "";
+    }
 
     function thumbImg(p){
       const ph = `<span style="width:34px;height:34px;border-radius:4px;background:var(--border);flex:none"></span>`, at = 'style="width:34px;height:34px;object-fit:cover;border-radius:4px;flex:none"';
@@ -261,6 +277,7 @@
       else if(toName.trim().toLowerCase()===branch.toLowerCase()) errs.push("You can't dispatch to your own branch.");
       else if(!dnDestinationAllowed(toName)) errs.push("Choose a branch from the list.");
       if(lines.length===0) errs.push("Add at least one product.");
+      if(deliveryProblem()) errs.push(deliveryProblem());
       lines.forEach((l,i)=>{
         const codeErr = dnProductCodeProblem(l.product);
         if(codeErr) errs.push(codeErr);
@@ -283,6 +300,11 @@
         </select>
         <label>Internal ref. (optional)</label>
         <input class="field" id="doRef" maxlength="${INTERNAL_REF_MAX}" value="${escapeHtml(internalRef)}" placeholder="Your own reference, e.g. a PO or order number" autocomplete="off">
+        ${srvFor()? `<div class="box" id="doSrvBox" style="margin-top:8px;font-size:12.5px"><b>Goes through seiGEN</b> to ${escapeHtml(srvFor().name)}: they count it in Incoming dispatches. You still get the file.
+          <div style="display:flex;gap:6px;margin-top:6px"><label style="flex:2;margin:0">Delivery cost (optional)<input class="field" id="doDelCost" inputmode="decimal" value="${escapeHtml(delivery.cost)}" placeholder="0.00"></label>
+            <label style="flex:1;margin:0">Currency<input class="field" id="doDelCur" maxlength="3" value="${escapeHtml(delivery.currency)}"></label></div>
+          <div style="display:flex;gap:6px"><label style="flex:1;margin:0">Carrier<input class="field" id="doDelCarrier" maxlength="80" value="${escapeHtml(delivery.carrier)}"></label>
+            <label style="flex:1;margin:0">Reference<input class="field" id="doDelRef" maxlength="80" value="${escapeHtml(delivery.ref)}"></label></div></div>` : ""}
         ${dests.length? "" : `<p class="muted" style="font-size:12px">No destination branches are set up yet. Main adds them under Settings → Destination branches, and a remote receives the list with its catalogue.</p>`}
         <div class="hr"></div>
         <label style="margin-top:0">Add product — search, or scan a barcode/SKU and press Enter</label>
@@ -304,9 +326,12 @@
         <div id="doErr" style="color:#b42318;font-size:12.5px;margin-top:6px"></div>
         <button class="btn btn-primary" id="doReview" style="margin-top:8px">Review</button>`;
       const dest = body.querySelector("#doDest"), search = body.querySelector("#doSearch");
-      dest.onchange = ()=>{ toName = dest.value; };
+      dest.onchange = ()=>{ const was = !!srvFor(); toName = dest.value; if(!!srvFor()!==was) renderEdit(); };
       const refEl = body.querySelector("#doRef");
       refEl.oninput = ()=>{ internalRef = refEl.value; };
+      [["doDelCost","cost"],["doDelCur","currency"],["doDelCarrier","carrier"],["doDelRef","ref"]].forEach(([id,k])=>{
+        const el = body.querySelector("#"+id); if(el) el.oninput = ()=>{ delivery[k] = el.value; };
+      });
       search.oninput = ()=>{ query = search.value; renderEdit(true); };
       search.onkeydown = (e)=>{
         if(e.key!=="Enter") return;
@@ -337,6 +362,7 @@
         ${cleanInternalRef(internalRef)? `<p class="muted" style="margin:-4px 0 8px">Internal ref.: <b id="doRefShown">${escapeHtml(cleanInternalRef(internalRef))}</b></p>` : ""}
         ${lines.map(l=>`<div class="product-row" style="align-items:center"><div style="display:flex;gap:8px;align-items:center">${thumbImg(l.product)}<div><div class="pname">${escapeHtml(l.product.name)}</div><div class="pmeta">${escapeHtml(l.product.sku||"no SKU")}</div></div></div><b style="flex:none">${Number(l.qty)}</b></div>`).join("")}
         <p style="margin:10px 0"><b>${lines.length}</b> line${lines.length===1?"":"s"} · <b>${units}</b> unit${units===1?"":"s"}. Stock is deducted as soon as you confirm.</p>
+        ${srvFor()? `<p class="muted" id="doSrvReview" style="margin:-4px 0 10px;font-size:12.5px">Goes through seiGEN to ${escapeHtml(srvFor().name)}${Number(delivery.cost)>0? " · delivery cost "+escapeHtml(String(delivery.currency).toUpperCase()+" "+Number(delivery.cost).toFixed(2)) : ""}.</p>` : ""}
         <div style="display:flex;gap:8px"><button class="btn btn-outline" id="doBack">Back</button><button class="btn btn-primary" id="doConfirm" style="flex:1">Dispatch</button></div>`;
       body.querySelector("#doBack").onclick=()=>renderEdit();
       body.querySelector("#doConfirm").onclick=()=>confirm_();
@@ -365,7 +391,10 @@
         if(!pre.ok){ alert("Dispatch was not completed and no stock was changed: "+pre.message); stage = "review"; renderReview(); return; }
       }
       try{
-        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })) });
+        const sb = srvFor();
+        if(sb && Number(delivery.cost)>0) setSetting("ds_currency", String(delivery.currency).trim().toUpperCase());
+        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })),
+          srv: sb? { toBranchId:sb.id, delivery:{ cost:Number(delivery.cost)||0, currency:String(delivery.currency).trim().toUpperCase(), carrier:delivery.carrier, ref:delivery.ref } } : undefined });
         if(pre) sharedStockDone(pre);
       }catch(e){
         if(pre) await sharedStockUndo(pre.moves);
@@ -406,6 +435,7 @@
           <p class="muted" style="margin:0">${r.doc.totals.lines} line${r.doc.totals.lines===1?"":"s"} · ${r.doc.totals.units} unit${r.doc.totals.units===1?"":"s"} to ${escapeHtml(r.doc.to.name)}</p>
           ${r.persistFailed? `<p style="color:#b42318;margin:6px 0 0;font-size:12.5px">Warning: this device couldn't save to its storage just now. Keep the app open and don't clear browser data until you see this screen again after another save.</p>` : ""}
           ${r.savedNote? `<p class="muted" style="margin:6px 0 0;font-size:12px">${escapeHtml(r.savedNote)}</p>` : ""}
+          ${r.header.srv_id? `<p id="doSrvStatus" style="margin:6px 0 0;font-size:12.5px;font-weight:600">seiGEN: ${escapeHtml(dsStatusText(r.header.srv_status))}</p>` : ""}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <button class="btn btn-primary" id="doShare" style="flex:1">${dnShareLabel()}</button>
@@ -420,6 +450,10 @@
       };
       body.querySelector("#doPrint").onclick=()=>printDNVoucher(r.doc);
       body.querySelector("#doDone").onclick=()=>{ wrap.remove(); render(); };
+      if(r.header.srv_id) dsSendPending().then(()=>{
+        const h = dnHeaderFor(r.header.dn_no), el = body.querySelector("#doSrvStatus");
+        if(h && el) el.textContent = "seiGEN: "+dsStatusText(h.srv_status)+(h.srv_status==="queued"? " (when online)" : "")+(h.srv_error? ": "+h.srv_error : "");
+      }).catch(()=>{});
     }
 
     renderEdit();
@@ -523,14 +557,17 @@
           ${st==="awaiting"? `<div class="pmeta" style="color:#b54708">No GRV after ${awaitingDays()} days.</div>` : ""}
           ${mr && chainText(mr)? `<div class="pmeta" style="color:#b54708">${escapeHtml(chainText(mr))}</div>` : ""}
           ${mr && mr.cancelPending && st!=="cancel_pending"? `<div class="pmeta" style="color:#b54708">Cancel pending: waiting for ${escapeHtml(h.receive_branch_name)}'s confirmation.</div>` : ""}
+          ${h.srv_id? `<div class="pmeta dh-srv" style="${h.srv_status==="error"? "color:#b42318" : ""}">Through seiGEN: ${escapeHtml(dsStatusText(h.srv_status))}${h.srv_error? " ("+escapeHtml(h.srv_error)+")" : ""}</div>` : ""}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button class="btn btn-sm btn-outline" data-view="${h.dn_no}">View voucher</button>
             ${DN_CLOSED_STATUSES.includes(st)? "" : `<button class="btn btn-sm btn-outline" data-share="${h.dn_no}">${dnShareLabel()}</button>`}
-            ${mr && mr.cancelPending? `<button class="btn btn-sm btn-outline" data-pending="${h.dn_no}">Cancel pending…</button>` : (cancelEnabled() && canStartCancel(st)? `<button class="btn btn-sm btn-outline" data-cancel="${h.dn_no}">Cancel / reissue…</button>` : "")}
+            ${h.srv_id && h.srv_status!=="error"? (h.srv_status==="sent" || h.srv_status==="queued"? `<button class="btn btn-sm btn-outline" data-srvopen="1">Cancel in seiGEN dispatches…</button>` : "")
+              : mr && mr.cancelPending? `<button class="btn btn-sm btn-outline" data-pending="${h.dn_no}">Cancel pending…</button>` : (cancelEnabled() && canStartCancel(st)? `<button class="btn btn-sm btn-outline" data-cancel="${h.dn_no}">Cancel / reissue…</button>` : "")}
           </div>
         </div>`; }).join("");
       body.querySelectorAll("[data-cancel]").forEach(b=>b.onclick=()=>openCancelWizard(+b.dataset.cancel, ()=>{ renderList(); render(); }));
       body.querySelectorAll("[data-pending]").forEach(b=>b.onclick=()=>openPendingCancelModal(+b.dataset.pending, ()=>{ renderList(); render(); }));
+      body.querySelectorAll("[data-srvopen]").forEach(b=>b.onclick=()=>{ wrap.remove(); openSeigenDispatches("out"); });
       body.querySelectorAll("[data-view]").forEach(b=>b.onclick=async ()=>{
         try{ const rec = await dnGetRecord(dnHeaderFor(+b.dataset.view)); const mvr = dnStatusMap().get(getBranchId()+"|"+(+b.dataset.view)); openDNVoucherModal(rec.doc, mvr? mvr.status : ""); }
         catch(e){ renderList("Couldn't open that voucher: "+(e.message||e)); }

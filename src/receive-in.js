@@ -289,6 +289,9 @@
   }
   async function rcShow(wrap, body, res, text){
     if(!res.ok) return rcBlocked(wrap, body, res);
+    // a Delivery Note seiGEN already holds is counted there, never twice (dispatch-srv.js)
+    const srvMsg = typeof dsFileCheck==="function"? await dsFileCheck(res.doc).catch(()=>"") : "";
+    if(srvMsg) return rcBlocked(wrap, body, { message:srvMsg });
     // A reissued DN closes the one it replaces, for this branch, as soon as it is opened.
     if(res.replaces && !(res.replaces.record && res.replaces.record.status==="cancelled")){
       try{ commitReplacementClose(res.doc, new Date()); await persist(); }

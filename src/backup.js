@@ -165,7 +165,11 @@
     db = new SQL.Database(bytes);
     db.run(SCHEMA); migrate(db);
     keepDeviceIdentity(ownId, ownCounters);
+    // another till's seiGEN requests must never go out under this till's name (dispatch-srv.js);
+    // this till's own come back with its own backup, and the next pull puts the rest right
+    const fileTerminal = getSetting("terminal_id","");
     restoreDeviceSettings(own);
+    if(fileTerminal!==own.terminal_id){ try{ run("DELETE FROM srv_pending"); run("DELETE FROM srv_dispatches"); }catch(e){} }
     currency = getSetting("currency","$");
     backfillBranch(db, currentBranch());
     if(typeof refreshLicenceLock==="function") refreshLicenceLock();   // the restored data may end the trial (activation.js)

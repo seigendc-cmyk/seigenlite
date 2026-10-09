@@ -248,6 +248,7 @@
         ${registered && !remote? `<button class="btn btn-sm btn-outline" id="productsShowInactive">${productsShowInactive? "Hide deactivated" : "Show deactivated"}</button>` : ""}
         <button class="btn btn-sm btn-outline" id="openReceive" title="Receive stock">${ICON_RECEIVE}</button>
         <button class="btn btn-sm btn-outline" id="openReceipts" title="Receipts history">🧾</button>
+        ${typeof dsEnabled==="function" && dsEnabled()? `<button class="btn btn-sm btn-outline" id="openSeigenDispatches" title="Dispatches through seiGEN: incoming, sent, differences, in transit">🚚 seiGEN${dsBadgeCount()? " ("+dsBadgeCount()+")" : ""}</button>` : ""}
         <button class="btn btn-sm btn-outline" id="openAdjustments" title="Adjustments history">${ICON_ADJUST} Adjustments</button>
         ${pendingTransfers>0? `<button class="btn btn-sm btn-outline" id="openLegacyReceive" title="Older transfers from before Delivery Notes">Legacy pending (${pendingTransfers})</button>` : ""}
       </div>
@@ -291,6 +292,8 @@
     if(inact) inact.onclick=()=>{ productsShowInactive = !productsShowInactive; render(); };
     document.getElementById("openReceive").onclick=()=>openReceiveScreen();
     document.getElementById("openReceipts").onclick=()=>openReceiptsHistory();
+    const sgd = document.getElementById("openSeigenDispatches");
+    if(sgd) sgd.onclick=()=>openSeigenDispatches();
     document.getElementById("openAdjustments").onclick=()=>openAdjustmentsHistory();
     const legacy = document.getElementById("openLegacyReceive");
     if(legacy) legacy.onclick=()=>receiveStockModal();

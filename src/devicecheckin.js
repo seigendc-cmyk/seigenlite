@@ -159,6 +159,8 @@
       if(typeof rpnAfterCheckin==="function") rpnAfterCheckin();
       // Market pack (marketing.js): send a waiting pack, fetch Digital Commerce's decision.
       if(typeof marketAfterCheckin==="function") marketAfterCheckin();
+      // seiGEN dispatches (dispatch-srv.js): send waiting dispatches, pull Incoming and the differences.
+      if(typeof dsAfterCheckin==="function") dsAfterCheckin();
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —

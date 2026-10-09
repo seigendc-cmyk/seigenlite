@@ -240,6 +240,16 @@
       ts TEXT NOT NULL, user TEXT DEFAULT '', note TEXT DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS ix_stock_movements_product ON stock_movements(product_id);
+    -- Dispatch & GRV through seiGEN (dispatch-srv.js): the last copy pulled of
+    -- this branch's dispatches (dir in|out, the server's JSON), and requests
+    -- saved before they are sent (kind send|grv|write_off), so a retry sends the
+    -- same document. Local only: mergeDatabase never reads them.
+    CREATE TABLE IF NOT EXISTS srv_dispatches(
+      id TEXT PRIMARY KEY, dir TEXT NOT NULL, status TEXT, json TEXT NOT NULL, pulled_ts TEXT
+    );
+    CREATE TABLE IF NOT EXISTS srv_pending(
+      key TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL, created_ts TEXT NOT NULL, tries INTEGER DEFAULT 0, error TEXT DEFAULT ''
+    );
     -- Catalogue sync (multi-terminal Phase 3a, catalogue-sync.js): price
     -- changes waiting to be sent to Digital Commerce (branch prices and branch
     -- price policies on main; this branch's own price under branch_edits on a
@@ -458,7 +468,16 @@
       "ALTER TABLE vouchers ADD COLUMN source_sale_id INTEGER",
       "ALTER TABLE sales ADD COLUMN merged_ts TEXT DEFAULT ''",
       // main's "Business day ends at" per branch (Phase 3c add-on), '' = not set
-      "ALTER TABLE branch_register ADD COLUMN business_day_cutoff TEXT DEFAULT ''"
+      "ALTER TABLE branch_register ADD COLUMN business_day_cutoff TEXT DEFAULT ''",
+      // Dispatch & GRV through seiGEN (dispatch-srv.js): the server's id for a DN
+      // sent or received through it, its status there, the GRV uid posted from
+      // here, and the delivery cost entered at dispatch.
+      "ALTER TABLE dispatch_docs ADD COLUMN srv_id TEXT",
+      "ALTER TABLE dispatch_docs ADD COLUMN srv_status TEXT DEFAULT ''",
+      "ALTER TABLE dispatch_docs ADD COLUMN srv_error TEXT DEFAULT ''",
+      "ALTER TABLE dispatch_docs ADD COLUMN srv_grv_id TEXT",
+      "ALTER TABLE dispatch_docs ADD COLUMN delivery_cost REAL DEFAULT 0",
+      "ALTER TABLE dispatch_docs ADD COLUMN delivery_currency TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
