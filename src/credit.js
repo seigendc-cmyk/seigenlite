@@ -1,61 +1,24 @@
+  // POS fixes (customers.js): one modal for adding and editing, needing
+  // "Create customers" (or the Admin passcode when nobody signed in with a PIN).
   function newCustomerModal(onDone){
-    const wrap = openModal("New Customer", `
-      <label>Customer name</label>
-      <input class="field" id="ncName" placeholder="Full name">
-      <label>Phone (optional)</label>
-      <input class="field" id="ncPhone" placeholder="e.g. 077xxxxxxx">
-      <label>Address (optional)</label>
-      <input class="field" id="ncAddress" placeholder="e.g. 12 Baker Street">
-      <label>Town/City (optional)</label>
-      <input class="field" id="ncTownCity" placeholder="e.g. Harare">
-      <label>Suburb (optional)</label>
-      <input class="field" id="ncSuburb" placeholder="e.g. Avondale">
-      <button class="btn btn-primary" id="ncConfirm" style="margin-top:12px">Add Customer</button>
-    `);
-    wrap.querySelector("#ncConfirm").onclick=()=>{
-      const name = wrap.querySelector("#ncName").value.trim();
-      const phone = wrap.querySelector("#ncPhone").value.trim();
-      const address = wrap.querySelector("#ncAddress").value.trim();
-      const townCity = wrap.querySelector("#ncTownCity").value.trim();
-      const suburb = wrap.querySelector("#ncSuburb").value.trim();
-      if(!name) return alert("Enter the customer's name");
-      const cid = findOrCreateCustomer(name, phone, address, townCity, suburb);
-      persist(); wrap.remove();
-      if(onDone) onDone(cid);
-      render();
-    };
+    openCustomerModal(null, { onSaved: (c)=>{ if(onDone) onDone(c.id); render(); } });
   }
-
   function editCustomerModal(customer){
-    const wrap = openModal("Edit Customer", `
-      <label>Customer name</label>
-      <input class="field" id="ecName" value="${escapeHtml(customer.name)}">
-      <label>Phone (optional)</label>
-      <input class="field" id="ecPhone" value="${escapeHtml(customer.phone||"")}">
-      <label>Address (optional)</label>
-      <input class="field" id="ecAddress" value="${escapeHtml(customer.address||"")}">
-      <label>Town/City (optional)</label>
-      <input class="field" id="ecTownCity" value="${escapeHtml(customer.town_city||"")}">
-      <label>Suburb (optional)</label>
-      <input class="field" id="ecSuburb" value="${escapeHtml(customer.suburb||"")}">
-      <button class="btn btn-primary" id="ecConfirm" style="margin-top:12px">Save Changes</button>
-      <button class="btn btn-danger" id="ecDelete" style="margin-top:8px">Delete Customer</button>
-    `);
-    wrap.querySelector("#ecConfirm").onclick=()=>{
-      const name = wrap.querySelector("#ecName").value.trim();
-      const phone = wrap.querySelector("#ecPhone").value.trim();
-      const address = wrap.querySelector("#ecAddress").value.trim();
-      const townCity = wrap.querySelector("#ecTownCity").value.trim();
-      const suburb = wrap.querySelector("#ecSuburb").value.trim();
-      if(!name) return alert("Enter the customer's name");
-      run("UPDATE customers SET name=?, phone=?, address=?, town_city=?, suburb=? WHERE id=?", [name, phone, address, townCity, suburb, customer.id]);
-      persist(); wrap.remove(); render();
-    };
-    wrap.querySelector("#ecDelete").onclick=()=>{
+    const wrap = openCustomerModal(customer, { onSaved: ()=> render() });
+    if(!wrap) return;
+    const del = document.createElement("button");
+    del.className = "btn btn-danger"; del.id = "ecDelete"; del.style.marginTop = "8px"; del.textContent = "Delete customer";
+    del.onclick = ()=>{
       if(!confirm(`Delete ${customer.name}? This does not delete their past sales history, just the contact record.`)) return;
+      if(canCreateCustomers()===null){
+        const pass = wrap.querySelector("#cuPass");
+        if(!findAdmin(pass? pass.value : "")){ wrap.querySelector("#cuMsg").textContent = "Enter the Admin passcode to delete a customer."; return; }
+      }
       run("DELETE FROM customers WHERE id=?", [customer.id]);
+      logAudit("Delete customer", customer.name, "");
       persist(); wrap.remove(); render();
     };
+    wrap.querySelector(".modal-body").appendChild(del);
   }
 
   // Credit tab: debtors only — focused purely on balances and payment reminders.
@@ -148,12 +111,13 @@
 
   // Directory (under More): every customer, for marketing WhatsApp messages only.
   function directoryListHtml(customers, query){
-    if(customers.length===0) return `<p class="muted">No customers yet. They're added automatically when a name is entered at checkout, or add one here.</p>`;
+    if(customers.length===0) return `<p class="muted">No customers yet. Add them here, or with "+ Add new customer" in the cart.</p>`;
     const filtered = customers.filter(c=> matchesAnyOrder(query, c.name+" "+(c.phone||"")));
     if(filtered.length===0) return `<p class="muted">No customers match "${escapeHtml(query)}".</p>`;
     return filtered.map(c=>`
       <div class="card" style="display:flex;justify-content:space-between;align-items:center">
-        <div>${escapeHtml(c.name)}</div>
+        <div>${escapeHtml(c.name)} <span class="pill ${c.customer_type==="wholesale"? "warn" : ""}">${escapeHtml(customerTypeLabel(c))}</span>
+          ${customerPrivateVisible() && (c.credit_limit!=null || c.address || c.national_id)? `<div class="muted" style="font-size:12px">${c.credit_limit!=null? "Limit "+currency+Number(c.credit_limit).toFixed(2) : ""}${c.address? " · "+escapeHtml(c.address) : ""}${c.national_id? " · ID "+escapeHtml(c.national_id) : ""}</div>` : ""}</div>
         <div style="display:flex;align-items:center;gap:8px">
           ${c.phone? `<button class="wa-link" data-dwa="${c.id}">📲 ${escapeHtml(c.phone)}</button>` : `<div class="muted">No phone</div>`}
           <button class="btn btn-sm btn-outline" data-editcust="${c.id}" title="Edit" style="padding:8px 10px">${ICON_EDIT}</button>
@@ -181,7 +145,12 @@
   function renderDirectory(main){
     const customers = all("SELECT * FROM customers ORDER BY name");
     main.innerHTML = `
-      <button class="btn btn-primary" id="openNewCustomer" style="margin-bottom:12px">+ New Customer</button>
+${customerClashesHtml()}
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn btn-primary" id="openNewCustomer" ${canCreateCustomers()===false? "disabled title=\"Ask an admin to add customers\"" : ""}>+ New Customer</button>
+        <button class="btn btn-outline" id="openFullCustExport" style="flex:none;width:auto">Customer export (full)</button>
+      </div>
+      ${canCreateCustomers()===false? `<p class="muted" style="margin-top:-6px">Ask an admin to add customers.</p>` : ""}
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="directorySearch" placeholder="Search by name or phone…" value="${escapeHtml(directoryQuery)}">
@@ -189,6 +158,8 @@
       <div id="directoryListArea">${directoryListHtml(customers, directoryQuery)}</div>
     `;
     document.getElementById("openNewCustomer").onclick=()=>newCustomerModal();
+    document.getElementById("openFullCustExport").onclick=()=>openFullCustomerExport();
+    wireCustomerClashes(main);
     document.getElementById("directorySearch").oninput=(e)=>{ directoryQuery = e.target.value; renderDirectoryListOnly(customers); };
     wireDirectoryCardHandlers(document.getElementById("directoryListArea"));
   }

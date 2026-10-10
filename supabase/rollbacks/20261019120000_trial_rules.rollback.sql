@@ -3,7 +3,7 @@
 -- deletes the schema_migrations row, in one transaction).
 -- Refuses while any trial or trial licence exists (signed trial licences are
 -- on the tills). Restores cl_licences, and the vendor and business delete
--- guards as 20261016120000 / 20261018120000 made them.
+-- guards as 20261016120000 / 20261018180000 made them (cl_norm_phone stays: 20261018180000 owns it).
 
 begin;
 
@@ -35,7 +35,6 @@ alter table public.cl_trial_exceptions drop constraint cl_trial_exceptions_trial
 drop table if exists public.cl_trial_refusals;
 drop table if exists public.cl_trials;
 drop table if exists public.cl_trial_exceptions;
-drop function if exists public.cl_norm_phone(text);
 
 create or replace function public.cl_vendor_delete_guard() returns trigger
 language plpgsql security definer set search_path = public as $fn$
@@ -106,6 +105,9 @@ begin
   if n > 0 then parts := parts || (n || ' supplier' || case when n = 1 then '' else 's' end); end if;
   select count(*) into n from cl_supplier_grvs where business_id = old.id;
   if n > 0 then parts := parts || (n || ' supplier GRV' || case when n = 1 then '' else 's' end); end if;
+  -- Customers (20261018180000)
+  select count(*) into n from cl_customers where business_id = old.id;
+  if n > 0 then parts := parts || (n || ' customer' || case when n = 1 then '' else 's' end); end if;
   if array_length(parts, 1) > 0 then
     raise exception 'Can''t delete "%": it has %. Archive it instead. Nothing was deleted.',
       old.name, array_to_string(parts, ', ') using errcode = '23503';

@@ -1,6 +1,6 @@
 # POS fixes: cart layout, customer combo, wholesale prices, stocktake search (Stage A design)
 
-Status: **Stage A, design only. No app code, database or deploy has changed.** Stage B starts on "go POS-fixes-B".
+Status: **Stage B built (app v17).** Owner answers (2026-10-10): 1 yes, 2 yes, 3 warn + Admin passcode against this till's balance (said on screen), 4a-4h as recommended; the national ID is synced but never in the Console, reports or exports except the Admin-only full customer export. Migration `20261018180000_customers_wholesale.sql` is written and tested but **not applied** (waiting for "apply"). Stage A text below is kept as designed.
 Date: 2026-10-10. Branch: `activation-v2`.
 
 Evidence labels:

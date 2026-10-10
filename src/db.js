@@ -492,7 +492,25 @@
       "ALTER TABLE purchases ADD COLUMN supplier_uid TEXT",
       "ALTER TABLE purchases ADD COLUMN landed_cost REAL",
       "ALTER TABLE purchases ADD COLUMN delivery_cost REAL DEFAULT 0",
-      "ALTER TABLE purchases ADD COLUMN srv_status TEXT DEFAULT ''"
+      "ALTER TABLE purchases ADD COLUMN srv_status TEXT DEFAULT ''",
+      // POS fixes (docs/pos/pos-fixes-design.md): customer type, credit limit
+      // and national ID (shown only with "Create customers"), the phone as
+      // compared; the business list's sync state (customers-srv in pos.js);
+      // a wholesale price per product (null = retail applies); the price level
+      // a sale and each line were sold at; who may create customers.
+      "ALTER TABLE customers ADD COLUMN customer_type TEXT DEFAULT 'retail'",
+      "ALTER TABLE customers ADD COLUMN credit_limit REAL",
+      "ALTER TABLE customers ADD COLUMN national_id TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN phone_norm TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN srv_status TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN srv_error TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN updated_ts TEXT DEFAULT ''",
+      "ALTER TABLE products ADD COLUMN wholesale_price REAL",
+      "ALTER TABLE products ADD COLUMN cat_main_wholesale REAL",
+      "ALTER TABLE sales ADD COLUMN price_level TEXT DEFAULT 'retail'",
+      "ALTER TABLE sale_items ADD COLUMN price_level TEXT DEFAULT 'retail'",
+      "ALTER TABLE sale_items ADD COLUMN retail_price REAL",
+      "ALTER TABLE staff ADD COLUMN can_create_customers INTEGER DEFAULT 0"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -508,6 +526,9 @@
       WHEN NEW.price_ts IS NULL OR NEW.price_ts=''
       BEGIN UPDATE products SET price_ts=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=NEW.id; END`); }catch(e){}
     backfillDnLinks(t);
+    // POS fixes: the phone as compared (utils.js normPhone), for customers saved before it existed.
+    try{ allX(t, "SELECT id, phone FROM customers WHERE COALESCE(phone_norm,'')='' AND COALESCE(phone,'')<>''")
+      .forEach(c=>{ const n = normPhone(c.phone); if(n) t.run("UPDATE customers SET phone_norm=? WHERE id=?", [n, c.id]); }); }catch(e){}
     // When the FIRST catalogue was generated for a destination (locks its name). Existing rows only
     // know their latest build, which is the best available stand-in.
     try{ t.run("UPDATE branch_register SET catalogue_first_ts=catalogue_ts WHERE (catalogue_first_ts IS NULL OR catalogue_first_ts='') AND catalogue_ts IS NOT NULL AND catalogue_ts<>''"); }catch(e){}
@@ -544,6 +565,14 @@
     try{ t.run("CREATE INDEX IF NOT EXISTS ix_products_cat_uid ON products(cat_uid)"); }catch(e){}
     try{ t.run(`CREATE TRIGGER IF NOT EXISTS products_cat_dirty AFTER UPDATE OF name,sku,price,cost,description,category,shelf,low_threshold,image,active ON products
       WHEN NEW.cat_uid IS NOT NULL
+        AND (SELECT value FROM settings WHERE key='terminal_is_main')='1'
+        AND COALESCE((SELECT value FROM settings WHERE key='cat_applying'),'')<>'1'
+        AND NEW.branch=(SELECT value FROM settings WHERE key='cat_branch')
+      BEGIN UPDATE products SET cat_dirty=1, cat_op=lower(hex(randomblob(16))), cat_error='' WHERE id=NEW.id; END`); }catch(e){}
+    // POS fixes: the wholesale price travels with the catalogue too (its own
+    // trigger, so devices that already have the one above get it as well).
+    try{ t.run(`CREATE TRIGGER IF NOT EXISTS products_cat_dirty_wholesale AFTER UPDATE OF wholesale_price ON products
+      WHEN NEW.cat_uid IS NOT NULL AND NEW.wholesale_price IS NOT OLD.wholesale_price
         AND (SELECT value FROM settings WHERE key='terminal_is_main')='1'
         AND COALESCE((SELECT value FROM settings WHERE key='cat_applying'),'')<>'1'
         AND NEW.branch=(SELECT value FROM settings WHERE key='cat_branch')

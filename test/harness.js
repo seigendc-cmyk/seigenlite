@@ -72,7 +72,7 @@ function makeApp(settings){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -118,7 +118,7 @@ function makeApp(settings){
         setDb:(d)=>{ db=d; }, getDb:()=>db, setSessionStaffId:(id)=>{ sessionStaffId=id; },
         setRoute:(r)=>{ route=r; }, setDrawerOpen:(v)=>{ drawerOpen=v; }, getMoreTab:()=>moreTab, getSettingsUnlocked:()=>settingsUnlocked,
         setCart:(arr)=>{ cart=arr; }, getCart:()=>cart, getLastReceipt:()=>window._lastReceipt,
-        rankProductsBySearch, matchesAnyOrder, searchTokens,
+        productSearch, productMatches, matchesAnyOrder, searchTokens,
         renderStocktake, renderStocktakeCounting, renderStocktakeCountingListOnly, computeStocktakeVariance,
         setStocktakeQuery:(q)=>{ stocktakeQuery=q; }, getStocktakeQuery:()=>stocktakeQuery,
         parseImportRows, findImportMatch, classifyImportRows, runImport, IMPORT_COLUMN_MAP,

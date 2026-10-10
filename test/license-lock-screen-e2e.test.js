@@ -53,7 +53,7 @@ function makeDomApp(settings){
     function render(){}
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
   `;
-  const files = ["db.js","activation.js","utils.js","terminal.js","pos.js","sync.js","eod.js"];
+  const files = ["db.js","activation.js","utils.js","terminal.js","pos.js","customers.js","sync.js","eod.js"];
   // db.js defines the real persist() (idbSet/db.export-based, needing real
   // IndexedDB) — override it with a no-op after load, same pattern
   // test/harness.js uses, since this test only needs settings/business

@@ -15,6 +15,7 @@ const { NOT_ON_LIVE_FILES, newPglite, buildFromRepo, READ } = require('./rebuild
 
 const ROOT = path.join(__dirname, '..');
 const FILE = '20261019120000_trial_rules.sql';
+const POS = '20261018180000_customers_wholesale.sql';
 const MIG = READ(path.join(ROOT, 'migrations', FILE));
 const RB = READ(path.join(ROOT, 'rollbacks', FILE.replace('.sql', '.rollback.sql')));
 
@@ -26,7 +27,7 @@ function ok(name, cond, extra) {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f) => f !== POS).concat([FILE]) });   // after 20261018180000
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   async function as(claims, sql, p, role) {

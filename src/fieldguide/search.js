@@ -3,7 +3,7 @@
   // index of the manual, in any order, and answers by quoting the manual:
   // nothing here writes an answer, it only picks which passage to quote.
   //
-  // Not the core app's cart search (utils.js searchTokens/rankProductsBySearch):
+  // Not the core app's cart search (utils.js searchTokens/productSearch):
   // that is a plain lower-case substring match with no filler words, plurals,
   // typos or synonyms, and reusing it would have meant changing core code.
   // This keeps its two rules (words in any order; rank by how many words

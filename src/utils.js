@@ -23,41 +23,100 @@
     return tokens.every(t=> hay.includes(t));
   }
 
-  // Ranked any-order product search (Stocktake Multi-Token Search Engine
-  // task): unlike matchesAnyOrder above (a plain include/exclude filter,
-  // still used unchanged by pos.js/products.js/credit.js/help.js/reports.js
-  // — not touched here), this INCLUDES a product as soon as it matches at
-  // least one token rather than requiring every token, and sorts by how
-  // many tokens matched (descending) so "Toyota Hilux 2015" and "2015 Hilux
-  // Toyota" rank the same best match first regardless of typed order, while
-  // a product matching only some of the typed tokens still surfaces, just
-  // lower. Ties (equal token-match count) are broken by preferring matches
-  // found in name/SKU over description-only matches — the "more important
-  // fields" distinction the schema actually supports. A final index-based
-  // tiebreak keeps the sort stable (same relative order as the input list,
-  // e.g. alphabetical by name) for any remaining exact ties.
-  // Only reads fields off each product — never mutates the product objects,
-  // the array, or (needless to say) the database, so it's safe to call on
-  // every keystroke against the live product list.
-  function rankProductsBySearch(products, query, fields){
-    const tokens = searchTokens(query);
-    if(!tokens.length) return products.slice();
-    fields = fields || { primary:["name","sku"], secondary:["description"] };
-    const scored = [];
-    for(let idx=0; idx<products.length; idx++){
-      const p = products[idx];
-      const primaryText = fields.primary.map(f=>String(p[f]||"")).join(" ").toLowerCase();
-      const secondaryText = fields.secondary.map(f=>String(p[f]||"")).join(" ").toLowerCase();
-      let matched = 0, primary = 0;
-      for(const tok of tokens){
-        const inPrimary = primaryText.includes(tok);
-        const inSecondary = secondaryText.includes(tok);
-        if(inPrimary || inSecondary){ matched++; if(inPrimary) primary++; }
-      }
-      if(matched>0) scored.push({ p, matched, primary, idx });
+  // ---- Phone numbers ----
+  // One number, one spelling: digits, country code first, no "+"
+  // (263771234567). The same rule as the server's cl_norm_phone: Zimbabwe
+  // mobiles (071/073/077/078) in any common spelling (07…, +263…, 263…,
+  // 00263…, 9 digits); another country only with its code typed (+ or 00).
+  // "" = not a number we accept.
+  function normPhone(p){
+    const raw = String(p==null? "" : p).trim();
+    if(!raw || /[^0-9+() .\-]/.test(raw)) return "";
+    const intl = /^(\+|00)/.test(raw);
+    let d = raw.replace(/[^0-9]/g,"");
+    if(/^00/.test(raw)) d = d.slice(2);
+    if(!intl){
+      if(/^0[0-9]{9}$/.test(d)) d = "263"+d.slice(1);
+      else if(/^7[0-9]{8}$/.test(d)) d = "263"+d;
+      else if(!/^263[0-9]{9}$/.test(d)) return "";
     }
-    scored.sort((a,b)=> b.matched-a.matched || b.primary-a.primary || a.idx-b.idx);
-    return scored.map(s=>s.p);
+    if(/^263/.test(d)) return /^2637[1378][0-9]{7}$/.test(d)? d : "";
+    return /^[1-9][0-9]{7,14}$/.test(d)? d : "";
+  }
+  // +26377•••7198: for anywhere a number is shown but needn't be read in full.
+  function maskPhone(p){
+    const n = normPhone(p) || String(p||"").replace(/\D/g,"");
+    return n.length>=8? "+"+n.slice(0,5)+"•••"+n.slice(-4) : (n? "•••"+n.slice(-2) : "");
+  }
+
+  // ---- Product search (POS fixes, docs/pos/pos-fixes-design.md §4) ----
+  // ONE matcher for every product search box (Sell, desktop Sales, Products,
+  // Stocktake and the product pickers): the query is split into terms and a
+  // product is shown only when EVERY term matches, in any order, ignoring
+  // case, across name, SKU (the barcode) and the hidden search keywords.
+  //   word ("pai")          the start of any word: Paint, not "aint"
+  //   number ("5")          a whole number: 5lt, 5 kg, 5kg; never 15lt / 50kg / 500ml
+  //   number+unit ("5lt")   that number with a unit starting with it: 5lt, 5 lt, 5ltr
+  //   code ("HLX-2015", "a4", 6+ digits)  the start of the SKU or of any word
+  // Product text is split at spaces and punctuation, and again where letters
+  // and digits meet ("duran5lt" -> duran, 5, lt); a number's unit is the
+  // letters right after it, joined or not ("5lt", "5 lt").
+  function productSearchParts(text){
+    const raw = String(text||"").toLowerCase().split(/\s+/).filter(Boolean);
+    const words = [], nums = [], codes = [];
+    for(const tok of raw){
+      codes.push(tok.replace(/[^a-z0-9]/g,""));
+      for(const piece of tok.split(/[^a-z0-9.]+/)){
+        const bits = piece.replace(/\.+$/,"").match(/\d+(?:\.\d+)?|[a-z]+/g) || [];
+        bits.forEach(b=>{ if(/^[a-z]/.test(b)) words.push(b); });
+        bits.forEach((b,i)=>{ if(/^\d/.test(b)) nums.push({ n:parseFloat(b), unit:/^[a-z]/.test(bits[i+1]||"")? bits[i+1] : "" }); });
+      }
+    }
+    // a number followed by a separate unit word ("5 kg"): link them
+    const flat = raw.flatMap(t=> t.match(/\d+(?:\.\d+)?|[a-z]+/g) || []);
+    flat.forEach((b,i)=>{ if(/^\d/.test(b) && /^[a-z]/.test(flat[i+1]||"")) nums.push({ n:parseFloat(b), unit:flat[i+1] }); });
+    return { words, nums, codes };
+  }
+  function productTermKind(term){
+    if(/^\d+(?:\.\d+)?$/.test(term)) return term.replace(/\D/g,"").length>=6? "code" : "num";
+    if(/^\d+(?:\.\d+)?[a-z]+$/.test(term)) return "numunit";
+    if(/^[a-z]+$/.test(term)) return "word";
+    return "code";
+  }
+  function productTermMatches(term, parts){
+    const kind = productTermKind(term);
+    if(kind==="word") return parts.words.some(w=> w.startsWith(term));
+    if(kind==="num"){ const n = parseFloat(term); return parts.nums.some(x=> x.n===n); }
+    if(kind==="numunit"){
+      const m = /^(\d+(?:\.\d+)?)([a-z]+)$/.exec(term), n = parseFloat(m[1]);
+      return parts.nums.some(x=> x.n===n && x.unit.startsWith(m[2]));
+    }
+    const c = term.replace(/[^a-z0-9]/g,"");
+    return !!c && parts.codes.some(x=> x.startsWith(c));
+  }
+  // Does this product match every term of the query? (An empty query matches.)
+  function productMatches(query, p){
+    const terms = searchTokens(query);
+    if(!terms.length) return true;
+    const parts = productSearchParts([p.name, p.sku, p.description].join(" "));
+    return terms.every(t=> productTermMatches(t, parts));
+  }
+  // The products matching the query, best first: name starts with the first
+  // term, then all terms found in name/SKU (ahead of keyword-only matches),
+  // then the order given (alphabetical by name everywhere it's called).
+  function productSearch(products, query){
+    const terms = searchTokens(query);
+    if(!terms.length) return products.slice();
+    const out = [];
+    products.forEach((p, idx)=>{
+      if(!productMatches(query, p)) return;
+      const main = productSearchParts([p.name, p.sku].join(" "));
+      const firstWord = (String(p.name||"").toLowerCase().match(/[a-z0-9]+/)||[""])[0];
+      out.push({ p, idx, starts: productTermKind(terms[0])==="word" && firstWord.startsWith(terms[0]) ? 0 : 1,
+                 primary: terms.every(t=> productTermMatches(t, main))? 0 : 1 });
+    });
+    out.sort((a,b)=> a.starts-b.starts || a.primary-b.primary || a.idx-b.idx);
+    return out.map(x=>x.p);
   }
 
   // Small outline SVG icons (stroke="currentColor" so they pick up the
@@ -218,8 +277,15 @@
     m.className = "popmenu";
     m.innerHTML = items.map((it,i)=>`<button data-mi="${i}">${it.label}</button>`).join("");
     document.body.appendChild(m);
+    // POS fixes: always below the header and inside the screen: under the
+    // button when there's room, else above it; it closes on any scroll
+    // (router.js), so it never drifts away from its button.
     const r = anchor.getBoundingClientRect();
-    m.style.top = Math.max(8, Math.min(r.bottom+4, window.innerHeight-m.offsetHeight-8))+"px";
+    const tb = document.querySelector(".topbar");
+    const minTop = (tb? Math.max(0, tb.getBoundingClientRect().bottom) : 0) + 4;
+    const h = m.offsetHeight, below = r.bottom+4, above = r.top-4-h;
+    const top = (below + h <= window.innerHeight-8 || above < minTop)? below : above;
+    m.style.top = Math.max(minTop, Math.min(top, window.innerHeight-h-8))+"px";
     m.style.left = Math.max(8, Math.min(r.right-m.offsetWidth, window.innerWidth-m.offsetWidth-8))+"px";
     const close = ()=>{ m.remove(); document.removeEventListener("click", outside, true); };
     const outside = (e)=>{ if(!m.contains(e.target)){ close(); if(anchor.contains(e.target)) e.stopPropagation(); } };

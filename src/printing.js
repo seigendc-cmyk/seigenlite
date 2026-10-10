@@ -310,6 +310,8 @@
   // call at the end differs, so each format is built once here.
   // docRef: the sale's optional Document Reference No. (sales.doc_ref) —
   // printed under the receipt number only when non-blank.
+  // POS fixes: the price level a sale was sold at ("retail" | "wholesale"), printed on its receipt.
+  function salePriceLevel(saleId){ try{ return ((one("SELECT price_level FROM sales WHERE id=?",[saleId])||{}).price_level)||"retail"; }catch(e){ return "retail"; } }
   function buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
     const w = escposColWidth();
     const shop = getSetting("shop_name","My Shop");
@@ -321,6 +323,7 @@
     parts.push(escposTextBytes(new Date(ts).toLocaleString()+"\n"));
     parts.push(escposTextBytes("Receipt "+receiptLabel(saleId, receiptNo)+"\n"));
     if(docRef) parts.push(escposTextBytes("Doc Ref: "+docRef+"\n"));
+    if(salePriceLevel(saleId)==="wholesale") parts.push(escposTextBytes("Wholesale prices\n"));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
     parts.push(escposLine(w));
@@ -434,6 +437,7 @@
         <div>${new Date(ts).toLocaleString()}</div>
         <div>Receipt ${escapeHtml(receiptLabel(saleId, receiptNo))}</div>
         ${docRef?`<div>Doc Ref: ${escapeHtml(docRef)}</div>`:""}
+        ${salePriceLevel(saleId)==="wholesale"? `<div>Wholesale prices</div>` : ""}
         <hr>
         ${lines}
         <hr>
@@ -552,6 +556,7 @@
     parts.push(escposTextBytes(new Date(sale.ts).toLocaleString()+"\n"));
     parts.push(escposTextBytes("Receipt "+receiptDisplay(sale)+"\n"));
     if(sale.doc_ref) parts.push(escposTextBytes("Doc Ref: "+sale.doc_ref+"\n"));
+    if(sale.price_level==="wholesale") parts.push(escposTextBytes("Wholesale prices\n"));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
     parts.push(escposLine(w));
@@ -588,6 +593,7 @@
         <div>${new Date(sale.ts).toLocaleString()}</div>
         <div>Receipt ${escapeHtml(receiptDisplay(sale))}</div>
         ${sale.doc_ref?`<div>Doc Ref: ${escapeHtml(sale.doc_ref)}</div>`:""}
+        ${sale.price_level==="wholesale"? `<div>Wholesale prices</div>` : ""}
         <hr>
         ${lines}
         <hr>

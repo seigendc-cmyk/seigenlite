@@ -163,6 +163,8 @@
       if(typeof dsAfterCheckin==="function") dsAfterCheckin();
       // suppliers and supplier GRVs (supplier-grv.js): send waiting ones, pull the list.
       if(typeof sgAfterCheckin==="function") sgAfterCheckin();
+      // the business's customer list (customers.js): send this till's new customers, pull the rest.
+      if(typeof custAfterCheckin==="function") custAfterCheckin();
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —

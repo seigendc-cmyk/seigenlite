@@ -305,7 +305,7 @@
     const data = items.map(p=>{
       const r = {"Branch":p.branch||"", "SKU":p.sku||"", "Item Name":p.name, "Shelf":p.shelf||"", "Category":p.category||""};
       if(full){ r["Search Keywords"]=p.description||""; r["Cost"]=p.cost||0; }
-      r["Price"]=p.price; r["Qty"]=p.stock; r["Low Stock Alert Below"]=p.low_threshold;
+      r["Price"]=p.price; r["Wholesale Price"]=p.wholesale_price==null? "" : p.wholesale_price; r["Qty"]=p.stock; r["Low Stock Alert Below"]=p.low_threshold;
       return r;
     });
     const ws = XLSX.utils.json_to_sheet(data);

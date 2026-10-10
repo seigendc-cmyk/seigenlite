@@ -34,6 +34,14 @@
       document.querySelectorAll(".kebab-menu").forEach(m=> m.style.display="none");
     }
   });
+  // POS fixes: an open menu never drifts over the header or away from its
+  // button: any scroll (the page or a panel; not the menu's own list) closes it.
+  window.addEventListener("scroll", (e)=>{
+    const t = e.target;
+    if(t && t.closest && (t.closest(".popmenu") || t.closest(".kebab-menu"))) return;
+    document.querySelectorAll(".kebab-menu").forEach(m=>{ if(m.style.display==="block") m.style.display = "none"; });
+    document.querySelectorAll(".popmenu").forEach(m=> m.remove());
+  }, true);
 
   // ================== RENDER ==================
   function render(){
@@ -88,6 +96,9 @@
       // router above handles navigation AND clears navDrawerOpen — this
       // only needs the drawer's own open/close chrome.
     }
+    measureHeader();
+    // the cart drawer is open: the page under it must not scroll (desktop has no drawer cart)
+    if(document.documentElement && document.documentElement.classList) document.documentElement.classList.toggle("noscroll", !!drawerOpen && !desktop);
     renderDrawer();
     renderRequestsDrawer();
     const main = document.getElementById("main");
@@ -98,6 +109,13 @@
     else if(route==="marketing") renderMarketing(main);
     else if(route==="more") renderMore(main);
   }
+  // POS fixes: menus, toasts and the desktop work area are placed against the
+  // header's real height (it wraps on narrow screens), kept in --header-h.
+  function measureHeader(){
+    const tb = document.querySelector(".topbar");
+    if(tb && tb.offsetHeight && document.documentElement.style) document.documentElement.style.setProperty("--header-h", tb.offsetHeight+"px");
+  }
+  if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("resize", ()=>{ try{ measureHeader(); }catch(e){} });
   function navBtn(r,ic,label){
     return `<button class="${route===r?'active':''}" data-route="${r}"><span class="ic">${ic}</span>${label}</button>`;
   }
@@ -132,91 +150,125 @@
     }
     const subtotal = cartSubtotal();
     const exchangeCovers = typeof exchangePending==="function" && !!exchangePending();   // Phase 3c: an exchange credit is in the cart
+    const scroller = drawer.querySelector(".drawer-body");
+    const keepScroll = scroller? scroller.scrollTop : 0;
+    // POS fixes (pinned Pay bar): head | ONE scrolling middle (lines, then
+    // the folding "Sale details", exchange, split lines) | the Pay bar,
+    // always visible (customer, totals, pay buttons).
     drawer.innerHTML = `
-      <div class="drawer-head"><h3 style="margin:0">Cart</h3><button class="close-x" id="closeDrawer">✕</button></div>
+      <div class="drawer-head"><h3 style="margin:0">Cart${cart.length? ` <span class="muted" style="font-size:13px;font-weight:600">· ${cart.reduce((s,c)=>s+c.qty,0)} item${cart.reduce((s,c)=>s+c.qty,0)===1?"":"s"}</span>` : ""}</h3><button class="close-x" id="closeDrawer" aria-label="Close cart">✕</button></div>
       <div class="drawer-body">
         ${cart.length===0? `<p class="muted">Cart is empty</p>` :
           cart.map(c=>`
             <div class="cart-item">
-              <div style="flex:1">
+              <div style="flex:1;min-width:0">
                 <div class="ci-name">${escapeHtml(c.name)}</div>
-                <div class="ci-price">${currency}${c.price.toFixed(2)} each</div>
+                <div class="ci-price">${currency}${c.price.toFixed(2)} each${c.level==="wholesale"? ` <span class="pill warn">Wholesale</span>` : ""}</div>
                 <div class="row" style="margin-top:6px;align-items:center;gap:6px">
                   <label class="muted" style="flex:none;font-size:12px">Discount ${currency}</label>
                   <input class="field" style="flex:0.7" type="number" step="0.01" min="0" placeholder="0.00" data-line-discount="${c.product_id}" value="${escapeHtml(String(c.discount||''))}">
                 </div>
               </div>
               <div class="qty-ctl">
-                <button data-dec="${c.product_id}">−</button>
+                <button data-dec="${c.product_id}" aria-label="One less">−</button>
                 <span>${c.qty}</span>
-                <button data-inc="${c.product_id}">+</button>
+                <button data-inc="${c.product_id}" aria-label="One more">+</button>
               </div>
             </div>`).join("")}
-      </div>
-      <div class="drawer-foot">
-        <div id="discountExtra" style="display:${cartDiscountTotal()>0?'block':'none'}">
-          <label style="margin-top:0">Reason for discount</label>
-          <input class="field" id="discountReason" placeholder="e.g. Bulk purchase" value="${window._discountReasonVal||''}">
-          <label>Approved by (leave blank if pending)</label>
-          <input class="field" id="discountApprovedBy" placeholder="Approver's name" value="${window._discountApprovedVal||''}">
-        </div>
-        <label>Payment reference (EcoCash/Bank)</label>
-        <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||''}">
-        <label>Document Reference No. (optional)</label>
-        <input class="field" id="docRef" maxlength="40" placeholder="e.g. PO, delivery note or invoice no." value="${escapeHtml(window._docRefVal||'')}">
-        <label>Customer name (optional, required for Credit)</label>
-        <input class="field" id="custName" placeholder="e.g. Tendai Moyo" value="${window._custNameVal||''}">
-        <label>Customer phone (optional)</label>
-        <input class="field" id="custPhone" placeholder="e.g. 077xxxxxxx" value="${window._custPhoneVal||''}">
-        <div id="voucherBox"></div>
+        ${saleDetailsHtml()}
         ${typeof exchangeCartHtml==="function"? exchangeCartHtml() : ""}
-        <div class="hr" style="margin:10px 0"></div>
+        ${splitTender && !(exchangeCovers && cart.length && cartTotal()<=0)? splitTenderPanelHtml("lines") : ""}
+      </div>
+      <div class="drawer-foot pay-bar">
+        ${customerComboHtml()}
+        <div id="voucherBox"></div>
         <div class="subline"><span>Subtotal</span><span>${currency}${subtotal.toFixed(2)}</span></div>
-        <div class="total-line"><span>${exchangeCovers? "To pay" : "Total"}</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
+        <div class="total-line"><span>${exchangeCovers? "To pay" : "Total"}${cartPriceLevel()==="wholesale"? ` <span class="pill warn">Wholesale prices</span>` : ""}</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
         ${fxPreviewHtml()}
-        ${exchangeCovers && cart.length && cartTotal()<=0? `<button class="btn btn-primary" id="payExchange">Complete exchange</button>` : splitTender? splitTenderPanelHtml() : `
+        ${exchangeCovers && cart.length && cartTotal()<=0? `<button class="btn btn-primary" id="payExchange">Complete exchange</button>` : splitTender? splitTenderPanelHtml("actions") : `
         ${quickTapCurrencySelectorHtml()}
-        <div class="row" style="margin-bottom:8px">
+        <div class="pay-grid">
           <button class="btn btn-primary" id="payCash" ${cart.length===0?"disabled":""}>Cash</button>
           <button class="btn btn-ghost" id="payEcocash" ${cart.length===0?"disabled":""}>EcoCash</button>
-        </div>
-        <div class="row" style="margin-bottom:8px">
           <button class="btn btn-ghost" id="payBank" ${cart.length===0?"disabled":""}>Bank</button>
           <button class="btn btn-outline" id="payCredit" ${cart.length===0?"disabled":""}>Credit</button>
         </div>
         <button class="btn btn-ghost btn-sm" id="startSplitTender" ${cart.length===0?"disabled":""}>+ Split into multiple payment methods</button>
         `}
       </div>`;
+    const body = drawer.querySelector(".drawer-body");
+    if(body) body.scrollTop = keepScroll;
     document.getElementById("closeDrawer").onclick=()=>{drawerOpen=false;render();};
     drawer.querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.inc,1));
     drawer.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.dec,-1));
     wireLineDiscountInputs(drawer);
-    document.getElementById("discountReason").oninput=(e)=>{ window._discountReasonVal=e.target.value; };
-    document.getElementById("discountApprovedBy").oninput=(e)=>{ window._discountApprovedVal=e.target.value; };
-    document.getElementById("paymentRef").oninput=(e)=>{ window._paymentRefVal=e.target.value; };
-    document.getElementById("docRef").oninput=(e)=>{ window._docRefVal=e.target.value; };
-    document.getElementById("custName").oninput=(e)=>{ window._custNameVal=e.target.value; renderVoucherBox(); };
-    document.getElementById("custPhone").oninput=(e)=>{ window._custPhoneVal=e.target.value; };
+    wireSaleDetails(drawer);
+    wireCustomerCombo(drawer, renderDrawer);
     renderVoucherBox();
     if(typeof wireExchangeCart==="function") wireExchangeCart(drawer, renderDrawer);
     wireFxPreview(drawer, renderDrawer);
-    const resetTemp=()=>{ window._custNameVal=""; window._custPhoneVal="";
-      window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; window._docRefVal=""; };
     if(splitTender){
-      wireSplitTenderPanel(drawer, renderDrawer, (payments)=>{ completeSale(null, payments); resetTemp(); });
+      wireSplitTenderPanel(drawer, renderDrawer, (payments)=>{ completeSale(null, payments); resetCheckoutFields(); });
     } else {
       wireQuickTapCurrencySelector(drawer, renderDrawer);
       const startSplit = document.getElementById("startSplitTender");
       if(startSplit) startSplit.onclick=()=>{ startSplitTender(); renderDrawer(); };
-      const payCash = document.getElementById("payCash");
-      const payEco = document.getElementById("payEcocash");
-      const payBank = document.getElementById("payBank");
-      const payCredit = document.getElementById("payCredit");
-      if(payCash) payCash.onclick=()=>{ completeSale("Cash", quickTapPayments("Cash")); resetTemp(); };
-      if(payEco) payEco.onclick=()=>{ completeSale("EcoCash", quickTapPayments("EcoCash")); resetTemp(); };
-      if(payBank) payBank.onclick=()=>{ completeSale("Bank", quickTapPayments("Bank")); resetTemp(); };
-      if(payCredit) payCredit.onclick=()=>{ completeSale("Credit", quickTapPayments("Credit")); resetTemp(); };
+      wirePayButtons(drawer, { cash:"#payCash", eco:"#payEcocash", bank:"#payBank", credit:"#payCredit" }, renderDrawer);
     }
+  }
+  // ---- shared by the phone drawer and the desktop cart (POS fixes) ----
+  function resetCheckoutFields(){
+    window._custNameVal=""; window._custPhoneVal=""; window._custNotice="";
+    window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; window._docRefVal="";
+    window._saleDetailsOpen=false;
+  }
+  // "Sale details": discount reason/approver, payment reference, document
+  // reference. Folded unless something in it is needed or already filled.
+  function saleDetailsOpen(){
+    return !!(window._saleDetailsOpen || cartDiscountTotal()>0 || window._paymentRefVal || window._docRefVal);
+  }
+  function saleDetailsHtml(){
+    if(!cart.length) return "";
+    const open = saleDetailsOpen();
+    return `<div class="sale-details">
+      <button type="button" class="sale-details-toggle" id="saleDetailsToggle" aria-expanded="${open}" aria-controls="saleDetailsBody">
+        <span>Sale details</span><span class="muted" style="font-weight:500">discount reason, payment and document reference</span><span class="chev">${open? "▴" : "▾"}</span></button>
+      <div id="saleDetailsBody" ${open? "" : "hidden"}>
+        <div id="discountExtra" style="display:${cartDiscountTotal()>0?'block':'none'}">
+          <label style="margin-top:0" for="discountReason">Reason for discount</label>
+          <input class="field" id="discountReason" placeholder="e.g. Bulk purchase" value="${escapeHtml(window._discountReasonVal||'')}">
+          <label for="discountApprovedBy">Approved by (leave blank if pending)</label>
+          <input class="field" id="discountApprovedBy" placeholder="Approver's name" value="${escapeHtml(window._discountApprovedVal||'')}">
+        </div>
+        <label for="paymentRef">Payment reference (EcoCash/Bank)</label>
+        <input class="field" id="paymentRef" placeholder="Transaction reference" value="${escapeHtml(window._paymentRefVal||'')}">
+        <label for="docRef">Document Reference No. (optional)</label>
+        <input class="field" id="docRef" maxlength="40" placeholder="e.g. PO, delivery note or invoice no." value="${escapeHtml(window._docRefVal||'')}">
+      </div>
+    </div>`;
+  }
+  function wireSaleDetails(container){
+    const t = container.querySelector("#saleDetailsToggle"), body = container.querySelector("#saleDetailsBody");
+    if(t && body) t.onclick = ()=>{ body.hidden = !body.hidden; window._saleDetailsOpen = !body.hidden; t.setAttribute("aria-expanded", String(!body.hidden)); t.querySelector(".chev").textContent = body.hidden? "▾" : "▴"; };
+    const on = (id, key)=>{ const el = container.querySelector("#"+id); if(el) el.oninput = (e)=>{ window[key] = e.target.value; }; };
+    on("discountReason","_discountReasonVal"); on("discountApprovedBy","_discountApprovedVal"); on("paymentRef","_paymentRefVal"); on("docRef","_docRefVal");
+  }
+  // The four quick-tap buttons. EcoCash/Bank with no reference yet: open
+  // "Sale details" at the reference box instead of an alert.
+  function wirePayButtons(container, ids, refresh){
+    const needsRef = ()=>{
+      if((window._paymentRefVal||"").trim()) return false;
+      window._saleDetailsOpen = true; refresh();
+      const ref = document.getElementById("paymentRef");
+      if(ref){ ref.focus(); ref.setAttribute("aria-invalid","true"); ref.placeholder = "Enter the payment reference to continue"; }
+      return true;
+    };
+    const pay = (method)=>{ completeSale(method, quickTapPayments(method)); if(!cart.length) resetCheckoutFields(); };
+    const b = (sel)=> container.querySelector(sel);
+    if(b(ids.cash)) b(ids.cash).onclick = ()=> pay("Cash");
+    if(b(ids.eco)) b(ids.eco).onclick = ()=>{ if(!needsRef()) pay("EcoCash"); };
+    if(b(ids.bank)) b(ids.bank).onclick = ()=>{ if(!needsRef()) pay("Bank"); };
+    if(b(ids.credit)) b(ids.credit).onclick = ()=> pay("Credit");
   }
   // Shows a "voucher available" badge + Apply button once the typed
   // customer name matches an existing customer with an Available voucher;
@@ -226,10 +278,11 @@
   function renderVoucherBox(){
     const box = document.getElementById("voucherBox");
     if(!box) return;
+    // the customer picked in the cart (customers.js), else a typed exact name
     const nameEl = document.getElementById("custName");
     const name = nameEl? nameEl.value.trim() : "";
-    const cust = findMatchingCustomer(name);
-    const totalEl = document.getElementById("drawerTotal");
+    const cust = (typeof cartCustomer!=="undefined" && cartCustomer)? one("SELECT * FROM customers WHERE id=?",[cartCustomer.id]) : findMatchingCustomer(name);
+    const totalEl = document.getElementById("drawerTotal") || document.getElementById("dsTotal");
     if(appliedVoucher && (!cust || cust.id!==appliedVoucher.customerId)){
       appliedVoucher = null;
       if(totalEl) totalEl.textContent = currency+cartTotal().toFixed(2);

@@ -84,7 +84,9 @@ function setCart(app, product, qty){
     const rice = addProduct(A,{name:"Rice",price:10,stock:50});
     A.api.startShift("0", T("08:00:00"));
     setCart(A, rice, 10); // total 100
-    A.setField("custName","Tendai Moyo"); // required because a Credit line is present
+    // required because a Credit line is present (POS fixes: an existing customer; a typed new name is a walk-in)
+    A.api.run("INSERT INTO customers(name,phone,branch) VALUES('Tendai Moyo','',?)",[A.api.currentBranch()]);
+    A.setField("custName","Tendai Moyo");
     A.setField("paymentRef","REF-002");   // required because an EcoCash line is present
     A.hook("printReceipt", ()=>{});
     A.api.completeSale(null, [{method:"Cash",amount:40},{method:"EcoCash",amount:20},{method:"Credit",amount:40}]);
@@ -94,7 +96,7 @@ function setCart(app, product, qty){
     const payments = A.api.salePayments(sale.id);
     assert.strictEqual(payments.length,3);
     const cust = A.api.one("SELECT * FROM customers WHERE name='Tendai Moyo'");
-    assert.ok(cust,"customer was created/linked, same as a plain Credit sale");
+    assert.ok(cust && sale.customer_id===cust.id,"the customer is linked, same as a plain Credit sale");
     assert.strictEqual(A.api.customerBalance(cust.id),40,"only the $40 Credit line is owed, not the full $100 sale");
   });
 
@@ -146,6 +148,7 @@ function setCart(app, product, qty){
     const now = T("08:00:00");
     A.api.startShift("50", now);
     A.setField("paymentRef","REF-EOD");
+    A.api.run("INSERT INTO customers(name,phone,branch) VALUES('Grace','',?)",[A.api.currentBranch()]);
     A.setField("custName","Grace");
     A.hook("printReceipt", ()=>{});
     setCart(A, rice, 3); A.api.completeSale("Cash");                                              // plain $30 cash

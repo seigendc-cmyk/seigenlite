@@ -7,8 +7,8 @@
 -- Rollback: supabase/rollbacks/20261019120000_trial_rules.rollback.sql
 -- Tested in PGlite: supabase/tests/trial-rules-test.js
 --
--- 1. cl_norm_phone: one phone number, one spelling (07x / +2637x / 2637x /
---    002637x are the same Zimbabwe mobile; other countries need +country).
+-- 1. Needs 20261018180000_customers_wholesale (cl_norm_phone: 07x / +2637x /
+--    2637x / 002637x are the same Zimbabwe mobile).
 -- 2. cl_trials: one row per free trial. ONE standard trial per phone number,
 --    ever (unique), one per install (unique), one per business (checked).
 --    cl_trial_refusals keeps every refused attempt; cl_trial_exceptions holds
@@ -49,7 +49,8 @@ begin
   select string_agg(n, ', ') into missing from (
     select 'table cl_licences' n where to_regclass('public.cl_licences') is null
     union all select 'table cl_rpn_pins (20261015120000)' where to_regclass('public.cl_rpn_pins') is null
-    union all select 'table cl_suppliers (20261018120000)' where to_regclass('public.cl_suppliers') is null
+    union all select 'table cl_customers (20261018180000)' where to_regclass('public.cl_customers') is null
+    union all select 'function cl_norm_phone (20261018180000)' where to_regprocedure('public.cl_norm_phone(text)') is null
     union all select 'function ' || f from unnest(array['public.cl_install_vendor(text,text,text,boolean,text,text)',
         'public.cl_device_link_rpn(text,text,text,text,text)', 'public.cl_vendor_business(uuid)', 'public.cl_licence_staff_ok()',
         'public.cl_licence_hash(text)', 'public.cl_licence_tag(bytea)', 'public.cl_licence_new_code()', 'public.cl_licence_b64url(bytea)',
@@ -60,27 +61,7 @@ begin
 end $$;
 
 
--- 1. Phone numbers ----------------------------------------------------------
--- Digits only, country code first, no "+": 263771234567. Null = not a phone
--- number we accept. Zimbabwe mobiles (071, 073, 077, 078) in any common
--- spelling; another country only with its code typed (+ or 00).
-create function public.cl_norm_phone(p text) returns text
-language plpgsql immutable as $fn$
-declare raw text := btrim(coalesce(p, '')); d text; intl boolean;
-begin
-  if raw = '' or raw ~ '[^0-9+() .\-]' then return null; end if;
-  intl := raw ~ '^(\+|00)';
-  d := regexp_replace(raw, '[^0-9]', '', 'g');
-  if raw ~ '^00' then d := substr(d, 3); end if;
-  if not intl then
-    if d ~ '^0[0-9]{9}$' then d := '263' || substr(d, 2);
-    elsif d ~ '^7[0-9]{8}$' then d := '263' || d;
-    elsif d !~ '^263[0-9]{9}$' then return null;
-    end if;
-  end if;
-  if d ~ '^263' then return case when d ~ '^2637[1378][0-9]{7}$' then d end; end if;
-  return case when d ~ '^[1-9][0-9]{7,14}$' then d end;
-end $fn$;
+-- 1. Phone numbers: cl_norm_phone comes from 20261018180000_customers_wholesale.
 
 
 -- 2. Tables -------------------------------------------------------------------
@@ -552,6 +533,9 @@ begin
   if n > 0 then parts := parts || (n || ' supplier' || case when n = 1 then '' else 's' end); end if;
   select count(*) into n from cl_supplier_grvs where business_id = old.id;
   if n > 0 then parts := parts || (n || ' supplier GRV' || case when n = 1 then '' else 's' end); end if;
+  -- Customers (20261018180000)
+  select count(*) into n from cl_customers where business_id = old.id;
+  if n > 0 then parts := parts || (n || ' customer' || case when n = 1 then '' else 's' end); end if;
   -- Trial rules (20261019120000)
   select count(*) into n from cl_trials where business_id = old.id;
   if n > 0 then parts := parts || (n || ' free trial' || case when n = 1 then '' else 's' end); end if;
@@ -568,7 +552,6 @@ alter table public.cl_trials enable row level security;
 alter table public.cl_trial_refusals enable row level security;
 alter table public.cl_trial_exceptions enable row level security;
 revoke all on table public.cl_trials, public.cl_trial_refusals, public.cl_trial_exceptions from public, anon, authenticated;
-revoke all on function public.cl_norm_phone(text) from public, anon, authenticated;
 revoke all on function public.cl_trial_request(text, text, text, text, text, text, date, integer), public.cl_trial_attach(integer, text),
   public.cl_trials_list(integer), public.cl_trial_refusals_list(integer), public.cl_trial_exception_grant(text, text, integer, text),
   public.cl_trial_exceptions_list(), public.cl_rpn_trial_stats() from public, anon, authenticated;

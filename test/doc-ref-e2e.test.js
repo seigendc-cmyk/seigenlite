@@ -67,7 +67,7 @@ function makeDomApp(settings, desktop){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function renderRequestsDrawer(){}
   `;
-  const files = ["db.js","utils.js","pos.js","printing.js","drawer.js","currencies.js","staff.js","eod.js","devicecheckin.js","router.js","report-writer.js","reports.js"];
+  const files = ["db.js","utils.js","pos.js","customers.js","printing.js","drawer.js","currencies.js","staff.js","eod.js","devicecheckin.js","router.js","report-writer.js","reports.js"];
   if(desktop) files.push("desktop/sales-desktop.js");
   const code = prelude + files.map(src).join("\n");
 
@@ -122,7 +122,9 @@ function run(label, desktop){
     await t(`[${label}] the cart shows an optional Document Reference No. field`, ()=>{
       const app = makeDomApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" }, desktop);
       app.exec(`startShift("0", new Date());`);
-      app.exec("drawerOpen=true; render();");
+      // (POS fixes: it lives in the cart's "Sale details", shown once the cart has a line)
+      app.run("INSERT INTO products(name,price,stock,low_threshold,branch,sku) VALUES('Rice 2kg',10,50,3,'Boka','')");
+      app.exec("addToCart(one(\"SELECT * FROM products WHERE name='Rice 2kg'\")); drawerOpen=true; render();");
       const el = app.document.getElementById("docRef");
       assert.ok(el, "#docRef input exists");
       assert.strictEqual(el.getAttribute("maxlength"), "40");
@@ -172,7 +174,7 @@ function run(label, desktop){
       const app = makeDomApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" }, desktop);
       app.exec(`startShift("0", new Date());`);
       await ringUpSale(app, desktop, { docRef:"INV-1" }, pay("Cash"));
-      app.exec("drawerOpen=true; render();");
+      app.exec("addToCart(one(\"SELECT * FROM products WHERE name='Rice 2kg'\")); drawerOpen=true; render();");
       assert.strictEqual(app.document.getElementById("docRef").value, "");
     });
   })();
@@ -185,6 +187,8 @@ function run(label, desktop){
   await t("credit sale with a reference: Print Copy, A4 invoice, Sale Detail modal, Sales Reports all show it", async ()=>{
     const app = makeDomApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" }, false);
     app.exec(`startShift("0", new Date());`);
+    // POS fixes: a credit sale needs an existing customer (typing a new name no longer creates one)
+    app.run("INSERT INTO customers(name,phone,phone_norm,branch) VALUES('Tendai Moyo','0771234567','263771234567','Boka')");
     const sale = await ringUpSale(app, false, { docRef:"DN-2231", custName:"Tendai Moyo" }, "payCredit");
     assert.deepStrictEqual(app.alerts, []);
     assert.strictEqual(sale.doc_ref, "DN-2231");

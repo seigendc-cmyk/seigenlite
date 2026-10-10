@@ -30,6 +30,17 @@
     --warn-bg:#FEF9E6;
     --radius:10px;
     --modal-radius:4px;
+    /* POS fixes: ONE stacking scale for everything that floats. Page menus
+       and pop-up menus stay UNDER the header; drawers, toasts and modals are
+       full layers above it. --header-h is measured by router.js render(). */
+    --z-content-menu:10;
+    --z-popover:15;
+    --z-header:20;
+    --z-overlay:40;
+    --z-drawer:50;
+    --z-toast:60;
+    --z-modal:70;
+    --header-h:63px;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
@@ -48,7 +59,7 @@
     border-bottom:1px solid var(--border);
     padding:10px 14px;
     display:flex;align-items:center;gap:10px;
-    position:sticky;top:0;z-index:20;
+    position:sticky;top:0;z-index:var(--z-header);
   }
   .topbar .brand-mark{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:none;background:var(--orange-light);}
   .topbar .brand-mark.placeholder{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--orange);border:1px solid var(--border);}
@@ -81,8 +92,9 @@
   }
   .dots-btn{padding:6px 12px;font-size:20px;line-height:1;font-weight:700;letter-spacing:1px;}
   .popmenu{
-    position:fixed;z-index:200;background:var(--paper);border:1px solid var(--border);
+    position:fixed;z-index:var(--z-popover);background:var(--paper);border:1px solid var(--border);
     border-radius:10px;box-shadow:0 6px 22px rgba(36,28,21,.22);min-width:170px;padding:4px;
+    max-height:calc(100dvh - var(--header-h) - 16px);overflow-y:auto;
   }
   .popmenu button{
     display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;
@@ -114,7 +126,7 @@
   .navbar{
     background:var(--paper);border-radius:16px;
     box-shadow:0 -2px 14px rgba(36,28,21,.14);
-    display:flex;position:sticky;bottom:8px;z-index:20;
+    display:flex;position:sticky;bottom:8px;z-index:var(--z-header);
   }
   .navbar button{
     flex:1;background:none;border:none;padding:9px 2px 8px;
@@ -163,6 +175,7 @@
   .pill.low{background:var(--danger-bg);color:var(--danger);}
   .pill.neg{background:#b42318;color:#fff;}
   .pill.ok{background:var(--success-bg);color:var(--success);}
+  .pill.warn{background:var(--warn-bg);color:var(--warn);}
   .center{text-align:center;}
   .banner-img{width:100%;max-height:120px;object-fit:cover;border-radius:var(--radius);margin-bottom:12px;border:1px solid var(--border);}
 
@@ -182,17 +195,39 @@
   .add-chip{background:var(--orange);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;flex:none;}
   .add-chip:disabled{background:var(--border);color:var(--ink-soft);}
 
-  .overlay{position:fixed;inset:0;background:rgba(36,28,21,.42);z-index:40;display:none;}
+  .overlay{position:fixed;inset:0;background:rgba(36,28,21,.42);z-index:var(--z-overlay);display:none;}
   .overlay.show{display:block;}
   .drawer{
-    position:fixed;right:0;top:0;bottom:0;width:92%;max-width:400px;background:var(--paper);
-    z-index:50;transform:translateX(100%);transition:transform .22s ease;
+    position:fixed;right:0;top:0;bottom:0;height:100dvh;width:92%;max-width:400px;background:var(--paper);
+    z-index:var(--z-drawer);transform:translateX(100%);transition:transform .22s ease;
     display:flex;flex-direction:column;box-shadow:-4px 0 18px rgba(0,0,0,.15);
   }
   .drawer.show{transform:translateX(0);}
-  .drawer-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
-  .drawer-body{flex:1;overflow-y:auto;padding:10px 14px;}
-  .drawer-foot{padding:14px;border-top:1px solid var(--border);max-height:60vh;overflow-y:auto;}
+  .drawer-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex:none;}
+  .drawer-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:10px 14px;}
+  .drawer-foot{padding:14px;border-top:1px solid var(--border);flex:none;}
+  /* POS fixes: the Pay bar is pinned (never scrolls away); only a very short
+     screen lets it scroll as a last resort. */
+  .pay-bar{background:var(--paper);box-shadow:0 -4px 12px rgba(36,28,21,.06);padding-bottom:calc(14px + env(safe-area-inset-bottom));max-height:80dvh;overflow-y:auto;}
+  .pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+  .pay-grid .btn{margin:0;}
+  html.noscroll,html.noscroll body{overflow:hidden;}
+  .sale-details{margin:10px 0 4px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);}
+  .sale-details-toggle{width:100%;display:flex;align-items:center;gap:8px;background:none;border:none;padding:10px 12px;text-align:left;font-size:13.5px;font-weight:700;color:var(--ink);}
+  .sale-details-toggle .muted{flex:1;min-width:0;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sale-details-toggle .chev{flex:none;color:var(--ink-soft);}
+  #saleDetailsBody{padding:0 12px 12px;}
+  .cust-combo{position:relative;margin-bottom:8px;}
+  .cust-combo-label{display:block;font-size:12px;color:var(--ink-soft);margin:0 0 4px;}
+  .cust-list{display:none;position:absolute;left:0;right:0;bottom:100%;margin-bottom:4px;max-height:min(260px,45dvh);overflow-y:auto;background:var(--paper);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 -6px 18px rgba(36,28,21,.14);z-index:2;}
+  .cust-opt{display:block;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:9px 12px;font-size:13.5px;color:var(--ink);}
+  .cust-opt .muted{display:block;font-size:12px;}
+  .cust-opt:hover,.cust-opt:focus-visible{background:var(--orange-light);}
+  .cust-opt.cust-add{color:var(--orange-dark);font-weight:700;}
+  .cust-opt.cust-add:disabled{color:var(--ink-soft);font-weight:600;cursor:not-allowed;background:var(--surface);}
+  .cust-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--border);border-radius:var(--radius);padding:6px 6px 6px 12px;background:var(--orange-light);font-size:13.5px;}
+  .cust-notice{font-size:12px;color:var(--orange-dark);font-weight:600;min-height:0;}
+  .cust-notice:empty{display:none;}
   .cart-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);}
   .cart-item .ci-name{flex:1;font-size:13.5px;font-weight:600;}
   .cart-item .ci-price{font-size:12px;color:var(--ink-soft);}
@@ -224,14 +259,14 @@
   .lang-tag{display:inline-block;font-size:11px;font-weight:700;color:var(--orange-dark);background:var(--orange-light);padding:2px 8px;border-radius:20px;margin-bottom:6px;}
 
   /* popup modal cards */
-  .modalOverlay{position:fixed;inset:0;background:rgba(36,28,21,.5);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .modalOverlay{position:fixed;inset:0;background:rgba(36,28,21,.5);z-index:var(--z-modal);display:flex;align-items:center;justify-content:center;padding:16px;}
   .modal-card{background:var(--paper);border-radius:var(--modal-radius);width:min(148mm,92vw);max-width:148mm;max-height:min(210mm,90vh);overflow-y:auto;box-shadow:0 10px 28px rgba(0,0,0,.25);}
   .modal-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
   .modal-body{padding:14px;}
 
-  /* sync reminder toast (sync.js) — slides in over the left of the header */
+  /* sync reminder toast (sync.js) — slides in just below the header (POS fixes: never over it) */
   .sync-toast{
-    position:fixed;top:14px;left:10px;z-index:60;max-width:min(280px,calc(100vw - 80px));
+    position:fixed;top:calc(var(--header-h) + 8px);left:10px;z-index:var(--z-toast);max-width:min(280px,calc(100vw - 80px));
     display:flex;align-items:center;gap:7px;padding:7px 11px;
     background:var(--ink);color:#fff;border-radius:8px;font-size:12px;line-height:1.3;
     box-shadow:0 4px 12px rgba(0,0,0,.2);
@@ -248,7 +283,7 @@
   .kebab-wrap{position:relative;flex:none;}
   .kebab-btn{background:none;border:none;color:var(--ink-soft);padding:2px 6px;border-radius:6px;}
   .kebab-btn:hover{background:var(--orange-light);}
-  .kebab-menu{display:none;position:absolute;right:0;top:26px;background:var(--paper);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:30;min-width:150px;overflow:hidden;}
+  .kebab-menu{display:none;position:absolute;right:0;top:26px;background:var(--paper);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:var(--z-content-menu);min-width:150px;overflow:hidden;}
   .kebab-menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;color:var(--ink);border-bottom:1px solid var(--border);}
   .kebab-menu button:last-child{border-bottom:none;}
   .kebab-menu button:hover{background:var(--orange-light);}
@@ -319,7 +354,7 @@
 <script>
 !function(i){"use strict";var v=function(r){var t,n=new Float64Array(16);if(r)for(t=0;t<r.length;t++)n[t]=r[t];return n},h=function(){throw new Error("no PRNG")},o=new Uint8Array(16),n=new Uint8Array(32);n[0]=9;var s=v(),u=v([1]),p=v([56129,1]),c=v([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),y=v([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),e=v([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),a=v([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),l=v([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function f(r,t,n,e){r[t]=n>>24&255,r[t+1]=n>>16&255,r[t+2]=n>>8&255,r[t+3]=255&n,r[t+4]=e>>24&255,r[t+5]=e>>16&255,r[t+6]=e>>8&255,r[t+7]=255&e}function w(r,t,n,e,o){var i,h=0;for(i=0;i<o;i++)h|=r[t+i]^n[e+i];return(1&h-1>>>8)-1}function b(r,t,n,e){return w(r,t,n,e,16)}function g(r,t,n,e){return w(r,t,n,e,32)}function A(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=i,d=h,E=a,x=f,M=s,m=u,B=c,S=y,k=l,K=w,Y=v,L=p,T=b,z=g,R=A,P=_,N=0;N<20;N+=2)U^=(o=(T^=(o=(k^=(o=(M^=(o=U+T|0)<<7|o>>>25)+U|0)<<9|o>>>23)+M|0)<<13|o>>>19)+k|0)<<18|o>>>14,m^=(o=(d^=(o=(z^=(o=(K^=(o=m+d|0)<<7|o>>>25)+m|0)<<9|o>>>23)+K|0)<<13|o>>>19)+z|0)<<18|o>>>14,Y^=(o=(B^=(o=(E^=(o=(R^=(o=Y+B|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+R|0)<<13|o>>>19)+E|0)<<18|o>>>14,P^=(o=(L^=(o=(S^=(o=(x^=(o=P+L|0)<<7|o>>>25)+P|0)<<9|o>>>23)+x|0)<<13|o>>>19)+S|0)<<18|o>>>14,U^=(o=(x^=(o=(E^=(o=(d^=(o=U+x|0)<<7|o>>>25)+U|0)<<9|o>>>23)+d|0)<<13|o>>>19)+E|0)<<18|o>>>14,m^=(o=(M^=(o=(S^=(o=(B^=(o=m+M|0)<<7|o>>>25)+m|0)<<9|o>>>23)+B|0)<<13|o>>>19)+S|0)<<18|o>>>14,Y^=(o=(K^=(o=(k^=(o=(L^=(o=Y+K|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+L|0)<<13|o>>>19)+k|0)<<18|o>>>14,P^=(o=(R^=(o=(z^=(o=(T^=(o=P+R|0)<<7|o>>>25)+P|0)<<9|o>>>23)+T|0)<<13|o>>>19)+z|0)<<18|o>>>14;U=U+i|0,d=d+h|0,E=E+a|0,x=x+f|0,M=M+s|0,m=m+u|0,B=B+c|0,S=S+y|0,k=k+l|0,K=K+w|0,Y=Y+v|0,L=L+p|0,T=T+b|0,z=z+g|0,R=R+A|0,P=P+_|0,r[0]=U>>>0&255,r[1]=U>>>8&255,r[2]=U>>>16&255,r[3]=U>>>24&255,r[4]=d>>>0&255,r[5]=d>>>8&255,r[6]=d>>>16&255,r[7]=d>>>24&255,r[8]=E>>>0&255,r[9]=E>>>8&255,r[10]=E>>>16&255,r[11]=E>>>24&255,r[12]=x>>>0&255,r[13]=x>>>8&255,r[14]=x>>>16&255,r[15]=x>>>24&255,r[16]=M>>>0&255,r[17]=M>>>8&255,r[18]=M>>>16&255,r[19]=M>>>24&255,r[20]=m>>>0&255,r[21]=m>>>8&255,r[22]=m>>>16&255,r[23]=m>>>24&255,r[24]=B>>>0&255,r[25]=B>>>8&255,r[26]=B>>>16&255,r[27]=B>>>24&255,r[28]=S>>>0&255,r[29]=S>>>8&255,r[30]=S>>>16&255,r[31]=S>>>24&255,r[32]=k>>>0&255,r[33]=k>>>8&255,r[34]=k>>>16&255,r[35]=k>>>24&255,r[36]=K>>>0&255,r[37]=K>>>8&255,r[38]=K>>>16&255,r[39]=K>>>24&255,r[40]=Y>>>0&255,r[41]=Y>>>8&255,r[42]=Y>>>16&255,r[43]=Y>>>24&255,r[44]=L>>>0&255,r[45]=L>>>8&255,r[46]=L>>>16&255,r[47]=L>>>24&255,r[48]=T>>>0&255,r[49]=T>>>8&255,r[50]=T>>>16&255,r[51]=T>>>24&255,r[52]=z>>>0&255,r[53]=z>>>8&255,r[54]=z>>>16&255,r[55]=z>>>24&255,r[56]=R>>>0&255,r[57]=R>>>8&255,r[58]=R>>>16&255,r[59]=R>>>24&255,r[60]=P>>>0&255,r[61]=P>>>8&255,r[62]=P>>>16&255,r[63]=P>>>24&255}(r,t,n,e)}function _(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=0;U<20;U+=2)i^=(o=(b^=(o=(l^=(o=(s^=(o=i+b|0)<<7|o>>>25)+i|0)<<9|o>>>23)+s|0)<<13|o>>>19)+l|0)<<18|o>>>14,u^=(o=(h^=(o=(g^=(o=(w^=(o=u+h|0)<<7|o>>>25)+u|0)<<9|o>>>23)+w|0)<<13|o>>>19)+g|0)<<18|o>>>14,v^=(o=(c^=(o=(a^=(o=(A^=(o=v+c|0)<<7|o>>>25)+v|0)<<9|o>>>23)+A|0)<<13|o>>>19)+a|0)<<18|o>>>14,_^=(o=(p^=(o=(y^=(o=(f^=(o=_+p|0)<<7|o>>>25)+_|0)<<9|o>>>23)+f|0)<<13|o>>>19)+y|0)<<18|o>>>14,i^=(o=(f^=(o=(a^=(o=(h^=(o=i+f|0)<<7|o>>>25)+i|0)<<9|o>>>23)+h|0)<<13|o>>>19)+a|0)<<18|o>>>14,u^=(o=(s^=(o=(y^=(o=(c^=(o=u+s|0)<<7|o>>>25)+u|0)<<9|o>>>23)+c|0)<<13|o>>>19)+y|0)<<18|o>>>14,v^=(o=(w^=(o=(l^=(o=(p^=(o=v+w|0)<<7|o>>>25)+v|0)<<9|o>>>23)+p|0)<<13|o>>>19)+l|0)<<18|o>>>14,_^=(o=(A^=(o=(g^=(o=(b^=(o=_+A|0)<<7|o>>>25)+_|0)<<9|o>>>23)+b|0)<<13|o>>>19)+g|0)<<18|o>>>14;r[0]=i>>>0&255,r[1]=i>>>8&255,r[2]=i>>>16&255,r[3]=i>>>24&255,r[4]=u>>>0&255,r[5]=u>>>8&255,r[6]=u>>>16&255,r[7]=u>>>24&255,r[8]=v>>>0&255,r[9]=v>>>8&255,r[10]=v>>>16&255,r[11]=v>>>24&255,r[12]=_>>>0&255,r[13]=_>>>8&255,r[14]=_>>>16&255,r[15]=_>>>24&255,r[16]=c>>>0&255,r[17]=c>>>8&255,r[18]=c>>>16&255,r[19]=c>>>24&255,r[20]=y>>>0&255,r[21]=y>>>8&255,r[22]=y>>>16&255,r[23]=y>>>24&255,r[24]=l>>>0&255,r[25]=l>>>8&255,r[26]=l>>>16&255,r[27]=l>>>24&255,r[28]=w>>>0&255,r[29]=w>>>8&255,r[30]=w>>>16&255,r[31]=w>>>24&255}(r,t,n,e)}var U=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function d(r,t,n,e,o,i,h){var a,f,s=new Uint8Array(16),u=new Uint8Array(64);for(f=0;f<16;f++)s[f]=0;for(f=0;f<8;f++)s[f]=i[f];for(;64<=o;){for(A(u,s,h,U),f=0;f<64;f++)r[t+f]=n[e+f]^u[f];for(a=1,f=8;f<16;f++)a=a+(255&s[f])|0,s[f]=255&a,a>>>=8;o-=64,t+=64,e+=64}if(0<o)for(A(u,s,h,U),f=0;f<o;f++)r[t+f]=n[e+f]^u[f];return 0}function E(r,t,n,e,o){var i,h,a=new Uint8Array(16),f=new Uint8Array(64);for(h=0;h<16;h++)a[h]=0;for(h=0;h<8;h++)a[h]=e[h];for(;64<=n;){for(A(f,a,o,U),h=0;h<64;h++)r[t+h]=f[h];for(i=1,h=8;h<16;h++)i=i+(255&a[h])|0,a[h]=255&i,i>>>=8;n-=64,t+=64}if(0<n)for(A(f,a,o,U),h=0;h<n;h++)r[t+h]=f[h];return 0}function x(r,t,n,e,o){var i=new Uint8Array(32);_(i,e,o,U);for(var h=new Uint8Array(8),a=0;a<8;a++)h[a]=e[a+16];return E(r,t,n,h,i)}function M(r,t,n,e,o,i,h){var a=new Uint8Array(32);_(a,i,h,U);for(var f=new Uint8Array(8),s=0;s<8;s++)f[s]=i[s+16];return d(r,t,n,e,o,f,a)}var m=function(r){var t,n,e,o,i,h,a,f;this.buffer=new Uint8Array(16),this.r=new Uint16Array(10),this.h=new Uint16Array(10),this.pad=new Uint16Array(8),this.leftover=0,t=255&r[this.fin=0]|(255&r[1])<<8,this.r[0]=8191&t,n=255&r[2]|(255&r[3])<<8,this.r[1]=8191&(t>>>13|n<<3),e=255&r[4]|(255&r[5])<<8,this.r[2]=7939&(n>>>10|e<<6),o=255&r[6]|(255&r[7])<<8,this.r[3]=8191&(e>>>7|o<<9),i=255&r[8]|(255&r[9])<<8,this.r[4]=255&(o>>>4|i<<12),this.r[5]=i>>>1&8190,h=255&r[10]|(255&r[11])<<8,this.r[6]=8191&(i>>>14|h<<2),a=255&r[12]|(255&r[13])<<8,this.r[7]=8065&(h>>>11|a<<5),f=255&r[14]|(255&r[15])<<8,this.r[8]=8191&(a>>>8|f<<8),this.r[9]=f>>>5&127,this.pad[0]=255&r[16]|(255&r[17])<<8,this.pad[1]=255&r[18]|(255&r[19])<<8,this.pad[2]=255&r[20]|(255&r[21])<<8,this.pad[3]=255&r[22]|(255&r[23])<<8,this.pad[4]=255&r[24]|(255&r[25])<<8,this.pad[5]=255&r[26]|(255&r[27])<<8,this.pad[6]=255&r[28]|(255&r[29])<<8,this.pad[7]=255&r[30]|(255&r[31])<<8};function B(r,t,n,e,o,i){var h=new m(i);return h.update(n,e,o),h.finish(r,t),0}function S(r,t,n,e,o,i){var h=new Uint8Array(16);return B(h,0,n,e,o,i),b(r,t,h,0)}function k(r,t,n,e,o){var i;if(n<32)return-1;for(M(r,0,t,0,n,e,o),B(r,16,r,32,n-32,r),i=0;i<16;i++)r[i]=0;return 0}function K(r,t,n,e,o){var i,h=new Uint8Array(32);if(n<32)return-1;if(x(h,0,32,e,o),0!==S(t,16,t,32,n-32,h))return-1;for(M(r,0,t,0,n,e,o),i=0;i<32;i++)r[i]=0;return 0}function Y(r,t){var n;for(n=0;n<16;n++)r[n]=0|t[n]}function L(r){var t,n,e=1;for(t=0;t<16;t++)n=r[t]+e+65535,e=Math.floor(n/65536),r[t]=n-65536*e;r[0]+=e-1+37*(e-1)}function T(r,t,n){for(var e,o=~(n-1),i=0;i<16;i++)e=o&(r[i]^t[i]),r[i]^=e,t[i]^=e}function z(r,t){var n,e,o,i=v(),h=v();for(n=0;n<16;n++)h[n]=t[n];for(L(h),L(h),L(h),e=0;e<2;e++){for(i[0]=h[0]-65517,n=1;n<15;n++)i[n]=h[n]-65535-(i[n-1]>>16&1),i[n-1]&=65535;i[15]=h[15]-32767-(i[14]>>16&1),o=i[15]>>16&1,i[14]&=65535,T(h,i,1-o)}for(n=0;n<16;n++)r[2*n]=255&h[n],r[2*n+1]=h[n]>>8}function R(r,t){var n=new Uint8Array(32),e=new Uint8Array(32);return z(n,r),z(e,t),g(n,0,e,0)}function P(r){var t=new Uint8Array(32);return z(t,r),1&t[0]}function N(r,t){var n;for(n=0;n<16;n++)r[n]=t[2*n]+(t[2*n+1]<<8);r[15]&=32767}function O(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]+n[e]}function C(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]-n[e]}function F(r,t,n){var e,o,i=0,h=0,a=0,f=0,s=0,u=0,c=0,y=0,l=0,w=0,v=0,p=0,b=0,g=0,A=0,_=0,U=0,d=0,E=0,x=0,M=0,m=0,B=0,S=0,k=0,K=0,Y=0,L=0,T=0,z=0,R=0,P=n[0],N=n[1],O=n[2],C=n[3],F=n[4],I=n[5],Z=n[6],G=n[7],q=n[8],D=n[9],V=n[10],X=n[11],j=n[12],H=n[13],J=n[14],Q=n[15];i+=(e=t[0])*P,h+=e*N,a+=e*O,f+=e*C,s+=e*F,u+=e*I,c+=e*Z,y+=e*G,l+=e*q,w+=e*D,v+=e*V,p+=e*X,b+=e*j,g+=e*H,A+=e*J,_+=e*Q,h+=(e=t[1])*P,a+=e*N,f+=e*O,s+=e*C,u+=e*F,c+=e*I,y+=e*Z,l+=e*G,w+=e*q,v+=e*D,p+=e*V,b+=e*X,g+=e*j,A+=e*H,_+=e*J,U+=e*Q,a+=(e=t[2])*P,f+=e*N,s+=e*O,u+=e*C,c+=e*F,y+=e*I,l+=e*Z,w+=e*G,v+=e*q,p+=e*D,b+=e*V,g+=e*X,A+=e*j,_+=e*H,U+=e*J,d+=e*Q,f+=(e=t[3])*P,s+=e*N,u+=e*O,c+=e*C,y+=e*F,l+=e*I,w+=e*Z,v+=e*G,p+=e*q,b+=e*D,g+=e*V,A+=e*X,_+=e*j,U+=e*H,d+=e*J,E+=e*Q,s+=(e=t[4])*P,u+=e*N,c+=e*O,y+=e*C,l+=e*F,w+=e*I,v+=e*Z,p+=e*G,b+=e*q,g+=e*D,A+=e*V,_+=e*X,U+=e*j,d+=e*H,E+=e*J,x+=e*Q,u+=(e=t[5])*P,c+=e*N,y+=e*O,l+=e*C,w+=e*F,v+=e*I,p+=e*Z,b+=e*G,g+=e*q,A+=e*D,_+=e*V,U+=e*X,d+=e*j,E+=e*H,x+=e*J,M+=e*Q,c+=(e=t[6])*P,y+=e*N,l+=e*O,w+=e*C,v+=e*F,p+=e*I,b+=e*Z,g+=e*G,A+=e*q,_+=e*D,U+=e*V,d+=e*X,E+=e*j,x+=e*H,M+=e*J,m+=e*Q,y+=(e=t[7])*P,l+=e*N,w+=e*O,v+=e*C,p+=e*F,b+=e*I,g+=e*Z,A+=e*G,_+=e*q,U+=e*D,d+=e*V,E+=e*X,x+=e*j,M+=e*H,m+=e*J,B+=e*Q,l+=(e=t[8])*P,w+=e*N,v+=e*O,p+=e*C,b+=e*F,g+=e*I,A+=e*Z,_+=e*G,U+=e*q,d+=e*D,E+=e*V,x+=e*X,M+=e*j,m+=e*H,B+=e*J,S+=e*Q,w+=(e=t[9])*P,v+=e*N,p+=e*O,b+=e*C,g+=e*F,A+=e*I,_+=e*Z,U+=e*G,d+=e*q,E+=e*D,x+=e*V,M+=e*X,m+=e*j,B+=e*H,S+=e*J,k+=e*Q,v+=(e=t[10])*P,p+=e*N,b+=e*O,g+=e*C,A+=e*F,_+=e*I,U+=e*Z,d+=e*G,E+=e*q,x+=e*D,M+=e*V,m+=e*X,B+=e*j,S+=e*H,k+=e*J,K+=e*Q,p+=(e=t[11])*P,b+=e*N,g+=e*O,A+=e*C,_+=e*F,U+=e*I,d+=e*Z,E+=e*G,x+=e*q,M+=e*D,m+=e*V,B+=e*X,S+=e*j,k+=e*H,K+=e*J,Y+=e*Q,b+=(e=t[12])*P,g+=e*N,A+=e*O,_+=e*C,U+=e*F,d+=e*I,E+=e*Z,x+=e*G,M+=e*q,m+=e*D,B+=e*V,S+=e*X,k+=e*j,K+=e*H,Y+=e*J,L+=e*Q,g+=(e=t[13])*P,A+=e*N,_+=e*O,U+=e*C,d+=e*F,E+=e*I,x+=e*Z,M+=e*G,m+=e*q,B+=e*D,S+=e*V,k+=e*X,K+=e*j,Y+=e*H,L+=e*J,T+=e*Q,A+=(e=t[14])*P,_+=e*N,U+=e*O,d+=e*C,E+=e*F,x+=e*I,M+=e*Z,m+=e*G,B+=e*q,S+=e*D,k+=e*V,K+=e*X,Y+=e*j,L+=e*H,T+=e*J,z+=e*Q,_+=(e=t[15])*P,h+=38*(d+=e*O),a+=38*(E+=e*C),f+=38*(x+=e*F),s+=38*(M+=e*I),u+=38*(m+=e*Z),c+=38*(B+=e*G),y+=38*(S+=e*q),l+=38*(k+=e*D),w+=38*(K+=e*V),v+=38*(Y+=e*X),p+=38*(L+=e*j),b+=38*(T+=e*H),g+=38*(z+=e*J),A+=38*(R+=e*Q),i=(e=(i+=38*(U+=e*N))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i=(e=(i+=o-1+37*(o-1))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i+=o-1+37*(o-1),r[0]=i,r[1]=h,r[2]=a,r[3]=f,r[4]=s,r[5]=u,r[6]=c,r[7]=y,r[8]=l,r[9]=w,r[10]=v,r[11]=p,r[12]=b,r[13]=g,r[14]=A,r[15]=_}function I(r,t){F(r,t,t)}function Z(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=253;0<=n;n--)I(e,e),2!==n&&4!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function G(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=250;0<=n;n--)I(e,e),1!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function q(r,t,n){var e,o,i=new Uint8Array(32),h=new Float64Array(80),a=v(),f=v(),s=v(),u=v(),c=v(),y=v();for(o=0;o<31;o++)i[o]=t[o];for(i[31]=127&t[31]|64,i[0]&=248,N(h,n),o=0;o<16;o++)f[o]=h[o],u[o]=a[o]=s[o]=0;for(a[0]=u[0]=1,o=254;0<=o;--o)T(a,f,e=i[o>>>3]>>>(7&o)&1),T(s,u,e),O(c,a,s),C(a,a,s),O(s,f,u),C(f,f,u),I(u,c),I(y,a),F(a,s,a),F(s,f,c),O(c,a,s),C(a,a,s),I(f,a),C(s,u,y),F(a,s,p),O(a,a,u),F(s,s,a),F(a,u,y),F(u,f,h),I(f,c),T(a,f,e),T(s,u,e);for(o=0;o<16;o++)h[o+16]=a[o],h[o+32]=s[o],h[o+48]=f[o],h[o+64]=u[o];var l=h.subarray(32),w=h.subarray(16);return Z(l,l),F(w,w,l),z(r,w),0}function D(r,t){return q(r,t,n)}function V(r,t){return h(t,32),D(r,t)}function X(r,t,n){var e=new Uint8Array(32);return q(e,n,t),_(r,o,e,U)}m.prototype.blocks=function(r,t,n){for(var e,o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d=this.fin?0:2048,E=this.h[0],x=this.h[1],M=this.h[2],m=this.h[3],B=this.h[4],S=this.h[5],k=this.h[6],K=this.h[7],Y=this.h[8],L=this.h[9],T=this.r[0],z=this.r[1],R=this.r[2],P=this.r[3],N=this.r[4],O=this.r[5],C=this.r[6],F=this.r[7],I=this.r[8],Z=this.r[9];16<=n;)y=c=0,y+=(E+=8191&(e=255&r[t+0]|(255&r[t+1])<<8))*T,y+=(x+=8191&(e>>>13|(o=255&r[t+2]|(255&r[t+3])<<8)<<3))*(5*Z),y+=(M+=8191&(o>>>10|(i=255&r[t+4]|(255&r[t+5])<<8)<<6))*(5*I),y+=(m+=8191&(i>>>7|(h=255&r[t+6]|(255&r[t+7])<<8)<<9))*(5*F),c=(y+=(B+=8191&(h>>>4|(a=255&r[t+8]|(255&r[t+9])<<8)<<12))*(5*C))>>>13,y&=8191,y+=(S+=a>>>1&8191)*(5*O),y+=(k+=8191&(a>>>14|(f=255&r[t+10]|(255&r[t+11])<<8)<<2))*(5*N),y+=(K+=8191&(f>>>11|(s=255&r[t+12]|(255&r[t+13])<<8)<<5))*(5*P),y+=(Y+=8191&(s>>>8|(u=255&r[t+14]|(255&r[t+15])<<8)<<8))*(5*R),l=c+=(y+=(L+=u>>>5|d)*(5*z))>>>13,l+=E*z,l+=x*T,l+=M*(5*Z),l+=m*(5*I),c=(l+=B*(5*F))>>>13,l&=8191,l+=S*(5*C),l+=k*(5*O),l+=K*(5*N),l+=Y*(5*P),c+=(l+=L*(5*R))>>>13,l&=8191,w=c,w+=E*R,w+=x*z,w+=M*T,w+=m*(5*Z),c=(w+=B*(5*I))>>>13,w&=8191,w+=S*(5*F),w+=k*(5*C),w+=K*(5*O),w+=Y*(5*N),v=c+=(w+=L*(5*P))>>>13,v+=E*P,v+=x*R,v+=M*z,v+=m*T,c=(v+=B*(5*Z))>>>13,v&=8191,v+=S*(5*I),v+=k*(5*F),v+=K*(5*C),v+=Y*(5*O),p=c+=(v+=L*(5*N))>>>13,p+=E*N,p+=x*P,p+=M*R,p+=m*z,c=(p+=B*T)>>>13,p&=8191,p+=S*(5*Z),p+=k*(5*I),p+=K*(5*F),p+=Y*(5*C),b=c+=(p+=L*(5*O))>>>13,b+=E*O,b+=x*N,b+=M*P,b+=m*R,c=(b+=B*z)>>>13,b&=8191,b+=S*T,b+=k*(5*Z),b+=K*(5*I),b+=Y*(5*F),g=c+=(b+=L*(5*C))>>>13,g+=E*C,g+=x*O,g+=M*N,g+=m*P,c=(g+=B*R)>>>13,g&=8191,g+=S*z,g+=k*T,g+=K*(5*Z),g+=Y*(5*I),A=c+=(g+=L*(5*F))>>>13,A+=E*F,A+=x*C,A+=M*O,A+=m*N,c=(A+=B*P)>>>13,A&=8191,A+=S*R,A+=k*z,A+=K*T,A+=Y*(5*Z),_=c+=(A+=L*(5*I))>>>13,_+=E*I,_+=x*F,_+=M*C,_+=m*O,c=(_+=B*N)>>>13,_&=8191,_+=S*P,_+=k*R,_+=K*z,_+=Y*T,U=c+=(_+=L*(5*Z))>>>13,U+=E*Z,U+=x*I,U+=M*F,U+=m*C,c=(U+=B*O)>>>13,U&=8191,U+=S*N,U+=k*P,U+=K*R,U+=Y*z,E=y=8191&(c=(c=((c+=(U+=L*T)>>>13)<<2)+c|0)+(y&=8191)|0),x=l+=c>>>=13,M=w&=8191,m=v&=8191,B=p&=8191,S=b&=8191,k=g&=8191,K=A&=8191,Y=_&=8191,L=U&=8191,t+=16,n-=16;this.h[0]=E,this.h[1]=x,this.h[2]=M,this.h[3]=m,this.h[4]=B,this.h[5]=S,this.h[6]=k,this.h[7]=K,this.h[8]=Y,this.h[9]=L},m.prototype.finish=function(r,t){var n,e,o,i,h=new Uint16Array(10);if(this.leftover){for(i=this.leftover,this.buffer[i++]=1;i<16;i++)this.buffer[i]=0;this.fin=1,this.blocks(this.buffer,0,16)}for(n=this.h[1]>>>13,this.h[1]&=8191,i=2;i<10;i++)this.h[i]+=n,n=this.h[i]>>>13,this.h[i]&=8191;for(this.h[0]+=5*n,n=this.h[0]>>>13,this.h[0]&=8191,this.h[1]+=n,n=this.h[1]>>>13,this.h[1]&=8191,this.h[2]+=n,h[0]=this.h[0]+5,n=h[0]>>>13,h[0]&=8191,i=1;i<10;i++)h[i]=this.h[i]+n,n=h[i]>>>13,h[i]&=8191;for(h[9]-=8192,e=(1^n)-1,i=0;i<10;i++)h[i]&=e;for(e=~e,i=0;i<10;i++)this.h[i]=this.h[i]&e|h[i];for(this.h[0]=65535&(this.h[0]|this.h[1]<<13),this.h[1]=65535&(this.h[1]>>>3|this.h[2]<<10),this.h[2]=65535&(this.h[2]>>>6|this.h[3]<<7),this.h[3]=65535&(this.h[3]>>>9|this.h[4]<<4),this.h[4]=65535&(this.h[4]>>>12|this.h[5]<<1|this.h[6]<<14),this.h[5]=65535&(this.h[6]>>>2|this.h[7]<<11),this.h[6]=65535&(this.h[7]>>>5|this.h[8]<<8),this.h[7]=65535&(this.h[8]>>>8|this.h[9]<<5),o=this.h[0]+this.pad[0],this.h[0]=65535&o,i=1;i<8;i++)o=(this.h[i]+this.pad[i]|0)+(o>>>16)|0,this.h[i]=65535&o;r[t+0]=this.h[0]>>>0&255,r[t+1]=this.h[0]>>>8&255,r[t+2]=this.h[1]>>>0&255,r[t+3]=this.h[1]>>>8&255,r[t+4]=this.h[2]>>>0&255,r[t+5]=this.h[2]>>>8&255,r[t+6]=this.h[3]>>>0&255,r[t+7]=this.h[3]>>>8&255,r[t+8]=this.h[4]>>>0&255,r[t+9]=this.h[4]>>>8&255,r[t+10]=this.h[5]>>>0&255,r[t+11]=this.h[5]>>>8&255,r[t+12]=this.h[6]>>>0&255,r[t+13]=this.h[6]>>>8&255,r[t+14]=this.h[7]>>>0&255,r[t+15]=this.h[7]>>>8&255},m.prototype.update=function(r,t,n){var e,o;if(this.leftover){for(n<(o=16-this.leftover)&&(o=n),e=0;e<o;e++)this.buffer[this.leftover+e]=r[t+e];if(n-=o,t+=o,this.leftover+=o,this.leftover<16)return;this.blocks(this.buffer,0,16),this.leftover=0}if(16<=n&&(o=n-n%16,this.blocks(r,t,o),t+=o,n-=o),n){for(e=0;e<n;e++)this.buffer[this.leftover+e]=r[t+e];this.leftover+=n}};var j=k,H=K;var J=[1116352408,3609767458,1899447441,602891725,3049323471,3964484399,3921009573,2173295548,961987163,4081628472,1508970993,3053834265,2453635748,2937671579,2870763221,3664609560,3624381080,2734883394,310598401,1164996542,607225278,1323610764,1426881987,3590304994,1925078388,4068182383,2162078206,991336113,2614888103,633803317,3248222580,3479774868,3835390401,2666613458,4022224774,944711139,264347078,2341262773,604807628,2007800933,770255983,1495990901,1249150122,1856431235,1555081692,3175218132,1996064986,2198950837,2554220882,3999719339,2821834349,766784016,2952996808,2566594879,3210313671,3203337956,3336571891,1034457026,3584528711,2466948901,113926993,3758326383,338241895,168717936,666307205,1188179964,773529912,1546045734,1294757372,1522805485,1396182291,2643833823,1695183700,2343527390,1986661051,1014477480,2177026350,1206759142,2456956037,344077627,2730485921,1290863460,2820302411,3158454273,3259730800,3505952657,3345764771,106217008,3516065817,3606008344,3600352804,1432725776,4094571909,1467031594,275423344,851169720,430227734,3100823752,506948616,1363258195,659060556,3750685593,883997877,3785050280,958139571,3318307427,1322822218,3812723403,1537002063,2003034995,1747873779,3602036899,1955562222,1575990012,2024104815,1125592928,2227730452,2716904306,2361852424,442776044,2428436474,593698344,2756734187,3733110249,3204031479,2999351573,3329325298,3815920427,3391569614,3928383900,3515267271,566280711,3940187606,3454069534,4118630271,4000239992,116418474,1914138554,174292421,2731055270,289380356,3203993006,460393269,320620315,685471733,587496836,852142971,1086792851,1017036298,365543100,1126000580,2618297676,1288033470,3409855158,1501505948,4234509866,1607167915,987167468,1816402316,1246189591];function Q(r,t,n,e){for(var o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d,E,x,M,m,B,S=new Int32Array(16),k=new Int32Array(16),K=r[0],Y=r[1],L=r[2],T=r[3],z=r[4],R=r[5],P=r[6],N=r[7],O=t[0],C=t[1],F=t[2],I=t[3],Z=t[4],G=t[5],q=t[6],D=t[7],V=0;128<=e;){for(_=0;_<16;_++)U=8*_+V,S[_]=n[U+0]<<24|n[U+1]<<16|n[U+2]<<8|n[U+3],k[_]=n[U+4]<<24|n[U+5]<<16|n[U+6]<<8|n[U+7];for(_=0;_<80;_++)if(o=Y,i=L,h=T,c=C,y=F,l=I,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,x+=65535&(E=((w=Z)>>>14|(a=z)<<18)^(Z>>>18|z<<14)^(z>>>9|Z<<23)),M+=E>>>16,m+=65535&(d=(z>>>14|Z<<18)^(z>>>18|Z<<14)^(Z>>>9|z<<23)),B+=d>>>16,x+=65535&(E=Z&(v=G)^~Z&(p=q)),M+=E>>>16,m+=65535&(d=z&(f=R)^~z&(s=P)),B+=d>>>16,d=J[2*_],x+=65535&(E=J[2*_+1]),M+=E>>>16,m+=65535&d,B+=d>>>16,d=S[_%16],M+=(E=k[_%16])>>>16,m+=65535&d,B+=d>>>16,m+=(M+=(x+=65535&E)>>>16)>>>16,x=65535&(E=A=65535&x|M<<16),M=E>>>16,m=65535&(d=g=65535&m|(B+=m>>>16)<<16),B=d>>>16,x+=65535&(E=(O>>>28|K<<4)^(K>>>2|O<<30)^(K>>>7|O<<25)),M+=E>>>16,m+=65535&(d=(K>>>28|O<<4)^(O>>>2|K<<30)^(O>>>7|K<<25)),B+=d>>>16,M+=(E=O&C^O&F^C&F)>>>16,m+=65535&(d=K&Y^K&L^Y&L),B+=d>>>16,u=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,b=65535&x|M<<16,x=65535&(E=l),M=E>>>16,m=65535&(d=h),B=d>>>16,M+=(E=A)>>>16,m+=65535&(d=g),B+=d>>>16,Y=K,L=o,T=i,z=h=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,R=a,P=f,N=s,K=u,C=O,F=c,I=y,Z=l=65535&x|M<<16,G=w,q=v,D=p,O=b,_%16==15)for(U=0;U<16;U++)d=S[U],x=65535&(E=k[U]),M=E>>>16,m=65535&d,B=d>>>16,d=S[(U+9)%16],x+=65535&(E=k[(U+9)%16]),M+=E>>>16,m+=65535&d,B+=d>>>16,g=S[(U+1)%16],x+=65535&(E=((A=k[(U+1)%16])>>>1|g<<31)^(A>>>8|g<<24)^(A>>>7|g<<25)),M+=E>>>16,m+=65535&(d=(g>>>1|A<<31)^(g>>>8|A<<24)^g>>>7),B+=d>>>16,g=S[(U+14)%16],M+=(E=((A=k[(U+14)%16])>>>19|g<<13)^(g>>>29|A<<3)^(A>>>6|g<<26))>>>16,m+=65535&(d=(g>>>19|A<<13)^(A>>>29|g<<3)^g>>>6),B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,S[U]=65535&m|B<<16,k[U]=65535&x|M<<16;x=65535&(E=O),M=E>>>16,m=65535&(d=K),B=d>>>16,d=r[0],M+=(E=t[0])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[0]=K=65535&m|B<<16,t[0]=O=65535&x|M<<16,x=65535&(E=C),M=E>>>16,m=65535&(d=Y),B=d>>>16,d=r[1],M+=(E=t[1])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[1]=Y=65535&m|B<<16,t[1]=C=65535&x|M<<16,x=65535&(E=F),M=E>>>16,m=65535&(d=L),B=d>>>16,d=r[2],M+=(E=t[2])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[2]=L=65535&m|B<<16,t[2]=F=65535&x|M<<16,x=65535&(E=I),M=E>>>16,m=65535&(d=T),B=d>>>16,d=r[3],M+=(E=t[3])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[3]=T=65535&m|B<<16,t[3]=I=65535&x|M<<16,x=65535&(E=Z),M=E>>>16,m=65535&(d=z),B=d>>>16,d=r[4],M+=(E=t[4])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[4]=z=65535&m|B<<16,t[4]=Z=65535&x|M<<16,x=65535&(E=G),M=E>>>16,m=65535&(d=R),B=d>>>16,d=r[5],M+=(E=t[5])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[5]=R=65535&m|B<<16,t[5]=G=65535&x|M<<16,x=65535&(E=q),M=E>>>16,m=65535&(d=P),B=d>>>16,d=r[6],M+=(E=t[6])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[6]=P=65535&m|B<<16,t[6]=q=65535&x|M<<16,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,d=r[7],M+=(E=t[7])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[7]=N=65535&m|B<<16,t[7]=D=65535&x|M<<16,V+=128,e-=128}return e}function W(r,t,n){var e,o=new Int32Array(8),i=new Int32Array(8),h=new Uint8Array(256),a=n;for(o[0]=1779033703,o[1]=3144134277,o[2]=1013904242,o[3]=2773480762,o[4]=1359893119,o[5]=2600822924,o[6]=528734635,o[7]=1541459225,i[0]=4089235720,i[1]=2227873595,i[2]=4271175723,i[3]=1595750129,i[4]=2917565137,i[5]=725511199,i[6]=4215389547,i[7]=327033209,Q(o,i,t,n),n%=128,e=0;e<n;e++)h[e]=t[a-n+e];for(h[n]=128,h[(n=256-128*(n<112?1:0))-9]=0,f(h,n-8,a/536870912|0,a<<3),Q(o,i,h,n),e=0;e<8;e++)f(r,8*e,o[e],i[e]);return 0}function $(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v(),s=v(),u=v();C(n,r[1],r[0]),C(u,t[1],t[0]),F(n,n,u),O(e,r[0],r[1]),O(u,t[0],t[1]),F(e,e,u),F(o,r[3],t[3]),F(o,o,y),F(i,r[2],t[2]),O(i,i,i),C(h,e,n),C(a,i,o),O(f,i,o),O(s,e,n),F(r[0],h,a),F(r[1],s,f),F(r[2],f,a),F(r[3],h,s)}function rr(r,t,n){var e;for(e=0;e<4;e++)T(r[e],t[e],n)}function tr(r,t){var n=v(),e=v(),o=v();Z(o,t[2]),F(n,t[0],o),F(e,t[1],o),z(r,e),r[31]^=P(n)<<7}function nr(r,t,n){var e,o;for(Y(r[0],s),Y(r[1],u),Y(r[2],u),Y(r[3],s),o=255;0<=o;--o)rr(r,t,e=n[o/8|0]>>(7&o)&1),$(t,r),$(r,r),rr(r,t,e)}function er(r,t){var n=[v(),v(),v(),v()];Y(n[0],e),Y(n[1],a),Y(n[2],u),F(n[3],e,a),nr(r,n,t)}function or(r,t,n){var e,o=new Uint8Array(64),i=[v(),v(),v(),v()];for(n||h(t,32),W(o,t,32),o[0]&=248,o[31]&=127,o[31]|=64,er(i,o),tr(r,i),e=0;e<32;e++)t[e+32]=r[e];return 0}var ir=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function hr(r,t){var n,e,o,i;for(e=63;32<=e;--e){for(n=0,o=e-32,i=e-12;o<i;++o)t[o]+=n-16*t[e]*ir[o-(e-32)],n=Math.floor((t[o]+128)/256),t[o]-=256*n;t[o]+=n,t[e]=0}for(o=n=0;o<32;o++)t[o]+=n-(t[31]>>4)*ir[o],n=t[o]>>8,t[o]&=255;for(o=0;o<32;o++)t[o]-=n*ir[o];for(e=0;e<32;e++)t[e+1]+=t[e]>>8,r[e]=255&t[e]}function ar(r){var t,n=new Float64Array(64);for(t=0;t<64;t++)n[t]=r[t];for(t=0;t<64;t++)r[t]=0;hr(r,n)}function fr(r,t,n,e){var o,i,h=new Uint8Array(64),a=new Uint8Array(64),f=new Uint8Array(64),s=new Float64Array(64),u=[v(),v(),v(),v()];W(h,e,32),h[0]&=248,h[31]&=127,h[31]|=64;var c=n+64;for(o=0;o<n;o++)r[64+o]=t[o];for(o=0;o<32;o++)r[32+o]=h[32+o];for(W(f,r.subarray(32),n+32),ar(f),er(u,f),tr(r,u),o=32;o<64;o++)r[o]=e[o];for(W(a,r,n+64),ar(a),o=0;o<64;o++)s[o]=0;for(o=0;o<32;o++)s[o]=f[o];for(o=0;o<32;o++)for(i=0;i<32;i++)s[o+i]+=a[o]*h[i];return hr(r.subarray(32),s),c}function sr(r,t,n,e){var o,i=new Uint8Array(32),h=new Uint8Array(64),a=[v(),v(),v(),v()],f=[v(),v(),v(),v()];if(n<64)return-1;if(function(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v();if(Y(r[2],u),N(r[1],t),I(o,r[1]),F(i,o,c),C(o,o,r[2]),O(i,r[2],i),I(h,i),I(a,h),F(f,a,h),F(n,f,o),F(n,n,i),G(n,n),F(n,n,o),F(n,n,i),F(n,n,i),F(r[0],n,i),I(e,r[0]),F(e,e,i),R(e,o)&&F(r[0],r[0],l),I(e,r[0]),F(e,e,i),R(e,o))return 1;P(r[0])===t[31]>>7&&C(r[0],s,r[0]),F(r[3],r[0],r[1])}(f,e))return-1;for(o=0;o<n;o++)r[o]=t[o];for(o=0;o<32;o++)r[o+32]=e[o];if(W(h,r,n),ar(h),nr(a,f,h),er(f,t.subarray(32)),$(a,f),tr(i,a),n-=64,g(t,0,i,0)){for(o=0;o<n;o++)r[o]=0;return-1}for(o=0;o<n;o++)r[o]=t[o+64];return n}function ur(r,t){if(32!==r.length)throw new Error("bad key size");if(24!==t.length)throw new Error("bad nonce size")}function cr(){for(var r=0;r<arguments.length;r++)if(!(arguments[r]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function yr(r){for(var t=0;t<r.length;t++)r[t]=0}i.lowlevel={crypto_core_hsalsa20:_,crypto_stream_xor:M,crypto_stream:x,crypto_stream_salsa20_xor:d,crypto_stream_salsa20:E,crypto_onetimeauth:B,crypto_onetimeauth_verify:S,crypto_verify_16:b,crypto_verify_32:g,crypto_secretbox:k,crypto_secretbox_open:K,crypto_scalarmult:q,crypto_scalarmult_base:D,crypto_box_beforenm:X,crypto_box_afternm:j,crypto_box:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),j(r,t,n,e,h)},crypto_box_open:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),H(r,t,n,e,h)},crypto_box_keypair:V,crypto_hash:W,crypto_sign:fr,crypto_sign_keypair:or,crypto_sign_open:sr,crypto_secretbox_KEYBYTES:32,crypto_secretbox_NONCEBYTES:24,crypto_secretbox_ZEROBYTES:32,crypto_secretbox_BOXZEROBYTES:16,crypto_scalarmult_BYTES:32,crypto_scalarmult_SCALARBYTES:32,crypto_box_PUBLICKEYBYTES:32,crypto_box_SECRETKEYBYTES:32,crypto_box_BEFORENMBYTES:32,crypto_box_NONCEBYTES:24,crypto_box_ZEROBYTES:32,crypto_box_BOXZEROBYTES:16,crypto_sign_BYTES:64,crypto_sign_PUBLICKEYBYTES:32,crypto_sign_SECRETKEYBYTES:64,crypto_sign_SEEDBYTES:32,crypto_hash_BYTES:64,gf:v,D:c,L:ir,pack25519:z,unpack25519:N,M:F,A:O,S:I,Z:C,pow2523:G,add:$,set25519:Y,modL:hr,scalarmult:nr,scalarbase:er},i.randomBytes=function(r){var t=new Uint8Array(r);return h(t,r),t},i.secretbox=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(32+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+32]=r[i];return k(o,e,e.length,t,n),o.subarray(16)},i.secretbox.open=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(16+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+16]=r[i];return e.length<32||0!==K(o,e,e.length,t,n)?null:o.subarray(32)},i.secretbox.keyLength=32,i.secretbox.nonceLength=24,i.secretbox.overheadLength=16,i.scalarMult=function(r,t){if(cr(r,t),32!==r.length)throw new Error("bad n size");if(32!==t.length)throw new Error("bad p size");var n=new Uint8Array(32);return q(n,r,t),n},i.scalarMult.base=function(r){if(cr(r),32!==r.length)throw new Error("bad n size");var t=new Uint8Array(32);return D(t,r),t},i.scalarMult.scalarLength=32,i.scalarMult.groupElementLength=32,i.box=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox(r,t,o)},i.box.before=function(r,t){cr(r,t),function(r,t){if(32!==r.length)throw new Error("bad public key size");if(32!==t.length)throw new Error("bad secret key size")}(r,t);var n=new Uint8Array(32);return X(n,r,t),n},i.box.after=i.secretbox,i.box.open=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox.open(r,t,o)},i.box.open.after=i.secretbox.open,i.box.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(32);return V(r,t),{publicKey:r,secretKey:t}},i.box.keyPair.fromSecretKey=function(r){if(cr(r),32!==r.length)throw new Error("bad secret key size");var t=new Uint8Array(32);return D(t,r),{publicKey:t,secretKey:new Uint8Array(r)}},i.box.publicKeyLength=32,i.box.secretKeyLength=32,i.box.sharedKeyLength=32,i.box.nonceLength=24,i.box.overheadLength=i.secretbox.overheadLength,i.sign=function(r,t){if(cr(r,t),64!==t.length)throw new Error("bad secret key size");var n=new Uint8Array(64+r.length);return fr(n,r,r.length,t),n},i.sign.open=function(r,t){if(cr(r,t),32!==t.length)throw new Error("bad public key size");var n=new Uint8Array(r.length),e=sr(n,r,r.length,t);if(e<0)return null;for(var o=new Uint8Array(e),i=0;i<o.length;i++)o[i]=n[i];return o},i.sign.detached=function(r,t){for(var n=i.sign(r,t),e=new Uint8Array(64),o=0;o<e.length;o++)e[o]=n[o];return e},i.sign.detached.verify=function(r,t,n){if(cr(r,t,n),64!==t.length)throw new Error("bad signature size");if(32!==n.length)throw new Error("bad public key size");var e,o=new Uint8Array(64+r.length),i=new Uint8Array(64+r.length);for(e=0;e<64;e++)o[e]=t[e];for(e=0;e<r.length;e++)o[e+64]=r[e];return 0<=sr(i,o,o.length,n)},i.sign.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(64);return or(r,t),{publicKey:r,secretKey:t}},i.sign.keyPair.fromSecretKey=function(r){if(cr(r),64!==r.length)throw new Error("bad secret key size");for(var t=new Uint8Array(32),n=0;n<t.length;n++)t[n]=r[32+n];return{publicKey:t,secretKey:new Uint8Array(r)}},i.sign.keyPair.fromSeed=function(r){if(cr(r),32!==r.length)throw new Error("bad seed size");for(var t=new Uint8Array(32),n=new Uint8Array(64),e=0;e<32;e++)n[e]=r[e];return or(t,n,!0),{publicKey:t,secretKey:n}},i.sign.publicKeyLength=32,i.sign.secretKeyLength=64,i.sign.seedLength=32,i.sign.signatureLength=64,i.hash=function(r){cr(r);var t=new Uint8Array(64);return W(t,r,r.length),t},i.hash.hashLength=64,i.verify=function(r,t){return cr(r,t),0!==r.length&&0!==t.length&&(r.length===t.length&&0===w(r,0,t,0,r.length))},i.setPRNG=function(r){h=r},function(){var o="undefined"!=typeof self?self.crypto||self.msCrypto:null;if(o&&o.getRandomValues){i.setPRNG(function(r,t){var n,e=new Uint8Array(t);for(n=0;n<t;n+=65536)o.getRandomValues(e.subarray(n,n+Math.min(t-n,65536)));for(n=0;n<t;n++)r[n]=e[n];yr(e)})}else"undefined"!=typeof require&&(o=require("crypto"))&&o.randomBytes&&i.setPRNG(function(r,t){var n,e=o.randomBytes(t);for(n=0;n<t;n++)r[n]=e[n];yr(e)})}()}("undefined"!=typeof module&&module.exports?module.exports:self.nacl=self.nacl||{});
 const APP_VERSION = "1.09.01";
-const APP_BUILD = 16;
+const APP_BUILD = 17;
 /* =========================================================================
    seiGEN Commerce Lite — single-file offline POS
    Storage: SQLite via sql.js (WASM), persisted to IndexedDB as a blob.
@@ -931,7 +966,25 @@ const APP_BUILD = 16;
       "ALTER TABLE purchases ADD COLUMN supplier_uid TEXT",
       "ALTER TABLE purchases ADD COLUMN landed_cost REAL",
       "ALTER TABLE purchases ADD COLUMN delivery_cost REAL DEFAULT 0",
-      "ALTER TABLE purchases ADD COLUMN srv_status TEXT DEFAULT ''"
+      "ALTER TABLE purchases ADD COLUMN srv_status TEXT DEFAULT ''",
+      // POS fixes (docs/pos/pos-fixes-design.md): customer type, credit limit
+      // and national ID (shown only with "Create customers"), the phone as
+      // compared; the business list's sync state (customers-srv in pos.js);
+      // a wholesale price per product (null = retail applies); the price level
+      // a sale and each line were sold at; who may create customers.
+      "ALTER TABLE customers ADD COLUMN customer_type TEXT DEFAULT 'retail'",
+      "ALTER TABLE customers ADD COLUMN credit_limit REAL",
+      "ALTER TABLE customers ADD COLUMN national_id TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN phone_norm TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN srv_status TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN srv_error TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN updated_ts TEXT DEFAULT ''",
+      "ALTER TABLE products ADD COLUMN wholesale_price REAL",
+      "ALTER TABLE products ADD COLUMN cat_main_wholesale REAL",
+      "ALTER TABLE sales ADD COLUMN price_level TEXT DEFAULT 'retail'",
+      "ALTER TABLE sale_items ADD COLUMN price_level TEXT DEFAULT 'retail'",
+      "ALTER TABLE sale_items ADD COLUMN retail_price REAL",
+      "ALTER TABLE staff ADD COLUMN can_create_customers INTEGER DEFAULT 0"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -947,6 +1000,9 @@ const APP_BUILD = 16;
       WHEN NEW.price_ts IS NULL OR NEW.price_ts=''
       BEGIN UPDATE products SET price_ts=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=NEW.id; END`); }catch(e){}
     backfillDnLinks(t);
+    // POS fixes: the phone as compared (utils.js normPhone), for customers saved before it existed.
+    try{ allX(t, "SELECT id, phone FROM customers WHERE COALESCE(phone_norm,'')='' AND COALESCE(phone,'')<>''")
+      .forEach(c=>{ const n = normPhone(c.phone); if(n) t.run("UPDATE customers SET phone_norm=? WHERE id=?", [n, c.id]); }); }catch(e){}
     // When the FIRST catalogue was generated for a destination (locks its name). Existing rows only
     // know their latest build, which is the best available stand-in.
     try{ t.run("UPDATE branch_register SET catalogue_first_ts=catalogue_ts WHERE (catalogue_first_ts IS NULL OR catalogue_first_ts='') AND catalogue_ts IS NOT NULL AND catalogue_ts<>''"); }catch(e){}
@@ -983,6 +1039,14 @@ const APP_BUILD = 16;
     try{ t.run("CREATE INDEX IF NOT EXISTS ix_products_cat_uid ON products(cat_uid)"); }catch(e){}
     try{ t.run(`CREATE TRIGGER IF NOT EXISTS products_cat_dirty AFTER UPDATE OF name,sku,price,cost,description,category,shelf,low_threshold,image,active ON products
       WHEN NEW.cat_uid IS NOT NULL
+        AND (SELECT value FROM settings WHERE key='terminal_is_main')='1'
+        AND COALESCE((SELECT value FROM settings WHERE key='cat_applying'),'')<>'1'
+        AND NEW.branch=(SELECT value FROM settings WHERE key='cat_branch')
+      BEGIN UPDATE products SET cat_dirty=1, cat_op=lower(hex(randomblob(16))), cat_error='' WHERE id=NEW.id; END`); }catch(e){}
+    // POS fixes: the wholesale price travels with the catalogue too (its own
+    // trigger, so devices that already have the one above get it as well).
+    try{ t.run(`CREATE TRIGGER IF NOT EXISTS products_cat_dirty_wholesale AFTER UPDATE OF wholesale_price ON products
+      WHEN NEW.cat_uid IS NOT NULL AND NEW.wholesale_price IS NOT OLD.wholesale_price
         AND (SELECT value FROM settings WHERE key='terminal_is_main')='1'
         AND COALESCE((SELECT value FROM settings WHERE key='cat_applying'),'')<>'1'
         AND NEW.branch=(SELECT value FROM settings WHERE key='cat_branch')
@@ -1715,7 +1779,7 @@ const APP_BUILD = 16;
     // deactivated products (Phase 3a soft delete) are never offered for sale
     const all_ = branch? all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch])
                         : all("SELECT * FROM products WHERE COALESCE(active,1)=1 ORDER BY branch,name");
-    return all_.filter(p=> matchesAnyOrder(q, p.name+" "+(p.sku||"")+" "+(p.description||"")));
+    return productSearch(all_, q);   // utils.js: every term must match (words by their start, whole numbers)
   }
 
   // Owner decision (2026-10-06, replaces the first Phase 3a rule): a till
@@ -1725,13 +1789,67 @@ const APP_BUILD = 16;
   // What may be sold of a product now: its stock, or on a shared-stock till
   // (Phase 3b, shared-stock.js) branch stock online / this till's allowance offline.
   function sellable(p){ return typeof sellableNow==="function"? sellableNow(p) : p.stock; }
+
+  // ---- the cart's customer and price level (POS fixes, docs/pos/pos-fixes-design.md §2-3) ----
+  // The customer picked in the cart (customers.js combo), or null for a walk-in.
+  // A Wholesale customer gets every line at its wholesale price; a product with
+  // no wholesale price, a walk-in and a Retail customer get the retail price.
+  let cartCustomer = null;
+  function cartPriceLevel(){ return cartCustomer && cartCustomer.customer_type==="wholesale"? "wholesale" : "retail"; }
+  function hasWholesalePrice(p){ return p && p.wholesale_price!=null && p.wholesale_price!=="" && Number(p.wholesale_price)>=0; }
+  // { price, level } for one product at the given level
+  function levelPrice(p, level){
+    if(level==="wholesale" && hasWholesalePrice(p)) return { price:roundMoney(Number(p.wholesale_price)), level:"wholesale" };
+    return { price:p.price, level:"retail" };
+  }
+  // Sets (or clears) the cart's customer and re-prices every line when the
+  // level changes. Returns the notice to show ("" when nothing changed).
+  function setCartCustomer(c){
+    const before = cartPriceLevel();
+    cartCustomer = c? Object.assign({}, c) : null;
+    appliedVoucher = null;
+    const after = cartPriceLevel();
+    if(before===after) return "";
+    let capped = false;
+    cart.forEach(line=>{
+      const p = one("SELECT * FROM products WHERE id=?",[line.product_id]);
+      if(!p) return;
+      const lp = levelPrice(p, after);
+      line.price = lp.price; line.level = lp.level; line.retail_price = p.price;
+      if((parseFloat(line.discount)||0) > line.price*line.qty) capped = true;
+    });
+    return "Prices changed to "+(after==="wholesale"? "Wholesale" : "Retail")+(capped? " (a discount was reduced to its line total)" : "")+".";
+  }
   function addToCart(p){
     if(typeof window!=="undefined" && window._stockChecking) return;   // a shared-stock sale is being checked
     const max = sellable(p);
     const existing = cart.find(c=>c.product_id===p.id);
     if(existing){ existing.stock = max; if(existing.qty < max) existing.qty++; }
-    else { if(max>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:max}); }
+    else if(max>0){
+      const lp = levelPrice(p, cartPriceLevel());
+      cart.push({product_id:p.id,name:p.name,price:lp.price,level:lp.level,retail_price:p.price,qty:1,stock:max});
+    }
     render();
+  }
+
+  // ---- credit limit (warn; the Admin passcode lets it through) ----
+  // Checked against THIS till's balance: credit sales don't sync between tills.
+  let creditLimitApproval = null;   // { customerId, after, admin } for the sale being finished
+  function creditLimitCheck(customer, creditAmount){
+    if(!customer || !(creditAmount>0) || customer.credit_limit==null || customer.credit_limit==="") return null;
+    const limit = Number(customer.credit_limit), balance = roundMoney(customerBalance(customer.id)), after = roundMoney(balance + creditAmount);
+    if(!(after > limit)) return null;
+    if(creditLimitApproval && creditLimitApproval.customerId===customer.id && creditLimitApproval.after===after) return null;
+    return { customer, limit, balance, after,
+      text: customer.name+" would owe "+currency+after.toFixed(2)+" on this till, over their credit limit of "+currency+limit.toFixed(2)+
+        ". This checks this till's credit sales only. An Admin passcode lets the sale continue." };
+  }
+  function approveCreditLimit(info, passcode){
+    const admin = findAdmin(passcode);
+    if(!admin) throw new Error("Incorrect Admin passcode. The sale wasn't finished.");
+    creditLimitApproval = { customerId:info.customer.id, after:info.after, admin:admin.name };
+    logAudit("Credit limit override", info.customer.name, "Owes "+currency+info.after.toFixed(2)+" on this till, limit "+currency+info.limit.toFixed(2)+" · approved by "+admin.name);
+    return creditLimitApproval;
   }
   // The orange note on Sell and Products (activation-v2-design.md §9): shown
   // only when it's true.
@@ -1839,6 +1957,13 @@ const APP_BUILD = 16;
     if(totalEl) totalEl.textContent = currency+totals.due.toFixed(2);
     const extra = container.querySelector("#discountExtra");
     if(extra) extra.style.display = totals.discount>0? "block":"none";
+    // the reason lives in "Sale details" (router.js): open it when a discount needs one
+    const details = container.querySelector("#saleDetailsBody");
+    if(details && totals.discount>0 && details.hidden){
+      details.hidden = false; window._saleDetailsOpen = true;
+      const t = container.querySelector("#saleDetailsToggle");
+      if(t){ t.setAttribute("aria-expanded","true"); const ch = t.querySelector(".chev"); if(ch) ch.textContent = "▴"; }
+    }
   }
   // Loose name match for the live voucher-eligibility preview while typing
   // in the cart's customer field — not the same lookup findOrCreateCustomer
@@ -2074,13 +2199,23 @@ const APP_BUILD = 16;
   // (desktop/sales-desktop.js) — both already reuse pos.js's cart/checkout
   // logic rather than keeping their own copy, so this new panel follows the
   // same pattern instead of being written twice.
-  function splitTenderPanelHtml(){
+  // part (POS fixes, pinned Pay bar): "lines" = the payment lines (they
+  // scroll with the cart), "actions" = Remaining + Complete + Back (pinned);
+  // no part = both, as before.
+  function splitTenderPanelHtml(part){
     const remaining = splitRemaining();
     // Mirrors completeSale's own validation exactly (blank/zero/unconvertible
     // lines rejected, base-equivalent amounts must sum to the total) so
     // Complete Sale is only ever enabled when the click would actually
     // succeed.
     const ok = remaining===0 && splitLines.length>0 && splitLinesValid();
+    const actions = `
+        <div class="subline" id="splitRemainingLine" style="font-size:14px;font-weight:600;color:${remaining===0?"inherit":"var(--danger)"}">
+          <span>Remaining</span><span id="splitRemaining">${currency}${remaining.toFixed(2)}</span>
+        </div>
+        <button class="btn btn-primary" id="completeSplitSale" ${ok?"":"disabled"} style="margin-top:6px">Complete Sale</button>
+        <button class="btn btn-ghost btn-sm" id="cancelSplitTender" style="margin-top:8px">← Back to single payment method</button>`;
+    if(part==="actions") return `<div class="split-tender split-actions">${actions}</div>`;
     return `
       <div class="split-tender">
         ${splitLines.map((l,i)=>{
@@ -2098,11 +2233,7 @@ const APP_BUILD = 16;
           <div class="muted" id="splitMsg-${i}" style="font-size:11px;margin-bottom:${text?"8px":"0"}${invalid?";color:var(--danger)":""}">${escapeHtml(text)}</div>`;
         }).join("")}
         <button class="btn btn-ghost btn-sm" id="addSplitLine" style="margin-bottom:10px">+ Add another payment method</button>
-        <div class="subline" id="splitRemainingLine" style="font-size:14px;font-weight:600;color:${remaining===0?"inherit":"var(--danger)"}">
-          <span>Remaining</span><span id="splitRemaining">${currency}${remaining.toFixed(2)}</span>
-        </div>
-        <button class="btn btn-primary" id="completeSplitSale" ${ok?"":"disabled"} style="margin-top:6px">Complete Sale</button>
-        <button class="btn btn-ghost btn-sm" id="cancelSplitTender" style="margin-top:8px">← Back to single payment method</button>
+        ${part==="lines"? "" : actions}
       </div>`;
   }
   // Patches only the values derived from splitLines (Remaining, Complete
@@ -2250,7 +2381,24 @@ const APP_BUILD = 16;
     const phoneEl = inp? { value:inp.custPhone } : document.getElementById("custPhone");
     const custName = nameEl? nameEl.value.trim() : "";
     const custPhone = phoneEl? phoneEl.value.trim() : "";
-    if(lines.some(l=>l.method==="Credit") && !custName){ alert("Enter the customer's name for a credit sale"); return; }
+    // The customer is the one picked in the cart (customers.js combo). Text
+    // that exactly names one existing customer counts as picking them; any
+    // other text is a walk-in and is never saved as a new customer.
+    const pickedId = inp? inp.customerId : (cartCustomer? cartCustomer.id : null);
+    let customer = pickedId? one("SELECT * FROM customers WHERE id=?",[pickedId]) : null;
+    if(!customer && custName){
+      const same = all("SELECT * FROM customers WHERE lower(name)=lower(?)",[custName])
+        .filter(c=> !custPhone || normPhone(c.phone)===normPhone(custPhone) || c.phone===custPhone);
+      if(same.length===1) customer = same[0];
+    }
+    if(lines.some(l=>l.method==="Credit") && !customer){ alert("Pick the customer, or add them, for a credit sale."); return; }
+    const creditAmount = roundMoney(lines.filter(l=>l.method==="Credit").reduce((s,l)=>s+l.amount,0));
+    const overLimit = creditLimitCheck(customer, creditAmount);
+    if(overLimit){
+      if(typeof openCreditLimitModal==="function" && typeof document.createElement==="function") openCreditLimitModal(overLimit, ()=>completeSale(method, payments, stockPlan));
+      else alert(overLimit.text);
+      return;
+    }
 
     const reasonEl = inp? { value:inp.discountReason } : document.getElementById("discountReason");
     const approvedEl = inp? { value:inp.discountApprovedBy } : document.getElementById("discountApprovedBy");
@@ -2286,7 +2434,7 @@ const APP_BUILD = 16;
     // sale is written only when that comes back (or from this till's allowance).
     if(!stockPlan && typeof sharedStockTill==="function" && sharedStockTill()){
       return sharedStockCheckout(cart.map(c=>({ product_id:c.product_id, qty:c.qty })), (plan)=>completeSale(method, payments, plan),
-        { custName, custPhone, discountReason, discountApprovedBy, paymentRef, docRef });
+        { custName, custPhone, customerId: customer? customer.id : null, discountReason, discountApprovedBy, paymentRef, docRef });
     }
     const voucherToRedeem = appliedVoucher;
     const ts = new Date().toISOString();
@@ -2295,7 +2443,8 @@ const APP_BUILD = 16;
     let customerId, saleId, receiptNo, label, receiptItems, exchangeCn = null;
     if(exPlan) run("BEGIN");
     try{
-      customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
+      customerId = customer? customer.id : null;
+      const priceLevel = cartPriceLevel();
       // markup/markup_reason are always written as 0/"" — cart-time markup
       // was removed (Remove Cart Markup Calculation task); the columns stay
       // in the schema only so historical rows keep whatever was charged
@@ -2305,9 +2454,9 @@ const APP_BUILD = 16;
       // before, so receipt_no stays NULL there.
       // (getSetting first: an unregistered device never needs docnum.js here)
       receiptNo = getSetting("till_code","") && currentTillCode()? reserveDocNumber("RCT").text : null;
-      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo]);
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no,price_level)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo,priceLevel]);
       saleId = one("SELECT last_insert_rowid() as id").id;
       if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
       const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
@@ -2321,11 +2470,12 @@ const APP_BUILD = 16;
       // for this sale always equals the `discount` written on the sales row
       // above, since both come from the same lineDiscount()/cartDiscountTotal()
       // calls (cartTotals() already ran before this loop).
-      receiptItems = cart.map(c=>({ product_id:c.product_id, name:c.name, price:c.price, qty:c.qty, discount:lineDiscount(c) }));
+      receiptItems = cart.map(c=>({ product_id:c.product_id, name:c.name, price:c.price, qty:c.qty, discount:lineDiscount(c),
+        level:c.level||"retail", retail_price:c.retail_price!=null? c.retail_price : c.price }));
       receiptItems.forEach(c=>{
         const prod = one("SELECT cost FROM products WHERE id=?",[c.product_id]);
-        run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount) VALUES(?,?,?,?,?,?,?)",
-          [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount]);
+        run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount,price_level,retail_price) VALUES(?,?,?,?,?,?,?,?,?)",
+          [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount,c.level,c.retail_price]);
         // shared-stock till: only the part of the line taken from this till's own allowance changes its stock
         const fromHere = stockPlan && Object.prototype.hasOwnProperty.call(stockPlan.alloc, c.product_id)? stockPlan.alloc[c.product_id] : c.qty;
         if(fromHere) moveStock({ productId:c.product_id, delta:-fromHere, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
@@ -2354,10 +2504,10 @@ const APP_BUILD = 16;
     logAudit("Sale", itemsSummary, `Receipt ${label} · ${currency}${total.toFixed(2)} · ${methodLabel}`);
     maybeIssueFrequentCustomerVoucher(customerId, branch, ts);
     persist();
-    window._lastReceipt = {saleId,receiptNo,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef};
+    window._lastReceipt = {saleId,receiptNo,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef,priceLevel:cartPriceLevel()};
     window._lastCreditNote = exchangeCn;   // only right after an exchange
     printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef, receiptNo);
-    cart = []; drawerOpen=false; appliedVoucher=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
+    cart = []; drawerOpen=false; appliedVoucher=null; cartCustomer=null; creditLimitApproval=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
     render();
   }
 
@@ -2780,6 +2930,8 @@ const APP_BUILD = 16;
   // call at the end differs, so each format is built once here.
   // docRef: the sale's optional Document Reference No. (sales.doc_ref) —
   // printed under the receipt number only when non-blank.
+  // POS fixes: the price level a sale was sold at ("retail" | "wholesale"), printed on its receipt.
+  function salePriceLevel(saleId){ try{ return ((one("SELECT price_level FROM sales WHERE id=?",[saleId])||{}).price_level)||"retail"; }catch(e){ return "retail"; } }
   function buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
     const w = escposColWidth();
     const shop = getSetting("shop_name","My Shop");
@@ -2791,6 +2943,7 @@ const APP_BUILD = 16;
     parts.push(escposTextBytes(new Date(ts).toLocaleString()+"\n"));
     parts.push(escposTextBytes("Receipt "+receiptLabel(saleId, receiptNo)+"\n"));
     if(docRef) parts.push(escposTextBytes("Doc Ref: "+docRef+"\n"));
+    if(salePriceLevel(saleId)==="wholesale") parts.push(escposTextBytes("Wholesale prices\n"));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
     parts.push(escposLine(w));
@@ -2904,6 +3057,7 @@ const APP_BUILD = 16;
         <div>${new Date(ts).toLocaleString()}</div>
         <div>Receipt ${escapeHtml(receiptLabel(saleId, receiptNo))}</div>
         ${docRef?`<div>Doc Ref: ${escapeHtml(docRef)}</div>`:""}
+        ${salePriceLevel(saleId)==="wholesale"? `<div>Wholesale prices</div>` : ""}
         <hr>
         ${lines}
         <hr>
@@ -3022,6 +3176,7 @@ const APP_BUILD = 16;
     parts.push(escposTextBytes(new Date(sale.ts).toLocaleString()+"\n"));
     parts.push(escposTextBytes("Receipt "+receiptDisplay(sale)+"\n"));
     if(sale.doc_ref) parts.push(escposTextBytes("Doc Ref: "+sale.doc_ref+"\n"));
+    if(sale.price_level==="wholesale") parts.push(escposTextBytes("Wholesale prices\n"));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
     parts.push(escposLine(w));
@@ -3058,6 +3213,7 @@ const APP_BUILD = 16;
         <div>${new Date(sale.ts).toLocaleString()}</div>
         <div>Receipt ${escapeHtml(receiptDisplay(sale))}</div>
         ${sale.doc_ref?`<div>Doc Ref: ${escapeHtml(sale.doc_ref)}</div>`:""}
+        ${sale.price_level==="wholesale"? `<div>Wholesale prices</div>` : ""}
         <hr>
         ${lines}
         <hr>
@@ -3256,41 +3412,100 @@ const APP_BUILD = 16;
     return tokens.every(t=> hay.includes(t));
   }
 
-  // Ranked any-order product search (Stocktake Multi-Token Search Engine
-  // task): unlike matchesAnyOrder above (a plain include/exclude filter,
-  // still used unchanged by pos.js/products.js/credit.js/help.js/reports.js
-  // — not touched here), this INCLUDES a product as soon as it matches at
-  // least one token rather than requiring every token, and sorts by how
-  // many tokens matched (descending) so "Toyota Hilux 2015" and "2015 Hilux
-  // Toyota" rank the same best match first regardless of typed order, while
-  // a product matching only some of the typed tokens still surfaces, just
-  // lower. Ties (equal token-match count) are broken by preferring matches
-  // found in name/SKU over description-only matches — the "more important
-  // fields" distinction the schema actually supports. A final index-based
-  // tiebreak keeps the sort stable (same relative order as the input list,
-  // e.g. alphabetical by name) for any remaining exact ties.
-  // Only reads fields off each product — never mutates the product objects,
-  // the array, or (needless to say) the database, so it's safe to call on
-  // every keystroke against the live product list.
-  function rankProductsBySearch(products, query, fields){
-    const tokens = searchTokens(query);
-    if(!tokens.length) return products.slice();
-    fields = fields || { primary:["name","sku"], secondary:["description"] };
-    const scored = [];
-    for(let idx=0; idx<products.length; idx++){
-      const p = products[idx];
-      const primaryText = fields.primary.map(f=>String(p[f]||"")).join(" ").toLowerCase();
-      const secondaryText = fields.secondary.map(f=>String(p[f]||"")).join(" ").toLowerCase();
-      let matched = 0, primary = 0;
-      for(const tok of tokens){
-        const inPrimary = primaryText.includes(tok);
-        const inSecondary = secondaryText.includes(tok);
-        if(inPrimary || inSecondary){ matched++; if(inPrimary) primary++; }
-      }
-      if(matched>0) scored.push({ p, matched, primary, idx });
+  // ---- Phone numbers ----
+  // One number, one spelling: digits, country code first, no "+"
+  // (263771234567). The same rule as the server's cl_norm_phone: Zimbabwe
+  // mobiles (071/073/077/078) in any common spelling (07…, +263…, 263…,
+  // 00263…, 9 digits); another country only with its code typed (+ or 00).
+  // "" = not a number we accept.
+  function normPhone(p){
+    const raw = String(p==null? "" : p).trim();
+    if(!raw || /[^0-9+() .\-]/.test(raw)) return "";
+    const intl = /^(\+|00)/.test(raw);
+    let d = raw.replace(/[^0-9]/g,"");
+    if(/^00/.test(raw)) d = d.slice(2);
+    if(!intl){
+      if(/^0[0-9]{9}$/.test(d)) d = "263"+d.slice(1);
+      else if(/^7[0-9]{8}$/.test(d)) d = "263"+d;
+      else if(!/^263[0-9]{9}$/.test(d)) return "";
     }
-    scored.sort((a,b)=> b.matched-a.matched || b.primary-a.primary || a.idx-b.idx);
-    return scored.map(s=>s.p);
+    if(/^263/.test(d)) return /^2637[1378][0-9]{7}$/.test(d)? d : "";
+    return /^[1-9][0-9]{7,14}$/.test(d)? d : "";
+  }
+  // +26377•••7198: for anywhere a number is shown but needn't be read in full.
+  function maskPhone(p){
+    const n = normPhone(p) || String(p||"").replace(/\D/g,"");
+    return n.length>=8? "+"+n.slice(0,5)+"•••"+n.slice(-4) : (n? "•••"+n.slice(-2) : "");
+  }
+
+  // ---- Product search (POS fixes, docs/pos/pos-fixes-design.md §4) ----
+  // ONE matcher for every product search box (Sell, desktop Sales, Products,
+  // Stocktake and the product pickers): the query is split into terms and a
+  // product is shown only when EVERY term matches, in any order, ignoring
+  // case, across name, SKU (the barcode) and the hidden search keywords.
+  //   word ("pai")          the start of any word: Paint, not "aint"
+  //   number ("5")          a whole number: 5lt, 5 kg, 5kg; never 15lt / 50kg / 500ml
+  //   number+unit ("5lt")   that number with a unit starting with it: 5lt, 5 lt, 5ltr
+  //   code ("HLX-2015", "a4", 6+ digits)  the start of the SKU or of any word
+  // Product text is split at spaces and punctuation, and again where letters
+  // and digits meet ("duran5lt" -> duran, 5, lt); a number's unit is the
+  // letters right after it, joined or not ("5lt", "5 lt").
+  function productSearchParts(text){
+    const raw = String(text||"").toLowerCase().split(/\s+/).filter(Boolean);
+    const words = [], nums = [], codes = [];
+    for(const tok of raw){
+      codes.push(tok.replace(/[^a-z0-9]/g,""));
+      for(const piece of tok.split(/[^a-z0-9.]+/)){
+        const bits = piece.replace(/\.+$/,"").match(/\d+(?:\.\d+)?|[a-z]+/g) || [];
+        bits.forEach(b=>{ if(/^[a-z]/.test(b)) words.push(b); });
+        bits.forEach((b,i)=>{ if(/^\d/.test(b)) nums.push({ n:parseFloat(b), unit:/^[a-z]/.test(bits[i+1]||"")? bits[i+1] : "" }); });
+      }
+    }
+    // a number followed by a separate unit word ("5 kg"): link them
+    const flat = raw.flatMap(t=> t.match(/\d+(?:\.\d+)?|[a-z]+/g) || []);
+    flat.forEach((b,i)=>{ if(/^\d/.test(b) && /^[a-z]/.test(flat[i+1]||"")) nums.push({ n:parseFloat(b), unit:flat[i+1] }); });
+    return { words, nums, codes };
+  }
+  function productTermKind(term){
+    if(/^\d+(?:\.\d+)?$/.test(term)) return term.replace(/\D/g,"").length>=6? "code" : "num";
+    if(/^\d+(?:\.\d+)?[a-z]+$/.test(term)) return "numunit";
+    if(/^[a-z]+$/.test(term)) return "word";
+    return "code";
+  }
+  function productTermMatches(term, parts){
+    const kind = productTermKind(term);
+    if(kind==="word") return parts.words.some(w=> w.startsWith(term));
+    if(kind==="num"){ const n = parseFloat(term); return parts.nums.some(x=> x.n===n); }
+    if(kind==="numunit"){
+      const m = /^(\d+(?:\.\d+)?)([a-z]+)$/.exec(term), n = parseFloat(m[1]);
+      return parts.nums.some(x=> x.n===n && x.unit.startsWith(m[2]));
+    }
+    const c = term.replace(/[^a-z0-9]/g,"");
+    return !!c && parts.codes.some(x=> x.startsWith(c));
+  }
+  // Does this product match every term of the query? (An empty query matches.)
+  function productMatches(query, p){
+    const terms = searchTokens(query);
+    if(!terms.length) return true;
+    const parts = productSearchParts([p.name, p.sku, p.description].join(" "));
+    return terms.every(t=> productTermMatches(t, parts));
+  }
+  // The products matching the query, best first: name starts with the first
+  // term, then all terms found in name/SKU (ahead of keyword-only matches),
+  // then the order given (alphabetical by name everywhere it's called).
+  function productSearch(products, query){
+    const terms = searchTokens(query);
+    if(!terms.length) return products.slice();
+    const out = [];
+    products.forEach((p, idx)=>{
+      if(!productMatches(query, p)) return;
+      const main = productSearchParts([p.name, p.sku].join(" "));
+      const firstWord = (String(p.name||"").toLowerCase().match(/[a-z0-9]+/)||[""])[0];
+      out.push({ p, idx, starts: productTermKind(terms[0])==="word" && firstWord.startsWith(terms[0]) ? 0 : 1,
+                 primary: terms.every(t=> productTermMatches(t, main))? 0 : 1 });
+    });
+    out.sort((a,b)=> a.starts-b.starts || a.primary-b.primary || a.idx-b.idx);
+    return out.map(x=>x.p);
   }
 
   // Small outline SVG icons (stroke="currentColor" so they pick up the
@@ -3451,8 +3666,15 @@ const APP_BUILD = 16;
     m.className = "popmenu";
     m.innerHTML = items.map((it,i)=>`<button data-mi="${i}">${it.label}</button>`).join("");
     document.body.appendChild(m);
+    // POS fixes: always below the header and inside the screen: under the
+    // button when there's room, else above it; it closes on any scroll
+    // (router.js), so it never drifts away from its button.
     const r = anchor.getBoundingClientRect();
-    m.style.top = Math.max(8, Math.min(r.bottom+4, window.innerHeight-m.offsetHeight-8))+"px";
+    const tb = document.querySelector(".topbar");
+    const minTop = (tb? Math.max(0, tb.getBoundingClientRect().bottom) : 0) + 4;
+    const h = m.offsetHeight, below = r.bottom+4, above = r.top-4-h;
+    const top = (below + h <= window.innerHeight-8 || above < minTop)? below : above;
+    m.style.top = Math.max(minTop, Math.min(top, window.innerHeight-h-8))+"px";
     m.style.left = Math.max(8, Math.min(r.right-m.offsetWidth, window.innerWidth-m.offsetWidth-8))+"px";
     const close = ()=>{ m.remove(); document.removeEventListener("click", outside, true); };
     const outside = (e)=>{ if(!m.contains(e.target)){ close(); if(anchor.contains(e.target)) e.stopPropagation(); } };
@@ -3513,6 +3735,14 @@ const APP_BUILD = 16;
       document.querySelectorAll(".kebab-menu").forEach(m=> m.style.display="none");
     }
   });
+  // POS fixes: an open menu never drifts over the header or away from its
+  // button: any scroll (the page or a panel; not the menu's own list) closes it.
+  window.addEventListener("scroll", (e)=>{
+    const t = e.target;
+    if(t && t.closest && (t.closest(".popmenu") || t.closest(".kebab-menu"))) return;
+    document.querySelectorAll(".kebab-menu").forEach(m=>{ if(m.style.display==="block") m.style.display = "none"; });
+    document.querySelectorAll(".popmenu").forEach(m=> m.remove());
+  }, true);
 
   // ================== RENDER ==================
   function render(){
@@ -3567,6 +3797,9 @@ const APP_BUILD = 16;
       // router above handles navigation AND clears navDrawerOpen — this
       // only needs the drawer's own open/close chrome.
     }
+    measureHeader();
+    // the cart drawer is open: the page under it must not scroll (desktop has no drawer cart)
+    if(document.documentElement && document.documentElement.classList) document.documentElement.classList.toggle("noscroll", !!drawerOpen && !desktop);
     renderDrawer();
     renderRequestsDrawer();
     const main = document.getElementById("main");
@@ -3577,6 +3810,13 @@ const APP_BUILD = 16;
     else if(route==="marketing") renderMarketing(main);
     else if(route==="more") renderMore(main);
   }
+  // POS fixes: menus, toasts and the desktop work area are placed against the
+  // header's real height (it wraps on narrow screens), kept in --header-h.
+  function measureHeader(){
+    const tb = document.querySelector(".topbar");
+    if(tb && tb.offsetHeight && document.documentElement.style) document.documentElement.style.setProperty("--header-h", tb.offsetHeight+"px");
+  }
+  if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("resize", ()=>{ try{ measureHeader(); }catch(e){} });
   function navBtn(r,ic,label){
     return `<button class="${route===r?'active':''}" data-route="${r}"><span class="ic">${ic}</span>${label}</button>`;
   }
@@ -3611,91 +3851,125 @@ const APP_BUILD = 16;
     }
     const subtotal = cartSubtotal();
     const exchangeCovers = typeof exchangePending==="function" && !!exchangePending();   // Phase 3c: an exchange credit is in the cart
+    const scroller = drawer.querySelector(".drawer-body");
+    const keepScroll = scroller? scroller.scrollTop : 0;
+    // POS fixes (pinned Pay bar): head | ONE scrolling middle (lines, then
+    // the folding "Sale details", exchange, split lines) | the Pay bar,
+    // always visible (customer, totals, pay buttons).
     drawer.innerHTML = `
-      <div class="drawer-head"><h3 style="margin:0">Cart</h3><button class="close-x" id="closeDrawer">✕</button></div>
+      <div class="drawer-head"><h3 style="margin:0">Cart${cart.length? ` <span class="muted" style="font-size:13px;font-weight:600">· ${cart.reduce((s,c)=>s+c.qty,0)} item${cart.reduce((s,c)=>s+c.qty,0)===1?"":"s"}</span>` : ""}</h3><button class="close-x" id="closeDrawer" aria-label="Close cart">✕</button></div>
       <div class="drawer-body">
         ${cart.length===0? `<p class="muted">Cart is empty</p>` :
           cart.map(c=>`
             <div class="cart-item">
-              <div style="flex:1">
+              <div style="flex:1;min-width:0">
                 <div class="ci-name">${escapeHtml(c.name)}</div>
-                <div class="ci-price">${currency}${c.price.toFixed(2)} each</div>
+                <div class="ci-price">${currency}${c.price.toFixed(2)} each${c.level==="wholesale"? ` <span class="pill warn">Wholesale</span>` : ""}</div>
                 <div class="row" style="margin-top:6px;align-items:center;gap:6px">
                   <label class="muted" style="flex:none;font-size:12px">Discount ${currency}</label>
                   <input class="field" style="flex:0.7" type="number" step="0.01" min="0" placeholder="0.00" data-line-discount="${c.product_id}" value="${escapeHtml(String(c.discount||''))}">
                 </div>
               </div>
               <div class="qty-ctl">
-                <button data-dec="${c.product_id}">−</button>
+                <button data-dec="${c.product_id}" aria-label="One less">−</button>
                 <span>${c.qty}</span>
-                <button data-inc="${c.product_id}">+</button>
+                <button data-inc="${c.product_id}" aria-label="One more">+</button>
               </div>
             </div>`).join("")}
-      </div>
-      <div class="drawer-foot">
-        <div id="discountExtra" style="display:${cartDiscountTotal()>0?'block':'none'}">
-          <label style="margin-top:0">Reason for discount</label>
-          <input class="field" id="discountReason" placeholder="e.g. Bulk purchase" value="${window._discountReasonVal||''}">
-          <label>Approved by (leave blank if pending)</label>
-          <input class="field" id="discountApprovedBy" placeholder="Approver's name" value="${window._discountApprovedVal||''}">
-        </div>
-        <label>Payment reference (EcoCash/Bank)</label>
-        <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||''}">
-        <label>Document Reference No. (optional)</label>
-        <input class="field" id="docRef" maxlength="40" placeholder="e.g. PO, delivery note or invoice no." value="${escapeHtml(window._docRefVal||'')}">
-        <label>Customer name (optional, required for Credit)</label>
-        <input class="field" id="custName" placeholder="e.g. Tendai Moyo" value="${window._custNameVal||''}">
-        <label>Customer phone (optional)</label>
-        <input class="field" id="custPhone" placeholder="e.g. 077xxxxxxx" value="${window._custPhoneVal||''}">
-        <div id="voucherBox"></div>
+        ${saleDetailsHtml()}
         ${typeof exchangeCartHtml==="function"? exchangeCartHtml() : ""}
-        <div class="hr" style="margin:10px 0"></div>
+        ${splitTender && !(exchangeCovers && cart.length && cartTotal()<=0)? splitTenderPanelHtml("lines") : ""}
+      </div>
+      <div class="drawer-foot pay-bar">
+        ${customerComboHtml()}
+        <div id="voucherBox"></div>
         <div class="subline"><span>Subtotal</span><span>${currency}${subtotal.toFixed(2)}</span></div>
-        <div class="total-line"><span>${exchangeCovers? "To pay" : "Total"}</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
+        <div class="total-line"><span>${exchangeCovers? "To pay" : "Total"}${cartPriceLevel()==="wholesale"? ` <span class="pill warn">Wholesale prices</span>` : ""}</span><span id="drawerTotal">${currency}${cartTotal().toFixed(2)}</span></div>
         ${fxPreviewHtml()}
-        ${exchangeCovers && cart.length && cartTotal()<=0? `<button class="btn btn-primary" id="payExchange">Complete exchange</button>` : splitTender? splitTenderPanelHtml() : `
+        ${exchangeCovers && cart.length && cartTotal()<=0? `<button class="btn btn-primary" id="payExchange">Complete exchange</button>` : splitTender? splitTenderPanelHtml("actions") : `
         ${quickTapCurrencySelectorHtml()}
-        <div class="row" style="margin-bottom:8px">
+        <div class="pay-grid">
           <button class="btn btn-primary" id="payCash" ${cart.length===0?"disabled":""}>Cash</button>
           <button class="btn btn-ghost" id="payEcocash" ${cart.length===0?"disabled":""}>EcoCash</button>
-        </div>
-        <div class="row" style="margin-bottom:8px">
           <button class="btn btn-ghost" id="payBank" ${cart.length===0?"disabled":""}>Bank</button>
           <button class="btn btn-outline" id="payCredit" ${cart.length===0?"disabled":""}>Credit</button>
         </div>
         <button class="btn btn-ghost btn-sm" id="startSplitTender" ${cart.length===0?"disabled":""}>+ Split into multiple payment methods</button>
         `}
       </div>`;
+    const body = drawer.querySelector(".drawer-body");
+    if(body) body.scrollTop = keepScroll;
     document.getElementById("closeDrawer").onclick=()=>{drawerOpen=false;render();};
     drawer.querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.inc,1));
     drawer.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.dec,-1));
     wireLineDiscountInputs(drawer);
-    document.getElementById("discountReason").oninput=(e)=>{ window._discountReasonVal=e.target.value; };
-    document.getElementById("discountApprovedBy").oninput=(e)=>{ window._discountApprovedVal=e.target.value; };
-    document.getElementById("paymentRef").oninput=(e)=>{ window._paymentRefVal=e.target.value; };
-    document.getElementById("docRef").oninput=(e)=>{ window._docRefVal=e.target.value; };
-    document.getElementById("custName").oninput=(e)=>{ window._custNameVal=e.target.value; renderVoucherBox(); };
-    document.getElementById("custPhone").oninput=(e)=>{ window._custPhoneVal=e.target.value; };
+    wireSaleDetails(drawer);
+    wireCustomerCombo(drawer, renderDrawer);
     renderVoucherBox();
     if(typeof wireExchangeCart==="function") wireExchangeCart(drawer, renderDrawer);
     wireFxPreview(drawer, renderDrawer);
-    const resetTemp=()=>{ window._custNameVal=""; window._custPhoneVal="";
-      window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; window._docRefVal=""; };
     if(splitTender){
-      wireSplitTenderPanel(drawer, renderDrawer, (payments)=>{ completeSale(null, payments); resetTemp(); });
+      wireSplitTenderPanel(drawer, renderDrawer, (payments)=>{ completeSale(null, payments); resetCheckoutFields(); });
     } else {
       wireQuickTapCurrencySelector(drawer, renderDrawer);
       const startSplit = document.getElementById("startSplitTender");
       if(startSplit) startSplit.onclick=()=>{ startSplitTender(); renderDrawer(); };
-      const payCash = document.getElementById("payCash");
-      const payEco = document.getElementById("payEcocash");
-      const payBank = document.getElementById("payBank");
-      const payCredit = document.getElementById("payCredit");
-      if(payCash) payCash.onclick=()=>{ completeSale("Cash", quickTapPayments("Cash")); resetTemp(); };
-      if(payEco) payEco.onclick=()=>{ completeSale("EcoCash", quickTapPayments("EcoCash")); resetTemp(); };
-      if(payBank) payBank.onclick=()=>{ completeSale("Bank", quickTapPayments("Bank")); resetTemp(); };
-      if(payCredit) payCredit.onclick=()=>{ completeSale("Credit", quickTapPayments("Credit")); resetTemp(); };
+      wirePayButtons(drawer, { cash:"#payCash", eco:"#payEcocash", bank:"#payBank", credit:"#payCredit" }, renderDrawer);
     }
+  }
+  // ---- shared by the phone drawer and the desktop cart (POS fixes) ----
+  function resetCheckoutFields(){
+    window._custNameVal=""; window._custPhoneVal=""; window._custNotice="";
+    window._discountReasonVal=""; window._discountApprovedVal=""; window._paymentRefVal=""; window._docRefVal="";
+    window._saleDetailsOpen=false;
+  }
+  // "Sale details": discount reason/approver, payment reference, document
+  // reference. Folded unless something in it is needed or already filled.
+  function saleDetailsOpen(){
+    return !!(window._saleDetailsOpen || cartDiscountTotal()>0 || window._paymentRefVal || window._docRefVal);
+  }
+  function saleDetailsHtml(){
+    if(!cart.length) return "";
+    const open = saleDetailsOpen();
+    return `<div class="sale-details">
+      <button type="button" class="sale-details-toggle" id="saleDetailsToggle" aria-expanded="${open}" aria-controls="saleDetailsBody">
+        <span>Sale details</span><span class="muted" style="font-weight:500">discount reason, payment and document reference</span><span class="chev">${open? "▴" : "▾"}</span></button>
+      <div id="saleDetailsBody" ${open? "" : "hidden"}>
+        <div id="discountExtra" style="display:${cartDiscountTotal()>0?'block':'none'}">
+          <label style="margin-top:0" for="discountReason">Reason for discount</label>
+          <input class="field" id="discountReason" placeholder="e.g. Bulk purchase" value="${escapeHtml(window._discountReasonVal||'')}">
+          <label for="discountApprovedBy">Approved by (leave blank if pending)</label>
+          <input class="field" id="discountApprovedBy" placeholder="Approver's name" value="${escapeHtml(window._discountApprovedVal||'')}">
+        </div>
+        <label for="paymentRef">Payment reference (EcoCash/Bank)</label>
+        <input class="field" id="paymentRef" placeholder="Transaction reference" value="${escapeHtml(window._paymentRefVal||'')}">
+        <label for="docRef">Document Reference No. (optional)</label>
+        <input class="field" id="docRef" maxlength="40" placeholder="e.g. PO, delivery note or invoice no." value="${escapeHtml(window._docRefVal||'')}">
+      </div>
+    </div>`;
+  }
+  function wireSaleDetails(container){
+    const t = container.querySelector("#saleDetailsToggle"), body = container.querySelector("#saleDetailsBody");
+    if(t && body) t.onclick = ()=>{ body.hidden = !body.hidden; window._saleDetailsOpen = !body.hidden; t.setAttribute("aria-expanded", String(!body.hidden)); t.querySelector(".chev").textContent = body.hidden? "▾" : "▴"; };
+    const on = (id, key)=>{ const el = container.querySelector("#"+id); if(el) el.oninput = (e)=>{ window[key] = e.target.value; }; };
+    on("discountReason","_discountReasonVal"); on("discountApprovedBy","_discountApprovedVal"); on("paymentRef","_paymentRefVal"); on("docRef","_docRefVal");
+  }
+  // The four quick-tap buttons. EcoCash/Bank with no reference yet: open
+  // "Sale details" at the reference box instead of an alert.
+  function wirePayButtons(container, ids, refresh){
+    const needsRef = ()=>{
+      if((window._paymentRefVal||"").trim()) return false;
+      window._saleDetailsOpen = true; refresh();
+      const ref = document.getElementById("paymentRef");
+      if(ref){ ref.focus(); ref.setAttribute("aria-invalid","true"); ref.placeholder = "Enter the payment reference to continue"; }
+      return true;
+    };
+    const pay = (method)=>{ completeSale(method, quickTapPayments(method)); if(!cart.length) resetCheckoutFields(); };
+    const b = (sel)=> container.querySelector(sel);
+    if(b(ids.cash)) b(ids.cash).onclick = ()=> pay("Cash");
+    if(b(ids.eco)) b(ids.eco).onclick = ()=>{ if(!needsRef()) pay("EcoCash"); };
+    if(b(ids.bank)) b(ids.bank).onclick = ()=>{ if(!needsRef()) pay("Bank"); };
+    if(b(ids.credit)) b(ids.credit).onclick = ()=> pay("Credit");
   }
   // Shows a "voucher available" badge + Apply button once the typed
   // customer name matches an existing customer with an Available voucher;
@@ -3705,10 +3979,11 @@ const APP_BUILD = 16;
   function renderVoucherBox(){
     const box = document.getElementById("voucherBox");
     if(!box) return;
+    // the customer picked in the cart (customers.js), else a typed exact name
     const nameEl = document.getElementById("custName");
     const name = nameEl? nameEl.value.trim() : "";
-    const cust = findMatchingCustomer(name);
-    const totalEl = document.getElementById("drawerTotal");
+    const cust = (typeof cartCustomer!=="undefined" && cartCustomer)? one("SELECT * FROM customers WHERE id=?",[cartCustomer.id]) : findMatchingCustomer(name);
+    const totalEl = document.getElementById("drawerTotal") || document.getElementById("dsTotal");
     if(appliedVoucher && (!cust || cust.id!==appliedVoucher.customerId)){
       appliedVoucher = null;
       if(totalEl) totalEl.textContent = currency+cartTotal().toFixed(2);
@@ -3882,6 +4157,9 @@ const APP_BUILD = 16;
         <div><label>Price (${currency})</label><input class="field" id="pPrice" type="number" step="0.01" value="${existing?existing.price:""}"></div>
         <div><label>Cost (${currency})</label><input class="field" id="pCost" type="number" step="0.01" value="${existing?(existing.cost||0):""}"></div>
       </div>
+      <label>Wholesale price (${currency}, optional)</label>
+      <input class="field" id="pWholesale" type="number" step="0.01" min="0" placeholder="Empty: wholesale customers pay the price above" value="${existing && existing.wholesale_price!=null? existing.wholesale_price : ""}">
+      <p class="muted" style="margin-top:4px">Used for every line when the cart's customer is a Wholesale customer.</p>
       <label>Stock qty</label>
       <input class="field" id="pStock" type="number" value="${existing?existing.stock:""}" ${isEdit?"disabled":""}>
       ${isEdit? `<p class="muted">Use +Stock on the product row to change stock (it's logged for the Stock Received report).</p>`:""}
@@ -3908,17 +4186,22 @@ const APP_BUILD = 16;
       const price = parseFloat(wrap.querySelector("#pPrice").value)||0;
       const cost = parseFloat(wrap.querySelector("#pCost").value)||0;
       const low = parseInt(wrap.querySelector("#pLow").value)||5;
+      const wsRaw = wrap.querySelector("#pWholesale").value.trim();
+      const wholesale = wsRaw===""? null : roundMoney(parseFloat(wsRaw));
       if(!name) return alert("Enter a product name");
+      if(wholesale!==null && !(wholesale>=0)) return alert("The wholesale price must be a number of 0 or more, or empty.");
       const image = newImage!==null? newImage : (existing? existing.image||"" : "");
       if(isEdit){
         run("UPDATE products SET name=?,sku=?,shelf=?,price=?,cost=?,low_threshold=?,image=?,description=? WHERE id=?",[name,sku,shelf,price,cost,low,image,description,existing.id]);
-        logAudit("Edit Product", name, `Price: ${currency}${price.toFixed(2)}, Cost: ${currency}${cost.toFixed(2)}, Low alert: ${low}`);
+        run("UPDATE products SET wholesale_price=? WHERE id=?",[wholesale, existing.id]);
+        logAudit("Edit Product", name, `Price: ${currency}${price.toFixed(2)}, Cost: ${currency}${cost.toFixed(2)}, Low alert: ${low}`+(wholesale!==null? `, Wholesale: ${currency}${wholesale.toFixed(2)}` : ""));
       } else {
         const stock = parseInt(wrap.querySelector("#pStock").value)||0;
         const branch = currentBranch();
         run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,shelf) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
           [name,price,stock,low,sku,branch,image,cost,new Date().toISOString(),description,shelf]);
         const pid = one("SELECT last_insert_rowid() as id").id;
+        if(wholesale!==null) run("UPDATE products SET wholesale_price=? WHERE id=?",[wholesale, pid]);
         recordStockMovement(pid, stock, { kind:"product_created", note:"Initial stock" });
         if(stock>0) run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
           [new Date().toISOString(), pid, name, stock, "Initial stock", branch, sessionUser||""]);
@@ -3957,7 +4240,7 @@ const APP_BUILD = 16;
   // than calling searchProducts() itself, since this list is already
   // branch-scoped and DB-fetched by renderProducts() below.
   function filterProductsList(products, query){
-    return products.filter(p=> matchesAnyOrder(query, p.name+" "+(p.sku||"")+" "+(p.description||"")));
+    return productSearch(products, query);
   }
   function productsTableHtml(products, remote){
     const priceEdit = remotePriceEditable();
@@ -8117,7 +8400,7 @@ const APP_BUILD = 16;
   async function downloadImportTemplate(){
     try{
       await loadXLSX();
-      const headers = ["SKU","Item Name","Shelf","Search Keywords","Category","Cost","Price","Qty","Low Stock Alert Below"];
+      const headers = ["SKU","Item Name","Shelf","Search Keywords","Category","Cost","Price","Wholesale Price","Qty","Low Stock Alert Below"];
       const ws = XLSX.utils.aoa_to_sheet([headers]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Products");
@@ -8134,7 +8417,8 @@ const APP_BUILD = 16;
     keywords: ["search keywords","keywords","search"],
     category: ["category"],
     cost: ["cost"],
-    price: ["price","selling price"],
+    price: ["price","selling price","retail price"],
+    wholesale: ["wholesale price","wholesale","trade price","bulk price","wholesale selling price"],
     qty: ["qty","quantity","stock","stock qty"],
     threshold: ["low stock alert below","low stock","threshold","alert level"]
   };
@@ -8189,14 +8473,21 @@ const APP_BUILD = 16;
       if(!name) skipReason = "missing Item Name";
       else if(isNaN(priceNum)) skipReason = "missing or invalid Price";
       else if(priceNum<0) skipReason = "negative Price";
+      // Wholesale Price (optional): a blank cell in the column means "none";
+      // no column at all leaves an existing product's wholesale price alone.
+      const wsCell = text("wholesale");
+      const wsNum = wsCell===""? null : importNum(get("wholesale"));
+      if(!skipReason && col.wholesale && wsNum!==null && (isNaN(wsNum) || wsNum<0)) skipReason = "invalid Wholesale Price";
+      const wholesale = col.wholesale && wsNum!==null && !isNaN(wsNum)? wsNum : null;
       const update = { name, price: priceNum };
+      if(col.wholesale) update.wholesale_price = wholesale;
       if(sku) update.sku = sku;   // blank SKU never wipes an existing one — it's half of the product's identity
       if(col.shelf) update.shelf = shelf;
       if(col.keywords) update.description = keywords;
       if(col.category) update.category = category;
       if(col.cost && !isNaN(costNum)) update.cost = costNum;
       if(col.threshold && !isNaN(thresholdNum)) update.low_threshold = thresholdNum;
-      return { rowNum:i+2, name, sku, shelf, keywords, category, cost, price:isNaN(priceNum)?0:priceNum, qty, hasQty:!isNaN(qtyNum), threshold, update, skipReason };
+      return { rowNum:i+2, name, sku, shelf, keywords, category, cost, price:isNaN(priceNum)?0:priceNum, wholesale, qty, hasQty:!isNaN(qtyNum), threshold, update, skipReason };
     });
     return { rows, hasQtyColumn: col.qty!==null };
   }
@@ -8214,7 +8505,7 @@ const APP_BUILD = 16;
   }
   function importInventoryModal(){
     const wrap = openModal("Update Existing / Add New — Import Inventory from Excel", `
-      <p class="muted">Matches each row to an existing product by SKU, then by name — a match is updated in place, anything unmatched is added as new. Products already in your catalogue but missing from the file are left alone (nothing is ever deleted). Columns expected: SKU, Item Name, Shelf, Search Keywords, Category, Cost, Price, Qty, Low Stock Alert Below — all optional except Item Name and Price. Column order and exact wording don't matter; a column left out of the file leaves that detail unchanged on existing products.</p>
+      <p class="muted">Matches each row to an existing product by SKU, then by name — a match is updated in place, anything unmatched is added as new. Products already in your catalogue but missing from the file are left alone (nothing is ever deleted). Columns expected: SKU, Item Name, Shelf, Search Keywords, Category, Cost, Price, Wholesale Price, Qty, Low Stock Alert Below — all optional except Item Name and Price. Column order and exact wording don't matter; a column left out of the file leaves that detail unchanged on existing products.</p>
       <input class="field" id="impFile" type="file" accept=".xlsx,.xls,.csv">
       <div id="impStatus" class="muted" style="margin-top:8px"></div>
     `);
@@ -8340,6 +8631,7 @@ const APP_BUILD = 16;
         run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,category,shelf) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
           [r.name, r.price, r.qty, r.threshold, r.sku, branch, "", r.cost, ts, r.keywords, r.category, r.shelf]);
         const pid = one("SELECT last_insert_rowid() as id").id;
+        if(r.wholesale!=null) run("UPDATE products SET wholesale_price=? WHERE id=?",[r.wholesale, pid]);
         recordStockMovement(pid, r.qty, { kind:"import", docType:"import", ts, note:"Import — initial stock" });
         run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
           [ts, pid, r.name, r.qty, "Import — initial stock", branch, sessionUser||""]);
@@ -8363,64 +8655,27 @@ const APP_BUILD = 16;
     wrap.querySelector("#impDone").onclick = ()=>{ wrap.remove(); render(); };
   }
 
+  // POS fixes (customers.js): one modal for adding and editing, needing
+  // "Create customers" (or the Admin passcode when nobody signed in with a PIN).
   function newCustomerModal(onDone){
-    const wrap = openModal("New Customer", `
-      <label>Customer name</label>
-      <input class="field" id="ncName" placeholder="Full name">
-      <label>Phone (optional)</label>
-      <input class="field" id="ncPhone" placeholder="e.g. 077xxxxxxx">
-      <label>Address (optional)</label>
-      <input class="field" id="ncAddress" placeholder="e.g. 12 Baker Street">
-      <label>Town/City (optional)</label>
-      <input class="field" id="ncTownCity" placeholder="e.g. Harare">
-      <label>Suburb (optional)</label>
-      <input class="field" id="ncSuburb" placeholder="e.g. Avondale">
-      <button class="btn btn-primary" id="ncConfirm" style="margin-top:12px">Add Customer</button>
-    `);
-    wrap.querySelector("#ncConfirm").onclick=()=>{
-      const name = wrap.querySelector("#ncName").value.trim();
-      const phone = wrap.querySelector("#ncPhone").value.trim();
-      const address = wrap.querySelector("#ncAddress").value.trim();
-      const townCity = wrap.querySelector("#ncTownCity").value.trim();
-      const suburb = wrap.querySelector("#ncSuburb").value.trim();
-      if(!name) return alert("Enter the customer's name");
-      const cid = findOrCreateCustomer(name, phone, address, townCity, suburb);
-      persist(); wrap.remove();
-      if(onDone) onDone(cid);
-      render();
-    };
+    openCustomerModal(null, { onSaved: (c)=>{ if(onDone) onDone(c.id); render(); } });
   }
-
   function editCustomerModal(customer){
-    const wrap = openModal("Edit Customer", `
-      <label>Customer name</label>
-      <input class="field" id="ecName" value="${escapeHtml(customer.name)}">
-      <label>Phone (optional)</label>
-      <input class="field" id="ecPhone" value="${escapeHtml(customer.phone||"")}">
-      <label>Address (optional)</label>
-      <input class="field" id="ecAddress" value="${escapeHtml(customer.address||"")}">
-      <label>Town/City (optional)</label>
-      <input class="field" id="ecTownCity" value="${escapeHtml(customer.town_city||"")}">
-      <label>Suburb (optional)</label>
-      <input class="field" id="ecSuburb" value="${escapeHtml(customer.suburb||"")}">
-      <button class="btn btn-primary" id="ecConfirm" style="margin-top:12px">Save Changes</button>
-      <button class="btn btn-danger" id="ecDelete" style="margin-top:8px">Delete Customer</button>
-    `);
-    wrap.querySelector("#ecConfirm").onclick=()=>{
-      const name = wrap.querySelector("#ecName").value.trim();
-      const phone = wrap.querySelector("#ecPhone").value.trim();
-      const address = wrap.querySelector("#ecAddress").value.trim();
-      const townCity = wrap.querySelector("#ecTownCity").value.trim();
-      const suburb = wrap.querySelector("#ecSuburb").value.trim();
-      if(!name) return alert("Enter the customer's name");
-      run("UPDATE customers SET name=?, phone=?, address=?, town_city=?, suburb=? WHERE id=?", [name, phone, address, townCity, suburb, customer.id]);
-      persist(); wrap.remove(); render();
-    };
-    wrap.querySelector("#ecDelete").onclick=()=>{
+    const wrap = openCustomerModal(customer, { onSaved: ()=> render() });
+    if(!wrap) return;
+    const del = document.createElement("button");
+    del.className = "btn btn-danger"; del.id = "ecDelete"; del.style.marginTop = "8px"; del.textContent = "Delete customer";
+    del.onclick = ()=>{
       if(!confirm(`Delete ${customer.name}? This does not delete their past sales history, just the contact record.`)) return;
+      if(canCreateCustomers()===null){
+        const pass = wrap.querySelector("#cuPass");
+        if(!findAdmin(pass? pass.value : "")){ wrap.querySelector("#cuMsg").textContent = "Enter the Admin passcode to delete a customer."; return; }
+      }
       run("DELETE FROM customers WHERE id=?", [customer.id]);
+      logAudit("Delete customer", customer.name, "");
       persist(); wrap.remove(); render();
     };
+    wrap.querySelector(".modal-body").appendChild(del);
   }
 
   // Credit tab: debtors only — focused purely on balances and payment reminders.
@@ -8513,12 +8768,13 @@ const APP_BUILD = 16;
 
   // Directory (under More): every customer, for marketing WhatsApp messages only.
   function directoryListHtml(customers, query){
-    if(customers.length===0) return `<p class="muted">No customers yet. They're added automatically when a name is entered at checkout, or add one here.</p>`;
+    if(customers.length===0) return `<p class="muted">No customers yet. Add them here, or with "+ Add new customer" in the cart.</p>`;
     const filtered = customers.filter(c=> matchesAnyOrder(query, c.name+" "+(c.phone||"")));
     if(filtered.length===0) return `<p class="muted">No customers match "${escapeHtml(query)}".</p>`;
     return filtered.map(c=>`
       <div class="card" style="display:flex;justify-content:space-between;align-items:center">
-        <div>${escapeHtml(c.name)}</div>
+        <div>${escapeHtml(c.name)} <span class="pill ${c.customer_type==="wholesale"? "warn" : ""}">${escapeHtml(customerTypeLabel(c))}</span>
+          ${customerPrivateVisible() && (c.credit_limit!=null || c.address || c.national_id)? `<div class="muted" style="font-size:12px">${c.credit_limit!=null? "Limit "+currency+Number(c.credit_limit).toFixed(2) : ""}${c.address? " · "+escapeHtml(c.address) : ""}${c.national_id? " · ID "+escapeHtml(c.national_id) : ""}</div>` : ""}</div>
         <div style="display:flex;align-items:center;gap:8px">
           ${c.phone? `<button class="wa-link" data-dwa="${c.id}">📲 ${escapeHtml(c.phone)}</button>` : `<div class="muted">No phone</div>`}
           <button class="btn btn-sm btn-outline" data-editcust="${c.id}" title="Edit" style="padding:8px 10px">${ICON_EDIT}</button>
@@ -8546,7 +8802,12 @@ const APP_BUILD = 16;
   function renderDirectory(main){
     const customers = all("SELECT * FROM customers ORDER BY name");
     main.innerHTML = `
-      <button class="btn btn-primary" id="openNewCustomer" style="margin-bottom:12px">+ New Customer</button>
+${customerClashesHtml()}
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn btn-primary" id="openNewCustomer" ${canCreateCustomers()===false? "disabled title=\"Ask an admin to add customers\"" : ""}>+ New Customer</button>
+        <button class="btn btn-outline" id="openFullCustExport" style="flex:none;width:auto">Customer export (full)</button>
+      </div>
+      ${canCreateCustomers()===false? `<p class="muted" style="margin-top:-6px">Ask an admin to add customers.</p>` : ""}
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="directorySearch" placeholder="Search by name or phone…" value="${escapeHtml(directoryQuery)}">
@@ -8554,6 +8815,8 @@ const APP_BUILD = 16;
       <div id="directoryListArea">${directoryListHtml(customers, directoryQuery)}</div>
     `;
     document.getElementById("openNewCustomer").onclick=()=>newCustomerModal();
+    document.getElementById("openFullCustExport").onclick=()=>openFullCustomerExport();
+    wireCustomerClashes(main);
     document.getElementById("directorySearch").oninput=(e)=>{ directoryQuery = e.target.value; renderDirectoryListOnly(customers); };
     wireDirectoryCardHandlers(document.getElementById("directoryListArea"));
   }
@@ -8576,6 +8839,380 @@ const APP_BUILD = 16;
     };
   }
 
+
+  // ================== Customers (POS fixes) ==================
+  // docs/pos/pos-fixes-design.md §2. The cart's customer combo (search by
+  // name or phone, pick, or "+ Add new customer"), the Add/Edit customer
+  // modal, the "Create customers" permission, the credit-limit warning, the
+  // privacy rules (national ID and address only for staff with the
+  // permission or an Admin; never on receipts, reports or exports except the
+  // Admin-only full export), and the business's shared customer list
+  // (cl_customers, migration 20261018180000) for registered tills.
+  //
+  // The cart's selection itself (cartCustomer, setCartCustomer, the price
+  // level and the credit-limit check) lives in pos.js.
+  //
+  // customers.srv_status: '' not considered yet | 'queued' new here, sent
+  // next | 'legacy' from before the shared list, sent next | 'sent' |
+  // 'clash' a legacy customer whose phone another till already has (an Admin
+  // decides) | 'local' kept on this till only.
+
+  // ---- permission ----
+  // true: may create/edit customers and see ID + address; false: may not;
+  // null: nobody is signed in with a PIN, so the Admin passcode decides.
+  function canCreateCustomers(){
+    const s = typeof currentStaff==="function"? currentStaff() : null;
+    if(!s) return null;
+    return s.role==="Admin" || Number(s.can_create_customers)===1;
+  }
+  const CUSTOMER_TYPES = { retail:"Retail", wholesale:"Wholesale" };
+  function customerTypeLabel(c){ return CUSTOMER_TYPES[(c && c.customer_type)||"retail"] || "Retail"; }
+
+  // ---- search (name: start of a word; phone: digits anywhere, any spelling) ----
+  function customerSearch(query, limit){
+    const q = String(query||"").trim().toLowerCase();
+    const rows = all("SELECT * FROM customers ORDER BY name");
+    if(!q) return rows.slice(0, limit||8);
+    const terms = q.split(/\s+/).filter(Boolean);
+    const qDigits = q.replace(/\D/g,""), qNorm = normPhone(q);
+    const out = rows.filter(c=>{
+      const words = String(c.name||"").toLowerCase().match(/[a-z0-9]+/g) || [];
+      const byName = terms.every(t=> words.some(w=> w.startsWith(t.replace(/[^a-z0-9]/g,""))));
+      const digits = String(c.phone||"").replace(/\D/g,"");
+      const byPhone = qDigits.length>=3 && (digits.includes(qDigits) || (c.phone_norm||"").includes(qDigits.replace(/^0/,"")) || (qNorm && c.phone_norm===qNorm));
+      return byName || byPhone;
+    });
+    return out.slice(0, limit||8);
+  }
+
+  // ---- the cart combo ----
+  // The input keeps id "custName" (completeSale reads it for an exact-name
+  // match); picking sets cartCustomer and re-prices. Only #custList and the
+  // chip are re-rendered while typing, never the input.
+  function customerComboHtml(){
+    const c = cartCustomer;
+    return `<div class="cust-combo" id="custCombo">
+      <label for="custName" class="cust-combo-label">Customer (needed for Credit)</label>
+      ${c? `<div class="cust-chip" id="custChip"><span><b>${escapeHtml(c.name)}</b>${c.phone? " · "+escapeHtml(c.phone) : ""}
+            <span class="pill ${c.customer_type==="wholesale"? "warn" : ""}" style="margin-left:4px">${escapeHtml(customerTypeLabel(c))}</span></span>
+          <button type="button" class="close-x" id="custClear" aria-label="Remove customer">✕</button></div>`
+        : `<input class="field" id="custName" autocomplete="off" placeholder="Search name or phone, or add new" value="${escapeHtml(window._custNameVal||"")}">
+           <div class="cust-list" id="custList" role="listbox"></div>`}
+      <div class="cust-notice" id="custNotice" role="status">${escapeHtml(window._custNotice||"")}</div>
+    </div>`;
+  }
+  function custListHtml(query){
+    const rows = customerSearch(query, 8);
+    const perm = canCreateCustomers();
+    const add = perm===false
+      ? `<button type="button" class="cust-opt cust-add" disabled title="Ask an admin to add customers">+ Add new customer <span class="muted">· Ask an admin to add customers</span></button>`
+      : `<button type="button" class="cust-opt cust-add" data-cust-add="1">+ Add new customer${query.trim()? ` "${escapeHtml(query.trim())}"` : ""}</button>`;
+    return rows.map(c=>`<button type="button" class="cust-opt" data-cust-pick="${c.id}"><b>${escapeHtml(c.name)}</b>
+        <span class="muted">${escapeHtml(c.phone||"no phone")} · ${escapeHtml(customerTypeLabel(c))}</span></button>`).join("") + add;
+  }
+  // container: the drawer or the desktop cart; onChange: re-render the cart.
+  function wireCustomerCombo(container, onChange){
+    const inp = container.querySelector("#custName"), list = container.querySelector("#custList");
+    const clear = container.querySelector("#custClear");
+    const notice = (t)=>{ window._custNotice = t||""; const n = container.querySelector("#custNotice"); if(n) n.textContent = window._custNotice; };
+    const pick = (c)=>{
+      const t = setCartCustomer(c);
+      window._custNameVal = ""; notice(t);
+      onChange();
+    };
+    if(clear) clear.onclick = ()=> pick(null);
+    if(!inp || !list) return;
+    const show = ()=>{ list.innerHTML = custListHtml(inp.value); list.style.display = "block"; wireList(); };
+    const wireList = ()=>{
+      list.querySelectorAll("[data-cust-pick]").forEach(b=>{
+        b.onmousedown = (e)=> e.preventDefault();   // keep focus until the click lands
+        b.onclick = ()=>{ const c = one("SELECT * FROM customers WHERE id=?",[+b.dataset.custPick]); if(c) pick(c); };
+      });
+      const add = list.querySelector("[data-cust-add]");
+      if(add){ add.onmousedown = (e)=> e.preventDefault(); add.onclick = ()=>{ list.style.display = "none"; openCustomerModal(null, { prefill: inp.value, onSaved: (c)=> pick(c) }); }; }
+    };
+    inp.oninput = (e)=>{ window._custNameVal = e.target.value; if(typeof renderVoucherBox==="function") renderVoucherBox(); show(); };
+    inp.onfocus = show;
+    inp.onblur = ()=> setTimeout(()=>{ list.style.display = "none"; }, 150);
+    inp.onkeydown = (e)=>{
+      if(e.key==="Escape"){ list.style.display = "none"; return; }
+      if(e.key==="Enter"){ const first = list.querySelector("[data-cust-pick]"); if(first){ e.preventDefault(); first.click(); } }
+    };
+  }
+
+  // ---- add / edit ----
+  // existing: a customers row to edit, or null to add. o.prefill: typed text
+  // (a name, or digits for the phone); o.onSaved(customerRow).
+  function openCustomerModal(existing, o){
+    o = o||{};
+    const perm = canCreateCustomers();
+    if(perm===false){ alert("Ask an admin to add or change customers."); return null; }
+    const pre = String(o.prefill||"").trim(), preIsPhone = /^[+0-9][0-9 ()+\-]{5,}$/.test(pre);
+    const c = existing || { name: preIsPhone? "" : pre, phone: preIsPhone? pre : "", customer_type:"retail", credit_limit:null, address:"", national_id:"" };
+    const wrap = openModal(existing? "Edit customer" : "Add new customer", `
+      <label for="cuName">Name</label>
+      <input class="field" id="cuName" value="${escapeHtml(c.name||"")}" placeholder="Full name" autocomplete="off">
+      <label for="cuPhone">Phone</label>
+      <input class="field" id="cuPhone" value="${escapeHtml(c.phone||"")}" placeholder="e.g. 077x xxx xxx" inputmode="tel" autocomplete="off">
+      <label>Customer type</label>
+      <div class="row" id="cuTypeRow">
+        <button type="button" class="btn ${c.customer_type!=="wholesale"? "btn-primary" : "btn-outline"}" data-cu-type="retail">Retail</button>
+        <button type="button" class="btn ${c.customer_type==="wholesale"? "btn-primary" : "btn-outline"}" data-cu-type="wholesale">Wholesale</button>
+      </div>
+      <p class="muted" style="margin-top:4px">Wholesale customers get each product's wholesale price, where it has one.</p>
+      <label for="cuLimit">Credit limit (${escapeHtml(currency)}, optional)</label>
+      <input class="field" id="cuLimit" type="number" min="0" step="0.01" value="${c.credit_limit==null? "" : escapeHtml(String(c.credit_limit))}" placeholder="Empty: no limit">
+      <label for="cuAddress">Address (optional)</label>
+      <input class="field" id="cuAddress" value="${escapeHtml(c.address||"")}" autocomplete="off">
+      <label for="cuNid">National ID number (optional)</label>
+      <input class="field" id="cuNid" value="${escapeHtml(c.national_id||"")}" autocomplete="off">
+      <p class="muted" style="margin-top:4px">Address and ID number are shown only to staff who can create customers, and never on receipts.</p>
+      ${perm===null? `<label for="cuPass">Admin passcode</label><input class="field" id="cuPass" type="password" autocomplete="off">` : ""}
+      <div id="cuMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
+      <button class="btn btn-primary" id="cuSave" style="margin-top:10px">${existing? "Save changes" : "Add customer"}</button>`);
+    let type = c.customer_type==="wholesale"? "wholesale" : "retail";
+    wrap.querySelectorAll("[data-cu-type]").forEach(b=> b.onclick = ()=>{
+      type = b.dataset.cuType;
+      wrap.querySelectorAll("[data-cu-type]").forEach(x=>{ x.className = "btn "+(x.dataset.cuType===type? "btn-primary" : "btn-outline"); });
+    });
+    const msg = wrap.querySelector("#cuMsg");
+    wrap.querySelector("#cuSave").onclick = ()=>{
+      msg.innerHTML = "";
+      try{
+        const saved = saveCustomer(existing, {
+          name: wrap.querySelector("#cuName").value, phone: wrap.querySelector("#cuPhone").value, customer_type: type,
+          credit_limit: wrap.querySelector("#cuLimit").value, address: wrap.querySelector("#cuAddress").value,
+          national_id: wrap.querySelector("#cuNid").value,
+        }, { passcode: perm===null? wrap.querySelector("#cuPass").value : null });
+        wrap.remove();
+        if(o.onSaved) o.onSaved(saved); else render();
+      }catch(e){
+        msg.textContent = e.message||String(e);
+        if(e.existing){
+          const b = document.createElement("button");
+          b.className = "btn btn-outline btn-sm"; b.style.marginTop = "6px"; b.textContent = "Select "+e.existing.name;
+          b.onclick = ()=>{ wrap.remove(); if(o.onSaved) o.onSaved(e.existing); };
+          msg.appendChild(document.createElement("br")); msg.appendChild(b);
+        }
+      }
+    };
+    return wrap;
+  }
+  // The one write path for customers (the modal, tests). Throws a plain
+  // Error; a duplicate phone throws with .existing (the customer to select).
+  function saveCustomer(existing, f, o){
+    o = o||{};
+    const perm = canCreateCustomers();
+    if(perm===false) throw new Error("Ask an admin to add or change customers.");
+    let by = sessionUser||"";
+    if(perm===null){
+      const admin = findAdmin(o.passcode||"");
+      if(!admin) throw new Error("Enter the Admin passcode to add or change customers.");
+      by = admin.name;
+    }
+    const name = String(f.name||"").trim().replace(/\s+/g," ");
+    const phone = String(f.phone||"").trim();
+    if(!name) throw new Error("Enter the customer's name.");
+    if(name.length>80) throw new Error("Keep the name under 80 characters.");
+    const norm = normPhone(phone);
+    if(!norm) throw new Error("Enter the customer's phone number, e.g. 077x xxx xxx or +263 77x xxx xxx.");
+    const type = f.customer_type==="wholesale"? "wholesale" : "retail";
+    const limRaw = String(f.credit_limit==null? "" : f.credit_limit).trim();
+    const limit = limRaw===""? null : roundMoney(parseFloat(limRaw));
+    if(limit!==null && !(limit>=0)) throw new Error("The credit limit must be 0 or more, or empty for no limit.");
+    const address = String(f.address||"").trim().slice(0,200), nid = String(f.national_id||"").trim().slice(0,40);
+    const dup = one("SELECT * FROM customers WHERE phone_norm=? AND id<>?",[norm, existing? existing.id : -1]);
+    if(dup){ const e = new Error("A customer with this phone already exists: "+dup.name+"."); e.existing = dup; throw e; }
+    const now = new Date().toISOString();
+    let id = existing? existing.id : null;
+    if(existing){
+      run(`UPDATE customers SET name=?, phone=?, phone_norm=?, customer_type=?, credit_limit=?, address=?, national_id=?, updated_ts=?,
+             srv_status=CASE WHEN srv_status IN ('sent','queued','legacy','') THEN 'queued' ELSE srv_status END WHERE id=?`,
+        [name, phone, norm, type, limit, address, nid, now, existing.id]);
+      logAudit("Edit customer", name, customerTypeLabel({customer_type:type})+(limit!==null? " · limit "+currency+limit.toFixed(2) : "")+" · by "+by);
+    } else {
+      run(`INSERT INTO customers(name,phone,phone_norm,branch,customer_type,credit_limit,address,national_id,updated_ts,srv_status)
+           VALUES(?,?,?,?,?,?,?,?,?,'queued')`, [name, phone, norm, currentBranch(), type, limit, address, nid, now]);
+      id = one("SELECT last_insert_rowid() AS id").id;   // before logAudit, which inserts a row of its own
+      logAudit("Add customer", name, customerTypeLabel({customer_type:type})+(limit!==null? " · limit "+currency+limit.toFixed(2) : "")+" · by "+by);
+    }
+    const row = one("SELECT * FROM customers WHERE id=?",[id]);
+    persist();
+    if(typeof custSendPending==="function") custSendPending().catch(()=>{});
+    return row;
+  }
+
+  // ---- credit limit (the cart) ----
+  function openCreditLimitModal(info, retry){
+    const wrap = openModal("Over the credit limit", `
+      <p id="clText" style="font-weight:600">${escapeHtml(info.text)}</p>
+      <label for="clPass">Admin passcode</label>
+      <input class="field" id="clPass" type="password" autocomplete="off">
+      <div id="clMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn btn-outline" id="clCancel">Don't sell</button>
+        <button class="btn btn-primary" id="clGo">Continue the sale</button>
+      </div>`);
+    wrap.querySelector("#clCancel").onclick = ()=> wrap.remove();
+    wrap.querySelector("#clGo").onclick = ()=>{
+      try{ approveCreditLimit(info, wrap.querySelector("#clPass").value); }
+      catch(e){ wrap.querySelector("#clMsg").textContent = e.message; return; }
+      wrap.remove(); retry();
+    };
+    return wrap;
+  }
+
+  // ---- privacy: what a customer row shows to whom ----
+  function customerPrivateVisible(){ return canCreateCustomers()===true; }
+
+  // ---- Admin-only full customer export (the only export with ID and address) ----
+  async function exportCustomersFull(passcode){
+    const admin = findAdmin(passcode||"");
+    if(!admin) throw new Error("Incorrect Admin passcode. Nothing was exported.");
+    await loadXLSX();
+    const rows = all("SELECT * FROM customers ORDER BY name").map(c=>({ "Name":c.name, "Phone":c.phone||"", "Type":customerTypeLabel(c),
+      "Credit limit":c.credit_limit==null? "" : c.credit_limit, "Balance (this till)":roundMoney(customerBalance(c.id)),
+      "Address":c.address||"", "National ID":c.national_id||"" }));
+    const ws = XLSX.utils.json_to_sheet(rows), wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Customers");
+    logAudit("Customer export (full)", "", rows.length+" customers · by "+admin.name);
+    XLSX.writeFile(wb, "customers-full-"+new Date().toISOString().slice(0,10)+".xlsx");
+    return rows.length;
+  }
+  function openFullCustomerExport(){
+    const wrap = openModal("Customer export (full)", `
+      <p class="muted">Includes address and national ID number. Admin only.</p>
+      <label for="cxPass">Admin passcode</label><input class="field" id="cxPass" type="password" autocomplete="off">
+      <div id="cxMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
+      <button class="btn btn-primary" id="cxGo" style="margin-top:10px">Export</button>`);
+    wrap.querySelector("#cxGo").onclick = async ()=>{
+      try{ await exportCustomersFull(wrap.querySelector("#cxPass").value); wrap.remove(); }
+      catch(e){ wrap.querySelector("#cxMsg").textContent = e.message||String(e); }
+    };
+  }
+
+  // ---- the business's shared list (registered tills) ----
+  function custRegistered(){ return !!getSetting("terminal_id","") && typeof terminalRpc==="function"; }
+  function custRowPayload(c){
+    return { uid:c.uid, name:c.name, phone:c.phone||"", customer_type:c.customer_type||"retail",
+      credit_limit:c.credit_limit==null? null : c.credit_limit, address:c.address||"", national_id:c.national_id||"", active:true };
+  }
+  // A server record replaces this till's row (same local id, so its sales,
+  // payments, vouchers and credit notes stay with it).
+  function custAdopt(localId, s){
+    run(`UPDATE customers SET uid=?, name=?, phone=?, phone_norm=?, customer_type=?, credit_limit=?, address=?, national_id=?,
+           srv_status='sent', srv_error='', updated_ts=? WHERE id=?`,
+      [s.uid, s.name, s.phone||"", s.phone_norm||normPhone(s.phone), s.customer_type||"retail", s.credit_limit==null? null : Number(s.credit_limit),
+       s.address||"", s.national_id||"", s.updated_at||new Date().toISOString(), localId]);
+  }
+  let _custSending = null;
+  function custSendPending(){
+    if(_custSending) return _custSending;
+    _custSending = (async ()=>{
+      if(!custRegistered()) return { sent:0 };
+      // customers from before the shared list go too (a phone clash waits for an Admin)
+      run("UPDATE customers SET srv_status='legacy' WHERE COALESCE(srv_status,'')='' AND COALESCE(phone_norm,'')<>''");
+      const rows = all("SELECT * FROM customers WHERE srv_status IN ('queued','legacy') AND COALESCE(phone_norm,'')<>'' ORDER BY id");
+      let sent = 0;
+      for(const c of rows){
+        const r = await terminalRpc("cl_device_customer_save", Object.assign(terminalAuth(), { p_customer: custRowPayload(c) }));
+        if(!r.ok && (r.reason==="offline" || r.reason==="network")) break;
+        if(r.ok && r.data && r.data.ok){ run("UPDATE customers SET srv_status='sent', srv_error='' WHERE id=?",[c.id]); sent++; continue; }
+        if(r.code==="DUPLICATE_PHONE" && r.data && r.data.existing){
+          const ex = r.data.existing;
+          const already = one("SELECT id FROM customers WHERE uid=? AND id<>?",[ex.uid, c.id]);
+          if(c.srv_status==="queued" && !already) custAdopt(c.id, ex);   // added here offline while another till added them: take theirs
+          else run("UPDATE customers SET srv_status='clash', srv_error=? WHERE id=?",[ex.uid+"|"+ex.name, c.id]);
+          continue;
+        }
+        run("UPDATE customers SET srv_error=? WHERE id=?",[String(r.message||r.code||"not sent").slice(0,200), c.id]);
+      }
+      await persist();
+      return { sent };
+    })().finally(()=>{ _custSending = null; });
+    return _custSending;
+  }
+  async function custPull(){
+    if(!custRegistered()) return { applied:0 };
+    let applied = 0;
+    for(let guard=0; guard<50; guard++){
+      const r = await terminalRpc("cl_device_customers_pull", Object.assign(terminalAuth(), { p_cursor: Number(getSetting("cust_cursor","0"))||0 }));
+      if(!r.ok || !r.data || !Array.isArray(r.data.customers)) break;
+      for(const s of r.data.customers){
+        const mine = one("SELECT * FROM customers WHERE uid=?",[s.uid]);
+        if(mine){ if(mine.srv_status!=="queued") custAdopt(mine.id, s); }
+        else {
+          const samePhone = one("SELECT * FROM customers WHERE phone_norm=? AND srv_status IN ('queued','')",[s.phone_norm]);
+          if(samePhone && samePhone.srv_status==="queued") custAdopt(samePhone.id, s);
+          else {
+            run(`INSERT INTO customers(uid,name,phone,phone_norm,branch,customer_type,credit_limit,address,national_id,srv_status,updated_ts)
+                 VALUES(?,?,?,?,?,?,?,?,?,'sent',?)`, [s.uid, s.name, s.phone||"", s.phone_norm||"", currentBranch(), s.customer_type||"retail",
+                 s.credit_limit==null? null : Number(s.credit_limit), s.address||"", s.national_id||"", s.updated_at||""]);
+            if(samePhone) run("UPDATE customers SET srv_status='clash', srv_error=? WHERE id=?",[s.uid+"|"+s.name, samePhone.id]);
+          }
+        }
+        applied++;
+      }
+      setSetting("cust_cursor", String(r.data.cursor||0));
+      if(!r.data.more) break;
+    }
+    await persist();
+    return { applied };
+  }
+  // After every successful check-in (devicecheckin.js) and from Settings.
+  function custAfterCheckin(){ return custSendPending().then(()=> custPull()).catch(()=>{}); }
+
+  // ---- "Customers to check" (an Admin decides a phone clash) ----
+  function customerClashes(){ return all("SELECT * FROM customers WHERE srv_status='clash' ORDER BY name"); }
+  function customerClashesHtml(){
+    const list = customerClashes();
+    if(!list.length) return "";
+    return `<div class="card" id="custClashes" style="border-color:var(--warn)">
+      <h3 style="margin-top:0">Customers to check</h3>
+      <p class="muted">Another till already has a customer with the same phone. Merge them (this till's sales and balance move to the business's customer), or keep this one on this till only.</p>
+      ${list.map(c=>{ const other = String(c.srv_error||"").split("|")[1]||"another customer"; return `
+        <div class="row" style="align-items:center;margin-top:8px">
+          <div style="min-width:0"><b>${escapeHtml(c.name)}</b> <span class="muted">${escapeHtml(c.phone||"")} · the business has: ${escapeHtml(other)}</span></div>
+          <button class="btn btn-sm btn-primary" data-clash-merge="${c.id}" style="flex:none;width:auto">Merge</button>
+          <button class="btn btn-sm btn-outline" data-clash-keep="${c.id}" style="flex:none;width:auto">Keep apart</button>
+        </div>`; }).join("")}
+    </div>`;
+  }
+  function wireCustomerClashes(scope){
+    const go = (id, action)=>{
+      const wrap = openModal(action==="merge"? "Merge customers" : "Keep on this till", `
+        <label for="ccPass">Admin passcode</label><input class="field" id="ccPass" type="password" autocomplete="off">
+        <div id="ccMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
+        <button class="btn btn-primary" id="ccGo" style="margin-top:10px">${action==="merge"? "Merge" : "Keep apart"}</button>`);
+      wrap.querySelector("#ccGo").onclick = ()=>{
+        try{ resolveCustomerClash(id, action, wrap.querySelector("#ccPass").value); wrap.remove(); render(); }
+        catch(e){ wrap.querySelector("#ccMsg").textContent = e.message||String(e); }
+      };
+    };
+    scope.querySelectorAll("[data-clash-merge]").forEach(b=> b.onclick = ()=> go(+b.dataset.clashMerge, "merge"));
+    scope.querySelectorAll("[data-clash-keep]").forEach(b=> b.onclick = ()=> go(+b.dataset.clashKeep, "keep"));
+  }
+  // merge: this till's customer becomes the business's record (its sales and balances move to it)
+  function resolveCustomerClash(localId, action, passcode){
+    const admin = findAdmin(passcode||"");
+    if(!admin) throw new Error("Incorrect Admin passcode. Nothing was changed.");
+    const c = one("SELECT * FROM customers WHERE id=?",[localId]);
+    if(!c || c.srv_status!=="clash") throw new Error("That customer has nothing to check.");
+    if(action==="keep"){ run("UPDATE customers SET srv_status='local', srv_error='' WHERE id=?",[localId]); logAudit("Customer kept on this till", c.name, "by "+admin.name); }
+    else {
+      const uid = String(c.srv_error||"").split("|")[0];
+      const target = one("SELECT * FROM customers WHERE uid=? AND id<>?",[uid, localId]);
+      if(!target) throw new Error("The business's record hasn't reached this till yet. Try again after the next sync.");
+      run("BEGIN");
+      try{
+        for(const t of ["sales","credit_payments","vouchers","credit_notes"]) run(`UPDATE ${t} SET customer_id=? WHERE customer_id=?`,[target.id, localId]);
+        run("DELETE FROM customers WHERE id=?",[localId]);
+        run("COMMIT");
+      }catch(e){ try{ run("ROLLBACK"); }catch(_){} throw e; }
+      logAudit("Customers merged", target.name, c.name+" ("+(c.phone||"")+") joined the business's record · by "+admin.name);
+    }
+    persist();
+  }
 
   // ---------------- Multi-Currency Support (Settings) ----------------
   // The base currency is still just the existing `currency` setting/symbol
@@ -10146,6 +10783,8 @@ ${readOnly? "" : `
       <div class="card" data-report-name="Sales Report">
         ${repHead("Sales Report","sales",REP_PRESETS)}
         <label>Branch</label>${branchSelectHtml("salesBranch")}
+        <label for="salesLevel">Prices</label>
+        <select class="field" id="salesLevel"><option value="">All sales</option><option value="retail">Retail prices only</option><option value="wholesale">Wholesale prices only</option></select>
         <div class="row"><div><label>From</label><input class="field" id="salesFrom" type="date" value="${today}"></div><div><label>To</label><input class="field" id="salesTo" type="date" value="${today}"></div></div>
         <div class="rep-actions"><button class="btn btn-outline icon-btn" id="genSales" title="Generate PDF">${ICON_GEN}</button><button class="btn btn-ghost icon-btn" id="waSales" title="WhatsApp">📲</button></div>
       </div>
@@ -10296,21 +10935,24 @@ ${readOnly? "" : `
     });
 
 
+    function salesLevelFilter(){ const el = document.getElementById("salesLevel"); return el? el.value : ""; }
     document.getElementById("genSales").onclick=()=>{
       const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
       const b = branchFilter("salesBranch");
-      const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
-                      : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
-      const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
+      // POS fixes: the price level filter (sales.price_level); a filtered report lists only those sales
+      const level = salesLevelFilter();
+      const sales = (b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
+                      : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs])).filter(s=> !level || (s.price_level||"retail")===level);
+      const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), (s.price_level||"retail")==="wholesale"? "Wholesale" : "Retail", currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
       // Phase 3c: returns in the range, as rows of their own (negative), and Gross / Returns / Net
-      const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
-      returnRows.forEach(r=>rows.push([new Date(r.ts).toLocaleString(), escapeHtml(r.branch||""), escapeHtml(r.label), "", "", "", "-"+currency+(-r.amount).toFixed(2)]));
+      const returnRows = level? [] : (typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : []);
+      returnRows.forEach(r=>rows.push([new Date(r.ts).toLocaleString(), escapeHtml(r.branch||""), escapeHtml(r.label), "", "", "", "", "-"+currency+(-r.amount).toFixed(2)]));
       // Payment-method breakdown (item 6): sourced from sale_payments via
       // paymentMethodTotals (pos.js) so a split sale's Cash/EcoCash/Credit
       // lines are isolated the same way EOD reconciliation isolates them,
       // rather than bucketing the whole sale under one method.
-      const breakdown = paymentMethodTotals(b, fromTs, toTs);
+      const breakdown = level? [] : paymentMethodTotals(b, fromTs, toTs);
       const withRefunds = returnRows.length? paymentBreakdownWithRefunds(breakdown, b, fromTs, toTs) : null;
       const breakdownHtml = withRefunds? `
         <h3 class="section">By Payment Method</h3>
@@ -10324,7 +10966,7 @@ ${readOnly? "" : `
       // Item 6: an additional currency-level table, only shown when tender
       // actually happened in more than the base currency — a base-only
       // shop's Sales Report is otherwise identical to before this feature.
-      const currencyRows = paymentMethodCurrencyTotals(b, fromTs, toTs);
+      const currencyRows = level? [] : paymentMethodCurrencyTotals(b, fromTs, toTs);
       const curRefunds = returnRows.length? refundCurrencyTotals(b, fromTs, toTs) : null;
       const currencyHtml = currencyRows.some(r=>r.currency!==BASE_CURRENCY_CODE)? (curRefunds? `
         <h3 class="section">By Payment Method &amp; Currency</h3>
@@ -10336,18 +10978,19 @@ ${readOnly? "" : `
         <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>${currency} Equivalent</th></tr>
         ${currencyRows.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
         </table>`) : "";
-      printReport("Sales Report", `${b||"All branches"} · ${from} to ${to}`,
-        ["Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Total"], rows,
+      printReport("Sales Report", `${b||"All branches"} · ${from} to ${to}${level? " · "+(level==="wholesale"? "Wholesale" : "Retail")+" prices only" : ""}`,
+        ["Date/Time","Branch","Method","Doc Ref","Prices","Subtotal","Discount","Total"], rows,
         `<p><b>${returnRows.length? escapeHtml(salesReturnsFooter(grand, returnRows)) : "Grand Total: "+currency+grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
     };
     document.getElementById("waSales").onclick=()=>{
       const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
       const b = branchFilter("salesBranch");
-      const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
-                      : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
+      const level = salesLevelFilter();
+      const sales = (b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
+                      : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs])).filter(s=> !level || (s.price_level||"retail")===level);
       const grand = sales.reduce((s,r)=>s+r.total,0);
       const itemLines = sales.slice(0,40).map(s=>padLine(`${localDateTimeStr(s.ts)} ${s.branch} ${s.method}`, `${currency}${s.total.toFixed(2)}`));
-      const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
+      const returnRows = level? [] : (typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : []);
       returnRows.slice(0,40).forEach(r=>itemLines.push(padLine(`${localDateTimeStr(r.ts)} ${r.branch} Return ${r.text}`, `-${currency}${(-r.amount).toFixed(2)}`)));
       const ret = returnRows.reduce((s,r)=>s-r.amount,0);
       shareWhatsApp(receiptText(`Sales Report (${b||"All branches"})`, itemLines, returnRows.length
@@ -10735,7 +11378,7 @@ ${readOnly? "" : `
     const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[take.branch]);
     const counted = all("SELECT * FROM stocktake_counts WHERE stocktake_id=?",[take.id]);
     const countMap = {}; counted.forEach(c=> countMap[c.product_id]=c);
-    const results = rankProductsBySearch(products, stocktakeQuery);
+    const results = productSearch(products, stocktakeQuery);
     target.innerHTML = stocktakeCountingTableHtml(results, countMap);
     wireStocktakeCountInputs(target, take);
   }
@@ -10744,7 +11387,7 @@ ${readOnly? "" : `
     const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[branch]);
     const counted = all("SELECT * FROM stocktake_counts WHERE stocktake_id=?",[take.id]);
     const countMap = {}; counted.forEach(c=> countMap[c.product_id]=c);
-    const results = rankProductsBySearch(products, stocktakeQuery);
+    const results = productSearch(products, stocktakeQuery);
     main.innerHTML = `
       <h3>Stocktake — ${escapeHtml(take.branch)} — ${escapeHtml(take.start_date)}${take.end_date?` to ${escapeHtml(take.end_date)}`:""}</h3>
       <p class="muted">Team: ${escapeHtml(take.team_names||"—")} · Counted ${counted.length} of ${products.length}</p>
@@ -11697,7 +12340,8 @@ ${readOnly? "" : `
           <p><b>If the app won't open on a phone:</b> make sure it's opened in Chrome (not a preview inside WhatsApp — tap "Open with" → Chrome) and that there's an internet connection the first time. After that first successful open, it no longer needs one.</p>
           <p><b>Who's working:</b> each time the app opens, tap Sign in on the Start screen and it asks who's working today. That name is recorded against sales, stock changes, receiving, and discount approvals. Tap your name in the top bar any time to switch, e.g. at a shift change.</p>
           <p><b>Log out:</b> the door icon next to your name ends your session and returns to the Start screen, where the next person taps Sign in. It works only when the cart is empty. Logging out doesn't close the shift.</p>
-          <p><b>Selling:</b> Search a product by name, SKU, or hidden search keywords, tap Add. Open the cart with the orange cart icon, adjust quantities, add a discount if needed. Customer name/phone is optional for Cash and EcoCash and required for Credit.</p>
+          <p><b>Selling:</b> Search a product by name, SKU, or hidden search keywords, tap Add. Every word you type must match, in any order: "pai" finds Paint, and a number matches only that whole number ("5" finds 5lt, not 15lt). Open the cart with the orange cart icon, adjust quantities, add a discount if needed. The customer is optional for Cash, EcoCash and Bank and required for Credit: in the cart's Customer box, search by name or phone and pick them, or choose "+ Add new customer" (staff with "Can create customers", or an Admin). A name typed but not picked is a walk-in and is not saved as a customer.</p>
+          <p><b>Wholesale prices:</b> A product can have a wholesale price as well as its price. When the cart's customer is a Wholesale customer, every line uses its wholesale price (where it has one); the receipt says "Wholesale prices", and the Sales Report can show retail or wholesale sales only.</p>
           <p><b>Payment methods:</b> Cash, EcoCash, Bank, or Credit. EcoCash and Bank both require a payment reference number before the sale completes.</p>
           <p><b>Discounts:</b> Any discount above zero requires a reason, and an optional approver's name — left blank, it's recorded as Pending; filled in, it's Approved. Both show up on the Discount Report.</p>
           <p><b>Products:</b> Add a photo, SKU, price, cost, stock, and optional hidden search keywords for each product (keywords never appear on any screen or report — they only help search find the item). Tap Edit to update details, add stock, or print a small marketing card. Cost is hidden entirely on Remote branches.</p>
@@ -11705,7 +12349,7 @@ ${readOnly? "" : `
           <p><b>Merging another branch's file on a Remote branch:</b> a Remote branch can still import another branch's exported data file in Settings. If it does, that branch's stock and prices become visible — read-only — under More → Product List and in most Reports, even though the Remote branch still can't sell from it, edit it, or see its cost. If you don't want a Remote branch to see another branch's data at all, don't send it their export file.</p>
           <p><b>Requests (under More):</b> a quick notepad for stock a customer asked for that you didn't have — tap + Log Request to note the item, and the customer's name/phone if they want to be told when it arrives. Any branch, including Remote, can log one. Once branches are merged onto one device, the Branch filter here lets you see requests logged everywhere — useful for spotting what to stock next.</p>
           <p><b>Product Catalogue:</b> in Products, tick the items you want to publish (or Select all), then Print Catalogue for an A4 sheet of cards — photo, SKU, name, price — ready to hand out or display. Cost and search keywords never appear on it.</p>
-          <p><b>Credit sales:</b> Entering a customer name on Credit creates or matches that customer automatically. The Credit tab lists only customers who owe or have owed money, for recording payments and sending payment reminders on WhatsApp.</p>
+          <p><b>Credit sales:</b> A credit sale needs a customer picked in the cart. If the sale takes them over their credit limit (counted on this till), it needs the Admin passcode. The Credit tab lists only customers who owe or have owed money, for recording payments and sending payment reminders on WhatsApp.</p>
           <p><b>Directory:</b> Under More → Directory is every customer who's given a name at checkout, for sending general WhatsApp marketing messages — separate from Credit, which stays focused on balances.</p>
           <p><b>Payouts:</b> On End of Day, tap + Add Payout to log cash taken from the drawer with a reason — this is subtracted from expected cash.</p>
           <p><b>End of Day:</b> Count your physical cash, enter it, then tap Reveal Variance.</p>
@@ -12054,7 +12698,7 @@ ${readOnly? "" : `
     const data = items.map(p=>{
       const r = {"Branch":p.branch||"", "SKU":p.sku||"", "Item Name":p.name, "Shelf":p.shelf||"", "Category":p.category||""};
       if(full){ r["Search Keywords"]=p.description||""; r["Cost"]=p.cost||0; }
-      r["Price"]=p.price; r["Qty"]=p.stock; r["Low Stock Alert Below"]=p.low_threshold;
+      r["Price"]=p.price; r["Wholesale Price"]=p.wholesale_price==null? "" : p.wholesale_price; r["Qty"]=p.stock; r["Low Stock Alert Below"]=p.low_threshold;
       return r;
     });
     const ws = XLSX.utils.json_to_sheet(data);
@@ -12823,6 +13467,8 @@ ${readOnly? "" : `
       if(typeof dsAfterCheckin==="function") dsAfterCheckin();
       // suppliers and supplier GRVs (supplier-grv.js): send waiting ones, pull the list.
       if(typeof sgAfterCheckin==="function") sgAfterCheckin();
+      // the business's customer list (customers.js): send this till's new customers, pull the rest.
+      if(typeof custAfterCheckin==="function") custAfterCheckin();
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —
@@ -13289,6 +13935,7 @@ ${readOnly? "" : `
            VALUES(?,?,0,?,?,?,'',?,?,?,?,?,?,?,1,?,?,?)`,
         [r.name, price, r.low_threshold==null?5:r.low_threshold, r.code||"", catBranch(), cost||0, new Date().toISOString(),
          r.description||"", r.shelf||"", r.category||"", r.uid, r.seq, r.image_hash||null, r.image_bytes||0, catRound(Number(r.price)||0)]);
+      catApplyWholesale(r, one("SELECT last_insert_rowid() AS id").id);
       return "added";
     }
     const price = catPricePending(r.uid)? p.price : catEffectivePrice(r.price, r.uid);
@@ -13296,7 +13943,15 @@ ${readOnly? "" : `
            active=?, image_hash=?, image_bytes=?, cat_uid=?, cat_seq=?, cat_main_price=? WHERE id=?`,
       [r.name, r.code||"", r.description||"", r.category||"", r.shelf||"", r.low_threshold==null?5:r.low_threshold, price, cost,
        r.active?1:0, r.image_hash||null, r.image_bytes||0, r.uid, r.seq, catRound(Number(r.price)||0), p.id]);
+    catApplyWholesale(r, p.id);
     return "updated";
+  }
+  // POS fixes: main's wholesale price applies at every till (no per-branch
+  // wholesale price). Only a server that sends the key (20261018180000) changes it.
+  function catApplyWholesale(r, id){
+    if(!Object.prototype.hasOwnProperty.call(r, "wholesale_price")) return;
+    const w = r.wholesale_price==null? null : catRound(Number(r.wholesale_price)||0);
+    run("UPDATE products SET wholesale_price=?, cat_main_wholesale=? WHERE id=?",[w, w, id]);
   }
   function catApplyBranchPrice(r){
     run(`INSERT INTO cat_branch_prices(cat_uid,price,seq) VALUES(?,?,?)
@@ -13368,7 +14023,8 @@ ${readOnly? "" : `
         if(!p.cat_op){ p.cat_op = catNewOp(); run("UPDATE products SET cat_op=? WHERE id=?",[p.cat_op, p.id]); }
         const row = { uid:p.cat_uid, op_id:p.cat_op, code:p.sku||"", name:p.name, description:p.description||"", category:p.category||"",
           shelf:p.shelf||"", price:catRound(Number(p.price)||0), cost:catRound(Number(p.cost)||0), low_threshold:p.low_threshold==null?5:p.low_threshold,
-          active:p.active!==0, base_seq:p.cat_seq||null, image_hash:null };
+          active:p.active!==0, base_seq:p.cat_seq||null, image_hash:null,
+          wholesale_price: p.wholesale_price==null || p.wholesale_price===""? null : catRound(Number(p.wholesale_price)||0) };
         if(p.image){
           let thumb = null; try{ thumb = await catThumbFor(p); }catch(e){}
           if(thumb){
@@ -16213,6 +16869,8 @@ ${readOnly? "" : `
     } else if(!isEdit){
       throw new Error(pinProblem(""));
     }
+    // POS fixes: "Create customers" (Admins always can). Optional on an edit.
+    const canCust = o.can_create_customers===undefined? (existing? Number(existing.can_create_customers)||0 : 0) : (o.can_create_customers? 1 : 0);
     if(isEdit){
       // active is optional on an edit — a caller updating just the PIN (or
       // name/role) shouldn't have to know or repeat the current active
@@ -16222,11 +16880,14 @@ ${readOnly? "" : `
       // to unlock someone without a separate "unlock" button.
       run("UPDATE staff SET name=?, role=?, passcode=?, active=?, pin_hash=?, pin_salt=?, pin_fail_count=0, pin_locked_until='' WHERE id=?",
         [name,role,passcode,active,pin_hash,pin_salt,o.id]);
+      run("UPDATE staff SET can_create_customers=? WHERE id=?",[canCust, o.id]);
       return one("SELECT * FROM staff WHERE id=?",[o.id]);
     }
     run("INSERT INTO staff(name,role,passcode,branch,active,created_ts,pin_hash,pin_salt) VALUES(?,?,?,?,1,?,?,?)",
       [name,role,passcode,branch,new Date().toISOString(),pin_hash,pin_salt]);
-    return one("SELECT * FROM staff WHERE branch=? ORDER BY id DESC LIMIT 1",[branch]);
+    const added = one("SELECT * FROM staff WHERE branch=? ORDER BY id DESC LIMIT 1",[branch]);
+    run("UPDATE staff SET can_create_customers=? WHERE id=?",[canCust, added.id]);
+    return one("SELECT * FROM staff WHERE id=?",[added.id]);
   }
 
   function staffSectionHtml(){
@@ -16246,7 +16907,7 @@ ${readOnly? "" : `
           <div class="product-row">
             <div>
               <div class="pname">${escapeHtml(s.name)}${s.active? "" : ` <span class="pill low">inactive</span>`}</div>
-              <div class="pmeta">${escapeHtml(s.role)} · ${s.pin_hash? "PIN set" : "No PIN"}${locked? " · Locked out" : ""}</div>
+              <div class="pmeta">${escapeHtml(s.role)} · ${s.pin_hash? "PIN set" : "No PIN"}${s.role==="Admin" || Number(s.can_create_customers)===1? " · Creates customers" : ""}${locked? " · Locked out" : ""}</div>
             </div>
             <button class="btn btn-sm btn-outline" data-edit-staff="${s.id}" style="flex:none">Edit</button>
           </div>`;}).join("")}
@@ -16268,6 +16929,8 @@ ${readOnly? "" : `
       <label>Sign-in PIN (${PIN_MIN_LEN}-${PIN_MAX_LEN} digits)</label>
       <input class="field" id="stPin" type="password" inputmode="numeric" maxlength="${PIN_MAX_LEN}" placeholder="${existing && existing.pin_hash? "Leave blank to keep current PIN" : "e.g. 4821"}">
       <p class="muted" style="font-size:11px;margin-top:-4px">Used on the "Who's working today?" screen when Single operator mode is off.</p>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px"><input type="checkbox" id="stCanCust" ${existing && (existing.role==="Admin" || Number(existing.can_create_customers)===1)? "checked":""} style="width:auto;margin:0"> Can create customers</label>
+      <p class="muted" style="font-size:11px;margin-top:2px">Adds and edits customers, sets their type and credit limit, and sees their address and ID number. Admins always can.</p>
       ${isEdit? `<label style="display:flex;align-items:center;gap:8px;margin-top:14px"><input type="checkbox" id="stActive" ${existing.active? "checked":""} style="width:auto;margin:0"> Active</label>` : ""}
       <button class="btn btn-primary" id="stConfirm" style="margin-top:14px">${isEdit? "Save Changes" : "Add Staff"}</button>
     `);
@@ -16280,6 +16943,7 @@ ${readOnly? "" : `
           passcode: wrap.querySelector("#stPasscode").value,
           pin: wrap.querySelector("#stPin").value,
           active: isEdit? wrap.querySelector("#stActive").checked : true,
+          can_create_customers: wrap.querySelector("#stCanCust").checked,
         });
       }catch(e){ return alert(e.message||String(e)); }
       persist(); wrap.remove(); render();

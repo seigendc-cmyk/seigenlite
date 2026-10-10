@@ -91,7 +91,7 @@ function makeDomApp(settings){
     function printReceipt(){}
     function renderRequestsDrawer(){}
   `;
-  const files = ["db.js","utils.js","pos.js","printing.js","drawer.js","currencies.js","staff.js","eod.js","devicecheckin.js","router.js"];
+  const files = ["db.js","utils.js","pos.js","customers.js","printing.js","drawer.js","currencies.js","staff.js","eod.js","devicecheckin.js","router.js"];
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function printReceipt\(\)\{\}[^\n]*\n/, "")
     + files.map(src).join("\n")
     + "\n;this.printReceipt = printReceipt;";

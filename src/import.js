@@ -18,7 +18,7 @@
   async function downloadImportTemplate(){
     try{
       await loadXLSX();
-      const headers = ["SKU","Item Name","Shelf","Search Keywords","Category","Cost","Price","Qty","Low Stock Alert Below"];
+      const headers = ["SKU","Item Name","Shelf","Search Keywords","Category","Cost","Price","Wholesale Price","Qty","Low Stock Alert Below"];
       const ws = XLSX.utils.aoa_to_sheet([headers]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Products");
@@ -35,7 +35,8 @@
     keywords: ["search keywords","keywords","search"],
     category: ["category"],
     cost: ["cost"],
-    price: ["price","selling price"],
+    price: ["price","selling price","retail price"],
+    wholesale: ["wholesale price","wholesale","trade price","bulk price","wholesale selling price"],
     qty: ["qty","quantity","stock","stock qty"],
     threshold: ["low stock alert below","low stock","threshold","alert level"]
   };
@@ -90,14 +91,21 @@
       if(!name) skipReason = "missing Item Name";
       else if(isNaN(priceNum)) skipReason = "missing or invalid Price";
       else if(priceNum<0) skipReason = "negative Price";
+      // Wholesale Price (optional): a blank cell in the column means "none";
+      // no column at all leaves an existing product's wholesale price alone.
+      const wsCell = text("wholesale");
+      const wsNum = wsCell===""? null : importNum(get("wholesale"));
+      if(!skipReason && col.wholesale && wsNum!==null && (isNaN(wsNum) || wsNum<0)) skipReason = "invalid Wholesale Price";
+      const wholesale = col.wholesale && wsNum!==null && !isNaN(wsNum)? wsNum : null;
       const update = { name, price: priceNum };
+      if(col.wholesale) update.wholesale_price = wholesale;
       if(sku) update.sku = sku;   // blank SKU never wipes an existing one — it's half of the product's identity
       if(col.shelf) update.shelf = shelf;
       if(col.keywords) update.description = keywords;
       if(col.category) update.category = category;
       if(col.cost && !isNaN(costNum)) update.cost = costNum;
       if(col.threshold && !isNaN(thresholdNum)) update.low_threshold = thresholdNum;
-      return { rowNum:i+2, name, sku, shelf, keywords, category, cost, price:isNaN(priceNum)?0:priceNum, qty, hasQty:!isNaN(qtyNum), threshold, update, skipReason };
+      return { rowNum:i+2, name, sku, shelf, keywords, category, cost, price:isNaN(priceNum)?0:priceNum, wholesale, qty, hasQty:!isNaN(qtyNum), threshold, update, skipReason };
     });
     return { rows, hasQtyColumn: col.qty!==null };
   }
@@ -115,7 +123,7 @@
   }
   function importInventoryModal(){
     const wrap = openModal("Update Existing / Add New — Import Inventory from Excel", `
-      <p class="muted">Matches each row to an existing product by SKU, then by name — a match is updated in place, anything unmatched is added as new. Products already in your catalogue but missing from the file are left alone (nothing is ever deleted). Columns expected: SKU, Item Name, Shelf, Search Keywords, Category, Cost, Price, Qty, Low Stock Alert Below — all optional except Item Name and Price. Column order and exact wording don't matter; a column left out of the file leaves that detail unchanged on existing products.</p>
+      <p class="muted">Matches each row to an existing product by SKU, then by name — a match is updated in place, anything unmatched is added as new. Products already in your catalogue but missing from the file are left alone (nothing is ever deleted). Columns expected: SKU, Item Name, Shelf, Search Keywords, Category, Cost, Price, Wholesale Price, Qty, Low Stock Alert Below — all optional except Item Name and Price. Column order and exact wording don't matter; a column left out of the file leaves that detail unchanged on existing products.</p>
       <input class="field" id="impFile" type="file" accept=".xlsx,.xls,.csv">
       <div id="impStatus" class="muted" style="margin-top:8px"></div>
     `);
@@ -241,6 +249,7 @@
         run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,category,shelf) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
           [r.name, r.price, r.qty, r.threshold, r.sku, branch, "", r.cost, ts, r.keywords, r.category, r.shelf]);
         const pid = one("SELECT last_insert_rowid() as id").id;
+        if(r.wholesale!=null) run("UPDATE products SET wholesale_price=? WHERE id=?",[r.wholesale, pid]);
         recordStockMovement(pid, r.qty, { kind:"import", docType:"import", ts, note:"Import — initial stock" });
         run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
           [ts, pid, r.name, r.qty, "Import — initial stock", branch, sessionUser||""]);

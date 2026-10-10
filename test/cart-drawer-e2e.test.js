@@ -90,7 +90,7 @@ function makeDomApp(settings){
   `;
   // Real router.js + its actual runtime dependencies, same relative load
   // order build.js uses (state.js's variables are the prelude above).
-  const files = ["db.js","utils.js","pos.js","printing.js","drawer.js","currencies.js","staff.js","eod.js","devicecheckin.js","router.js"];
+  const files = ["db.js","utils.js","pos.js","customers.js","printing.js","drawer.js","currencies.js","staff.js","eod.js","devicecheckin.js","router.js"];
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function printReceipt\(\)\{\}[^\n]*\n/, "")
     + files.map(src).join("\n")
     + "\n;this.printReceipt = printReceipt;"; // keep printing.js's real printReceipt (it's async and no-ops safely without a printer/direct-print path)
@@ -209,7 +209,8 @@ function addProductAndCart(app, price, qty){
     // edit that silently swallowed the rest of the template or the wiring
     // that follows it (paymentRef, custName, the pay buttons).
     assert.ok(app.document.querySelector(`[data-line-discount="${rice.id}"]`), "the per-line discount input exists");
-    ["paymentRef","custName","custPhone","payCash","payEcocash","payBank","payCredit"].forEach(id=>{
+    // (POS fixes: the customer combo replaced the separate phone box)
+    ["paymentRef","custName","payCash","payEcocash","payBank","payCredit"].forEach(id=>{
       assert.ok(app.document.getElementById(id), `#${id} exists`);
     });
   });

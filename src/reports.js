@@ -26,6 +26,8 @@ ${readOnly? "" : `
       <div class="card" data-report-name="Sales Report">
         ${repHead("Sales Report","sales",REP_PRESETS)}
         <label>Branch</label>${branchSelectHtml("salesBranch")}
+        <label for="salesLevel">Prices</label>
+        <select class="field" id="salesLevel"><option value="">All sales</option><option value="retail">Retail prices only</option><option value="wholesale">Wholesale prices only</option></select>
         <div class="row"><div><label>From</label><input class="field" id="salesFrom" type="date" value="${today}"></div><div><label>To</label><input class="field" id="salesTo" type="date" value="${today}"></div></div>
         <div class="rep-actions"><button class="btn btn-outline icon-btn" id="genSales" title="Generate PDF">${ICON_GEN}</button><button class="btn btn-ghost icon-btn" id="waSales" title="WhatsApp">📲</button></div>
       </div>
@@ -176,21 +178,24 @@ ${readOnly? "" : `
     });
 
 
+    function salesLevelFilter(){ const el = document.getElementById("salesLevel"); return el? el.value : ""; }
     document.getElementById("genSales").onclick=()=>{
       const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
       const b = branchFilter("salesBranch");
-      const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
-                      : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
-      const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
+      // POS fixes: the price level filter (sales.price_level); a filtered report lists only those sales
+      const level = salesLevelFilter();
+      const sales = (b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
+                      : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs])).filter(s=> !level || (s.price_level||"retail")===level);
+      const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(s.branch||""), s.method, escapeHtml(s.doc_ref||""), (s.price_level||"retail")==="wholesale"? "Wholesale" : "Retail", currency+s.subtotal.toFixed(2), currency+s.discount.toFixed(2), currency+s.total.toFixed(2)]);
       const grand = sales.reduce((s,r)=>s+r.total,0);
       // Phase 3c: returns in the range, as rows of their own (negative), and Gross / Returns / Net
-      const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
-      returnRows.forEach(r=>rows.push([new Date(r.ts).toLocaleString(), escapeHtml(r.branch||""), escapeHtml(r.label), "", "", "", "-"+currency+(-r.amount).toFixed(2)]));
+      const returnRows = level? [] : (typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : []);
+      returnRows.forEach(r=>rows.push([new Date(r.ts).toLocaleString(), escapeHtml(r.branch||""), escapeHtml(r.label), "", "", "", "", "-"+currency+(-r.amount).toFixed(2)]));
       // Payment-method breakdown (item 6): sourced from sale_payments via
       // paymentMethodTotals (pos.js) so a split sale's Cash/EcoCash/Credit
       // lines are isolated the same way EOD reconciliation isolates them,
       // rather than bucketing the whole sale under one method.
-      const breakdown = paymentMethodTotals(b, fromTs, toTs);
+      const breakdown = level? [] : paymentMethodTotals(b, fromTs, toTs);
       const withRefunds = returnRows.length? paymentBreakdownWithRefunds(breakdown, b, fromTs, toTs) : null;
       const breakdownHtml = withRefunds? `
         <h3 class="section">By Payment Method</h3>
@@ -204,7 +209,7 @@ ${readOnly? "" : `
       // Item 6: an additional currency-level table, only shown when tender
       // actually happened in more than the base currency — a base-only
       // shop's Sales Report is otherwise identical to before this feature.
-      const currencyRows = paymentMethodCurrencyTotals(b, fromTs, toTs);
+      const currencyRows = level? [] : paymentMethodCurrencyTotals(b, fromTs, toTs);
       const curRefunds = returnRows.length? refundCurrencyTotals(b, fromTs, toTs) : null;
       const currencyHtml = currencyRows.some(r=>r.currency!==BASE_CURRENCY_CODE)? (curRefunds? `
         <h3 class="section">By Payment Method &amp; Currency</h3>
@@ -216,18 +221,19 @@ ${readOnly? "" : `
         <table><tr><th>Method</th><th>Currency</th><th>Tendered</th><th>${currency} Equivalent</th></tr>
         ${currencyRows.map(r=>`<tr><td>${escapeHtml(r.method)}</td><td>${escapeHtml(r.currency===BASE_CURRENCY_CODE?"Base":r.currency)}</td><td>${escapeHtml(r.symbol)}${r.tendered.toFixed(2)}</td><td>${currency}${r.total.toFixed(2)}</td></tr>`).join("")}
         </table>`) : "";
-      printReport("Sales Report", `${b||"All branches"} · ${from} to ${to}`,
-        ["Date/Time","Branch","Method","Doc Ref","Subtotal","Discount","Total"], rows,
+      printReport("Sales Report", `${b||"All branches"} · ${from} to ${to}${level? " · "+(level==="wholesale"? "Wholesale" : "Retail")+" prices only" : ""}`,
+        ["Date/Time","Branch","Method","Doc Ref","Prices","Subtotal","Discount","Total"], rows,
         `<p><b>${returnRows.length? escapeHtml(salesReturnsFooter(grand, returnRows)) : "Grand Total: "+currency+grand.toFixed(2)}</b></p>${breakdownHtml}${currencyHtml}`);
     };
     document.getElementById("waSales").onclick=()=>{
       const {fromTs,toTs,from,to} = dateRangeSQL("salesFrom","salesTo");
       const b = branchFilter("salesBranch");
-      const sales = b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
-                      : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs]);
+      const level = salesLevelFilter();
+      const sales = (b? all("SELECT * FROM sales WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts",[b,fromTs,toTs])
+                      : all("SELECT * FROM sales WHERE ts>=? AND ts<=? ORDER BY ts",[fromTs,toTs])).filter(s=> !level || (s.price_level||"retail")===level);
       const grand = sales.reduce((s,r)=>s+r.total,0);
       const itemLines = sales.slice(0,40).map(s=>padLine(`${localDateTimeStr(s.ts)} ${s.branch} ${s.method}`, `${currency}${s.total.toFixed(2)}`));
-      const returnRows = typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : [];
+      const returnRows = level? [] : (typeof salesReportReturnRows==="function"? salesReportReturnRows(b, fromTs, toTs) : []);
       returnRows.slice(0,40).forEach(r=>itemLines.push(padLine(`${localDateTimeStr(r.ts)} ${r.branch} Return ${r.text}`, `-${currency}${(-r.amount).toFixed(2)}`)));
       const ret = returnRows.reduce((s,r)=>s-r.amount,0);
       shareWhatsApp(receiptText(`Sales Report (${b||"All branches"})`, itemLines, returnRows.length

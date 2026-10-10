@@ -92,6 +92,9 @@
         <div><label>Price (${currency})</label><input class="field" id="pPrice" type="number" step="0.01" value="${existing?existing.price:""}"></div>
         <div><label>Cost (${currency})</label><input class="field" id="pCost" type="number" step="0.01" value="${existing?(existing.cost||0):""}"></div>
       </div>
+      <label>Wholesale price (${currency}, optional)</label>
+      <input class="field" id="pWholesale" type="number" step="0.01" min="0" placeholder="Empty: wholesale customers pay the price above" value="${existing && existing.wholesale_price!=null? existing.wholesale_price : ""}">
+      <p class="muted" style="margin-top:4px">Used for every line when the cart's customer is a Wholesale customer.</p>
       <label>Stock qty</label>
       <input class="field" id="pStock" type="number" value="${existing?existing.stock:""}" ${isEdit?"disabled":""}>
       ${isEdit? `<p class="muted">Use +Stock on the product row to change stock (it's logged for the Stock Received report).</p>`:""}
@@ -118,17 +121,22 @@
       const price = parseFloat(wrap.querySelector("#pPrice").value)||0;
       const cost = parseFloat(wrap.querySelector("#pCost").value)||0;
       const low = parseInt(wrap.querySelector("#pLow").value)||5;
+      const wsRaw = wrap.querySelector("#pWholesale").value.trim();
+      const wholesale = wsRaw===""? null : roundMoney(parseFloat(wsRaw));
       if(!name) return alert("Enter a product name");
+      if(wholesale!==null && !(wholesale>=0)) return alert("The wholesale price must be a number of 0 or more, or empty.");
       const image = newImage!==null? newImage : (existing? existing.image||"" : "");
       if(isEdit){
         run("UPDATE products SET name=?,sku=?,shelf=?,price=?,cost=?,low_threshold=?,image=?,description=? WHERE id=?",[name,sku,shelf,price,cost,low,image,description,existing.id]);
-        logAudit("Edit Product", name, `Price: ${currency}${price.toFixed(2)}, Cost: ${currency}${cost.toFixed(2)}, Low alert: ${low}`);
+        run("UPDATE products SET wholesale_price=? WHERE id=?",[wholesale, existing.id]);
+        logAudit("Edit Product", name, `Price: ${currency}${price.toFixed(2)}, Cost: ${currency}${cost.toFixed(2)}, Low alert: ${low}`+(wholesale!==null? `, Wholesale: ${currency}${wholesale.toFixed(2)}` : ""));
       } else {
         const stock = parseInt(wrap.querySelector("#pStock").value)||0;
         const branch = currentBranch();
         run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,shelf) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
           [name,price,stock,low,sku,branch,image,cost,new Date().toISOString(),description,shelf]);
         const pid = one("SELECT last_insert_rowid() as id").id;
+        if(wholesale!==null) run("UPDATE products SET wholesale_price=? WHERE id=?",[wholesale, pid]);
         recordStockMovement(pid, stock, { kind:"product_created", note:"Initial stock" });
         if(stock>0) run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user) VALUES(?,?,?,?,?,?,?)",
           [new Date().toISOString(), pid, name, stock, "Initial stock", branch, sessionUser||""]);
@@ -167,7 +175,7 @@
   // than calling searchProducts() itself, since this list is already
   // branch-scoped and DB-fetched by renderProducts() below.
   function filterProductsList(products, query){
-    return products.filter(p=> matchesAnyOrder(query, p.name+" "+(p.sku||"")+" "+(p.description||"")));
+    return productSearch(products, query);
   }
   function productsTableHtml(products, remote){
     const priceEdit = remotePriceEditable();

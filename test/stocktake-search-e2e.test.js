@@ -1,7 +1,7 @@
 // Run: node --no-warnings test/stocktake-search-e2e.test.js
 // Stocktake Multi-Token Search Engine — real DOM (jsdom), real
 // src/stocktake.js, not a direct-API bypass. test/stocktake-search.test.js
-// already covers the ranking algorithm itself (rankProductsBySearch) in
+// already covers the matcher itself (productSearch, utils.js) in
 // isolation; this file proves the actual counting-screen wiring: the
 // search box exists, typing into it re-renders ONLY the results table
 // (never losing focus — same anti-focus-loss idiom this app already fixed
@@ -126,16 +126,11 @@ function openStocktakeCounting(app){
 
     const bodyText = app.document.getElementById("stCountTable").textContent;
     assert.ok(/Hilux 2015/.test(bodyText) && /Hilux 2010/.test(bodyText), "both Hilux variants shown (2/2 tokens: hilux+toyota)");
-    // "Toyota Corolla" matches only 1 of the 2 tokens ("toyota") — per the
-    // "best-matching subset, ranked accordingly" rule (task item 3) it still
-    // shows, just ranked below the 2/2 matches, not excluded outright.
-    assert.ok(/Corolla/.test(bodyText), "a 1/2-token partial match still surfaces, just lower");
-    assert.ok(!/Navara/.test(bodyText), "a 0/2-token non-match (neither 'hilux' nor 'toyota') is excluded entirely");
-    const idxCorolla = bodyText.indexOf("Corolla");
-    const idx2015Check = bodyText.indexOf("Hilux 2015"), idx2010Check = bodyText.indexOf("Hilux 2010");
-    assert.ok(idxCorolla > idx2015Check && idxCorolla > idx2010Check, "the weaker 1/2 match ranks below both 2/2 matches");
-    // 2015 has all 2 tokens plus would also match a 3-token query; here both
-    // match "hilux"+"toyota" equally (2/2) — same rank, original (name) order.
+    // POS fixes (owner rule): EVERY term must match. "Toyota Corolla" has
+    // only "toyota", so it is no longer shown (it used to surface lower).
+    assert.ok(!/Corolla/.test(bodyText), "a 1/2-token partial match is excluded");
+    assert.ok(!/Navara/.test(bodyText), "a 0/2-token non-match is excluded");
+    // both Hilux rows match both terms: same rank, original (name) order.
     const idx2015 = bodyText.indexOf("Hilux 2015"), idx2010 = bodyText.indexOf("Hilux 2010");
     assert.ok(idx2010 < idx2015, "2010 sorts first alphabetically among the tied 2/2 matches, same as the underlying ORDER BY name");
   });

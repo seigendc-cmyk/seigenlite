@@ -3,7 +3,7 @@
     // deactivated products (Phase 3a soft delete) are never offered for sale
     const all_ = branch? all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch])
                         : all("SELECT * FROM products WHERE COALESCE(active,1)=1 ORDER BY branch,name");
-    return all_.filter(p=> matchesAnyOrder(q, p.name+" "+(p.sku||"")+" "+(p.description||"")));
+    return productSearch(all_, q);   // utils.js: every term must match (words by their start, whole numbers)
   }
 
   // Owner decision (2026-10-06, replaces the first Phase 3a rule): a till
@@ -13,13 +13,67 @@
   // What may be sold of a product now: its stock, or on a shared-stock till
   // (Phase 3b, shared-stock.js) branch stock online / this till's allowance offline.
   function sellable(p){ return typeof sellableNow==="function"? sellableNow(p) : p.stock; }
+
+  // ---- the cart's customer and price level (POS fixes, docs/pos/pos-fixes-design.md §2-3) ----
+  // The customer picked in the cart (customers.js combo), or null for a walk-in.
+  // A Wholesale customer gets every line at its wholesale price; a product with
+  // no wholesale price, a walk-in and a Retail customer get the retail price.
+  let cartCustomer = null;
+  function cartPriceLevel(){ return cartCustomer && cartCustomer.customer_type==="wholesale"? "wholesale" : "retail"; }
+  function hasWholesalePrice(p){ return p && p.wholesale_price!=null && p.wholesale_price!=="" && Number(p.wholesale_price)>=0; }
+  // { price, level } for one product at the given level
+  function levelPrice(p, level){
+    if(level==="wholesale" && hasWholesalePrice(p)) return { price:roundMoney(Number(p.wholesale_price)), level:"wholesale" };
+    return { price:p.price, level:"retail" };
+  }
+  // Sets (or clears) the cart's customer and re-prices every line when the
+  // level changes. Returns the notice to show ("" when nothing changed).
+  function setCartCustomer(c){
+    const before = cartPriceLevel();
+    cartCustomer = c? Object.assign({}, c) : null;
+    appliedVoucher = null;
+    const after = cartPriceLevel();
+    if(before===after) return "";
+    let capped = false;
+    cart.forEach(line=>{
+      const p = one("SELECT * FROM products WHERE id=?",[line.product_id]);
+      if(!p) return;
+      const lp = levelPrice(p, after);
+      line.price = lp.price; line.level = lp.level; line.retail_price = p.price;
+      if((parseFloat(line.discount)||0) > line.price*line.qty) capped = true;
+    });
+    return "Prices changed to "+(after==="wholesale"? "Wholesale" : "Retail")+(capped? " (a discount was reduced to its line total)" : "")+".";
+  }
   function addToCart(p){
     if(typeof window!=="undefined" && window._stockChecking) return;   // a shared-stock sale is being checked
     const max = sellable(p);
     const existing = cart.find(c=>c.product_id===p.id);
     if(existing){ existing.stock = max; if(existing.qty < max) existing.qty++; }
-    else { if(max>0) cart.push({product_id:p.id,name:p.name,price:p.price,qty:1,stock:max}); }
+    else if(max>0){
+      const lp = levelPrice(p, cartPriceLevel());
+      cart.push({product_id:p.id,name:p.name,price:lp.price,level:lp.level,retail_price:p.price,qty:1,stock:max});
+    }
     render();
+  }
+
+  // ---- credit limit (warn; the Admin passcode lets it through) ----
+  // Checked against THIS till's balance: credit sales don't sync between tills.
+  let creditLimitApproval = null;   // { customerId, after, admin } for the sale being finished
+  function creditLimitCheck(customer, creditAmount){
+    if(!customer || !(creditAmount>0) || customer.credit_limit==null || customer.credit_limit==="") return null;
+    const limit = Number(customer.credit_limit), balance = roundMoney(customerBalance(customer.id)), after = roundMoney(balance + creditAmount);
+    if(!(after > limit)) return null;
+    if(creditLimitApproval && creditLimitApproval.customerId===customer.id && creditLimitApproval.after===after) return null;
+    return { customer, limit, balance, after,
+      text: customer.name+" would owe "+currency+after.toFixed(2)+" on this till, over their credit limit of "+currency+limit.toFixed(2)+
+        ". This checks this till's credit sales only. An Admin passcode lets the sale continue." };
+  }
+  function approveCreditLimit(info, passcode){
+    const admin = findAdmin(passcode);
+    if(!admin) throw new Error("Incorrect Admin passcode. The sale wasn't finished.");
+    creditLimitApproval = { customerId:info.customer.id, after:info.after, admin:admin.name };
+    logAudit("Credit limit override", info.customer.name, "Owes "+currency+info.after.toFixed(2)+" on this till, limit "+currency+info.limit.toFixed(2)+" · approved by "+admin.name);
+    return creditLimitApproval;
   }
   // The orange note on Sell and Products (activation-v2-design.md §9): shown
   // only when it's true.
@@ -127,6 +181,13 @@
     if(totalEl) totalEl.textContent = currency+totals.due.toFixed(2);
     const extra = container.querySelector("#discountExtra");
     if(extra) extra.style.display = totals.discount>0? "block":"none";
+    // the reason lives in "Sale details" (router.js): open it when a discount needs one
+    const details = container.querySelector("#saleDetailsBody");
+    if(details && totals.discount>0 && details.hidden){
+      details.hidden = false; window._saleDetailsOpen = true;
+      const t = container.querySelector("#saleDetailsToggle");
+      if(t){ t.setAttribute("aria-expanded","true"); const ch = t.querySelector(".chev"); if(ch) ch.textContent = "▴"; }
+    }
   }
   // Loose name match for the live voucher-eligibility preview while typing
   // in the cart's customer field — not the same lookup findOrCreateCustomer
@@ -362,13 +423,23 @@
   // (desktop/sales-desktop.js) — both already reuse pos.js's cart/checkout
   // logic rather than keeping their own copy, so this new panel follows the
   // same pattern instead of being written twice.
-  function splitTenderPanelHtml(){
+  // part (POS fixes, pinned Pay bar): "lines" = the payment lines (they
+  // scroll with the cart), "actions" = Remaining + Complete + Back (pinned);
+  // no part = both, as before.
+  function splitTenderPanelHtml(part){
     const remaining = splitRemaining();
     // Mirrors completeSale's own validation exactly (blank/zero/unconvertible
     // lines rejected, base-equivalent amounts must sum to the total) so
     // Complete Sale is only ever enabled when the click would actually
     // succeed.
     const ok = remaining===0 && splitLines.length>0 && splitLinesValid();
+    const actions = `
+        <div class="subline" id="splitRemainingLine" style="font-size:14px;font-weight:600;color:${remaining===0?"inherit":"var(--danger)"}">
+          <span>Remaining</span><span id="splitRemaining">${currency}${remaining.toFixed(2)}</span>
+        </div>
+        <button class="btn btn-primary" id="completeSplitSale" ${ok?"":"disabled"} style="margin-top:6px">Complete Sale</button>
+        <button class="btn btn-ghost btn-sm" id="cancelSplitTender" style="margin-top:8px">← Back to single payment method</button>`;
+    if(part==="actions") return `<div class="split-tender split-actions">${actions}</div>`;
     return `
       <div class="split-tender">
         ${splitLines.map((l,i)=>{
@@ -386,11 +457,7 @@
           <div class="muted" id="splitMsg-${i}" style="font-size:11px;margin-bottom:${text?"8px":"0"}${invalid?";color:var(--danger)":""}">${escapeHtml(text)}</div>`;
         }).join("")}
         <button class="btn btn-ghost btn-sm" id="addSplitLine" style="margin-bottom:10px">+ Add another payment method</button>
-        <div class="subline" id="splitRemainingLine" style="font-size:14px;font-weight:600;color:${remaining===0?"inherit":"var(--danger)"}">
-          <span>Remaining</span><span id="splitRemaining">${currency}${remaining.toFixed(2)}</span>
-        </div>
-        <button class="btn btn-primary" id="completeSplitSale" ${ok?"":"disabled"} style="margin-top:6px">Complete Sale</button>
-        <button class="btn btn-ghost btn-sm" id="cancelSplitTender" style="margin-top:8px">← Back to single payment method</button>
+        ${part==="lines"? "" : actions}
       </div>`;
   }
   // Patches only the values derived from splitLines (Remaining, Complete
@@ -538,7 +605,24 @@
     const phoneEl = inp? { value:inp.custPhone } : document.getElementById("custPhone");
     const custName = nameEl? nameEl.value.trim() : "";
     const custPhone = phoneEl? phoneEl.value.trim() : "";
-    if(lines.some(l=>l.method==="Credit") && !custName){ alert("Enter the customer's name for a credit sale"); return; }
+    // The customer is the one picked in the cart (customers.js combo). Text
+    // that exactly names one existing customer counts as picking them; any
+    // other text is a walk-in and is never saved as a new customer.
+    const pickedId = inp? inp.customerId : (cartCustomer? cartCustomer.id : null);
+    let customer = pickedId? one("SELECT * FROM customers WHERE id=?",[pickedId]) : null;
+    if(!customer && custName){
+      const same = all("SELECT * FROM customers WHERE lower(name)=lower(?)",[custName])
+        .filter(c=> !custPhone || normPhone(c.phone)===normPhone(custPhone) || c.phone===custPhone);
+      if(same.length===1) customer = same[0];
+    }
+    if(lines.some(l=>l.method==="Credit") && !customer){ alert("Pick the customer, or add them, for a credit sale."); return; }
+    const creditAmount = roundMoney(lines.filter(l=>l.method==="Credit").reduce((s,l)=>s+l.amount,0));
+    const overLimit = creditLimitCheck(customer, creditAmount);
+    if(overLimit){
+      if(typeof openCreditLimitModal==="function" && typeof document.createElement==="function") openCreditLimitModal(overLimit, ()=>completeSale(method, payments, stockPlan));
+      else alert(overLimit.text);
+      return;
+    }
 
     const reasonEl = inp? { value:inp.discountReason } : document.getElementById("discountReason");
     const approvedEl = inp? { value:inp.discountApprovedBy } : document.getElementById("discountApprovedBy");
@@ -574,7 +658,7 @@
     // sale is written only when that comes back (or from this till's allowance).
     if(!stockPlan && typeof sharedStockTill==="function" && sharedStockTill()){
       return sharedStockCheckout(cart.map(c=>({ product_id:c.product_id, qty:c.qty })), (plan)=>completeSale(method, payments, plan),
-        { custName, custPhone, discountReason, discountApprovedBy, paymentRef, docRef });
+        { custName, custPhone, customerId: customer? customer.id : null, discountReason, discountApprovedBy, paymentRef, docRef });
     }
     const voucherToRedeem = appliedVoucher;
     const ts = new Date().toISOString();
@@ -583,7 +667,8 @@
     let customerId, saleId, receiptNo, label, receiptItems, exchangeCn = null;
     if(exPlan) run("BEGIN");
     try{
-      customerId = custName? findOrCreateCustomer(custName, custPhone) : null;
+      customerId = customer? customer.id : null;
+      const priceLevel = cartPriceLevel();
       // markup/markup_reason are always written as 0/"" — cart-time markup
       // was removed (Remove Cart Markup Calculation task); the columns stay
       // in the schema only so historical rows keep whatever was charged
@@ -593,9 +678,9 @@
       // before, so receipt_no stays NULL there.
       // (getSetting first: an unregistered device never needs docnum.js here)
       receiptNo = getSetting("till_code","") && currentTillCode()? reserveDocNumber("RCT").text : null;
-      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo]);
+      run(`INSERT INTO sales(ts,subtotal,discount,total,method,customer_id,branch,discount_reason,discount_approved_by,discount_status,markup,markup_reason,payment_ref,user,voucher_amount,doc_ref,receipt_no,price_level)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo,priceLevel]);
       saleId = one("SELECT last_insert_rowid() as id").id;
       if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
       const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
@@ -609,11 +694,12 @@
       // for this sale always equals the `discount` written on the sales row
       // above, since both come from the same lineDiscount()/cartDiscountTotal()
       // calls (cartTotals() already ran before this loop).
-      receiptItems = cart.map(c=>({ product_id:c.product_id, name:c.name, price:c.price, qty:c.qty, discount:lineDiscount(c) }));
+      receiptItems = cart.map(c=>({ product_id:c.product_id, name:c.name, price:c.price, qty:c.qty, discount:lineDiscount(c),
+        level:c.level||"retail", retail_price:c.retail_price!=null? c.retail_price : c.price }));
       receiptItems.forEach(c=>{
         const prod = one("SELECT cost FROM products WHERE id=?",[c.product_id]);
-        run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount) VALUES(?,?,?,?,?,?,?)",
-          [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount]);
+        run("INSERT INTO sale_items(sale_id,product_id,name,price,qty,cost,discount,price_level,retail_price) VALUES(?,?,?,?,?,?,?,?,?)",
+          [saleId,c.product_id,c.name,c.price,c.qty,prod?prod.cost:0,c.discount,c.level,c.retail_price]);
         // shared-stock till: only the part of the line taken from this till's own allowance changes its stock
         const fromHere = stockPlan && Object.prototype.hasOwnProperty.call(stockPlan.alloc, c.product_id)? stockPlan.alloc[c.product_id] : c.qty;
         if(fromHere) moveStock({ productId:c.product_id, delta:-fromHere, kind:"sale", docType:"sale", docUid:saleUid, docNo:label, ts });
@@ -642,10 +728,10 @@
     logAudit("Sale", itemsSummary, `Receipt ${label} · ${currency}${total.toFixed(2)} · ${methodLabel}`);
     maybeIssueFrequentCustomerVoucher(customerId, branch, ts);
     persist();
-    window._lastReceipt = {saleId,receiptNo,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef};
+    window._lastReceipt = {saleId,receiptNo,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef,priceLevel:cartPriceLevel()};
     window._lastCreditNote = exchangeCn;   // only right after an exchange
     printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef, receiptNo);
-    cart = []; drawerOpen=false; appliedVoucher=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
+    cart = []; drawerOpen=false; appliedVoucher=null; cartCustomer=null; creditLimitApproval=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
     render();
   }
 

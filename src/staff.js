@@ -52,6 +52,8 @@
     } else if(!isEdit){
       throw new Error(pinProblem(""));
     }
+    // POS fixes: "Create customers" (Admins always can). Optional on an edit.
+    const canCust = o.can_create_customers===undefined? (existing? Number(existing.can_create_customers)||0 : 0) : (o.can_create_customers? 1 : 0);
     if(isEdit){
       // active is optional on an edit — a caller updating just the PIN (or
       // name/role) shouldn't have to know or repeat the current active
@@ -61,11 +63,14 @@
       // to unlock someone without a separate "unlock" button.
       run("UPDATE staff SET name=?, role=?, passcode=?, active=?, pin_hash=?, pin_salt=?, pin_fail_count=0, pin_locked_until='' WHERE id=?",
         [name,role,passcode,active,pin_hash,pin_salt,o.id]);
+      run("UPDATE staff SET can_create_customers=? WHERE id=?",[canCust, o.id]);
       return one("SELECT * FROM staff WHERE id=?",[o.id]);
     }
     run("INSERT INTO staff(name,role,passcode,branch,active,created_ts,pin_hash,pin_salt) VALUES(?,?,?,?,1,?,?,?)",
       [name,role,passcode,branch,new Date().toISOString(),pin_hash,pin_salt]);
-    return one("SELECT * FROM staff WHERE branch=? ORDER BY id DESC LIMIT 1",[branch]);
+    const added = one("SELECT * FROM staff WHERE branch=? ORDER BY id DESC LIMIT 1",[branch]);
+    run("UPDATE staff SET can_create_customers=? WHERE id=?",[canCust, added.id]);
+    return one("SELECT * FROM staff WHERE id=?",[added.id]);
   }
 
   function staffSectionHtml(){
@@ -85,7 +90,7 @@
           <div class="product-row">
             <div>
               <div class="pname">${escapeHtml(s.name)}${s.active? "" : ` <span class="pill low">inactive</span>`}</div>
-              <div class="pmeta">${escapeHtml(s.role)} · ${s.pin_hash? "PIN set" : "No PIN"}${locked? " · Locked out" : ""}</div>
+              <div class="pmeta">${escapeHtml(s.role)} · ${s.pin_hash? "PIN set" : "No PIN"}${s.role==="Admin" || Number(s.can_create_customers)===1? " · Creates customers" : ""}${locked? " · Locked out" : ""}</div>
             </div>
             <button class="btn btn-sm btn-outline" data-edit-staff="${s.id}" style="flex:none">Edit</button>
           </div>`;}).join("")}
@@ -107,6 +112,8 @@
       <label>Sign-in PIN (${PIN_MIN_LEN}-${PIN_MAX_LEN} digits)</label>
       <input class="field" id="stPin" type="password" inputmode="numeric" maxlength="${PIN_MAX_LEN}" placeholder="${existing && existing.pin_hash? "Leave blank to keep current PIN" : "e.g. 4821"}">
       <p class="muted" style="font-size:11px;margin-top:-4px">Used on the "Who's working today?" screen when Single operator mode is off.</p>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px"><input type="checkbox" id="stCanCust" ${existing && (existing.role==="Admin" || Number(existing.can_create_customers)===1)? "checked":""} style="width:auto;margin:0"> Can create customers</label>
+      <p class="muted" style="font-size:11px;margin-top:2px">Adds and edits customers, sets their type and credit limit, and sees their address and ID number. Admins always can.</p>
       ${isEdit? `<label style="display:flex;align-items:center;gap:8px;margin-top:14px"><input type="checkbox" id="stActive" ${existing.active? "checked":""} style="width:auto;margin:0"> Active</label>` : ""}
       <button class="btn btn-primary" id="stConfirm" style="margin-top:14px">${isEdit? "Save Changes" : "Add Staff"}</button>
     `);
@@ -119,6 +126,7 @@
           passcode: wrap.querySelector("#stPasscode").value,
           pin: wrap.querySelector("#stPin").value,
           active: isEdit? wrap.querySelector("#stActive").checked : true,
+          can_create_customers: wrap.querySelector("#stCanCust").checked,
         });
       }catch(e){ return alert(e.message||String(e)); }
       persist(); wrap.remove(); render();

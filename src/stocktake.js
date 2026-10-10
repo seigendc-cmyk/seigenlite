@@ -139,7 +139,7 @@
     const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[take.branch]);
     const counted = all("SELECT * FROM stocktake_counts WHERE stocktake_id=?",[take.id]);
     const countMap = {}; counted.forEach(c=> countMap[c.product_id]=c);
-    const results = rankProductsBySearch(products, stocktakeQuery);
+    const results = productSearch(products, stocktakeQuery);
     target.innerHTML = stocktakeCountingTableHtml(results, countMap);
     wireStocktakeCountInputs(target, take);
   }
@@ -148,7 +148,7 @@
     const products = all("SELECT * FROM products WHERE branch=? ORDER BY name",[branch]);
     const counted = all("SELECT * FROM stocktake_counts WHERE stocktake_id=?",[take.id]);
     const countMap = {}; counted.forEach(c=> countMap[c.product_id]=c);
-    const results = rankProductsBySearch(products, stocktakeQuery);
+    const results = productSearch(products, stocktakeQuery);
     main.innerHTML = `
       <h3>Stocktake — ${escapeHtml(take.branch)} — ${escapeHtml(take.start_date)}${take.end_date?` to ${escapeHtml(take.end_date)}`:""}</h3>
       <p class="muted">Team: ${escapeHtml(take.team_names||"—")} · Counted ${counted.length} of ${products.length}</p>

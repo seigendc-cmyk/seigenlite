@@ -1,16 +1,14 @@
 // Run: node --no-warnings test/stocktake-search.test.js
-// Stocktake Multi-Token Search Engine (rankProductsBySearch, src/utils.js).
-// Investigation finding (see summary): Stocktake's counting screen
-// (renderStocktakeCounting, src/stocktake.js) had NO search of any kind
-// before this task — it listed every branch product in one table. The
-// app's existing any-order matcher (matchesAnyOrder, used by pos.js's
-// searchProducts, products.js's filterProductsList, credit.js, help.js and
-// reports.js) is a plain include/exclude filter with no ranking, so it's
-// left completely unchanged here — rankProductsBySearch is new, reuses its
-// tokenization rule (searchTokens), and is Stocktake's own to start with.
-// These tests exercise it directly (a pure function over plain product
-// rows) — the real render/search-box wiring is covered separately in
-// test/stocktake-search-e2e.test.js.
+//
+// The product search matcher (productSearch / productMatches, src/utils.js),
+// shared by Stocktake, Sell (phone and desktop), Products and every product
+// picker (POS fixes, docs/pos/pos-fixes-design.md §4; owner decisions
+// 2026-10-10): EVERY term must match, in any order, ignoring case, across
+// name, SKU (the barcode) and the hidden search keywords. Words match the
+// start of a word; numbers match whole numbers only ("5" finds 5lt and 5 kg,
+// never 15lt, 50kg or 500ml); a number with a unit matches both together;
+// codes (letters + digits with punctuation, or 6+ digits) match the start of
+// the SKU or of a word.
 "use strict";
 const assert = require("assert");
 const { makeApp } = require("./harness");
@@ -26,138 +24,98 @@ function addProduct(app, o){
     [o.name, o.price==null?10:o.price, o.stock==null?5:o.stock, 3, "Boka", o.sku||"", o.description||""]);
   return app.api.one("SELECT * FROM products WHERE name=? AND sku=?",[o.name, o.sku||""]);
 }
+const names = (rows)=> JSON.parse(JSON.stringify(rows.map(p=>p.name)));
+function shop(){
+  const A = rig();
+  for(const p of [
+    { name:"Paint DURAN 5lt", sku:"PDU-5" }, { name:"Paint 15lt", sku:"P15" }, { name:"Paint 5 kg tub", sku:"P5KG" },
+    { name:"Paint Gloss 500ml", sku:"PG500" }, { name:"Cement 50kg", sku:"CEM50" }, { name:"Sugar 2kg", sku:"SUG2" },
+    { name:"Sugar 12kg", sku:"SUG12" }, { name:"Toyota Hilux 2015", sku:"HLX-2015" }, { name:"Toyota Corolla", sku:"COR" },
+    { name:"Rice 2.5kg", sku:"6001234567890" }, { name:"Brake Pad Set", sku:"BPS", description:"hilux spare" },
+    { name:"Hilux Spare Wheel", sku:"HSW" }, { name:"Primer 5ltr", sku:"PRM5" },
+  ]) addProduct(A, p);
+  return { A, products: A.api.all("SELECT * FROM products ORDER BY name") };
+}
 
 (async()=>{
-  // ================= word-order independence =================
-  await t("finds the same product regardless of typed word order (all four example variations)", ()=>{
-    const A = rig();
-    addProduct(A, { name:"Toyota Hilux 2015", sku:"HLX-2015" });
-    const products = A.api.all("SELECT * FROM products");
-    ["Toyota Hilux 2015", "2015 Hilux Toyota", "Hilux Toyota", "Toyota 2015 Hilux"].forEach(q=>{
-      const results = A.api.rankProductsBySearch(products, q);
-      assert.strictEqual(results.length, 1, `query "${q}" should find exactly one product`);
-      assert.strictEqual(results[0].name, "Toyota Hilux 2015", `query "${q}"`);
-    });
+  console.log("the owner's examples");
+  await t('"duran 5lt paint" finds "Paint DURAN 5lt"', ()=>{
+    const { A, products } = shop();
+    assert.deepStrictEqual(names(A.api.productSearch(products, "duran 5lt paint")), ["Paint DURAN 5lt"]);
+  });
+  await t('"5 paint" doesn\'t find "Paint 15lt" (or 500ml)', ()=>{
+    const { A, products } = shop();
+    assert.deepStrictEqual(names(A.api.productSearch(products, "5 paint")).sort(), ["Paint 5 kg tub", "Paint DURAN 5lt"]);
+  });
+  await t('"sugar 2" finds "Sugar 2kg" but not "Sugar 12kg"', ()=>{
+    const { A, products } = shop();
+    assert.deepStrictEqual(names(A.api.productSearch(products, "sugar 2")), ["Sugar 2kg"]);
   });
 
-  // ================= single-token / substring search =================
-  await t("a single token alone still finds the product ('Hilux' by itself)", ()=>{
-    const A = rig();
-    addProduct(A, { name:"Toyota Hilux 2015", sku:"HLX-2015" });
-    addProduct(A, { name:"Toyota Corolla 2018", sku:"COR-2018" });
-    const products = A.api.all("SELECT * FROM products");
-    const results = A.api.rankProductsBySearch(products, "Hilux");
-    assert.strictEqual(results.length, 1);
-    assert.strictEqual(results[0].name, "Toyota Hilux 2015");
+  console.log("words, numbers, units, codes");
+  await t("a word matches the start of any word, in any case: \"pai\" finds Paint; \"aint\" finds nothing", ()=>{
+    const { A, products } = shop();
+    assert.strictEqual(A.api.productSearch(products, "PAI").length, 4);
+    assert.strictEqual(A.api.productSearch(products, "aint").length, 0);
+  });
+  await t('"5" finds 5lt, 5 kg and 5ltr; never 15lt, 50kg or 500ml', ()=>{
+    const { A, products } = shop();
+    assert.deepStrictEqual(names(A.api.productSearch(products, "5")).sort(), ["Paint 5 kg tub", "Paint DURAN 5lt", "Primer 5ltr"]);
+  });
+  await t('a number with a unit matches both together: "5lt" finds 5lt and 5ltr, not 15lt and not 5 kg; "5kg" finds the 5 kg tub', ()=>{
+    const { A, products } = shop();
+    assert.deepStrictEqual(names(A.api.productSearch(products, "5lt")).sort(), ["Paint DURAN 5lt", "Primer 5ltr"]);
+    assert.deepStrictEqual(names(A.api.productSearch(products, "5kg")), ["Paint 5 kg tub"]);
+  });
+  await t("decimals are whole numbers too: \"2.5\" finds Rice 2.5kg, \"2\" doesn't", ()=>{
+    const { A, products } = shop();
+    assert.deepStrictEqual(names(A.api.productSearch(products, "2.5")), ["Rice 2.5kg"]);
+    assert.ok(!names(A.api.productSearch(products, "2")).includes("Rice 2.5kg"));
+  });
+  await t("a code matches the start of the SKU: \"HLX-2015\", \"hlx2015\" and a barcode's first 6+ digits", ()=>{
+    const { A, products } = shop();
+    assert.deepStrictEqual(names(A.api.productSearch(products, "HLX-2015")), ["Toyota Hilux 2015"]);
+    assert.deepStrictEqual(names(A.api.productSearch(products, "hlx2015")), ["Toyota Hilux 2015"]);
+    assert.deepStrictEqual(names(A.api.productSearch(products, "600123")), ["Rice 2.5kg"]);
+    assert.deepStrictEqual(names(A.api.productSearch(products, "6001234567890")), ["Rice 2.5kg"]);
+  });
+  await t("every term must match (no partial matches any more), in any typed order", ()=>{
+    const { A, products } = shop();
+    for(const q of ["Toyota Hilux 2015", "2015 Hilux Toyota", "hilux toyota", "toy 2015"])
+      assert.deepStrictEqual(names(A.api.productSearch(products, q)), ["Toyota Hilux 2015"], q);
+    assert.strictEqual(A.api.productSearch(products, "toyota navara").length, 0);
+  });
+  await t("the hidden search keywords count; name/SKU matches come first", ()=>{
+    const { A, products } = shop();
+    assert.deepStrictEqual(names(A.api.productSearch(products, "hilux spare")), ["Hilux Spare Wheel", "Brake Pad Set"]);
+  });
+  await t("a name that starts with the first word comes first", ()=>{
+    const { A, products } = shop();
+    assert.strictEqual(names(A.api.productSearch(products, "sugar"))[0], "Sugar 12kg");   // both start with it: the given (alphabetical) order
+    assert.deepStrictEqual(names(A.api.productSearch(products, "wheel spare")), ["Hilux Spare Wheel"]);
+  });
+  await t("an empty or blank query returns everything, in the given order", ()=>{
+    const { A, products } = shop();
+    assert.strictEqual(A.api.productSearch(products, "   ").length, products.length);
+    assert.ok(A.api.productMatches("", products[0]));
   });
 
-  // ================= SKU-only search =================
-  await t("searching by SKU alone finds the product even when no typed token appears in the name", ()=>{
-    const A = rig();
-    addProduct(A, { name:"Toyota Hilux 2015", sku:"HLX-2015" });
-    addProduct(A, { name:"Toyota Corolla 2018", sku:"COR-2018" });
-    const products = A.api.all("SELECT * FROM products");
-    const results = A.api.rankProductsBySearch(products, "HLX-2015");
-    assert.strictEqual(results.length, 1);
-    assert.strictEqual(results[0].sku, "HLX-2015");
+  console.log("used everywhere products are searched");
+  await t("Sell (searchProducts) and Products use the same matcher", ()=>{
+    const { A } = shop();
+    assert.deepStrictEqual(names(A.api.searchProducts("5 paint", "Boka")).sort(), ["Paint 5 kg tub", "Paint DURAN 5lt"]);
+    const src = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "products.js"), "utf8");
+    assert.ok(/return productSearch\(products, query\);/.test(src));
+    const st = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "stocktake.js"), "utf8");
+    assert.strictEqual((st.match(/productSearch\(products, stocktakeQuery\)/g)||[]).length, 2, "both Stocktake renders");
+  });
+  await t("searching never modifies any product", ()=>{
+    const { A, products } = shop();
+    const before = JSON.stringify(A.api.all("SELECT * FROM products"));
+    A.api.productSearch(products, "toyota hilux 2015"); A.api.productSearch(products, "zz 9"); A.api.productSearch(products, "");
+    assert.strictEqual(JSON.stringify(A.api.all("SELECT * FROM products")), before);
   });
 
-  // ================= mixed-case =================
-  await t("mixed-case queries match regardless of the case typed or stored", ()=>{
-    const A = rig();
-    addProduct(A, { name:"Toyota Hilux 2015", sku:"HLX-2015" });
-    const products = A.api.all("SELECT * FROM products");
-    ["TOYOTA HILUX", "toyota hilux", "ToYoTa HiLuX"].forEach(q=>{
-      const results = A.api.rankProductsBySearch(products, q);
-      assert.strictEqual(results.length, 1, `query "${q}"`);
-    });
-  });
-
-  // ================= whitespace tolerance =================
-  await t("extra/duplicate spaces between tokens are ignored", ()=>{
-    const A = rig();
-    addProduct(A, { name:"Toyota Hilux 2015", sku:"HLX-2015" });
-    const products = A.api.all("SELECT * FROM products");
-    const results = A.api.rankProductsBySearch(products, "  Toyota    Hilux   ");
-    assert.strictEqual(results.length, 1);
-  });
-
-  // ================= ranking by token-match count =================
-  await t("multiple similar products are ranked with more matching tokens first", ()=>{
-    const A = rig();
-    // 3/3 tokens
-    addProduct(A, { name:"Toyota Hilux 2015" });
-    // 2/3 tokens (Toyota Hilux, different year)
-    addProduct(A, { name:"Toyota Hilux 2010" });
-    // 1/3 tokens (Toyota only)
-    addProduct(A, { name:"Toyota Corolla" });
-    // 0/3 tokens
-    addProduct(A, { name:"Nissan Navara" });
-    const products = A.api.all("SELECT * FROM products");
-    const results = A.api.rankProductsBySearch(products, "Toyota Hilux 2015");
-    assert.strictEqual(results.length, 3, "the 0-token match (Nissan Navara) is excluded entirely");
-    // JSON round-trip: objects returned from the vm-sandboxed app live in a
-    // different realm, so deepStrictEqual's prototype check fails on
-    // otherwise-identical plain arrays/strings — a harness quirk, not app logic.
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(results.map(p=>p.name))), ["Toyota Hilux 2015", "Toyota Hilux 2010", "Toyota Corolla"]);
-  });
-
-  await t("equal token-match counts are broken by preferring name/SKU matches over description-only matches", ()=>{
-    const A = rig();
-    // token "spare" matches only in description
-    addProduct(A, { name:"Brake Pad Set", description:"spare part for Hilux" });
-    // token "spare" matches in the name itself
-    addProduct(A, { name:"Hilux Spare Wheel", description:"" });
-    const products = A.api.all("SELECT * FROM products");
-    const results = A.api.rankProductsBySearch(products, "Hilux spare");
-    assert.strictEqual(results.length, 2);
-    assert.strictEqual(results[0].name, "Hilux Spare Wheel", "both matched 2 tokens, but this one matched 'spare' in the NAME, not just description");
-    assert.strictEqual(results[1].name, "Brake Pad Set");
-  });
-
-  // ================= empty query =================
-  await t("an empty (or whitespace-only) query returns every product, unranked/unfiltered", ()=>{
-    const A = rig();
-    addProduct(A, { name:"Toyota Hilux" });
-    addProduct(A, { name:"Nissan Navara" });
-    const products = A.api.all("SELECT * FROM products");
-    assert.strictEqual(A.api.rankProductsBySearch(products, "").length, 2);
-    assert.strictEqual(A.api.rankProductsBySearch(products, "   ").length, 2);
-  });
-
-  // ================= read-only: never mutates data =================
-  await t("searching never modifies stock quantity or any other product field", ()=>{
-    const A = rig();
-    const rice = addProduct(A, { name:"Toyota Hilux 2015", sku:"HLX-2015", stock:7 });
-    const before = A.api.one("SELECT * FROM products WHERE id=?",[rice.id]);
-    const products = A.api.all("SELECT * FROM products");
-    A.api.rankProductsBySearch(products, "toyota hilux 2015");
-    A.api.rankProductsBySearch(products, "nonexistent query xyz");
-    A.api.rankProductsBySearch(products, "");
-    const after = A.api.one("SELECT * FROM products WHERE id=?",[rice.id]);
-    assert.deepStrictEqual(after, before, "byte-for-byte unchanged by any amount of searching");
-  });
-
-  // ================= performance sanity check =================
-  await t("stays fast against a few hundred products (no obviously slow per-keystroke pattern)", ()=>{
-    const A = rig();
-    for(let i=0;i<400;i++){
-      A.api.run("INSERT INTO products(name,price,stock,low_threshold,branch,sku,description) VALUES(?,?,?,?,?,?,?)",
-        [`Product ${i} Widget`, 10, 5, 3, "Boka", `SKU-${i}`, `generic widget number ${i}`]);
-    }
-    addProduct(A, { name:"Toyota Hilux 2015", sku:"HLX-2015" });
-    const products = A.api.all("SELECT * FROM products");
-    assert.ok(products.length>=400);
-    const start = Date.now();
-    // Simulates several rapid keystrokes' worth of re-searches in a row —
-    // the actual per-keystroke pattern renderStocktakeCountingListOnly() uses.
-    for(const q of ["t","to","toy","toyo","toyot","toyota","toyota h","toyota hi","toyota hilux"]){
-      A.api.rankProductsBySearch(products, q);
-    }
-    const elapsed = Date.now()-start;
-    assert.ok(elapsed<500, `9 searches over ${products.length} products took ${elapsed}ms — too slow for per-keystroke use`);
-  });
-
-  console.log("\n"+passed+" passed, "+failed+" failed");
-  process.exit(failed?1:0);
+  console.log(`\n${passed} passed, ${failed} failed`);
+  process.exit(failed? 1 : 0);
 })();

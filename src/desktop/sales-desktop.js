@@ -137,43 +137,34 @@
     const exchangeOn = typeof exchangePending==="function" && !!exchangePending();   // Phase 3c
     return `
       <div class="ds-cart-head">Cart</div>
-      <div class="ds-cart-body">
+      <div class="ds-cart-body" id="dsCartBody">
         ${cart.map(c=>`
           <div class="ds-cart-item">
             <div style="flex:1;min-width:0">
               <div class="ds-ci-name">${escapeHtml(c.name)}</div>
-              <div class="ds-ci-price">${currency}${c.price.toFixed(2)} each</div>
+              <div class="ds-ci-price">${currency}${c.price.toFixed(2)} each${c.level==="wholesale"? ` <span class="pill warn">Wholesale</span>` : ""}</div>
               <div class="row" style="margin-top:4px;align-items:center;gap:6px">
                 <label class="muted" style="flex:none;font-size:11px">Discount ${currency}</label>
                 <input class="field" style="flex:0.7;padding:6px 8px" type="number" step="0.01" min="0" placeholder="0.00" data-line-discount="${c.product_id}" value="${escapeHtml(String(c.discount||''))}">
               </div>
             </div>
             <div class="ds-qty-ctl">
-              <button data-dec="${c.product_id}">−</button>
+              <button data-dec="${c.product_id}" aria-label="One less">−</button>
               <span>${c.qty}</span>
-              <button data-inc="${c.product_id}">+</button>
+              <button data-inc="${c.product_id}" aria-label="One more">+</button>
             </div>
           </div>`).join("")}
-      </div>
-      <div class="ds-cart-foot">
-        <div id="discountExtra" style="display:${cartDiscountTotal()>0?'block':'none'}">
-          <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Reason for discount</label>
-          <input class="field" id="discountReason" placeholder="e.g. Bulk purchase" value="${window._discountReasonVal||''}" style="margin-bottom:8px">
-          <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Approved by (leave blank if pending)</label>
-          <input class="field" id="discountApprovedBy" placeholder="Approver's name" value="${window._discountApprovedVal||''}" style="margin-bottom:10px">
-        </div>
-        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Customer name (required for Credit)</label>
-        <input class="field" id="custName" placeholder="e.g. Tendai Moyo" value="${window._custNameVal||""}" style="margin-bottom:8px">
-        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Payment reference (EcoCash/Bank)</label>
-        <input class="field" id="paymentRef" placeholder="Transaction reference" value="${window._paymentRefVal||""}" style="margin-bottom:8px">
-        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px">Document Reference No. (optional)</label>
-        <input class="field" id="docRef" maxlength="40" placeholder="e.g. PO, delivery note or invoice no." value="${escapeHtml(window._docRefVal||"")}" style="margin-bottom:10px">
-        <div id="voucherBox"></div>
+        ${saleDetailsHtml()}
         ${typeof exchangeCartHtml==="function"? exchangeCartHtml() : ""}
+        ${splitTender && !(exchangeOn && cart.length && cartTotal()<=0)? splitTenderPanelHtml("lines") : ""}
+      </div>
+      <div class="ds-cart-foot pay-bar">
+        ${customerComboHtml()}
+        <div id="voucherBox"></div>
         <div class="ds-subline"><span>Subtotal</span><span>${currency}${subtotal.toFixed(2)}</span></div>
-        <div class="ds-totalline"><span>${exchangeOn? "To pay" : "Total"}</span><span id="dsTotal">${currency}${cartTotal().toFixed(2)}</span></div>
+        <div class="ds-totalline"><span>${exchangeOn? "To pay" : "Total"}${cartPriceLevel()==="wholesale"? ` <span class="pill warn">Wholesale prices</span>` : ""}</span><span id="dsTotal">${currency}${cartTotal().toFixed(2)}</span></div>
         ${fxPreviewHtml()}
-        ${exchangeOn && cart.length && cartTotal()<=0? `<button class="btn btn-primary" id="payExchange" style="width:100%">Complete exchange</button>` : splitTender? splitTenderPanelHtml() : `
+        ${exchangeOn && cart.length && cartTotal()<=0? `<button class="btn btn-primary" id="payExchange" style="width:100%">Complete exchange</button>` : splitTender? splitTenderPanelHtml("actions") : `
         ${quickTapCurrencySelectorHtml()}
         <div class="ds-pay-grid">
           <button class="btn btn-primary" id="dsPayCash">Cash</button>
@@ -190,12 +181,13 @@
     wireShiftBlockBanner();
     wireDcMessagesBanner();
     const search = document.getElementById("dsSearch");
-    search.oninput = (e)=>{ searchQuery = e.target.value; refreshDesktopRows(); };
+    search.oninput = (e)=>{ searchQuery = e.target.value; window._dsListScroll = 0; const l = main.querySelector(".ds-main"); if(l) l.scrollTop = 0; refreshDesktopRows(); };
     main.querySelectorAll("[data-cat]").forEach(b=>{
       b.onclick = ()=>{ desktopCategory = b.dataset.cat; renderPOSDesktop(main); };
     });
     wireDesktopRowActions(document.getElementById("dsRows"));
     wireDesktopCartActions(main);
+    keepDesktopScroll(main);
   }
   function refreshDesktopRows(){
     const tbody = document.getElementById("dsRows");
@@ -220,37 +212,28 @@
     main.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.dec,-1));
     const cartAside = main.querySelector(".ds-cart");
     wireLineDiscountInputs(cartAside);
-    const dr = document.getElementById("discountReason");
-    if(dr) dr.oninput = (e)=>{ window._discountReasonVal = e.target.value; };
-    const dab = document.getElementById("discountApprovedBy");
-    if(dab) dab.oninput = (e)=>{ window._discountApprovedVal = e.target.value; };
-    const cn = document.getElementById("custName");
-    if(cn) cn.oninput = (e)=>{ window._custNameVal = e.target.value; renderVoucherBox(); };
+    // POS fixes: the same Sale details, customer combo and pay buttons as the phone cart
+    wireSaleDetails(cartAside);
+    wireCustomerCombo(cartAside, ()=>renderPOSDesktop(main));
     // Phase 3c: vouchers (store credit from a return) and the exchange credit, as in the phone cart
     renderVoucherBox();
     if(typeof wireExchangeCart==="function") wireExchangeCart(cartAside, ()=>renderPOSDesktop(main));
     const lastCn = document.getElementById("lastCnBtn");
     if(lastCn) lastCn.onclick = ()=>openCreditNoteModal(window._lastCreditNote.id);
-    const pr = document.getElementById("paymentRef");
-    if(pr) pr.oninput = (e)=>{ window._paymentRefVal = e.target.value; };
-    const drf = document.getElementById("docRef");
-    if(drf) drf.oninput = (e)=>{ window._docRefVal = e.target.value; };
-    const resetTemp = ()=>{ window._custNameVal=""; window._paymentRefVal=""; window._docRefVal="";
-      window._discountReasonVal=""; window._discountApprovedVal=""; };
     wireFxPreview(cartAside, ()=>renderPOSDesktop(main));
     if(splitTender){
-      wireSplitTenderPanel(cartAside, ()=>renderPOSDesktop(main), (payments)=>{ completeSale(null, payments); resetTemp(); });
+      wireSplitTenderPanel(cartAside, ()=>renderPOSDesktop(main), (payments)=>{ completeSale(null, payments); resetCheckoutFields(); });
     } else {
       wireQuickTapCurrencySelector(cartAside, ()=>renderPOSDesktop(main));
       const startSplit = document.getElementById("dsStartSplitTender");
       if(startSplit) startSplit.onclick = ()=>{ startSplitTender(); renderPOSDesktop(main); };
-      const cash = document.getElementById("dsPayCash");
-      const eco = document.getElementById("dsPayEcocash");
-      const bank = document.getElementById("dsPayBank");
-      const credit = document.getElementById("dsPayCredit");
-      if(cash) cash.onclick = ()=>{ completeSale("Cash", quickTapPayments("Cash")); resetTemp(); };
-      if(eco) eco.onclick = ()=>{ completeSale("EcoCash", quickTapPayments("EcoCash")); resetTemp(); };
-      if(bank) bank.onclick = ()=>{ completeSale("Bank", quickTapPayments("Bank")); resetTemp(); };
-      if(credit) credit.onclick = ()=>{ completeSale("Credit", quickTapPayments("Credit")); resetTemp(); };
+      wirePayButtons(cartAside, { cash:"#dsPayCash", eco:"#dsPayEcocash", bank:"#dsPayBank", credit:"#dsPayCredit" }, ()=>renderPOSDesktop(main));
     }
+  }
+  // The product list and the cart each scroll on their own; a re-render (any
+  // add, qty or customer change rebuilds this screen) keeps both where they were.
+  function keepDesktopScroll(main){
+    const list = main.querySelector(".ds-main"), body = main.querySelector("#dsCartBody");
+    if(list){ list.scrollTop = window._dsListScroll||0; list.onscroll = ()=>{ window._dsListScroll = list.scrollTop; }; }
+    if(body){ body.scrollTop = window._dsCartScroll||0; body.onscroll = ()=>{ window._dsCartScroll = body.scrollTop; }; }
   }

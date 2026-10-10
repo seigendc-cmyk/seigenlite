@@ -44,6 +44,9 @@ function sell(A, lines, method, f){
   f = f||{};
   A.api.setCart(lines.map(([sku,qty,disc])=>{ const p = P(A,sku); return { product_id:p.id, name:p.name, price:p.price, qty, stock:p.stock, discount:disc||0 }; }));
   ["custName","custPhone","paymentRef","discountReason","docRef"].forEach(k=>A.setField(k, ""));
+  // POS fixes: a credit customer must already exist (a typed new name is a walk-in)
+  if(f.cust && !A.api.one("SELECT id FROM customers WHERE name=?",[f.cust]))
+    A.api.run("INSERT INTO customers(name,phone,branch) VALUES(?,?,?)",[f.cust, f.phone||"", A.api.currentBranch()]);
   if(f.cust) A.setField("custName", f.cust);
   if(f.phone) A.setField("custPhone", f.phone);
   if(f.ref) A.setField("paymentRef", f.ref);

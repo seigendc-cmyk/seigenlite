@@ -122,6 +122,7 @@ const SCRIPT_ORDER = [
   "grv-import.js",
   "import.js",
   "credit.js",
+  "customers.js",
   "currencies.js",
   "eod.js",
   "returns.js",

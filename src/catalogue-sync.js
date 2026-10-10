@@ -99,6 +99,7 @@
            VALUES(?,?,0,?,?,?,'',?,?,?,?,?,?,?,1,?,?,?)`,
         [r.name, price, r.low_threshold==null?5:r.low_threshold, r.code||"", catBranch(), cost||0, new Date().toISOString(),
          r.description||"", r.shelf||"", r.category||"", r.uid, r.seq, r.image_hash||null, r.image_bytes||0, catRound(Number(r.price)||0)]);
+      catApplyWholesale(r, one("SELECT last_insert_rowid() AS id").id);
       return "added";
     }
     const price = catPricePending(r.uid)? p.price : catEffectivePrice(r.price, r.uid);
@@ -106,7 +107,15 @@
            active=?, image_hash=?, image_bytes=?, cat_uid=?, cat_seq=?, cat_main_price=? WHERE id=?`,
       [r.name, r.code||"", r.description||"", r.category||"", r.shelf||"", r.low_threshold==null?5:r.low_threshold, price, cost,
        r.active?1:0, r.image_hash||null, r.image_bytes||0, r.uid, r.seq, catRound(Number(r.price)||0), p.id]);
+    catApplyWholesale(r, p.id);
     return "updated";
+  }
+  // POS fixes: main's wholesale price applies at every till (no per-branch
+  // wholesale price). Only a server that sends the key (20261018180000) changes it.
+  function catApplyWholesale(r, id){
+    if(!Object.prototype.hasOwnProperty.call(r, "wholesale_price")) return;
+    const w = r.wholesale_price==null? null : catRound(Number(r.wholesale_price)||0);
+    run("UPDATE products SET wholesale_price=?, cat_main_wholesale=? WHERE id=?",[w, w, id]);
   }
   function catApplyBranchPrice(r){
     run(`INSERT INTO cat_branch_prices(cat_uid,price,seq) VALUES(?,?,?)
@@ -178,7 +187,8 @@
         if(!p.cat_op){ p.cat_op = catNewOp(); run("UPDATE products SET cat_op=? WHERE id=?",[p.cat_op, p.id]); }
         const row = { uid:p.cat_uid, op_id:p.cat_op, code:p.sku||"", name:p.name, description:p.description||"", category:p.category||"",
           shelf:p.shelf||"", price:catRound(Number(p.price)||0), cost:catRound(Number(p.cost)||0), low_threshold:p.low_threshold==null?5:p.low_threshold,
-          active:p.active!==0, base_seq:p.cat_seq||null, image_hash:null };
+          active:p.active!==0, base_seq:p.cat_seq||null, image_hash:null,
+          wholesale_price: p.wholesale_price==null || p.wholesale_price===""? null : catRound(Number(p.wholesale_price)||0) };
         if(p.image){
           let thumb = null; try{ thumb = await catThumbFor(p); }catch(e){}
           if(thumb){
