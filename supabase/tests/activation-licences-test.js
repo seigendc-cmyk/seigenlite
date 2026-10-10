@@ -37,7 +37,7 @@ const b64url = (s) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base
 (async () => {
   const { importSigningKey, signPayloadHex } = await import('../functions/issue-licence/sign.mjs');
   const pg = await newPglite();
-  const skip = NOT_ON_LIVE_FILES.concat([FILE, '20261011120000_ledger_credits.sql', '20261012120000_payment_reversal_and_duplicate_guards.sql', '20261013120000_price_plans.sql', '20261014120000_vendor_delete_guard.sql', '20261015120000_rpn_commissions.sql', '20261016120000_market_publishing.sql', '20261017120000_dispatch_grv.sql']);   // the shape just before this migration (it and the later ones are on live now)
+  const skip = NOT_ON_LIVE_FILES.concat([FILE, '20261011120000_ledger_credits.sql', '20261012120000_payment_reversal_and_duplicate_guards.sql', '20261013120000_price_plans.sql', '20261014120000_vendor_delete_guard.sql', '20261015120000_rpn_commissions.sql', '20261016120000_market_publishing.sql', '20261017120000_dispatch_grv.sql', '20261018120000_supplier_grv.sql']);   // the shape just before this migration (it and the later ones are on live now)
   await buildFromRepo(pg, { skip });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
