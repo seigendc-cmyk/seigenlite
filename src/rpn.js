@@ -138,6 +138,9 @@
   // check-in, at most once an hour, and only for a registered device.
   async function refreshRpnStatus(force){
     if(typeof terminalRpc!=="function" || !getSetting("secret_phrase","").trim()) return;
+    // only a device the server knows: a check-in that came back without a
+    // vendor ID (an unregistered device) would just be refused
+    if(!getSetting("dc_vendor_id","")) return;
     const last = Date.parse(getSetting("rpn_status_ts","")||"") || 0;
     if(!force && Date.now() - last < 3600000) return;
     const r = await terminalRpc("cl_device_rpn_status", terminalAuth());

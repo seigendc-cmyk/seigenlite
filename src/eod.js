@@ -214,20 +214,20 @@
     return { time:hwm, anomaly:null }; // not newer than the watermark (e.g. trivial negative drift from a trusted source) — keep it, no anomaly
   }
 
-  // Attempts a server-corroborated timestamp using the exact same fetch()
-  // call this app already makes for Supabase (sync.js's supabaseInsert) —
-  // the only outbound network mechanism it has. Reads the response's Date
-  // header, which every HTTP server sends, including Supabase's own
-  // gateway. Real, plainly-stated limitation: a cross-origin fetch()'s
-  // response headers are only readable in a browser if the server opts in
-  // via Access-Control-Expose-Headers, which most gateways (Supabase's
-  // included, by default) do not do for the Date header — so in practice
-  // this often returns null, and the app correctly falls back to the local
-  // high-water-mark below. It's still the right thing to attempt (it costs
-  // nothing when it fails). It reuses cloud sync's Supabase project (built
-  // in — see getSupabaseConfig in sync.js) rather than inventing a new
-  // server to ask. Bounded by a short
-  // timeout so a hung request can never delay boot.
+  // A server-corroborated timestamp from the app's own Supabase project
+  // (getSupabaseConfig in sync.js): cl_server_time (20261020120000) answers
+  // now() in the response BODY, which a browser can read. (Until 2026-10-13
+  // this read the Date header of a bare HEAD request instead, but a browser
+  // may not read that header across origins, so in the phone and browser
+  // app it always came back empty.) If the body has no time (the function
+  // isn't on the server yet, or an older server), the Date header is still
+  // tried, which works where headers are readable. Either way, no answer
+  // means the app falls back to the local high-water mark below. Bounded by
+  // a short timeout so a hung request can never delay boot.
+  function netTimeFrom(v){
+    const d = v? new Date(v) : null;
+    return d && !isNaN(d.getTime())? d : null;
+  }
   async function fetchNetworkTime(){
     if(!isOnline()) return null;
     const cfg = getSupabaseConfig();
@@ -236,11 +236,12 @@
     try{
       const ctrl = (typeof AbortController!=="undefined")? new AbortController() : null;
       if(ctrl) timer = setTimeout(()=>ctrl.abort(), NETWORK_TIME_TIMEOUT_MS);
-      const res = await fetch(cfg.url.replace(/\/+$/,"")+"/rest/v1/", { method:"HEAD", cache:"no-store", signal: ctrl? ctrl.signal : undefined });
-      const hdr = (res && res.headers && res.headers.get)? res.headers.get("date") : null;
-      if(!hdr) return null;
-      const d = new Date(hdr);
-      return isNaN(d.getTime())? null : d;
+      const res = await fetch(cfg.url.replace(/\/+$/,"")+"/rest/v1/rpc/cl_server_time", { method:"POST", cache:"no-store",
+        headers:{ "apikey": cfg.anonKey, "Content-Type":"application/json" }, body:"{}", signal: ctrl? ctrl.signal : undefined });
+      if(res && res.ok){
+        try{ const fromBody = netTimeFrom(((await res.json())||{}).now); if(fromBody) return fromBody; }catch(e){}
+      }
+      return netTimeFrom((res && res.headers && res.headers.get)? res.headers.get("date") : null);
     }catch(e){ return null; }
     finally{ if(timer) clearTimeout(timer); }
   }

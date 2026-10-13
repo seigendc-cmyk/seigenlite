@@ -28,7 +28,7 @@ const hex = () => crypto.randomBytes(16).toString('hex');
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });   // the shape just before this migration (it is on live now)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261019120000_trial_rules.sql', '20261020120000_server_time.sql']) });   // the shape just before this migration (it is on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   async function as(claims, sql, p) {

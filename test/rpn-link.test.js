@@ -146,8 +146,14 @@ function fakeServer(A, o){
     assert.match(A.api.rpnLinkState().message, /Finish registering this device first/);
   });
 
+  await t("no vendor ID yet (the server hasn't registered this device): the RPN status isn't asked for", async ()=>{
+    const A = rig(); const S = fakeServer(A, { linked:{ rpn_name:"Rudo", field_force_no:"RPN-015" } });
+    await A.api.refreshRpnStatus(true);
+    assert.strictEqual(S.calls.filter(c=>c.name==="cl_device_rpn_status").length, 0);
+  });
+
   await t("linked by Digital Commerce (staff assigned it): About picks it up from the server", async ()=>{
-    const A = rig(); fakeServer(A, { linked:{ rpn_name:"Rudo", field_force_no:"RPN-015" } });
+    const A = rig({ dc_vendor_id:"v1" }); fakeServer(A, { linked:{ rpn_name:"Rudo", field_force_no:"RPN-015" } });
     assert.strictEqual(A.api.rpnOnboardedByText(), "");
     await A.api.refreshRpnStatus(true);
     assert.strictEqual(A.api.rpnOnboardedByText(), "Onboarded by: Rudo (RPN-015)");

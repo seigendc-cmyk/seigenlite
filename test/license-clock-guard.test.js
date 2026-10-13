@@ -211,6 +211,31 @@ function licensedRig(installIso, untilIso){
     assert.strictEqual(A.api.all("SELECT * FROM audit_log WHERE action LIKE 'Clock anomaly:%'").length, 0);
   });
 
+  await t("the server time comes from cl_server_time's BODY (readable by a browser across origins), with the app's key, and wins over a Date header", async ()=>{
+    const A = licensedRig("2026-09-01T08:00:00Z","2027-06-01T08:00:00Z");
+    A.api.setSetting("supabase_url","https://example.supabase.co"); A.api.setSetting("supabase_anon_key","anon-key");
+    await A.api.establishTrustedTime(D("2026-09-05T08:00:00Z"));
+    const serverNow = "2026-12-21T09:30:00.000Z";
+    let call = null;
+    A.hook("fetch", async (url, opts)=>{ call = { url, opts }; return { ok:true, json: async ()=>({ now: serverNow }),
+      headers:{ get:(h)=> h.toLowerCase()==="date"? new Date("2030-01-01T00:00:00Z").toUTCString() : null } }; });
+    const check = await A.api.establishTrustedTime(D("2026-12-21T09:31:00Z"));
+    assert.strictEqual(check.anomaly, null);
+    assert.strictEqual(A.api.trustedTimeHwm().toISOString(), serverNow, "the body's time, not the header's");
+    assert.match(call.url, /\/rest\/v1\/rpc\/cl_server_time$/);
+    assert.strictEqual(call.opts.method, "POST");
+    assert.strictEqual(call.opts.headers.apikey, "anon-key", "sent with the configured key (the built-in anon key in the builds): no more 401s");
+  });
+  await t("before cl_server_time is on the server (404): no time from it, the app keeps its watermark", async ()=>{
+    const A = licensedRig("2026-09-01T08:00:00Z","2026-10-01T08:00:00Z");
+    A.api.setSetting("supabase_url","https://example.supabase.co"); A.api.setSetting("supabase_anon_key","anon-key");
+    await A.api.establishTrustedTime(D("2026-09-05T08:00:00Z"));
+    A.hook("fetch", async ()=> ({ ok:false, status:404, json: async ()=>({ message:"not found" }), headers:{ get:()=> null } }));
+    const check = await A.api.establishTrustedTime(D("2026-09-05T09:00:00Z"));
+    assert.strictEqual(check.anomaly, null);
+    assert.strictEqual(A.api.trustedTimeHwm().toISOString(), "2026-09-05T09:00:00.000Z", "the device clock, as before");
+  });
+
   // ================= network time is a best-effort convenience, never a hard requirement =================
   await t("without Supabase configured (no server call to reuse) or when the network call fails, the app falls back to the local watermark without throwing", async ()=>{
     const A = licensedRig("2026-09-01T08:00:00Z","2026-10-01T08:00:00Z");
