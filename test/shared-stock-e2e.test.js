@@ -16,6 +16,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { activateForTest, passJoinTrialScreen } = require("./test-activation");
 const { LIVE_STUB } = require("../supabase/tests/live-stub");
 
 let chromium;
@@ -129,8 +130,9 @@ const server = async (code)=> (await sq(`select bs.total, bs.available from cl_b
     A = await device(browser, "desktop");
     const p = A.page;
     await p.fill("#setShop", "Gentronix"); await p.fill("#setBranch", "Harare"); await p.fill("#setSecret", "Gold Leaf 42");
-    await p.click("#setupNext"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
+    await p.click("#setupNext"); await p.fill("#setOwnerPhone", "0771234567"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
     await p.waitForSelector("[data-route]");
+    await activateForTest(p);   // trial rules: set up without the trial = no selling
     await addProduct(A, { name:"Rice 2kg", sku:"RICE", price:10, stock:30 });
     await addProduct(A, { name:"Sugar 1kg", sku:"SUG", price:4, stock:1 });
     await openSettings(A);
@@ -150,7 +152,7 @@ const server = async (code)=> (await sq(`select bs.total, bs.available from cl_b
     await B.page.click("#setJoinBtn"); await B.page.waitForSelector("#setJoinCode");
     await B.page.fill("#setSecret", "Gold Leaf 42"); await B.page.fill("#setJoinCode", code.code);
     await B.page.click("#setupJoin");
-    await B.page.waitForSelector("[data-route]", { timeout:20000 });
+    await passJoinTrialScreen(B.page); await activateForTest(B.page);   // trial rules: the till asks for the business trial (cover) and shows the answer (none here), then an activation
     await nav(B, "products");
     await waitFor(async()=> /Rice 2kg/.test(await B.page.textContent("#productsTableArea")), "products on T2", 30000);
     assert.match(await B.page.textContent(".till-stock-note"), /This till has no stock yet/, "while the branch is local, T2 has no stock");

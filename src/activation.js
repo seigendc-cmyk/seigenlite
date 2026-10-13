@@ -5,12 +5,17 @@
   //   licence  a licence string signed by seiGEN (Ed25519), bound to this
   //            device, not yet expired. Checked fully offline with the public
   //            key(s) below and the vendored TweetNaCl (src/vendor/).
-  //   trial    30 days from the EARLIEST of: install date, first sale, first
-  //            stock movement, first product created (so a reinstall + restore
-  //            of an old backup gives no new trial). Never signed.
+  //   trial    a licence like the above with the trial flag (bit 4), granted
+  //            by seiGEN at setup (issue-trial: online, an RPN, the owner's
+  //            phone, one trial per phone). Honoured until the EARLIER of its
+  //            signed end and the oldest sale + 30 days (Q8: a restored backup
+  //            of an older shop ends it). docs/activation/trial-rules-design.md
   //   legacy   activated_until from an old-style 6-character code (or from a
   //            v10 install), honoured only until the legacy horizon.
-  // Every decision uses trustedNow() (eod.js), which never moves backwards.
+  // A device set up that never had any of these is "pretrial": it opens
+  // normally for products, stock and settings, but can't sell until it has
+  // the free trial or a licence. Every decision uses trustedNow() (eod.js),
+  // which never moves backwards.
 
   // Public keys by key ID. Only seiGEN's private key (kept outside this repo,
   // see docs/activation/licence-keys.md) can make a licence these accept.
@@ -108,7 +113,7 @@
     for(let i=6;i<14 && b[i];i++) install += String.fromCharCode(b[i]);
     const biz = hasBiz? licHex(b.subarray(30,46)) : "";
     return { ok:true, text:t, payload, sig, kid:b[1], serial:licU32(b,2), installId:install,
-      binding:b.subarray(14,22), strong:!!(flags & 1), issuedDay:licU16(b,22), untilDay:licU16(b,24),
+      binding:b.subarray(14,22), strong:!!(flags & 1), trial:!!(flags & 4), issuedDay:licU16(b,22), untilDay:licU16(b,24),
       plan:b[26], features:licU16(b,28),
       businessId: biz? biz.slice(0,8)+"-"+biz.slice(8,12)+"-"+biz.slice(12,16)+"-"+biz.slice(16,20)+"-"+biz.slice(20) : "",
       issuedMs: LICENCE_EPOCH_MS + licU16(b,22)*LICENCE_DAY_MS,
@@ -146,32 +151,26 @@
   }
   function usedLicenceSerials(){ try{ return JSON.parse(getSetting("licence_serials","[]"))||[]; }catch(e){ return []; } }
 
-  // ---- the trial (Q8): counts from the earliest business data ----
-  // Sales, stock movements (ledger, receipts, adjustments) and products
-  // created: whichever is oldest, or the install date if older still.
-  // Values that aren't dates (or are before 2024) are ignored.
-  function earliestBusinessDataMs(){
-    const qs = ["SELECT MIN(ts) v FROM sales WHERE ts IS NOT NULL AND ts<>''",
-      "SELECT MIN(ts) v FROM stock_movements WHERE ts IS NOT NULL AND ts<>''",
-      "SELECT MIN(ts) v FROM stock_received WHERE ts IS NOT NULL AND ts<>''",
-      "SELECT MIN(ts) v FROM stock_adjustments WHERE ts IS NOT NULL AND ts<>''",
-      "SELECT MIN(created_ts) v FROM products WHERE created_ts IS NOT NULL AND created_ts<>''"];
-    let min = null;
-    for(const q of qs){
-      let v = null;
-      try{ v = (one(q)||{}).v; }catch(e){ v = null; }
-      const ms = v? Date.parse(v) : NaN;
-      if(!isNaN(ms) && ms>=Date.UTC(2024,0,1) && (min===null || ms<min)) min = ms;
-    }
-    return min;
+  // ---- the free trial's cap (Q8, sales only) ----
+  // A trial licence ends at the earlier of its signed end and the oldest
+  // sale + 30 days, so restoring the backup of a shop that has traded for
+  // longer ends it. Products and stock don't count: they can be entered
+  // before the trial (design §2.6). Values that aren't dates (or are before
+  // 2024) are ignored.
+  function earliestSaleMs(){
+    let v = null;
+    // filtered in SQL, so a junk or pre-2024 timestamp can't hide the real oldest sale
+    try{ v = (one("SELECT MIN(ts) v FROM sales WHERE ts >= '2024-01-01' AND ts < '2100'")||{}).v; }catch(e){ v = null; }
+    const ms = v? Date.parse(v) : NaN;
+    return (!isNaN(ms) && ms>=Date.UTC(2024,0,1))? ms : null;
   }
-  function trialStartMs(){
-    const inst = Date.parse(getSetting("install_date",""));
-    const data = earliestBusinessDataMs();
-    const c = [inst, data].filter(x=> x!==null && !isNaN(x));
-    return c.length? Math.min(...c) : null;
+  function trialCapMs(){ const s = earliestSaleMs(); return s===null? null : s + TRIAL_DAYS*LICENCE_DAY_MS; }
+  function licenceUntilMs(lic){
+    if(!lic) return null;
+    if(!lic.trial) return lic.untilMs;
+    const cap = trialCapMs();
+    return cap===null? lic.untilMs : Math.min(lic.untilMs, cap);
   }
-  function trialEndMs(){ const s = trialStartMs(); return s===null? null : s + TRIAL_DAYS*LICENCE_DAY_MS; }
 
   // ---- old-style codes: until the cutoff ----
   function licenceV2SinceMs(){
@@ -204,37 +203,50 @@
   }
 
   // ---- the state ----
-  // { status: ok|locked|no_setup, source: licence|trial|legacy|null, untilMs, licence, trialEndMs }
+  // { status: ok|pretrial|locked|no_setup, source: licence|trial|legacy|null, untilMs, licence }
+  // pretrial: set up, and this device never had a licence, a trial or an
+  // old-style code. activated_until written by an older setup (src "setup",
+  // the unsigned trial's mirror for a rollback to v10) is not a grant.
   function licenceState(){
     if(!getSetting("install_date","")) return { status:"no_setup", source:null, untilMs:null };
     licenceV2SinceMs();   // records this version's first run (a device upgraded from v10)
     const now = trustedNow().getTime();
     const lic = currentLicence();
-    const licUntil = lic? lic.untilMs : null;
-    const trialEnd = trialEndMs();
-    // activated_until set by v11 setup is the trial's mirror for a rollback to
-    // v10, not a grant: the trial rule above decides instead.
+    const licUntil = licenceUntilMs(lic);
     const au = Date.parse(getSetting("activated_until",""));
     const auSrc = getSetting("activated_until_src","");
-    const legacyUntil = (!isNaN(au) && auSrc!=="setup" && now < legacyHorizonMs())? au : null;
+    // src "licence" is applyLicence's mirror for v10, not a grant of its own:
+    // it would outlive a trial licence's Q8 cap.
+    const hadLegacy = !isNaN(au) && auSrc!=="setup" && auSrc!=="licence";
+    const legacyUntil = (hadLegacy && now < legacyHorizonMs())? au : null;
     const valid = [];
-    if(licUntil!==null && now<=licUntil) valid.push(["licence", licUntil]);
-    if(trialEnd!==null && now<trialEnd) valid.push(["trial", trialEnd]);
+    if(licUntil!==null && now<=licUntil) valid.push([lic.trial? "trial" : "licence", licUntil]);
     if(legacyUntil!==null && now<=legacyUntil) valid.push(["legacy", legacyUntil]);
     if(valid.length){
       valid.sort((a,b)=> b[1]-a[1]);
-      return { status:"ok", source:valid[0][0], untilMs:valid[0][1], licence:lic, trialEndMs:trialEnd };
+      return { status:"ok", source:valid[0][0], untilMs:valid[0][1], licence:lic };
     }
-    const ended = [licUntil, trialEnd, legacyUntil].filter(x=>x!==null);
-    return { status:"locked", source:null, untilMs: ended.length? Math.max(...ended) : null, licence:lic, trialEndMs:trialEnd };
+    if(!getSetting("licence","") && !usedLicenceSerials().length && !hadLegacy)
+      return { status:"pretrial", source:null, untilMs:null, licence:null };
+    const ended = [licUntil, legacyUntil].filter(x=>x!==null);
+    const last = ended.length? Math.max(...ended) : null;
+    return { status:"locked", source:null, untilMs:last, licence:lic,
+      trialEnded: !!(lic && lic.trial && licUntil===last), trialCapped: !!(lic && lic.trial && licUntil===last && licUntil<lic.untilMs) };
   }
   function activationStatus(){ return licenceState().status; }
   // render() (router.js) checks this cached flag on every screen; it's
   // refreshed at boot, every hour, when the app comes back to the
   // foreground (startLicenceWatch) and after any activation.
-  let _licenceLocked = false;
-  function refreshLicenceLock(){ _licenceLocked = activationStatus()==="locked"; return _licenceLocked; }
+  let _licenceLocked = false, _licencePretrial = false;
+  function refreshLicenceLock(){
+    const st = activationStatus();
+    _licenceLocked = st==="locked"; _licencePretrial = st==="pretrial";
+    return _licenceLocked;
+  }
   function licenceLocked(){ return _licenceLocked; }
+  // Set up but no trial or licence yet: selling, returns, reports, End of
+  // Day, dispatch and market publishing wait (design §2.2). Cached like the lock.
+  function licencePretrial(){ return _licencePretrial; }
 
   // ---- activating ----
   // via: link | paste | code | checkin. Resolves to { ok, untilMs, serial, already? } or { ok:false, reason }.
@@ -255,7 +267,8 @@
     // mirror for a rollback to v10, which only reads activated_until
     setSetting("activated_until", new Date(lic.untilMs).toISOString());
     setSetting("activated_until_src", "licence");
-    logAudit("Licence activated", "", "Licence #"+lic.serial+" until "+licDateText(lic.untilMs)+" ("+via+")");
+    if(lic.trial) setSetting("trial_had", "1");
+    logAudit(lic.trial? "Free trial started" : "Licence activated", "", (lic.trial? "Trial licence #" : "Licence #")+lic.serial+" until "+licDateText(lic.untilMs)+" ("+via+")");
     refreshLicenceLock();
     await persist();
     return { ok:true, untilMs:lic.untilMs, serial:lic.serial };
@@ -396,8 +409,9 @@
     return false;
   }
   function lockReasonText(st){
+    if(st.trialCapped) return "Your free trial ended on "+licDateText(st.untilMs)+": this shop's sales go back more than 30 days.";
+    if(st.trialEnded) return "Your free trial ended on "+licDateText(st.untilMs)+".";
     if(st.licence && st.untilMs && st.source===null && st.untilMs===st.licence.untilMs) return "Your licence ended on "+licDateText(st.untilMs)+".";
-    if(st.trialEndMs && st.untilMs===st.trialEndMs) return "Your 30-day free trial ended on "+licDateText(st.trialEndMs)+".";
     if(st.untilMs) return "Your activation ended on "+licDateText(st.untilMs)+".";
     return "This device needs a licence.";
   }
@@ -447,6 +461,9 @@
           ${clockAnomalyNoticeHtml()}
           <p class="muted" id="lockReason">${escapeHtml(lockReasonText(st))} Selling is paused until this device has a licence. Your data is safe.</p>
           ${activationFormHtml()}
+          ${getSetting("trial_had","")? "" : `<div class="hr"></div>
+          <p class="muted" style="margin:0 0 6px">This device never had the free trial.</p>
+          <button class="btn btn-outline" id="lockTrial">Start your free trial</button>`}
           <div class="hr"></div>
           <button class="btn btn-outline" id="lockReports">📊 View reports (read-only)</button>
           <button class="btn btn-outline" id="lockBackup" style="margin-top:8px">💾 Download backup</button>
@@ -454,6 +471,13 @@
       </div>
     `;
     wireActivationForm((r)=> renderActivationDone(r));
+    const lt = document.getElementById("lockTrial");
+    if(lt) lt.onclick = ()=>{
+      const wrap = openModal("Start your free trial", `
+        <p class="muted" style="margin-top:0">Your RPN types their field force number and PIN. This needs the internet once.</p>
+        ${trialFormHtml("trialL")}`);
+      wireTrialForm("trialL", (r)=>{ if(wrap && wrap.remove) wrap.remove(); renderActivationDone(r); });
+    };
     document.getElementById("lockReports").onclick = ()=>{ route = "lockreports"; render(); };
     document.getElementById("lockBackup").onclick = ()=>{
       downloadDb(`seigen-backup-${new Date().toISOString().replace(/[:.]/g,"-")}.sqlite`);
@@ -523,7 +547,8 @@
   function licenceStatusCardHtml(){
     const st = licenceState();
     let line = "This device needs a licence.";
-    if(st.status==="ok" && st.source==="licence") line = "Licensed until "+licDateText(st.untilMs)+" (licence #"+st.licence.serial+").";
+    if(st.status==="pretrial") line = "Free trial not started yet. Selling starts with the free trial or a licence.";
+    else if(st.status==="ok" && st.source==="licence") line = "Licensed until "+licDateText(st.untilMs)+" (licence #"+st.licence.serial+").";
     else if(st.status==="ok" && st.source==="trial") line = "Free trial until "+licDateText(st.untilMs)+".";
     else if(st.status==="ok" && st.source==="legacy") line = "Activated (old-style code) until "+licDateText(st.untilMs)+".";
     return `<div class="card" id="licenceCard">
@@ -532,6 +557,7 @@
       <p id="licencePlanLine" class="muted" style="margin:0 0 8px">${escapeHtml(licencePlanText(st))}</p>
       <p class="muted" style="margin:0 0 8px">Device code: <b>${escapeHtml(licenceDeviceCode())}</b></p>
       <p id="rpnOnboardedLine" class="muted" style="margin:0 0 8px">${escapeHtml(typeof rpnOnboardedByText==="function"? rpnOnboardedByText() : "")}</p>
+      ${st.status==="pretrial"? `<button class="btn btn-primary" id="licenceTrial" style="margin-bottom:8px">Start your free trial</button>` : ""}
       <button class="btn btn-outline" id="licenceRenew">Enter a new licence</button>
     </div>`;
   }
@@ -571,6 +597,8 @@
       const el = document.getElementById("rpnOnboardedLine");
       if(el) el.textContent = rpnOnboardedByText();
     }).catch(()=>{});
+    const tb = document.getElementById("licenceTrial");
+    if(tb) tb.onclick = ()=> openTrialModal();
     const b = document.getElementById("licenceRenew");
     if(!b) return;
     b.onclick = ()=>{

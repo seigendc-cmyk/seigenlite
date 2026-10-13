@@ -111,6 +111,12 @@
     // lock that lands mid-session takes effect on the panel's very next
     // re-render (any add/qty change re-renders this whole screen — see
     // renderPOSDesktop), not just on a fresh screen load.
+    // Trial rules: before the free trial or a licence there is no selling.
+    if(pretrialNow()){
+      return `
+        <div class="ds-cart-head">Cart</div>
+        <div class="ds-cart-empty" style="text-align:left">${pretrialNoticeHtml()}</div>`;
+    }
     const dcReason = dcLockCartReason();
     if(dcReason){
       return `
@@ -207,6 +213,7 @@
     // Digital Commerce device check-in: none of the elements this function
     // wires below exist while locked (desktopCartHtml() replaced them with
     // a plain notice) — skip entirely rather than wiring against nulls.
+    if(pretrialNow()){ wirePretrialNotice(main.querySelector(".ds-cart") || main); return; }
     if(dcLockCartReason()) return;
     main.querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.inc,1));
     main.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>changeQty(+b.dataset.dec,-1));

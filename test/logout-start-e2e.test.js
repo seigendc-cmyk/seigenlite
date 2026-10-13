@@ -15,6 +15,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { writeSettings } = require("./test-activation");
 const { stubDigitalCommerce, TEST_PHRASE } = require("./dc-fake");
 
 let chromium;
@@ -99,9 +100,11 @@ async function runFor(browser, build){
 
   await t(tag+"reopening the app shows the Start screen (shop, branch) → Sign in → Who's working → app", async ()=>{
     await page.fill("#setShop", "Gentronix"); await page.fill("#setBranch", "Harare CBD"); await page.fill("#setSecret", TEST_PHRASE);
-    await page.click("#setupNext"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
+    await page.click("#setupNext"); await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
     await page.waitForSelector("#logoutBtn");                       // setup still goes straight into the app, unchanged
     await page.waitForTimeout(400);                                  // let persist() land
+    // trial rules (v18): set up without the free trial = no selling; this device gets an activation instead
+    await writeSettings(page, [["activated_until", new Date(Date.now()+30*86400000).toISOString()], ["activated_until_src", "code"]]);
     await page.reload();
     await page.waitForSelector("#startSignIn", { timeout: 20000 });
     assert.strictEqual((await page.textContent("#startShop")).trim(), "Gentronix");
@@ -199,8 +202,8 @@ async function runFor(browser, build){
   });
 
   await t(tag+"an expired activation shows the lock screen, not the Start screen", async ()=>{
-    // v11 (activation.js): the trial runs 30 days from the install date (or older business data)
-    await dbWrite(page, "UPDATE settings SET value='2026-01-01T00:00:00.000Z' WHERE key='install_date'");
+    // the activation this device was given (an old-style code's) has ended
+    await dbWrite(page, "UPDATE settings SET value='2026-01-01T00:00:00.000Z' WHERE key='activated_until'");
     await page.reload();
     await page.waitForSelector("#unlockBtn", { timeout: 20000 });
     assert.strictEqual(await page.$("#startSignIn"), null);

@@ -90,7 +90,7 @@ async function t(name, fn){
 
     assert.ok(app.document.querySelector(".device-code"), "the device code is shown");
     assert.ok(/Activation needed/.test(app.document.getElementById("app").innerHTML));
-    assert.ok(/free trial ended on/.test(app.document.getElementById("lockReason").textContent), app.document.getElementById("lockReason").textContent);
+    assert.ok(/activation ended on 1 Jul 2026/.test(app.document.getElementById("lockReason").textContent), app.document.getElementById("lockReason").textContent);
     assert.strictEqual(app.exec("lastClockAnomaly()"), null);
     // No stray anomaly banner text anywhere on the screen.
     assert.ok(!/date\/time appears to have/.test(app.document.getElementById("app").innerHTML));

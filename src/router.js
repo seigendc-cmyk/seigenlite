@@ -80,6 +80,7 @@
       </div>` : ""}
     `;
     document.getElementById("cartBtn").onclick = ()=>{
+      if(pretrialNow()){ openTrialModal(); return; }
       const dcReason = dcLockCartReason();
       if(dcReason){ alert(dcReason); return; }
       drawerOpen=true; render();
@@ -102,13 +103,27 @@
     renderDrawer();
     renderRequestsDrawer();
     const main = document.getElementById("main");
+    // Trial rules (pretrial): Reports (and End of Day in it) and Marketing
+    // (market publishing) wait for the trial; elsewhere a notice says so.
+    if(pretrialNow() && (route==="reports" || route==="marketing")){
+      main.innerHTML = `<h2>${route==="reports"? "Reports" : "Marketing"}</h2>${pretrialNoticeHtml()}`;
+      wirePretrialNotice(main);
+      return;
+    }
     if(route==="pos"){ if(typeof renderPOSDesktop==="function") renderPOSDesktop(main); else renderPOS(main); }
     else if(route==="products") renderProducts(main);
     else if(route==="credit") renderCredit(main);
     else if(route==="reports") renderReports(main);
     else if(route==="marketing") renderMarketing(main);
     else if(route==="more") renderMore(main);
+    if(pretrialNow() && !(route==="pos" && desktop)){
+      main.insertAdjacentHTML("afterbegin", pretrialNoticeHtml());
+      wirePretrialNotice(main);
+    }
   }
+  // Trial rules: set up, no trial or licence yet (activation.js). Builds and
+  // tests without activation.js never are.
+  function pretrialNow(){ return typeof licencePretrial==="function" && licencePretrial(); }
   // POS fixes: menus, toasts and the desktop work area are placed against the
   // header's real height (it wraps on narrow screens), kept in --header-h.
   function measureHeader(){
@@ -135,6 +150,15 @@
     // takes effect on its very next re-render (e.g. a qty +/- tap), rather
     // than leaving an already-open drawer's Pay buttons usable until the
     // shop happens to close and reopen it.
+    // Trial rules: before the free trial or a licence there is no selling.
+    if(pretrialNow()){
+      drawer.innerHTML = `
+        <div class="drawer-head"><h3 style="margin:0">Cart</h3><button class="close-x" id="closeDrawer">✕</button></div>
+        <div class="drawer-body">${pretrialNoticeHtml()}</div>`;
+      document.getElementById("closeDrawer").onclick=()=>{drawerOpen=false;render();};
+      wirePretrialNotice(drawer);
+      return;
+    }
     const dcReason = dcLockCartReason();
     if(dcReason){
       drawer.innerHTML = `

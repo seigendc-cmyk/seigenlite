@@ -35,7 +35,7 @@ function lic(o){
   Buffer.from(o.install, "latin1").copy(p, 6);
   binding.copy(p, 14);
   p.writeUInt16BE(dayOf(o.issued||NOW), 22); p.writeUInt16BE(dayOf(o.until), 24);
-  p[26] = 0; p[27] = (strong?1:0) | (biz.length?2:0); p.writeUInt16BE(0, 28);
+  p[26] = 0; p[27] = (strong?1:0) | (biz.length?2:0) | (o.trial?4:0); p.writeUInt16BE(0, 28);
   biz.copy(p, 30);
   const sig = crypto.sign(null, p, o.priv||privateKey);
   const all = Buffer.concat([p, sig]);
@@ -107,7 +107,7 @@ async function t(name, fn){
     // signed by another key under our key ID
     const other = crypto.generateKeyPairSync("ed25519").privateKey;
     assert.strictEqual((await A.api.applyLicence(lic({ install:"ABCD", deviceKey:KEY, until:"2026-11-07T00:00:00Z", priv:other }), "paste")).reason, "invalid");
-    assert.strictEqual(A.api.activationStatus(), "ok", "still on its trial; nothing was stored");
+    assert.strictEqual(A.api.activationStatus(), "pretrial", "still before its trial; nothing was stored");
     assert.strictEqual(A.api.getSetting("licence"), "");
   });
   await t("another device: wrong install ID, or the same install ID with another device key", async ()=>{
@@ -178,7 +178,7 @@ async function t(name, fn){
   const legacyCode = (A)=> A.api.computeActivationCode(A.api.currentDeviceCode(), "shop-secret");
   await t("accepted before the cutoff (30 days after this version first ran)", async ()=>{
     const A = app({ install_date:"2026-08-01T08:00:00Z", licence_v2_since:"2026-10-01T08:00:00Z" }); await at(A, NOW);
-    assert.strictEqual(A.api.activationStatus(), "locked");
+    assert.strictEqual(A.api.activationStatus(), "pretrial", "never had a licence");
     const r = await A.api.activateFromInput(legacyCode(A), "paste");
     assert.ok(r.ok && r.legacy, JSON.stringify(r));
     assert.strictEqual(A.api.activationStatus(), "ok");
@@ -189,7 +189,7 @@ async function t(name, fn){
     const r = await A.api.activateFromInput(legacyCode(A), "paste");
     assert.strictEqual(r.reason, "legacy_closed");
     assert.match(A.api.licenceProblemText(r), /old-style code, which is no longer accepted.*\+263789487287/);
-    assert.strictEqual(A.api.activationStatus(), "locked");
+    assert.strictEqual(A.api.activationStatus(), "pretrial");
   });
   await t("an old code entered before the cutoff runs its 30 days; after the legacy horizon, activated_until counts for nothing", async ()=>{
     const A = app({ install_date:"2026-06-01T08:00:00Z", activated_until:"2027-01-01T00:00:00Z", activated_until_src:"code", licence_v2_since:"2026-09-01T08:00:00Z" });
@@ -205,53 +205,72 @@ async function t(name, fn){
     assert.strictEqual(A.api.activationStatus(), "locked");
   });
 
-  console.log("the trial (Q8): from the earliest business data");
+  console.log("the free trial: signed by seiGEN, capped by the oldest sale (Q8)");
   const sale = (A, ts)=> A.api.run("INSERT INTO sales(ts,total) VALUES(?,1)", [ts]);
-  await t("a fresh install: 30 days from the install date", async ()=>{
+  const trialLic = (o)=> lic(Object.assign({ install:"ABCD", deviceKey:KEY, trial:true, serial:500, until:"2026-11-07T00:00:00Z" }, o||{}));
+  await t("set up, no licence: pretrial (no unsigned trial; setup's old activated_until doesn't count)", async ()=>{
     const A = app({ install_date:NOW, activated_until:"2026-11-07T10:00:00Z", activated_until_src:"setup" }); await at(A, NOW);
+    assert.strictEqual(A.api.activationStatus(), "pretrial");
+    A.api.refreshLicenceLock();
+    assert.strictEqual(A.api.licencePretrial(), true); assert.strictEqual(A.api.licenceLocked(), false, "not the lock screen");
+  });
+  await t("a trial licence: source trial, until its signed end; remembered as had; logged", async ()=>{
+    const A = app({ install_date:NOW }); await at(A, NOW);
+    const r = await A.api.applyLicence(trialLic(), "trial");
+    assert.ok(r.ok, JSON.stringify(r));
     const st = plain(A.api.licenceState());
-    assert.strictEqual(st.source, "trial"); assert.strictEqual(new Date(st.untilMs).toISOString(), "2026-11-07T10:00:00.000Z");
+    assert.strictEqual(st.status, "ok"); assert.strictEqual(st.source, "trial");
+    assert.strictEqual(new Date(st.untilMs).toISOString(), "2026-11-07T22:00:00.000Z");
+    assert.strictEqual(A.api.getSetting("trial_had"), "1");
+    assert.strictEqual(A.api.licencePretrial(), false);
+    assert.strictEqual(A.api.all("SELECT 1 FROM audit_log WHERE action='Free trial started'").length, 1);
   });
-  await t("installed today, but the database has a sale from 40 days ago: no trial left (setup's activated_until doesn't count)", async ()=>{
-    const A = app({ install_date:NOW, activated_until:"2026-11-07T10:00:00Z", activated_until_src:"setup" }); await at(A, NOW);
-    sale(A, "2026-08-29T09:00:00.000Z");
-    assert.strictEqual(new Date(A.api.trialStartMs()).toISOString(), "2026-08-29T09:00:00.000Z");
-    assert.strictEqual(A.api.activationStatus(), "locked");
-  });
-  await t("each kind of business data counts: a stock movement, a receipt, an adjustment, a product created", async ()=>{
+  await t("Q8: a sale older than 30 days ends a trial licence at sale + 30 days; products and stock don't", async ()=>{
+    const A = app({ install_date:NOW }); await at(A, NOW);
+    assert.ok((await A.api.applyLicence(trialLic(), "trial")).ok);
     for(const [sql, args] of [
-      ["INSERT INTO stock_movements(qty_delta,kind,ts) VALUES(1,'receive',?)", ["2026-09-01T00:00:00Z"]],
-      ["INSERT INTO stock_received(ts,qty) VALUES(?,1)", ["2026-09-01T00:00:00Z"]],
-      ["INSERT INTO stock_adjustments(ts,qty_delta) VALUES(?,1)", ["2026-09-01T00:00:00Z"]],
-      ["INSERT INTO products(name,created_ts) VALUES('Rice',?)", ["2026-09-01T00:00:00Z"]]]){
-      const A = app({ install_date:NOW }); await at(A, NOW);
-      A.api.run(sql, args);
-      assert.strictEqual(A.api.activationStatus(), "locked", sql);
-    }
-    const B = app({ install_date:NOW }); await at(B, NOW);
-    B.api.run("INSERT INTO products(name,created_ts) VALUES('Rice',?)", ["2026-09-28T10:00:00Z"]);
-    assert.strictEqual(plain(B.api.licenceState()).source, "trial", "10 days of history: 20 days of trial left");
-    assert.strictEqual(new Date(B.api.trialEndMs()).toISOString(), "2026-10-28T10:00:00.000Z");
-    B.api.run("INSERT INTO sales(ts,total) VALUES('not a date',1)");
-    B.api.run("INSERT INTO sales(ts,total) VALUES('1970-01-01T00:00:00Z',1)");
-    assert.strictEqual(new Date(B.api.trialEndMs()).toISOString(), "2026-10-28T10:00:00.000Z", "junk timestamps are ignored");
+      ["INSERT INTO stock_movements(qty_delta,kind,ts) VALUES(1,'receive',?)", ["2026-08-01T00:00:00Z"]],
+      ["INSERT INTO stock_received(ts,qty) VALUES(?,1)", ["2026-08-01T00:00:00Z"]],
+      ["INSERT INTO stock_adjustments(ts,qty_delta) VALUES(?,1)", ["2026-08-01T00:00:00Z"]],
+      ["INSERT INTO products(name,created_ts) VALUES('Rice',?)", ["2026-08-01T00:00:00Z"]]]) A.api.run(sql, args);
+    assert.strictEqual(A.api.activationStatus(), "ok", "old products and stock don't end the trial");
+    sale(A, "2026-09-28T10:00:00.000Z");
+    assert.strictEqual(new Date(plain(A.api.licenceState()).untilMs).toISOString(), "2026-10-28T10:00:00.000Z", "10 days of sales: 20 days left");
+    sale(A, "not a date"); sale(A, "1970-01-01T00:00:00Z");
+    assert.strictEqual(new Date(A.api.trialCapMs()).toISOString(), "2026-10-28T10:00:00.000Z", "junk timestamps are ignored");
+    sale(A, "2026-08-29T09:00:00.000Z");
+    const st = plain(A.api.licenceState());
+    assert.strictEqual(st.status, "locked"); assert.strictEqual(st.trialCapped, true);
   });
-  await t("reinstall + restore: a fresh device that restores a backup with 45 days of history is locked at once", async ()=>{
+  await t("a paid licence is never capped by old sales", async ()=>{
+    const A = app({ install_date:NOW }); await at(A, NOW);
+    sale(A, "2026-01-05T09:00:00.000Z");
+    assert.ok((await A.api.applyLicence(lic({ install:"ABCD", deviceKey:KEY, until:"2026-11-07T00:00:00Z" }), "paste")).ok);
+    assert.strictEqual(plain(A.api.licenceState()).source, "licence");
+  });
+  await t("a device that once had a licence and it ended: locked, not pretrial", async ()=>{
+    const A = app({ install_date:"2026-08-01T08:00:00Z" }); await at(A, "2026-08-25T10:00:00Z");
+    assert.ok((await A.api.applyLicence(trialLic({ issued:"2026-08-25T00:00:00Z", until:"2026-09-24T00:00:00Z" }), "trial")).ok);
+    await at(A, "2026-09-26T10:00:00Z");
+    const st = plain(A.api.licenceState());
+    assert.strictEqual(st.status, "locked"); assert.strictEqual(st.trialEnded, true);
+  });
+  await t("reinstall + restore: a device on its trial that restores a backup with 45 days of sales is locked at once", async ()=>{
     const OLD = app({ install_id:"OLD1", device_key:"0ld0ld0ld0ld0ld0ld0ld0ld0ld0ld00", install_date:"2026-08-24T08:00:00Z", branch_name:"Shop", branch_type:"main", setup_complete:"1",
       trusted_time_hwm:"2026-09-30T08:00:00.000Z", activated_until:"2026-11-30T00:00:00Z", activated_until_src:"code" });
     OLD.api.run("INSERT INTO sales(ts,total) VALUES('2026-08-24T09:00:00.000Z',5)");
-    const NEW = app({ install_id:"NEW1", device_key:KEY, install_date:NOW, branch_name:"Shop", branch_type:"main", setup_complete:"1",
-      activated_until:"2026-11-07T10:00:00Z", activated_until_src:"setup" });
+    const NEW = app({ install_id:"ABCD", device_key:KEY, install_date:NOW, branch_name:"Shop", branch_type:"main", setup_complete:"1" });
     await at(NEW, NOW);
+    assert.ok((await NEW.api.applyLicence(trialLic(), "trial")).ok);
     assert.strictEqual(NEW.api.activationStatus(), "ok", "on its trial before the restore");
     NEW.hook("downloadDb",()=>{}); NEW.hook("render",()=>{}); NEW.hook("alert",()=>{});
     NEW.hook("readFileBytes", async ()=>Object.assign(new Uint8Array([1]),{__db:OLD.db}));
     await NEW.api.onReplacePicked({ name:"backup.sqlite", bytes:new Uint8Array([1]) });
     assert.strictEqual(NEW.api.one("SELECT COUNT(*) n FROM sales").n, 1, "the data came across");
-    assert.strictEqual(NEW.api.getSetting("install_id"), "NEW1", "its own install ID");
-    assert.strictEqual(NEW.api.getSetting("device_key"), KEY, "its own device key");
-    assert.strictEqual(NEW.api.getSetting("activated_until_src"), "setup", "not the backup's old-code activation");
-    assert.strictEqual(NEW.api.activationStatus(), "locked", "45 days of history: no new trial");
+    assert.strictEqual(NEW.api.getSetting("install_id"), "ABCD", "its own install ID");
+    assert.strictEqual(NEW.api.getSetting("activated_until_src"), "licence", "not the backup's old-code activation");
+    assert.strictEqual(NEW.api.getSetting("trial_had"), "1", "its own trial record");
+    assert.strictEqual(NEW.api.activationStatus(), "locked", "45 days of sales: the trial is over");
     assert.strictEqual(NEW.api.licenceLocked(), true, "the render guard knows");
   });
   await t("restore keeps this device's licence and the higher clock watermark", async ()=>{

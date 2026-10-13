@@ -14,6 +14,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { passJoinTrialScreen } = require("./test-activation");
 const { stubTerminals, newTerminalState } = require("./terminal-fake");
 
 let chromium;
@@ -51,7 +52,7 @@ async function setupShop(page, o){
   if(o.remote) await page.click("#setRemoteBtn");
   await page.click("#setupNext");
   if(o.remote){ await page.fill("#setAdminPass", "admin123"); await page.fill("#setAdminPass2", "admin123"); }
-  await page.click("#setupNext2");
+  await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2");
   await page.click("#setupNext3");
   await page.click("#setupFinish");
   await page.waitForSelector("[data-route]");
@@ -123,7 +124,7 @@ async function scrollTo(page, sel){ await page.locator(sel).scrollIntoViewIfNeed
     await page.fill("#setJoinCode", code1.toLowerCase().replace("-",""));
     await page.fill("#setTillLabel", "Till 2");
     await page.click("#setupJoin");
-    await page.waitForSelector("[data-route]", { timeout: 10000 });
+    await passJoinTrialScreen(page);   // trial rules: the till asks for the business trial (cover) and shows the answer
     const join = fake.calls.find(c=>c.name==="cl_terminal_join").body;
     assert.strictEqual(join.p_join_code, code1);
     assert.strictEqual(join.p_label, "Till 2");

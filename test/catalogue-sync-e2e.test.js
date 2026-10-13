@@ -19,6 +19,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { LIVE_STUB } = require("../supabase/tests/live-stub");
+const { activateForTest, passJoinTrialScreen } = require("./test-activation");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -94,7 +95,7 @@ async function openSettings(d){
 async function setupMain(d, shop, branch, phrase){
   const p = d.page;
   await p.fill("#setShop", shop); await p.fill("#setBranch", branch); await p.fill("#setSecret", phrase);
-  await p.click("#setupNext"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
+  await p.click("#setupNext"); await p.fill("#setOwnerPhone", "0771234567"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
   await p.waitForSelector("[data-route]");
 }
 async function addProduct(d, o){
@@ -181,6 +182,7 @@ async function installOf(d){ return (await sq("select install_id from cl_vendors
     await C.page.click("#setJoinBtn"); await C.page.waitForSelector("#setJoinCode");
     await C.page.fill("#setSecret", "Gold Leaf 42"); await C.page.fill("#setJoinCode", code.code); await C.page.fill("#setTillLabel", "Front");
     await C.page.click("#setupJoin");
+    await passJoinTrialScreen(C.page); await activateForTest(C.page);   // trial rules: the business trial (none here) or an activation
     await C.page.waitForSelector("[data-route]", { timeout:20000 });
     await nav(C, "products");
     await waitFor(async()=> /Rice 2kg/.test(await C.page.textContent("#productsTableArea")), "products to arrive", 30000);
@@ -216,6 +218,7 @@ async function installOf(d){ return (await sq("select install_id from cl_vendors
     await D.page.click("#setJoinBtn"); await D.page.waitForSelector("#setJoinCode");
     await D.page.fill("#setSecret", "Gold Leaf 42"); await D.page.fill("#setJoinCode", code.code);
     await D.page.click("#setupJoin");
+    await passJoinTrialScreen(D.page); await activateForTest(D.page);   // trial rules: the business trial (none here) or an activation
     await D.page.waitForSelector("[data-route]", { timeout:20000 });
     await nav(D, "products");                                               // let the background first sync land
     await waitFor(async()=> /Rice 2kg/.test(await D.page.textContent("#productsTableArea")), "products to arrive", 30000);

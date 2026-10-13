@@ -487,6 +487,8 @@
   // desktop.js, Tauri only) so a cashier finds out before filling a cart,
   // not only at checkout, without either screen duplicating the rule.
   function shiftBlockBannerHtml(){
+    // trial rules: before the trial there's no selling and no End of Day, so nothing to say here
+    if(typeof licencePretrial==="function" && licencePretrial()) return "";
     const reason = shiftBlockReason();
     if(!reason) return "";
     return `<div class="card" style="border-color:var(--danger,#c0392b);margin-bottom:10px">

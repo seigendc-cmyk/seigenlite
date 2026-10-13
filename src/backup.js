@@ -183,7 +183,7 @@
   // device's own; the clock watermark keeps the higher of the two, so
   // restoring an old backup can't wind the trusted time back.
   const DEVICE_OWN_SETTINGS = ["install_id","device_key","secret_phrase","install_date","licence","licence_serials",
-    "activated_until","activated_until_src","licence_v2_since",
+    "activated_until","activated_until_src","licence_v2_since","trial_had","trial_waiting","trial_cover_wanted",
     "business_id","business_name","branch_uuid","terminal_branch_name","terminal_is_main","terminal_id","till_code","terminal_label",
     "terminal_inactive","dc_vendor_id","dc_vendor_status"];
   function captureDeviceSettings(){

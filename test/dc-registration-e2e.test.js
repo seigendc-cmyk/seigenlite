@@ -14,6 +14,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { stubDigitalCommerce } = require("./dc-fake");
+const { activateForTest } = require("./test-activation");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -56,10 +57,11 @@ async function finishSetup(page, phrase){
   await page.fill("#setShop", "Test Shop");
   await page.fill("#setSecret", phrase);
   await page.click("#setupNext");
-  await page.click("#setupNext2");
+  await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2");
   await page.click("#setupNext3");
   await page.click("#setupFinish");
   await page.waitForSelector("[data-route]");
+  await activateForTest(page);   // trial rules: Marketing waits for the trial (or an activation)
 }
 async function waitFor(cond, what){
   const deadline = Date.now() + 10000;

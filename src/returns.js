@@ -542,6 +542,7 @@
 
   // The return, step by step: items → refund → approve → done.
   function openReturnFlow(saleId){
+    if(typeof pretrialBlocked==="function" && pretrialBlocked()) return;   // trial rules: waits for the free trial or a licence
     try{ returnRequireSignedIn(); }catch(e){ alert(e.message); return; }
     const sale = one("SELECT * FROM sales WHERE id=?",[saleId]);
     const bad = returnOriginProblem(sale) || returnAgeProblem(sale);

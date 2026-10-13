@@ -155,6 +155,8 @@
       // seiGEN issued for it. Fire-and-forget, like the rest of check-in.
       if(typeof licencePullPending==="function" && typeof isTerminalRegistered==="function" && isTerminalRegistered())
         licencePullPending().catch(()=>{});
+      // Free trial (trial.js): a joined till's cover, or an answer that was lost.
+      if(typeof trialAfterCheckin==="function") trialAfterCheckin();
       // RPN link (rpn.js): send a waiting field force number + PIN, refresh "Onboarded by".
       if(typeof rpnAfterCheckin==="function") rpnAfterCheckin();
       // Market pack (marketing.js): send a waiting pack, fetch Digital Commerce's decision.

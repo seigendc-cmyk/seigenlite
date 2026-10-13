@@ -72,7 +72,7 @@ function makeApp(settings){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -105,7 +105,7 @@ function makeApp(settings){
         computeActivationCode, activationStatus, currentDeviceCode,
         LICENCE_PUBLIC_KEYS, LICENCE_EPOCH_MS, licenceState, licenceDeviceCode, deviceTag, deviceKeyHash, parseLicence, verifyLicence, currentLicence,
         applyLicence, enterLegacyCode, redeemShortCode, activateFromInput, classifyActivationInput, licenceProblemText, licencePullPending,
-        earliestBusinessDataMs, trialStartMs, trialEndMs, legacyCutoffMs, legacyHorizonMs, refreshLicenceLock, licenceLocked, noteTrustedTime,
+        earliestSaleMs, trialCapMs, licenceUntilMs, licencePretrial, requestTrial, trialAfterCheckin, trialEarliestSaleDate, pretrialBlocked, legacyCutoffMs, legacyHorizonMs, refreshLicenceLock, licenceLocked, noteTrustedTime,
         captureDeviceSettings, restoreDeviceSettings, DEVICE_OWN_SETTINGS, tillStockNoteText,
         trustedTimeHwm, establishTrustedTime, trustedNow, lastClockAnomaly, evaluateTrustedTime, fetchNetworkTime,
         RETURN_REASONS, RETURN_OTHER_TILL_TEXT, returnDaysLimit, setReturnDaysLimit, parseReceiptQuery, returnOriginProblem, findReturnSale, saleReturnState,

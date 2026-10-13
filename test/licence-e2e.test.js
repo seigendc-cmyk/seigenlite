@@ -78,7 +78,7 @@ function craft(o){
   p[0] = 2; p[1] = o.kid||1; p.writeUInt32BE(o.serial||900, 2);
   Buffer.from(o.install, "latin1").copy(p, 6); h.subarray(0,8).copy(p, 14);
   p.writeUInt16BE(Math.floor((o.issuedMs-EPOCH)/DAY), 22); p.writeUInt16BE(Math.floor((o.untilMs-EPOCH)/DAY), 24);
-  p[27] = 1;
+  p[27] = 1 | (o.trial? 4 : 0);   // bit 4: a trial licence (issue-trial)
   return "SL2." + b64u(Buffer.concat([p, crypto.sign(null, p, privateKey)]));
 }
 
@@ -209,7 +209,7 @@ async function setup(d, shop){
   await p.goto(d.url);
   await p.waitForSelector("#setShop", { timeout:30000 });
   await p.fill("#setShop", shop); await p.fill("#setSecret", PHRASE);
-  await p.click("#setupNext"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
+  await p.click("#setupNext"); await p.fill("#setOwnerPhone", "0771234567"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
   await p.waitForSelector("[data-route]");
   await p.waitForTimeout(500);
 }
@@ -249,6 +249,20 @@ async function activate(d, text){
   await waitFor(async()=> !(await d.page.isDisabled("#unlockBtn").catch(()=>false)), "the Activate button to come back", 20000);
 }
 const msg = (d)=> d.page.textContent("#actMsg");
+// Trial rules: a device set up today is before its trial. Its free trial
+// comes signed from seiGEN (issue-trial, tested in test/trial-e2e.test.js);
+// here the same licence is made for this device and opened as a link.
+let trialSerial = 65000;
+// Returns the moment it ends (its last day ends at 24:00 Harare, as the app reads it).
+async function trialByLink(d, issuedMs, untilMs){
+  untilMs = untilMs || issuedMs + 30*DAY;
+  const s = await settingsOf(d);
+  await d.page.goto(d.url + "#lic=" + craft({ install:s.install_id, deviceKey:s.device_key, serial:++trialSerial, issuedMs, untilMs, trial:true }));
+  await d.page.waitForSelector("#actDone", { timeout:30000 });
+  await d.page.click("#actContinue");
+  await signIn(d);
+  return EPOCH + (Math.floor((untilMs-EPOCH)/DAY)+1)*DAY - 2*3600000;
+}
 
 (async()=>{
   // ---- server ----
@@ -354,7 +368,11 @@ const msg = (d)=> d.page.textContent("#actMsg");
       await p.clock.setFixedTime(new Date(T0));
       await setup(d, "Licence Test Shop");
       await p.reload(); await signIn(d);                 // this version's first boot is at T0 (old codes close 30 days later)
-      await addProduct(d, "Rice 2kg");
+      await addProduct(d, "Rice 2kg");                   // allowed before the trial
+      await openAbout(d);
+      assert.match(await p.textContent("#licenceLine"), /Free trial not started/);
+      await waitFor(async()=> (await sq("select count(*)::int n from cl_vendors where business_name='Licence Test Shop' and device_key is not null"))[0].n >= 1, "the check-in");
+      await trialByLink(d, T0);
       await openAbout(d);
       assert.match(await p.textContent("#licenceLine"), /Free trial until/);
       await shot(d, "01-about-trial");
@@ -488,9 +506,10 @@ const msg = (d)=> d.page.textContent("#actMsg");
     const d = await device(browser, "phone", writeBuild("phone"));
     await d.page.clock.setFixedTime(new Date(NOW - 29.5*DAY));
     await setup(d, "Open All Night");
+    const ends = await trialByLink(d, NOW - 29.5*DAY, NOW + 0.5*DAY);
     await d.page.clock.setFixedTime(new Date(NOW)); await d.page.reload(); await signIn(d);
     await nav(d, "pos");
-    await d.page.clock.setFixedTime(new Date(NOW + 1*DAY));
+    await d.page.clock.setFixedTime(new Date(ends + 3600000));
     await d.page.evaluate(()=> document.dispatchEvent(new Event("visibilitychange")));
     await d.page.waitForSelector("#lockReason", { timeout:15000 });
     assert.match(await d.page.textContent("#lockReason"), /free trial ended/);
@@ -501,10 +520,11 @@ const msg = (d)=> d.page.textContent("#actMsg");
     const d = await device(browser, "phone", writeBuild("phone"));
     await d.page.clock.install({ time: new Date(NOW - 29.5*DAY) });   // the app's timers now run on the test's clock
     await setup(d, "Open All Day");
+    const ends = await trialByLink(d, NOW - 29.5*DAY, NOW + 0.5*DAY);
     await d.page.clock.setSystemTime(new Date(NOW)); await d.page.reload(); await signIn(d);
     await nav(d, "pos");
     assert.strictEqual(await d.page.$("#lockReason"), null, "still in its trial");
-    await d.page.clock.fastForward(24*3600000);                        // fires each due timer once, the hourly re-check among them
+    await d.page.clock.fastForward(ends + 3600000 - NOW);              // fires each due timer once, the hourly re-check among them
     await d.page.waitForSelector("#lockReason", { timeout:15000 });
     assert.match(await d.page.textContent("#lockReason"), /free trial ended/);
     assert.deepStrictEqual(d.pageErrors, []);

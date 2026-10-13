@@ -12,6 +12,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { activateForTest } = require("./test-activation");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -94,8 +95,9 @@ async function scenario(browser, kind){
   const p = d.page;
   await t(kind+": setup, products, Admin passcode, a shift, a cash sale (2 Rice + 1 Soap)", async ()=>{
     await p.fill("#setShop", "Gentronix"); await p.fill("#setBranch", "Harare"); await p.fill("#setSecret", "Gold Leaf 42");
-    await p.click("#setupNext"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
+    await p.click("#setupNext"); await p.fill("#setOwnerPhone", "0771234567"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
     await p.waitForSelector("[data-route]");
+    await activateForTest(p);   // trial rules: set up without the trial = no selling, Reports or Marketing
     await addProduct(d, { name:"Rice 2kg", sku:"RICE", price:10, cost:6, stock:30 });
     await addProduct(d, { name:"Soap bar", sku:"SOAP", price:5, cost:3, stock:20 });
     await addProduct(d, { name:"Oil 2L", sku:"OIL", price:20, cost:12, stock:10 });

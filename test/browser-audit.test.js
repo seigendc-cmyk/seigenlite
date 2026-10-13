@@ -28,6 +28,7 @@
 const assert = require("assert");
 const path = require("path");
 const { stubDigitalCommerce, TEST_PHRASE } = require("./dc-fake");
+const { activateForTest } = require("./test-activation");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -54,10 +55,11 @@ async function newSetUpPage(browser, distFile){
   await page.fill("#setShop", "Test Shop");
   await page.fill("#setSecret", TEST_PHRASE); // setup won't continue without it
   await page.click("#setupNext");
-  await page.click("#setupNext2");
+  await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2");
   await page.click("#setupNext3");
   await page.click("#setupFinish");
   await page.waitForSelector("[data-route]");
+  await activateForTest(page);   // trial rules: a device set up without the trial cannot sell
   return { page, pageErrors };
 }
 async function addProduct(page, name, price, stock){
@@ -260,7 +262,7 @@ async function addProduct(page, name, price, stock){
     await page.goto("file:///" + path.resolve(__dirname, "..", "dist/index.html").replace(/\\/g, "/"));
     await page.waitForSelector("#setShop", { timeout: 15000 });
     await page.fill("#setShop", "Test Shop"); await page.fill("#setSecret", TEST_PHRASE);
-    await page.click("#setupNext"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
+    await page.click("#setupNext"); await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
     await page.waitForSelector("[data-route]");
     await page.click('[data-route="more"]');
     await page.click('[data-kebab-toggle="moretab"]');

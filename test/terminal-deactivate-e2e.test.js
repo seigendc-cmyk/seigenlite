@@ -10,6 +10,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { passJoinTrialScreen } = require("./test-activation");
 const { stubTerminals, newTerminalState } = require("./terminal-fake");
 
 let chromium;
@@ -66,7 +67,7 @@ const rowFor = (page, till)=> page.locator("#termList .term-row", { hasText: new
   await t("setup: main registers (T1) and a second device joins the main branch (T2)", async ()=>{
     main = await device(browser, server);
     await main.page.fill("#setShop", "Gentronix"); await main.page.fill("#setBranch", "Harare CBD"); await main.page.fill("#setSecret", "Gold Leaf 42");
-    await main.page.click("#setupNext"); await main.page.click("#setupNext2"); await main.page.click("#setupNext3"); await main.page.click("#setupFinish");
+    await main.page.click("#setupNext"); await main.page.fill("#setOwnerPhone", "0771234567"); await main.page.click("#setupNext2"); await main.page.click("#setupNext3"); await main.page.click("#setupFinish");
     await main.page.waitForSelector("[data-route]");
     await openSettings(main.page);
     await main.page.click("#termRegisterBtn");
@@ -78,7 +79,7 @@ const rowFor = (page, till)=> page.locator("#termList .term-row", { hasText: new
     await t2.page.click("#setJoinBtn"); await t2.page.waitForSelector("#setJoinCode");
     await t2.page.fill("#setSecret", "Gold Leaf 42"); await t2.page.fill("#setJoinCode", code); await t2.page.fill("#setTillLabel", "Front");
     await t2.page.click("#setupJoin");
-    await t2.page.waitForSelector("[data-route]", { timeout: 10000 });
+    await passJoinTrialScreen(t2.page);   // trial rules: the till asks for the business trial (cover) and shows the answer
     await openSettings(t2.page);
     assert.strictEqual((await t2.page.textContent("#termTill")).trim(), "T2");
   });

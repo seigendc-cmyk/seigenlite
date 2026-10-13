@@ -540,6 +540,9 @@
   // and the sale is exactly as before.
   function completeSale(method, payments, stockPlan){
     if(cart.length===0) return;
+    // Trial rules: no sale before the free trial or a licence. The screens
+    // already hide Pay then; this is the one choke point behind them.
+    if(typeof licencePretrial==="function" && licencePretrial()){ if(typeof openTrialModal==="function") openTrialModal(); return; }
     // Shift/EOD control (Part 3): the one choke point every payment method,
     // on both the mobile cart drawer (router.js) and the desktop Sales
     // screen (desktop/sales-desktop.js), goes through — neither has its own

@@ -235,6 +235,7 @@
 
   // ---- dispatch screen ----
   function openDispatchScreen(){
+    if(typeof pretrialBlocked==="function" && pretrialBlocked()) return;   // trial rules: waits for the free trial or a licence
     const branch = currentBranch();
     const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
     if(products.length===0){ alert("No products in this branch to dispatch."); return; }

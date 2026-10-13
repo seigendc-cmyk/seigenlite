@@ -24,6 +24,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { activateForTest } = require("./test-activation");
 const { stubDigitalCommerce, TEST_PHRASE } = require("./dc-fake");
 
 let chromium;
@@ -65,10 +66,11 @@ async function setUpCore(browser, dir){
   await page.fill("#setShop", "Test Shop");
   await page.fill("#setSecret", TEST_PHRASE); // setup won't continue without it
   await page.click("#setupNext");
-  await page.click("#setupNext2");
+  await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2");
   await page.click("#setupNext3");
   await page.click("#setupFinish");
   await page.waitForSelector("[data-route]");
+  await activateForTest(page);   // trial rules: set up without the trial = no selling, Reports or Marketing
   return { page, pageErrors };
 }
 async function addProduct(page, name, price, stock){

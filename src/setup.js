@@ -1,6 +1,6 @@
   // ================== SETUP FLOW ==================
   let setupStep = 1;
-  let setupData = {shop_name:"",branch_name:"",secret_phrase:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:"",
+  let setupData = {shop_name:"",branch_name:"",secret_phrase:"",owner_phone:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:"",
     join_code:"",till_label:"",
     rpn:{rpn_name:"",rpn_code:"",rpn_whatsapp:"",city_area:""}, rpnVerify:{ff:"",pin:""}};
 
@@ -38,13 +38,17 @@
               <button type="button" class="btn ${setupData.branch_type==='remote'?'btn-primary':'btn-outline'}" id="setRemoteBtn">Remote Branch</button>
             </div>
             <p class="muted" style="margin-top:8px">Remote branches can sell, but can't add or edit items, change stock quantities directly, or see item costs.</p>
+            ${setupData.branch_type==='remote'? `<p class="muted" id="setRemoteJoinHint" style="margin-top:4px;font-weight:600">Another branch of a business that already uses seiGEN? Use "Join an existing branch" below: it shares the business's free trial. A remote branch set up here counts as a shop of its own.</p>` : ""}
             <button type="button" class="btn btn-outline" id="setJoinBtn" style="margin-top:8px">Join an existing branch</button>
             <p class="muted" style="margin-top:4px">Adding another till to a business that's already set up? Join it with a code from your main branch.</p>
             <button class="btn btn-primary" id="setupNext" style="margin-top:16px">Continue</button>
           ` : setupStep===2? `
             <h2>Contact & branding</h2>
-            <label>Contact / WhatsApp number</label>
-            <input class="field" id="setContact" value="${escapeHtml(setupData.contact_phone)}" placeholder="e.g. +263...">
+            <label>Owner's phone</label>
+            <input class="field" id="setOwnerPhone" inputmode="tel" autocomplete="tel" value="${escapeHtml(setupData.owner_phone)}" placeholder="e.g. 077 123 4567">
+            <p class="muted" style="margin-top:4px">Needed for the free trial (one per phone number). A Zimbabwe mobile, or any number with its +country code.</p>
+            <label>Contact / WhatsApp number for receipts (optional)</label>
+            <input class="field" id="setContact" value="${escapeHtml(setupData.contact_phone)}" placeholder="The owner's phone if left empty">
             <label>Currency symbol</label>
             <input class="field" id="setCurrency" value="${escapeHtml(setupData.currency)}" placeholder="$">
             <label>Shop banner / logo image (optional)</label>
@@ -63,7 +67,8 @@
             </div>
           ` : setupStep===3? `
             <h2>RPN (Revenue Partner Network)</h2>
-            <p class="muted">Optional. If an RPN is setting you up, they type their field force number and RPN PIN here; Digital Commerce checks them once you're online. You can also do this later in More → Settings.</p>
+            <p class="muted">Your RPN types their field force number and RPN PIN here. With them, Finish starts your 30-day free trial (it needs the internet).</p>
+            <p class="muted" id="setRpnNoTrial">You can leave this empty, but then there's no free trial: you can add products now, and selling starts with a licence. You can start the trial later from the app.</p>
             ${rpnVerifyFieldsHtml("setRpnV")}
             <p class="muted" id="setRpnVNote" style="margin-top:6px">${setupData.rpnVerify.ff? "Field force number " + escapeHtml(setupData.rpnVerify.ff) + " is ready to be checked." : ""}</p>
             <p class="muted" style="margin-top:14px">Your RPN's contact, for the Support button (stored as entered):</p>
@@ -81,11 +86,14 @@
               <tr><td class="muted">Branch type</td><td>${setupData.branch_type==='main'?'Main Branch':'Remote Branch'}</td></tr>
               <tr><td class="muted">Activation phrase</td><td>Entered</td></tr>
               ${setupData.branch_type==='remote'? `<tr><td class="muted">Admin passcode</td><td>Set</td></tr>` : ""}
-              <tr><td class="muted">Contact</td><td>${escapeHtml(setupData.contact_phone)||"—"}</td></tr>
+              <tr><td class="muted">Owner's phone</td><td>${escapeHtml(setupData.owner_phone)}</td></tr>
+              <tr><td class="muted">Contact</td><td>${escapeHtml(setupData.contact_phone||setupData.owner_phone)||"—"}</td></tr>
               <tr><td class="muted">Currency</td><td>${escapeHtml(setupData.currency)}</td></tr>
               ${(setupData.rpn.rpn_name||setupData.rpn.rpn_code||setupData.rpn.rpn_whatsapp||setupData.rpn.city_area)? `<tr><td class="muted">RPN</td><td>${escapeHtml(setupData.rpn.rpn_name)||"—"}${setupData.rpn.rpn_code? " ("+escapeHtml(setupData.rpn.rpn_code)+")":""}</td></tr>` : ""}
             </table>
-            <p class="muted">You get 30 days free use from today. After that, the app asks for a licence: WhatsApp or call seiGEN on +263789487287.</p>
+            <p class="muted" id="setupTrialNote">${setupData.rpnVerify.ff && setupData.rpnVerify.pin
+              ? "Finish saves your shop, then asks seiGEN for your 30-day free trial (this needs the internet)."
+              : "No RPN entered, so there's no free trial yet: you can add products and stock, and selling starts with the trial or a licence."}</p>
             <div class="row" style="margin-top:10px">
               <button class="btn btn-outline" id="setupBack2">Back</button>
               <button class="btn btn-primary" id="setupFinish">Finish setup</button>
@@ -127,16 +135,16 @@
         const now = trustedNow();
         setSetting("install_date", now.toISOString());
         setSetting("licence_v2_since", now.toISOString());   // this version's first run (old-style codes close 30 days later, activation.js)
-        setSetting("activated_until", new Date(now.getTime()+30*86400000).toISOString());
-        setSetting("activated_until_src", "setup");   // only for a rollback to v10; the trial rule (activation.js) decides
         setSetting("setup_complete","1");
+        // the business's free trial covers this till (trial.js); asked now, and after check-ins until answered
+        setSetting("trial_cover_wanted","1");
         currency = setupData.currency||"$";
         backfillBranch(db, currentBranch());
         logAudit("Joined business", "", "Till "+r.data.till_code+" of "+r.data.branch_name+" ("+r.data.business_name+")");
         setupData.join_code = "";
+        refreshLicenceLock();
         await persist();
-        route="pos"; render();
-        deviceCheckin();
+        renderTrialStarting({ quiet:true });
       };
     } else if(setupStep===1){
       // Keep typed values when Main/Remote re-renders this step.
@@ -157,6 +165,7 @@
     } else if(setupStep===2){
       document.getElementById("setupBack").onclick=()=>{setupStep=1;renderSetup();};
       document.getElementById("setBanner").onchange=(e)=>{
+        setupData.owner_phone = document.getElementById("setOwnerPhone").value.trim();
         setupData.contact_phone = document.getElementById("setContact").value.trim();
         setupData.currency = document.getElementById("setCurrency").value.trim()||"$";
         const pa = document.getElementById("setAdminPass"); if(pa){ setupData.admin_pass = pa.value; setupData.admin_pass2 = document.getElementById("setAdminPass2").value; }
@@ -167,8 +176,10 @@
         reader.readAsDataURL(f);
       };
       document.getElementById("setupNext2").onclick=()=>{
+        setupData.owner_phone = document.getElementById("setOwnerPhone").value.trim();
         setupData.contact_phone = document.getElementById("setContact").value.trim();
         setupData.currency = document.getElementById("setCurrency").value.trim()||"$";
+        if(!normPhone(setupData.owner_phone)) return alert("Enter the owner's phone number, e.g. 07x xxx xxxx or +263 7x xxx xxxx.");
         if(setupData.branch_type==='remote'){
           setupData.admin_pass = document.getElementById("setAdminPass").value;
           setupData.admin_pass2 = document.getElementById("setAdminPass2").value;
@@ -204,22 +215,19 @@
         setSetting("secret_phrase", setupData.secret_phrase);
         setSetting("branch_name", setupData.branch_name);
         setSetting("branch_type", setupData.branch_type);
-        setSetting("contact_phone", setupData.contact_phone);
+        setSetting("owner_phone", setupData.owner_phone);
+        setSetting("contact_phone", setupData.contact_phone || setupData.owner_phone);   // receipts: the owner's phone unless another was given
         setSetting("currency", setupData.currency);
         setSetting("banner_image", setupData.banner_image);
         setSetting("paper_width","80");
         setSetting("install_id", newInstallId());   // terminal.js: 4 characters until LONG_INSTALL_ID is switched on
         resetBranchId();                       // a new branch always gets a fresh identity
-        // trustedNow() (eod.js), not a raw new Date(): seeds the trial from
-        // the same watermark-clamped clock every other licensing decision
-        // uses, so a clock rolled back before setup can't backdate the
-        // trial's start either.
+        // trustedNow() (eod.js), not a raw new Date(): the same
+        // watermark-clamped clock every other licensing decision uses.
+        // No trial is written here: it comes signed from seiGEN (trial.js).
         const now = trustedNow();
         setSetting("install_date", now.toISOString());
         setSetting("licence_v2_since", now.toISOString());   // this version's first run (old-style codes close 30 days later, activation.js)
-        const until = new Date(now.getTime()+30*86400000);
-        setSetting("activated_until", until.toISOString());
-        setSetting("activated_until_src", "setup");   // only for a rollback to v10; the trial rule (activation.js) decides
         setSetting("setup_complete","1");
         currency = setupData.currency;
         backfillBranch(db, currentBranch());
@@ -231,15 +239,28 @@
         // Save from Settings afterward always enqueues (saveRpnLink).
         const rpn = setupData.rpn;
         if(rpn.rpn_name || rpn.rpn_code || rpn.rpn_whatsapp || rpn.city_area) saveRpnLink(rpn);
-        // The verified link waits until this device is registered (the
-        // check-in below sends it: devicecheckin.js -> rpnAfterCheckin).
-        if(setupData.rpnVerify.ff && setupData.rpnVerify.pin) requestRpnLink(setupData.rpnVerify.ff, setupData.rpnVerify.pin);
+        const v = setupData.rpnVerify;
         setupData.rpnVerify = { ff:"", pin:"" };
+        refreshLicenceLock();
         await persist();
-        route="pos"; render();
-        // Register with Digital Commerce now, not at the next launch: the
-        // check-in at boot ran before this device had an install ID.
-        deviceCheckin();
+        if(!(v.ff && v.pin)){
+          // No RPN: no trial (pretrial). Register with Digital Commerce now,
+          // not at the next launch: the check-in at boot ran before this
+          // device had an install ID.
+          route="pos"; render();
+          deviceCheckin();
+          return;
+        }
+        // The free trial (trial.js) checks in first, then asks seiGEN. Its
+        // RPN check links the RPN too. If the trial is refused for a reason
+        // that isn't the RPN's (a used phone, old sales), the RPN is still
+        // linked the usual way (rpn.js, after the next check-in).
+        const r = await renderTrialStarting({ phone: setupData.owner_phone, ff: v.ff, pin: v.pin });
+        if(!r.ok && !/^RPN_/.test(r.code||"") && r.code!=="TOO_MANY_TRIES"){
+          requestRpnLink(v.ff, v.pin);
+          await persist();
+          if(dcIsRegistered()) trySendRpnLink().catch(()=>{});   // the check-in already ran; otherwise the next one sends it
+        }
       };
     }
   }

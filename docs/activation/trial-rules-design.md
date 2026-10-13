@@ -1,7 +1,7 @@
 # Trial rules: no anonymous trials (Stage A design)
 
-Status: **Stage A, design only. Nothing has been built or applied.** Stage B starts on "go Trial-B".
-Date: 2026-10-10. Branch: `activation-v2`.
+Status: **Stage B built (2026-10-13), as app v18.** Migration `20261019120000` written and tested, waiting for "apply"; Edge Function `supabase/functions/issue-trial` written and tested, waiting for "go"; app (`src/trial.js`, activation, setup, gates) and Console (Trials, Refused trials, exception trial, RPN trial counts) built and tested, held from the previews until both server steps are live (§2.10). Owner's answers: 1 yes, 2 yes (a till added after the trial ends needs a paid licence), 3 yes, 4 not now, 5a–5e as recommended.
+Date: 2026-10-10 (Stage A). Branch: `activation-v2`.
 
 ## Owner decisions (2026-10-10)
 
@@ -331,7 +331,7 @@ New tabs next to Licences / Possible reinstalls / Old-style codes (`index.html:1
 
   The Q8 function stays, but only as the cap in §2.6.
 - **Existing test installs** (all test data; on live, 41 of 47 vendors have no licence):
-  - On v17, a device with no licence and no legacy code enters **pretrial**. It is not "trial ended". It sees "Start your free trial" and can request one through the same flow.
+  - On v18, a device with no licence and no legacy code enters **pretrial**. It is not "trial ended". It sees "Start your free trial" and can request one through the same flow.
   - A device whose licence has expired stays locked, as today.
   - Legacy old-style codes keep their horizon.
 - **No backfill:** past unsigned trials leave no server record, so every test phone can get one trial. Because the test data reuses 9 numbers across 22 vendors, your tests will hit `PHONE_USED` early. That is expected.
@@ -345,7 +345,7 @@ New tabs next to Licences / Possible reinstalls / Old-style codes (`index.html:1
 
 1. **Migration:** backup, SQL shown, then **"apply"**.
 2. **Edge Function `issue-trial`:** deploy on **"go"**. It needs `SUPABASE_SERVICE_ROLE_KEY`, which Supabase provides to functions, plus the existing signing secrets.
-3. **App v17:** to the previews (`tools/cf/deploy-app.js`).
+3. **App v18:** to the previews (`tools/cf/deploy-app.js`).
 4. **Console:** to sclconsole-preview.
 
 The app ships last: an app that asks before the server can answer would say "couldn't start the trial right now".
@@ -378,7 +378,7 @@ The app ships last: an app that asks before the server can answer would say "cou
 
 **Existing tests:**
 - About 55 test files finish setup and then sell; they would hit the pretrial lock. One harness helper will give a test device a trial licence signed with a test key (the method `test/licence.test.js` already uses to inject a key). Expect a large but mechanical change.
-- Full suite, all three builds, the service worker's build line bumped to v17, screenshots at 390 and 1280 px, and a two-device checklist.
+- Full suite, all three builds, the service worker's build line bumped to v18, screenshots at 390 and 1280 px, and a two-device checklist.
 
 ---
 

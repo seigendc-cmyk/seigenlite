@@ -1,6 +1,8 @@
-// node tools/licence/deploy-function.js [--kid 1] [--secrets-only | --deploy-only]
+// node tools/licence/deploy-function.js [--kid 1] [--secrets-only | --deploy-only] [--function issue-trial]
 //
-// Deploys the issue-licence Edge Function (supabase/functions/issue-licence)
+// Deploys the issue-licence Edge Function (supabase/functions/issue-licence),
+// or with --function another one that signs with the same key (issue-trial,
+// which needs no secrets of its own: use --deploy-only),
 // and sets its secrets LICENCE_SIGNING_KEY + LICENCE_KEY_ID, with the
 // Supabase CLI (`npx supabase functions deploy`, `npx supabase secrets set`).
 //   * SUPABASE_PAT (a personal access token, sbp_...) is read from .env and
@@ -55,11 +57,13 @@ function run(args, secrets, env) {
     process.exitCode = 2; return;
   }
   const kid = Number(arg('--kid') || 1);
+  const fn = arg('--function') || 'issue-licence';
+  if (!['issue-licence', 'issue-trial'].includes(fn)) { console.error('--function is issue-licence or issue-trial'); process.exitCode = 2; return; }
   const env = { SUPABASE_ACCESS_TOKEN: pat };
 
   if (!process.argv.includes('--secrets-only')) {
-    console.log('Deploying issue-licence to project ' + PROJECT_REF + ' ...');
-    const code = await run(['functions', 'deploy', 'issue-licence', '--project-ref', PROJECT_REF, '--use-api'], [pat], env);
+    console.log('Deploying ' + fn + ' to project ' + PROJECT_REF + ' ...');
+    const code = await run(['functions', 'deploy', fn, '--project-ref', PROJECT_REF, '--use-api'], [pat], env);
     if (code !== 0) { console.error('Deploy failed (exit ' + code + ').'); process.exitCode = 1; return; }
   }
   if (!process.argv.includes('--deploy-only')) {

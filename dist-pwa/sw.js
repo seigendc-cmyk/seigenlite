@@ -11,7 +11,8 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v17 — POS fixes: cart with its own scroll and pinned Pay (phone and desktop), menus kept under the header, customer combo with "Add new" (Create customers permission), wholesale prices by customer type, credit limit warning, search where every term must match
+// build: v18 — Trial rules: no anonymous trial; the free trial comes signed from seiGEN at setup (online, RPN field force number + PIN, owner's phone, one per phone); before it the shop can add products and stock but not sell; joined tills share the business trial
+// v17: POS fixes: cart with its own scroll and pinned Pay (phone and desktop), menus kept under the header, customer combo with "Add new" (Create customers permission), wholesale prices by customer type, credit limit warning, search where every term must match
 // v14: RPN link: the RPN types their field force number + PIN (setup or More → Settings); About shows "Onboarded by"
 // v13: Marketing add-on (market.html) is built into dist-pwa and dist-tauri, so no deploy can drop it again
 // v12: price plans: More → About shows the plan, the till's role and its price; Lite's one-branch limit explained

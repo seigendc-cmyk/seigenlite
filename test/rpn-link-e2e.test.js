@@ -12,6 +12,7 @@
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
+const { passJoinTrialScreen } = require("./test-activation");
 let chromium;
 try{ ({ chromium } = require("playwright")); }
 catch(e){ console.log("Playwright is not installed — skipping.\n0 passed, 0 failed (skipped)"); process.exit(0); }
@@ -74,7 +75,7 @@ async function moreTab(page, desktop, tab){
       await page.goto("file:///" + BUILDS[kind].replace(/\\/g, "/"));
       await page.waitForSelector("#setShop", { timeout:30000 });
       await page.fill("#setShop", "Test Shop"); await page.fill("#setSecret", PHRASE);
-      await page.click("#setupNext"); await page.click("#setupNext2");
+      await page.click("#setupNext"); await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2");
       await page.waitForSelector("#setRpnVFf");
       assert.match(await page.textContent("h2"), /RPN \(Revenue Partner Network\)/);
       await page.fill("#setRpnVFf", "14"); await page.fill("#setRpnVPin", "123456");
@@ -85,7 +86,7 @@ async function moreTab(page, desktop, tab){
       await shot(page, "01-setup-rpn");
       await page.click("#setupNext3");
       await page.click("#setupFinish");
-      await page.waitForSelector("[data-route]");
+      await passJoinTrialScreen(page);   // trial rules: with the RPN, Finish asks for the free trial (not served here), then the link goes the usual way
       await page.waitForFunction(()=> true);
       for(let i = 0; i < 50 && !state.linked; i++) await page.waitForTimeout(100);
       assert.strictEqual(state.links.length, 1, "sent once, after the check-in");
@@ -113,7 +114,7 @@ async function moreTab(page, desktop, tab){
       await page.goto("file:///" + BUILDS[kind].replace(/\\/g, "/"));
       await page.waitForSelector("#setShop", { timeout:30000 });
       await page.fill("#setShop", "Test Shop"); await page.fill("#setSecret", PHRASE);
-      await page.click("#setupNext"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
+      await page.click("#setupNext"); await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
       await page.waitForSelector("[data-route]");
       await moreTab(page, desktop, "settings");
       await page.waitForSelector("#linkRpnBtn");
