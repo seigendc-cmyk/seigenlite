@@ -38,7 +38,7 @@ async function waitFor(cond, what){
 (async ()=>{
   const MIG = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261023120000_admin_passcode_from_main.sql"), "utf8");
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261023120000_admin_passcode_from_main.sql"]) });
   await pg.exec(MIG);
   // one database call at a time: an app's background call (role anon) must not overlap the test's own reads
   let lock = Promise.resolve();

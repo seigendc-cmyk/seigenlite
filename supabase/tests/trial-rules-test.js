@@ -27,7 +27,7 @@ function ok(name, cond, extra) {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f) => f !== POS).concat([FILE, '20261020120000_server_time.sql', '20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql']) });   // after 20261018180000 (both are on live now)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f) => f !== POS).concat([FILE, '20261020120000_server_time.sql', '20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql', '20261023120000_admin_passcode_from_main.sql']) });   // after 20261018180000 (both are on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   async function as(claims, sql, p, role) {

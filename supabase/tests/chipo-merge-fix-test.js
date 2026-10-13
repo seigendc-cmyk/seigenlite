@@ -28,7 +28,7 @@ function ok(name, cond, extra) {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql']) });   // just before Billing-B (it is on live now)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql', '20261023120000_admin_passcode_from_main.sql']) });   // just before Billing-B (it is on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const run = async (sql) => { try { const res = await pg.exec(sql); return { ok: true, res }; } catch (e) { await pg.exec('rollback').catch(() => {}); return { e: e.message }; } };
 
