@@ -12,6 +12,9 @@
                <label>Admin passcode</label>
                <input class="field" id="settingsPasscode" type="password" placeholder="Enter passcode">
                <button class="btn btn-primary" id="unlockSettings" style="margin-top:10px">Unlock</button>`
+            : adminComesFromMain()? `<p class="muted" id="adminFromMainNote">${escapeHtml(ADMIN_FROM_MAIN_TEXT)}</p>
+               <button class="btn btn-primary" id="adminFromMainCheck" style="margin-top:10px">Check now</button>
+               <p class="muted" id="adminFromMainStatus" style="font-size:12.5px;margin-top:8px"></p>`
             : `<p class="muted">This device has no Admin passcode yet. Create one now - it protects Settings and price changes on this branch.</p>
                <label>New Admin passcode (at least ${ADMIN_PASSCODE_MIN} characters)</label>
                <input class="field" id="newAdminPass" type="password" placeholder="Choose a passcode">
@@ -24,9 +27,18 @@
       const unlock = document.getElementById("unlockSettings");
       if(unlock) unlock.onclick=()=>{
         const code = document.getElementById("settingsPasscode").value;
-        const match = code && one("SELECT * FROM staff WHERE role='Admin' AND passcode=? AND passcode<>'' AND active=1",[code]);
-        if(match){ settingsUnlocked=true; render(); }
+        if(findAdmin(code)){ settingsUnlocked=true; render(); }          // also an Admin passcode set by main (v21)
         else alert("Incorrect passcode.");
+      };
+      // v21: a joined device's Admin passcode comes with its next check-in
+      const check = document.getElementById("adminFromMainCheck");
+      if(check) check.onclick=async ()=>{
+        const st = document.getElementById("adminFromMainStatus");
+        check.disabled = true; check.textContent = "Checking…"; if(st) st.textContent = "";
+        try{ await deviceCheckin(); }catch(e){}
+        if(hasAdminPasscode()){ render(); return; }
+        check.disabled = false; check.textContent = "Check now";
+        if(st) st.textContent = isOnline()? "Nothing yet. Set it on a main-branch till first, then check again." : "This device is offline. Connect to the internet, then check again.";
       };
       const create = document.getElementById("createAdmin");
       if(create) create.onclick=()=>{

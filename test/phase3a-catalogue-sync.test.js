@@ -10,7 +10,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const { makeApp } = require("./harness");
-const { LIVE_STUB } = require("../supabase/tests/live-stub");
+const { LIVE_STUB } = require("../supabase/tests/live-stub"); const { preV21Args } = require("../supabase/tests/rebuild-helpers");
 
 let passed=0, failed=0;
 async function t(name, fn){
@@ -29,6 +29,7 @@ const CASTS = { p_rows:"::jsonb", p_uids:"::text[]", p_branch_id:"::uuid", p_ter
 async function serverRpc(name, body){
   calls.push(name);
   if(OFFLINE) return { ok:false, reason:"offline" };
+  body = preV21Args(name, body);   // this suite pins a server from before v21 (rebuild-helpers.js)
   const keys = Object.keys(body);
   const vals = keys.map(k=> k==="p_rows"? JSON.stringify(body[k]) : k==="p_uids"? "{"+body[k].join(",")+"}" : body[k]);
   const sql = `select public.${name}(${keys.map((k,i)=>`${k}=>$${i+1}${CASTS[k]||""}`).join(",")})::json j`;

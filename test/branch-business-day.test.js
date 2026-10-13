@@ -13,6 +13,7 @@ const path = require("path");
 const vm = require("vm");
 const { makeApp, fixedClock } = require("./harness");
 const { LIVE_STUB } = require("../supabase/tests/live-stub");
+const { preV21Args } = require("../supabase/tests/rebuild-helpers");   // this suite pins a server from before v21
 
 let passed=0, failed=0;
 async function t(name, fn){
@@ -25,6 +26,7 @@ const CASTS = { p_rows:"::jsonb", p_lines:"::jsonb", p_moves:"::jsonb", p_sales:
   p_cursor:"::bigint", p_limit:"::integer", p_hours:"::integer" };
 const JSONB = ["p_rows","p_lines","p_moves","p_sales","p_counts"];
 async function rpc(name, body){
+  body = preV21Args(name, body);
   const keys = Object.keys(body);
   const vals = keys.map(k=> JSONB.includes(k)? JSON.stringify(body[k]) : k==="p_uids"? "{"+body[k].join(",")+"}" : body[k]);
   await pg.exec("set role anon");

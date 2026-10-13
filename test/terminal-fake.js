@@ -2,7 +2,7 @@
 // tests never reach the live project. Same idea as test/dc-fake.js (which it
 // replaces for suites that need registration): it answers
 // cl_device_checkin, cl_branch_register, cl_branch_issue_join_code,
-// cl_terminal_join and cl_branch_list from in-memory state that mirrors the
+// cl_terminal_join, cl_terminal_admin_set (v21) and cl_branch_list from in-memory state that mirrors the
 // migration's rules closely enough for the UI (join codes are single-use;
 // phrase compared upper(trim()); branch names compared letters/digits only;
 // only main-branch tills issue codes).
@@ -37,7 +37,8 @@ async function stubTerminals(target, opts){
       const t = state.terminals.find(x=>x.install===b.p_install_id);
       return { vendor_id:"v-"+b.p_install_id, status:"onboarding", lock_cart:false, lock_add_product:false, lock_reason:null,
         cycle_start_date:null, messages:[], business_id: v.business, terminal_id: t? t.id : null,
-        terminal_active: t? t.active!==false : null };   // Phase 2
+        terminal_active: t? t.active!==false : null,   // Phase 2
+        admin_seed: (()=>{ const sd = t && state.seeds[t.id]; if(!sd || sd.delivered) return null; sd.delivered = true; return sd.seed; })() };   // v21 (20261023120000)
     },
     cl_branch_register(b){
       vendor(b, true);
@@ -57,11 +58,13 @@ async function stubTerminals(target, opts){
       const me = state.terminals.find(x=>x.install===b.p_install_id);
       const myBranch = me && state.branches.find(x=>x.id===me.branch);
       if(!myBranch || !myBranch.is_main) throw err("Only a main-branch terminal can add terminals");
+      // v21 (20261023120000): the code carries the new device's Admin check value
+      if(!seedOk(b.p_admin_salt, b.p_admin_check, b.p_admin_rounds)) throw err("UPDATE_MAIN_FIRST: Update the main branch till first. It sets the new device's Admin passcode when it issues the code.");
       let br = b.p_branch_id? state.branches.find(x=>x.id===b.p_branch_id)
         : state.branches.find(x=>x.business===me.business && key(x.name)===key(b.p_new_branch_name));
       if(!br){ br = { id:id("br"), business:me.business, name:b.p_new_branch_name, is_main:false }; state.branches.push(br); }
       const code = "TEST" + String(1000 + state.codes.length).slice(-4).replace(/[01]/g,"7");
-      state.codes.push({ code, branch:br.id, used:false });
+      state.codes.push({ code, branch:br.id, used:false, seed:{ salt:b.p_admin_salt, check:b.p_admin_check, rounds:b.p_admin_rounds } });
       return { code: code.slice(0,4)+"-"+code.slice(4), branch_id:br.id, branch_name:br.name, expires_ts:new Date(Date.now()+86400000).toISOString() };
     },
     cl_terminal_join(b){
@@ -73,11 +76,13 @@ async function stubTerminals(target, opts){
       if(have && have.active===false) return { error:"TERMINAL_INACTIVE" };   // Phase 2
       if(have) return have.branch===br.id? termJson(have) : { error:"ALREADY_JOINED" };
       if(c.used) return { error:"JOIN_CODE_USED" };
+      if(!(Number(b.p_app_build) >= 21)) throw err("APP_UPDATE_NEEDED: Update this app first, then join again. Your join code is still valid.");   // v21
+      if(!c.seed) return { error:"ADMIN_SEED_MISSING" };
       if(b.p_expected_branch_name && key(b.p_expected_branch_name)!==key(br.name)) return { error:"BRANCH_NAME_MISMATCH", branch_name:br.name };
       const v = vendor({ p_install_id:b.p_install_id, p_secret_phrase:b.p_device_phrase||b.p_secret_phrase, p_device_key:b.p_device_key }, true);
       const t = { id:id("term"), business:bz.id, branch:br.id, install:b.p_install_id, till:nextTill(br.id), label:b.p_label||null };
       state.terminals.push(t); c.used = true; v.business = bz.id;
-      return termJson(t);
+      return Object.assign(termJson(t), { admin_seed:c.seed });
     },
     // Phase 2: a main-branch till deactivates/reactivates another till (never itself).
     cl_terminal_set_active(b){
@@ -89,6 +94,18 @@ async function stubTerminals(target, opts){
       if(t.id===me.id && !b.p_active) throw err("A till cannot deactivate itself");
       t.active = !!b.p_active;
       return Object.assign(termJson(t), { active:t.active });
+    },
+    // v21 (20261023120000): a main-branch till sets another till's Admin check value; its next check-in carries it once
+    cl_terminal_admin_set(b){
+      vendor(b, false);
+      const me = state.terminals.find(x=>x.install===b.p_install_id && x.active!==false);
+      if(!me || !state.branches.find(x=>x.id===me.branch).is_main) throw err("Only a main-branch terminal can set a till's Admin passcode");
+      if(!seedOk(b.p_admin_salt, b.p_admin_check, b.p_admin_rounds)) throw err("ADMIN_SEED_INVALID: That Admin passcode check value isn't valid");
+      const t = state.terminals.find(x=>x.id===b.p_terminal_id && x.business===me.business);
+      if(!t) throw err("Terminal not found in this business");
+      if(t.id===me.id) throw err("A till sets its own Admin passcode in Settings");
+      state.seeds[t.id] = { seed:{ salt:b.p_admin_salt, check:b.p_admin_check, rounds:b.p_admin_rounds }, delivered:false };
+      return Object.assign(termJson(t), { admin_set:true });
     },
     cl_branch_list(b){
       vendor(b, false);
@@ -118,5 +135,11 @@ async function stubTerminals(target, opts){
   return { calls, state };
 }
 
-function newTerminalState(){ return { businesses:[], branches:[], terminals:[], codes:[], vendors:{}, seq:0 }; }
-module.exports = { stubTerminals, newTerminalState };
+function newTerminalState(){ return { businesses:[], branches:[], terminals:[], codes:[], vendors:{}, seeds:{}, seq:0 }; }
+const seedOk = (salt, check, rounds)=> /^[0-9a-f]{32}$/.test(String(salt||"")) && /^[0-9a-f]{64}$/.test(String(check||"")) && Number(rounds) >= 100000 && Number(rounds) <= 2000000;
+// The check value a main till would send for this passcode (PBKDF2-SHA-256, as src/passcode-check.js), for codes a test makes by hand.
+function testAdminSeed(passcode){
+  const crypto = require("crypto"), salt = crypto.randomBytes(16).toString("hex");
+  return { salt, check: crypto.pbkdf2Sync(String(passcode), Buffer.from(salt, "hex"), 150000, 32, "sha256").toString("hex"), rounds:150000 };
+}
+module.exports = { stubTerminals, newTerminalState, testAdminSeed };

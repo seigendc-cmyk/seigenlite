@@ -17,7 +17,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { activateForTest, passJoinTrialScreen } = require("./test-activation");
-const { LIVE_STUB } = require("../supabase/tests/live-stub");
+const { LIVE_STUB } = require("../supabase/tests/live-stub"); const { preV21Args } = require("../supabase/tests/rebuild-helpers");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -49,6 +49,7 @@ const JSONB = ["p_rows","p_lines","p_moves","p_sales","p_counts"];
 let queue = Promise.resolve();
 function serverCall(name, body){
   const run = async ()=>{
+    body = preV21Args(name, body);   // this suite pins a server from before v21 (rebuild-helpers.js)
     const keys = Object.keys(body);
     const vals = keys.map(k=> JSONB.includes(k)? JSON.stringify(body[k]) : k==="p_uids"? "{"+body[k].join(",")+"}" : body[k]);
     await pg.exec("set role anon");

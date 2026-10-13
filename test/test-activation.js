@@ -53,4 +53,28 @@ async function passJoinTrialScreen(page){
   await page.waitForSelector("[data-route]");
 }
 
-module.exports = { OWNER_PHONE, activateForTest, writeSettings, passJoinTrialScreen };
+// v21: "Add a terminal" asks for this till's Admin passcode, so a main till made by
+// setup gets one (an Admin "Owner"), written into the app's database; then reload
+// and sign in, as after writeSettings.
+async function addAdminForTest(page, passcode){
+  await page.waitForTimeout(800);   // let setup's own saves land first
+  await page.evaluate(async (passcode)=>{
+    const open = ()=> new Promise((res, rej)=>{ const r = indexedDB.open("seigen_lite_db", 1); r.onsuccess = ()=>res(r.result); r.onerror = ()=>rej(r.error); });
+    const conn = await open();
+    const bytes = await new Promise((res, rej)=>{ const g = conn.transaction("kv","readonly").objectStore("kv").get("dbfile"); g.onsuccess = ()=>res(g.result); g.onerror = ()=>rej(g.error); });
+    const SQL = await initSqlJs({ locateFile: f => "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/"+f });
+    const d = new SQL.Database(new Uint8Array(bytes));
+    const branch = ((d.exec("SELECT value FROM settings WHERE key='branch_name'")[0]||{ values:[[""]] }).values[0][0]) || "Main";
+    d.run("INSERT INTO staff(name,role,passcode,branch,active,created_ts) VALUES('Owner','Admin',?,?,1,?)", [passcode, branch, new Date().toISOString()]);
+    const out = d.export(); d.close();
+    await new Promise((res, rej)=>{ const tx = conn.transaction("kv","readwrite"); tx.objectStore("kv").put(out, "dbfile"); tx.oncomplete = ()=>res(); tx.onerror = ()=>rej(tx.error); });
+  }, passcode);
+  await page.reload();
+  await page.waitForSelector("#startSignIn", { timeout: 30000 });
+  await page.click("#startSignIn");
+  await page.waitForSelector("#whoName, #logoutBtn");
+  if(await page.$("#whoName")){ await page.fill("#whoName", "Test User"); await page.click("#whoContinue"); }
+  await page.waitForSelector("[data-route]");
+}
+
+module.exports = { OWNER_PHONE, activateForTest, writeSettings, passJoinTrialScreen, addAdminForTest };

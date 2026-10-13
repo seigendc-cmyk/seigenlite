@@ -25,7 +25,7 @@ const os = require("os");
 const path = require("path");
 const http = require("http");
 const crypto = require("crypto");
-const { newPglite, buildFromRepo } = require("../supabase/tests/rebuild-helpers");
+const { newPglite, buildFromRepo, v21AdminSeed } = require("../supabase/tests/rebuild-helpers");
 const build = require("../build.js");
 
 let chromium;
@@ -302,9 +302,10 @@ const ledgerRows = async ()=> (await sq("select count(*)::int n from cl_ledger_e
     assert.strictEqual(reg.status, 200, JSON.stringify(reg.json));
     const main = await ask("BIZ1", { owner_phone:"0783 333 444" });
     assert.strictEqual(main.json.ok, true, main.text);
-    const jc = await runRpc("cl_branch_issue_join_code", { p_install_id:"BIZ1", p_secret_phrase:"Biz Phrase", p_device_key:keyOf("BIZ1"), p_branch_id:reg.json.branch_id, p_new_branch_name:null }, { role:"anon" });
+    const jc = await runRpc("cl_branch_issue_join_code", { p_install_id:"BIZ1", p_secret_phrase:"Biz Phrase", p_device_key:keyOf("BIZ1"), p_branch_id:reg.json.branch_id, p_new_branch_name:null,
+      ...(()=>{ const sd = v21AdminSeed("Joined-Admin-1"); return { p_admin_salt:sd.salt, p_admin_check:sd.check, p_admin_rounds:sd.rounds }; })() }, { role:"anon" });   // v21: with its Admin passcode
     PHRASES.BIZ2 = "Biz Phrase";
-    const jn = await runRpc("cl_terminal_join", { p_install_id:"BIZ2", p_secret_phrase:"Biz Phrase", p_device_key:keyOf("BIZ2"), p_join_code:jc.json.code }, { role:"anon" });
+    const jn = await runRpc("cl_terminal_join", { p_install_id:"BIZ2", p_secret_phrase:"Biz Phrase", p_device_key:keyOf("BIZ2"), p_join_code:jc.json.code, p_app_build:21 }, { role:"anon" });
     assert.strictEqual(jn.status, 200, JSON.stringify(jn.json));
     const cover = await ask("BIZ2", { owner_phone:null, field_force_no:null, pin:null });
     assert.strictEqual(cover.json.ok, true, cover.text); assert.strictEqual(cover.json.kind, "cover");

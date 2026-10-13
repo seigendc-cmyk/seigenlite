@@ -23,6 +23,7 @@
             <label>Name for this till (optional)</label>
             <input class="field" id="setTillLabel" value="${escapeHtml(setupData.till_label)}" placeholder="e.g. Till 2, Back counter">
             <p class="muted" style="margin-top:8px">This till starts with no products. Sharing products between tills comes in a later update. Joining needs the internet once; after that it sells offline as usual.</p>
+            <p class="muted" id="setJoinAdminNote" style="margin-top:4px">This device's Admin passcode is the one your main branch chose when it made the join code. Ask them for it.</p>
             <button class="btn btn-primary" id="setupJoin" style="margin-top:12px">Join and finish setup</button>
             <p class="muted" id="setupJoinStatus" style="font-size:12.5px;margin-top:8px"></p>
             <button type="button" class="btn btn-ghost" id="setupJoinBack" style="margin-top:4px">← Set up a new shop instead</button>
@@ -136,6 +137,8 @@
         currency = setupData.currency||"$";
         backfillBranch(db, currentBranch());
         logAudit("Joined business", "", "Till "+r.data.till_code+" of "+r.data.branch_name+" ("+r.data.business_name+")");
+        // v21: this device's Admin passcode, as the main branch set it with the join code (a check value)
+        if(typeof storeAdminSeed==="function") storeAdminSeed(r.data.admin_seed, "join");
         setupData.join_code = "";
         refreshLicenceLock();
         await persist();

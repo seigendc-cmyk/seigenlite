@@ -510,7 +510,11 @@
       "ALTER TABLE sales ADD COLUMN price_level TEXT DEFAULT 'retail'",
       "ALTER TABLE sale_items ADD COLUMN price_level TEXT DEFAULT 'retail'",
       "ALTER TABLE sale_items ADD COLUMN retail_price REAL",
-      "ALTER TABLE staff ADD COLUMN can_create_customers INTEGER DEFAULT 0"
+      "ALTER TABLE staff ADD COLUMN can_create_customers INTEGER DEFAULT 0",
+      // Admin passcode from main (v21): a check value set on a main-branch till (passcode-check.js), never the passcode
+      "ALTER TABLE staff ADD COLUMN passcode_salt TEXT DEFAULT ''",
+      "ALTER TABLE staff ADD COLUMN passcode_check TEXT DEFAULT ''",
+      "ALTER TABLE staff ADD COLUMN passcode_rounds INTEGER DEFAULT 0"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}

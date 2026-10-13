@@ -143,6 +143,7 @@ const SCRIPT_ORDER = [
   "dispatch-srv.js",
   "supplier-grv.js",
   "marketing.js",
+  "passcode-check.js",
   "staff.js",
   "scanner.js",
   "drawer.js",

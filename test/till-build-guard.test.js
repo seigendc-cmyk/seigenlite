@@ -9,7 +9,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const { makeApp } = require("./harness");
-const { LIVE_STUB } = require("../supabase/tests/live-stub");
+const { LIVE_STUB } = require("../supabase/tests/live-stub"); const { preV21Args } = require("../supabase/tests/rebuild-helpers");
 
 let passed=0, failed=0;
 async function t(name, fn){
@@ -27,6 +27,7 @@ let queue = Promise.resolve();
 const serial = (fn)=>{ const p = queue.then(fn, fn); queue = p.catch(()=>{}); return p; };
 function serverRpc(name, body){ return serial(()=>serverRpcNow(name, body)); }
 async function serverRpcNow(name, body){
+  body = preV21Args(name, body);   // this suite pins a server from before v21 (rebuild-helpers.js)
   const keys = Object.keys(body);
   const vals = keys.map(k=> k==="p_rows"? JSON.stringify(body[k]) : body[k]);
   const sql = `select public.${name}(${keys.map((k,i)=>`${k}=>$${i+1}${CASTS[k]||""}`).join(",")})::json j`;

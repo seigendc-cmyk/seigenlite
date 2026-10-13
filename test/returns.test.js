@@ -445,7 +445,7 @@ const ledgerOk = (A)=> assert.deepStrictEqual(plain(A.api.stockLedgerCheck().mis
 
   // ================= shared branch stock (Phase 3b): restock via the branch, write-off never =================
   await t("shared-stock branch: restock queued for the branch (sellable after sync, online and offline); write-off makes no server change", async ()=>{
-    const { LIVE_STUB } = require("../supabase/tests/live-stub");
+    const { LIVE_STUB } = require("../supabase/tests/live-stub"); const { preV21Args } = require("../supabase/tests/rebuild-helpers");
     const { PGlite } = await import("@electric-sql/pglite");
     const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
     const pg = new PGlite({ extensions:{ pgcrypto } });
@@ -457,6 +457,7 @@ const ledgerOk = (A)=> assert.deepStrictEqual(plain(A.api.stockLedgerCheck().mis
     const JSONB = ["p_rows","p_lines","p_moves","p_sales","p_counts"];
     const rpc = async (name, body)=>{
       if(OFF) return { ok:false, reason:"offline" };
+      body = preV21Args(name, body);   // this suite pins a server from before v21 (rebuild-helpers.js)
       const keys = Object.keys(body);
       const vals = keys.map(k=> JSONB.includes(k)? JSON.stringify(body[k]) : k==="p_uids"? "{"+body[k].join(",")+"}" : body[k]);
       await pg.exec("set role anon");

@@ -14,8 +14,8 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { passJoinTrialScreen, writeSettings } = require("./test-activation");
-const { stubTerminals, newTerminalState } = require("./terminal-fake");
+const { passJoinTrialScreen, writeSettings, addAdminForTest } = require("./test-activation");
+const { stubTerminals, newTerminalState, testAdminSeed } = require("./terminal-fake");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -95,6 +95,7 @@ async function scrollTo(page, sel){ await page.locator(sel).scrollIntoViewIfNeed
   await t("main: Settings → Business & Terminals → Register this branch shows business, branch, T1 and Registered", async ()=>{
     const { page, fake, pageErrors } = await device(browser, server);
     await setupShop(page, { shop:"Gentronix", branch:"Harare CBD", phrase:"Gold Leaf 42" });
+    await addAdminForTest(page, "owner-pass");                       // v21: Add a terminal asks for this till's Admin passcode
     await openSettings(page);
     assert.strictEqual(await page.getAttribute("#terminalCard","data-registered"), "0");
     await scrollTo(page, "#terminalCard"); await shot(page, "settings-unregistered-main.png");
@@ -110,9 +111,13 @@ async function scrollTo(page, sel){ await page.locator(sel).scrollIntoViewIfNeed
 
     // Add a terminal for this branch
     await page.click("#termAddBtn");
+    await page.fill("#termAddMain", "owner-pass"); await page.fill("#termAddNew", "till2-pass"); await page.fill("#termAddNew2", "till2-pass");
     await page.click("#termAddIssue");
     await page.waitForSelector("#termAddCode");
     code1 = (await page.textContent("#termAddCode")).trim();
+    const issued = fake.calls.find(c=>c.name==="cl_branch_issue_join_code").body;
+    assert.match(issued.p_admin_check, /^[0-9a-f]{64}$/); assert.strictEqual(issued.p_admin_rounds, 150000);
+    assert.ok(!JSON.stringify(fake.calls).includes("till2-pass") && !JSON.stringify(fake.calls).includes("owner-pass"), "no passcode goes to seiGEN");
     assert.match(code1, /^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
     assert.ok(await page.$("#termCopyCode") && await page.$("#termShareCode"), "Copy and Share on WhatsApp offered");
     await shot(page, "settings-add-terminal-code.png");
@@ -172,7 +177,7 @@ async function scrollTo(page, sel){ await page.locator(sel).scrollIntoViewIfNeed
   await t("Billing-B: Setup → Remote Branch asks for a join code; a code for a new branch makes it a remote branch of the business", async ()=>{
     const mainTerm = server.terminals.find(x=>x.till==="T1" && server.branches.find(b=>b.id===x.branch && b.is_main));
     const br = { id:"br-r"+(++server.seq), business:mainTerm.business, name:"Mutare", is_main:false }; server.branches.push(br);
-    const code = "MUTR"+(3000+server.seq); server.codes.push({ code, branch:br.id, used:false });
+    const code = "MUTR"+(3000+server.seq); server.codes.push({ code, branch:br.id, used:false, seed:testAdminSeed("admin123") });   // v21: the main's Admin passcode for it
     const { page, fake, pageErrors } = await device(browser, server);
     await page.fill("#setShop", "Gentronix"); await page.fill("#setSecret", "Gold Leaf 42");
     await page.click("#setRemoteBtn");
@@ -187,7 +192,9 @@ async function scrollTo(page, sel){ await page.locator(sel).scrollIntoViewIfNeed
     await page.click("#setupJoin");
     await passJoinTrialScreen(page);
     assert.strictEqual(fake.calls.find(c=>c.name==="cl_terminal_join").body.p_join_code, code.slice(0,4)+"-"+code.slice(4));
-    await openSettings(page, true);
+    assert.ok(fake.calls.find(c=>c.name==="cl_terminal_join").body.p_app_build >= 21, "v21 says its build");
+    assert.ok(!(await page.$("#newAdminPass")), "no Create Admin passcode on a joined device");
+    await openSettings(page, true);                                  // unlocks with the passcode main chose (admin123)
     const text = await page.textContent("#terminalCard");
     assert.match(text, /Gentronix/); assert.match(text, /Mutare/);
     assert.strictEqual((await page.textContent("#termTill")).trim(), "T1");
@@ -227,7 +234,7 @@ async function scrollTo(page, sel){ await page.locator(sel).scrollIntoViewIfNeed
     // main (registered in the first test) issues codes through the shared fake server
     const mainTerm = server.terminals.find(x=>x.till==="T1" && server.branches.find(b=>b.id===x.branch && b.is_main));
     const issue = (name)=>{ const br = { id:"br-x"+(++server.seq), business:mainTerm.business, name, is_main:false }; server.branches.push(br);
-      const code = "RMTE"+(2000+server.seq); server.codes.push({ code, branch:br.id, used:false }); return code.slice(0,4)+"-"+code.slice(4); };
+      const code = "RMTE"+(2000+server.seq); server.codes.push({ code, branch:br.id, used:false, seed:testAdminSeed("admin123") }); return code.slice(0,4)+"-"+code.slice(4); };   // v21: with its Admin passcode
     const wrongCode = issue("Bulawayo Main St");
     const { page, pageErrors } = await device(browser, server);
     await setupShop(page, { shop:"Gentronix", branch:"Bulawayo", phrase:"Remote Own Phrase", remote:true });

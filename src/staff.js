@@ -52,6 +52,13 @@
     } else if(!isEdit){
       throw new Error(pinProblem(""));
     }
+    // Admin passcode from main: on a joined device, giving someone an Admin
+    // passcode needs an existing Admin's passcode (the first one comes from main).
+    const givesAdmin = role==="Admin" && passcode && !(existing && existing.role==="Admin" && String(existing.passcode||"").trim()===passcode);
+    if(givesAdmin && adminComesFromMain()){
+      if(!hasAdminPasscode()) throw new Error(ADMIN_FROM_MAIN_TEXT);
+      if(!findAdmin(o.adminPasscode)) throw new Error("Enter the current Admin passcode to give someone an Admin passcode on this device.");
+    }
     // POS fixes: "Create customers" (Admins always can). Optional on an edit.
     const canCust = o.can_create_customers===undefined? (existing? Number(existing.can_create_customers)||0 : 0) : (o.can_create_customers? 1 : 0);
     if(isEdit){
@@ -109,6 +116,9 @@
       <label>Admin passcode</label>
       <input class="field" id="stPasscode" value="${escapeHtml(existing? (existing.passcode||"") : "")}" placeholder="Numeric or text code">
       <p class="muted" style="font-size:11px;margin-top:-4px">Unlocks Settings and price/stock approvals on this device. Only needed for Admins.</p>
+      ${adminComesFromMain()? `<label>Current Admin passcode</label>
+      <input class="field" id="stAuth" type="password" autocomplete="off" placeholder="Needed to give someone an Admin passcode here">
+      <p class="muted" style="font-size:11px;margin-top:-4px">This device's Admin passcode comes from your main branch.</p>` : ""}
       <label>Sign-in PIN (${PIN_MIN_LEN}-${PIN_MAX_LEN} digits)</label>
       <input class="field" id="stPin" type="password" inputmode="numeric" maxlength="${PIN_MAX_LEN}" placeholder="${existing && existing.pin_hash? "Leave blank to keep current PIN" : "e.g. 4821"}">
       <p class="muted" style="font-size:11px;margin-top:-4px">Used on the "Who's working today?" screen when Single operator mode is off.</p>
@@ -124,6 +134,7 @@
           name: wrap.querySelector("#stName").value,
           role: wrap.querySelector("#stRole").value,
           passcode: wrap.querySelector("#stPasscode").value,
+          adminPasscode: wrap.querySelector("#stAuth")? wrap.querySelector("#stAuth").value : "",
           pin: wrap.querySelector("#stPin").value,
           active: isEdit? wrap.querySelector("#stActive").checked : true,
           can_create_customers: wrap.querySelector("#stCanCust").checked,
@@ -339,7 +350,38 @@
     if(p!==String(confirmText==null?"":confirmText).trim()) return "The two passcodes don't match.";
     return "";
   }
+  // ---- Admin passcode from the main branch (v21; docs/multi-terminal/admin-passcode-on-join-design.md) ----
+  // A device that joined a business with a join code (any till except the
+  // main branch's T1, the owner's device that registered the business) can't
+  // make its own first Admin passcode: the main branch sets it, and only a
+  // check value (passcode-check.js) reaches this device.
+  function adminComesFromMain(){
+    if(typeof isTerminalRegistered!=="function" || !isTerminalRegistered()) return false;
+    return !(getSetting("terminal_is_main","")==="1" && getSetting("till_code","")==="T1");
+  }
+  const ADMIN_FROM_MAIN_TEXT = "This device's Admin passcode is set by your main branch: on a main-branch till, Settings → Business & Terminals → this till → Set its Admin passcode. Then open this screen while online.";
+  const ADMIN_FROM_MAIN_NAME = "Admin (set by main)";
+  // The check value from a join answer or a check-in answer. The main branch's
+  // passcode becomes THE Admin passcode here: other Admins' own passcodes on
+  // this branch are cleared (they keep their sign-in PINs). -> true if stored.
+  function storeAdminSeed(seed, via){
+    if(!seed || !/^[0-9a-f]{32}$/.test(String(seed.salt||"")) || !/^[0-9a-f]{64}$/.test(String(seed.check||""))) return false;
+    const rounds = Number(seed.rounds)||0;
+    if(rounds < 100000 || rounds > 2000000) return false;
+    const branch = currentBranch();
+    const mine = one("SELECT * FROM staff WHERE branch=? AND role='Admin' AND COALESCE(passcode_check,'')<>'' ORDER BY id LIMIT 1",[branch]);
+    if(mine && mine.passcode_check===seed.check) return false;          // the same one again
+    const cleared = all("SELECT id FROM staff WHERE branch=? AND role='Admin' AND trim(COALESCE(passcode,''))<>''",[branch]).length;
+    run("UPDATE staff SET passcode='' WHERE branch=? AND role='Admin'",[branch]);
+    if(mine) run("UPDATE staff SET passcode_salt=?, passcode_check=?, passcode_rounds=?, active=1 WHERE id=?",[seed.salt, seed.check, rounds, mine.id]);
+    else run("INSERT INTO staff(name,role,passcode,branch,active,created_ts,passcode_salt,passcode_check,passcode_rounds) VALUES(?,?,'',?,1,?,?,?,?)",
+      [ADMIN_FROM_MAIN_NAME,"Admin",branch,new Date().toISOString(),seed.salt,seed.check,rounds]);
+    _adminMatchCache.clear();
+    logAudit("Admin passcode set by main", "", (via==="join"? "With the join code" : "From the main branch")+(cleared? "; "+cleared+" other Admin passcode"+(cleared===1?"":"s")+" on this device cleared" : ""));
+    return true;
+  }
   function createDeviceAdmin(passcode, confirmText){
+    if(adminComesFromMain()) throw new Error(ADMIN_FROM_MAIN_TEXT);
     const bad = adminPasscodeProblem(passcode, confirmText);
     if(bad) throw new Error(bad);
     const branch = currentBranch();
@@ -352,7 +394,18 @@
 
   // The Admin unlock shared by price edits and stock adjustments: an active Admin whose
   // (non-empty) passcode matches. There is no session unlock - it is typed each time.
+  // An Admin set by the main branch has a check value instead of a passcode
+  // (about a second to compare on a phone, so a match is remembered this session).
+  const _adminMatchCache = new Map();
   function findAdmin(passcode){
     const code = String(passcode==null?"":passcode);
-    return code.trim()? (one("SELECT * FROM staff WHERE role='Admin' AND passcode=? AND passcode<>'' AND active=1",[code]) || null) : null;
+    if(!code.trim()) return null;
+    const plain = one("SELECT * FROM staff WHERE role='Admin' AND passcode=? AND passcode<>'' AND active=1",[code]);
+    if(plain) return plain;
+    if(typeof adminCheckMatches!=="function") return null;
+    for(const r of all("SELECT * FROM staff WHERE role='Admin' AND active=1 AND COALESCE(passcode_check,'')<>'' ORDER BY id")){
+      const k = r.id+"|"+r.passcode_check+"|"+code;
+      if(_adminMatchCache.get(k) || adminCheckMatches(code, r.passcode_salt, r.passcode_check, r.passcode_rounds)){ _adminMatchCache.set(k, true); return r; }
+    }
+    return null;
   }

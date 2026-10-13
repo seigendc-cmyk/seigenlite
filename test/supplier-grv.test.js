@@ -25,7 +25,7 @@ async function t(name, fn){
 
 (async ()=>{
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f)=> !/^2026101[78]120000_/.test(f)) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f)=> !/^2026101[78]120000_/.test(f) && f !== "20261023120000_admin_passcode_from_main.sql") });
   const q = async (sql, p)=> (await pg.query(sql, p)).rows;
   let dropAnswer = null;
   async function rpc(fn, body){
@@ -60,9 +60,9 @@ async function t(name, fn){
 
   await t("setup: Harare T1 registers, T2 and Murehwa join (the app's own calls)", async ()=>{
     assert.ok((await H1.api.registerMainBranch("Counter")).ok);
-    let r = await H1.api.issueJoinCode({ branchId: H1.api.getSetting("branch_uuid","") });
+    let r = await H1.api.issueJoinCode({ branchId: H1.api.getSetting("branch_uuid",""), seed: H1.api.adminCheckMake("Branch-Admin-1") });
     assert.ok((await H2.api.joinBusiness({ phrase:"Mandie Phrase", code:r.data.code })).ok);
-    r = await H1.api.issueJoinCode({ newBranchName:"Murehwa" });
+    r = await H1.api.issueJoinCode({ newBranchName:"Murehwa", seed: H1.api.adminCheckMake("Branch-Admin-1") });
     assert.ok((await M1.api.joinBusiness({ phrase:"Mandie Phrase", code:r.data.code, expectedBranchName:"Murehwa" })).ok);
   });
   prod(H1, "SUG2", "Sugar 2kg", 10, 1.2, 3); prod(H2, "SUG2", "Sugar 2kg", 4, 1.2, 3);

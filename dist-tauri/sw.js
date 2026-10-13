@@ -11,7 +11,8 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v20 — Billing-B: a remote branch joins with a join code at setup (no code-less remote set-up); Register refuses a business already registered (same name and phrase); a till follows its business when seiGEN merges a duplicate; the Dispatch dialog and each Delivery Note say "File only: not through seiGEN" and why
+// build: v21 — Admin passcode from the main branch: a joined device's Admin passcode is set on a main-branch till (with the join code, or "Set its Admin passcode" on its row) and arrives as a check value, never the passcode; a joined device can't make its own first Admin passcode; receiving in plain words (the sender's list says "Received at <branch> (their GRV)", Receive stock names this device and shows each line before -> after, Import GRV says what a Delivery Note file is for)
+// v20: Billing-B: a remote branch joins with a join code at setup (no code-less remote set-up); Register refuses a business already registered (same name and phrase); a till follows its business when seiGEN merges a duplicate; the Dispatch dialog and each Delivery Note say "File only: not through seiGEN" and why
 // v19: Server time for the trusted clock from cl_server_time (readable by the browser; was an unreadable Date header), and no RPN status call for a device the server has not registered
 // v18: Trial rules: no anonymous trial; the free trial comes signed from seiGEN at setup (online, RPN field force number + PIN, owner's phone, one per phone); before it the shop can add products and stock but not sell; joined tills share the business trial
 // v17: POS fixes: cart with its own scroll and pinned Pay (phone and desktop), menus kept under the header, customer combo with "Add new" (Create customers permission), wholesale prices by customer type, credit limit warning, search where every term must match

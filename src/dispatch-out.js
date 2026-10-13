@@ -524,16 +524,22 @@
     dnMovementRows().forEach(r=>m.set(r.key, r));
     return m;
   }
-  function dnStatusBadge(status){
+  function dnStatusBadge(status, label){
     const color = status==="received"? "#067647" : (status==="variance"||status==="conflict")? "#b42318" : (status==="awaiting"||status==="cancel_pending")? "#b54708" : DN_CANCELLED_STATUSES.includes(status)? "#555" : "var(--ink-soft)";
-    return `<span style="font-size:12px;font-weight:700;color:${color}">${escapeHtml(DN_STATUS_LABEL[status]||status)}</span>`;
+    return `<span class="dh-status" style="font-size:12px;font-weight:700;color:${color};text-align:right">${escapeHtml(label||DN_STATUS_LABEL[status]||status)}</span>`;
   }
+  // The sender's list says WHERE the goods were received, and that its own stock
+  // didn't move (owner test 2026-10-13: "Received" here was read as stock added here).
+  function dnReceivedLabel(h, mr){
+    return "Received at "+h.receive_branch_name+(mr && mr.grvNo? " (their "+mr.grvDisplay+")" : "");
+  }
+  const DN_RECEIVED_NOTE = "Stock went up on their device, not here.";
   function openDispatchHistory(){
     const wrap = openModal("Dispatch history", "");
     const body = wrap.querySelector(".modal-body");
     let query = "";
     body.innerHTML = `<div id="dhMsg"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn btn-sm btn-primary" id="dhImport">📥 Import GRV / reply</button><span class="muted" style="font-size:12px">Confirm delivery with the receiver's GRV, or a cancellation confirmation.</span></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn btn-sm btn-primary" id="dhImport">📥 Import GRV / reply</button><span class="muted" id="dhImportHint" style="font-size:12px">${escapeHtml(GRV_IMPORT_HINT)}</span></div>
       <input class="field" id="dhSearch" type="search" placeholder="Search number, branch or internal ref." autocomplete="off" style="margin-bottom:8px">
       <div id="dhList"></div>`;
     body.querySelector("#dhImport").onclick=()=>{ openGrvImportScreen(null, ()=>{ renderList(); render(); }); };
@@ -551,13 +557,13 @@
         <div class="card" style="padding:10px;margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <b>${escapeHtml(docDisplay("DN",h.dn_no,h.till_code))}</b>
-            ${dnStatusBadge(st)}
+            ${dnStatusBadge(st, st==="received"? dnReceivedLabel(h, mr) : "")}
           </div>
           <div class="pmeta">To ${escapeHtml(h.receive_branch_name)} · ${escapeHtml(new Date(h.created_ts).toLocaleString())}</div>
           <div class="pmeta">${h.line_count||0} line${h.line_count===1?"":"s"} · ${h.unit_total||0} unit${h.unit_total===1?"":"s"}</div>
           ${h.internal_ref? `<div class="pmeta dh-ref">Internal ref.: <b>${escapeHtml(h.internal_ref)}</b></div>` : ""}
           ${h.grv_internal_ref? `<div class="pmeta dh-their-ref">Their internal ref.: <b>${escapeHtml(h.grv_internal_ref)}</b></div>` : ""}
-          ${st==="received" && mr && mr.grvNo? `<div class="pmeta">Confirmed as ${escapeHtml(mr.grvDisplay)} on ${escapeHtml(isoDateText(mr.receivedIso)||"")}</div>` : ""}
+          ${st==="received"? `<div class="pmeta dh-received">${mr && mr.receivedIso? "On "+escapeHtml(isoDateText(mr.receivedIso)||"")+". " : ""}${escapeHtml(DN_RECEIVED_NOTE)}</div>` : ""}
           ${mr && mr.hasVariance? `<div class="pmeta" style="color:#b42318">${escapeHtml(varianceText(mr))}</div>` : ""}
           ${st==="awaiting"? `<div class="pmeta" style="color:#b54708">No GRV after ${awaitingDays()} days.</div>` : ""}
           ${mr && chainText(mr)? `<div class="pmeta" style="color:#b54708">${escapeHtml(chainText(mr))}</div>` : ""}

@@ -10,7 +10,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { passJoinTrialScreen } = require("./test-activation");
+const { passJoinTrialScreen, addAdminForTest } = require("./test-activation");
 const { stubTerminals, newTerminalState } = require("./terminal-fake");
 
 let chromium;
@@ -69,10 +69,13 @@ const rowFor = (page, till)=> page.locator("#termList .term-row", { hasText: new
     await main.page.fill("#setShop", "Gentronix"); await main.page.fill("#setBranch", "Harare CBD"); await main.page.fill("#setSecret", "Gold Leaf 42");
     await main.page.click("#setupNext"); await main.page.fill("#setOwnerPhone", "0771234567"); await main.page.click("#setupNext2"); await main.page.click("#setupNext3"); await main.page.click("#setupFinish");
     await main.page.waitForSelector("[data-route]");
+    await addAdminForTest(main.page, "owner-pass");                  // v21: Add a terminal asks for this till's Admin passcode
     await openSettings(main.page);
     await main.page.click("#termRegisterBtn");
     await main.page.waitForSelector('#terminalCard[data-registered="1"]');
-    await main.page.click("#termAddBtn"); await main.page.click("#termAddIssue");
+    await main.page.click("#termAddBtn");
+    await main.page.fill("#termAddMain", "owner-pass"); await main.page.fill("#termAddNew", "front-pass"); await main.page.fill("#termAddNew2", "front-pass");
+    await main.page.click("#termAddIssue");
     await main.page.waitForSelector("#termAddCode");
     const code = (await main.page.textContent("#termAddCode")).trim();
     t2 = await device(browser, server);
@@ -92,12 +95,12 @@ const rowFor = (page, till)=> page.locator("#termList .term-row", { hasText: new
     await waitFor(async()=> await rowFor(page,"T2").count() === 1, "T2 in the terminals list");
     assert.strictEqual(await rowFor(page,"T1").locator("button").count(), 0, "no button on this till's own row");
     assert.match(await rowFor(page,"T1").textContent(), /this till/);
-    const btn = rowFor(page,"T2").locator("button");
+    const btn = rowFor(page,"T2").locator("button[data-term-active]");
     assert.strictEqual((await btn.textContent()).trim(), "Deactivate");
     await btn.click();
     await waitFor(async()=> /deactivated/.test(await rowFor(page,"T2").textContent()), "T2 shown deactivated");
     assert.ok(main.dialogs.includes("Deactivate T2? It can still sell offline, but it can't add itself to the business again until reactivated."), main.dialogs.join(" | "));
-    assert.strictEqual((await rowFor(page,"T2").locator("button").textContent()).trim(), "Reactivate");
+    assert.strictEqual((await rowFor(page,"T2").locator("button[data-term-active]").textContent()).trim(), "Reactivate");
     assert.ok(!/deactivated/.test(await rowFor(page,"T1").textContent()), "main itself unaffected");
     const call = main.fake.calls.find(c=>c.name==="cl_terminal_set_active").body;
     assert.strictEqual(call.p_active, false); assert.match(call.p_device_key, /^[0-9a-f]{32}$/);
@@ -123,7 +126,7 @@ const rowFor = (page, till)=> page.locator("#termList .term-row", { hasText: new
 
   await t("main reactivates T2; T2's next check-in clears the message", async ()=>{
     const page = main.page;
-    await rowFor(page,"T2").locator("button").click();
+    await rowFor(page,"T2").locator("button[data-term-active]").click();
     await waitFor(async()=> !/deactivated/.test(await rowFor(page,"T2").textContent()), "T2 active again");
     assert.strictEqual(server.terminals.find(x=>x.till==="T2").active, true);
     await checkinNow(t2);

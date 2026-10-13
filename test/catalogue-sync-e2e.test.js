@@ -18,7 +18,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { LIVE_STUB } = require("../supabase/tests/live-stub");
+const { LIVE_STUB } = require("../supabase/tests/live-stub"); const { preV21Args, withV21JoinSeed } = require("../supabase/tests/rebuild-helpers");
 const { activateForTest, passJoinTrialScreen } = require("./test-activation");
 
 let chromium;
@@ -50,10 +50,11 @@ let queue = Promise.resolve();
 function serverCall(name, body){
   // one call at a time on the single PGlite connection (role switching is per connection)
   const run = async ()=>{
+    body = preV21Args(name, body);   // this suite pins a server from before v21 (rebuild-helpers.js)
     const keys = Object.keys(body);
     const vals = keys.map(k=> k==="p_rows"? JSON.stringify(body[k]) : k==="p_uids"? "{"+body[k].join(",")+"}" : body[k]);
     await pg.exec("set role anon");
-    try{ return { status:200, json:(await pg.query(`select public.${name}(${keys.map((k,i)=>`${k}=>$${i+1}${CASTS[k]||""}`).join(",")})::json j`, vals)).rows[0].j }; }
+    try{ return { status:200, json:withV21JoinSeed(name, (await pg.query(`select public.${name}(${keys.map((k,i)=>`${k}=>$${i+1}${CASTS[k]||""}`).join(",")})::json j`, vals)).rows[0].j, "admin123") }; }   // the joined device's Admin passcode, as a v21 main sets it
     catch(e){ return { status:400, json:{ code:"P0001", message:e.message } }; }
     finally{ await pg.exec("reset role"); }
   };

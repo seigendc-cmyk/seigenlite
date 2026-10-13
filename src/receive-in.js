@@ -60,9 +60,13 @@
            dnTill,dnRef,grv.till||null,grvRef]);
       }
       const inUid = (incomingHeader(doc.from.branch_id, doc.dn_no)||{}).uid || null;
+      const moved = [];                                                 // shown after Accept: "Pants: 4 → 7"
+      const stockOf = (id)=> (one("SELECT stock FROM products WHERE id=?",[id])||{}).stock;
       r.lines.forEach(l=>{
+        const before = stockOf(l.product.id);
         // quantity only — never cost or price; moveStock (db.js) also writes the ledger movement
         moveStock({ productId:l.product.id, delta:l.item.qty, kind:"receive", docType:"grv", docUid:inUid, docNo:grv.text, ts, note:"From "+doc.from.name+" ("+doc.dn_display+")" });
+        moved.push({ name:l.product.name, qty:l.item.qty, before, after:stockOf(l.product.id) });
         run("INSERT INTO stock_received(ts,product_id,name,qty,note,branch,user,dn_branch_id,dn_no,grv_no,till_code) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
           [ts,l.product.id,l.product.name,l.item.qty,grv.text+" from "+doc.from.name+" ("+doc.dn_display+")",branch,sessionUser,doc.from.branch_id,doc.dn_no,grv.n,grv.till||null]);
       });
@@ -71,7 +75,7 @@
         dnTill, grvTill:grv.till||null });
       logAudit("Receive Stock", "", grv.text+": "+doc.items.length+" line"+(doc.items.length===1?"":"s")+", "+units+" unit"+(units===1?"":"s")+" from "+doc.from.name+" ("+doc.dn_display+")"+(grvRef? " · ref "+grvRef : ""));
       db.run("COMMIT");
-      return { grv, header:incomingHeader(doc.from.branch_id, doc.dn_no), fileName, receivedIso:iso, internalRef:grvRef };
+      return { grv, header:incomingHeader(doc.from.branch_id, doc.dn_no), fileName, receivedIso:iso, internalRef:grvRef, moved };
     }catch(e){
       try{ db.run("ROLLBACK"); }catch(_){}
       throw e;
@@ -260,11 +264,26 @@
     return openExternalUrl(dnWhatsAppUrl(getSetting("management_whatsapp",""), message));
   }
 
+  // ---- plain words (owner test 2026-10-13: "received, but no quantity added") ----
+  // Each till keeps its own stock: say which device the stock goes to, and
+  // after Accept show each line's quantity before and after.
+  function rcDeviceText(){
+    const till = getSetting("till_code","");
+    const kind = typeof licenceAppKind==="function"? licenceAppKind() : (isTauriApp()? "desktop app" : "phone app");
+    return "This device: "+currentBranch()+(till? " "+till : "")+" ("+kind+"). Stock is added on this device only.";
+  }
+  // c.moved from commitReceive -> ["Pants: 4 → 7", ...]
+  function rcMovedLines(moved){
+    return (moved||[]).map(m=> m.after!==m.before? m.name+": "+m.before+" → "+m.after
+      : m.name+": +"+m.qty+" (added to the branch's stock when it syncs)");
+  }
+
   // ---- screens ----
   function openReceiveWithFile(file){ openReceiveScreen(file); }
   function openReceiveScreen(file){
     const wrap = openModal("Receive stock", `
       <p class="muted" style="margin-top:0">Choose the Delivery Note file you were sent. Any file name works.</p>
+      <p class="muted" id="rcDevice" style="font-size:12.5px">${escapeHtml(rcDeviceText())}</p>
       <input type="file" id="rcFile">`);
     const body = wrap.querySelector(".modal-body");
     wrap.querySelector("#rcFile").onchange=(e)=>{ const f = e.target.files[0]; e.target.value=""; if(f) handleFile(f); };
@@ -368,6 +387,7 @@
         <div style="font-size:15px;font-weight:700">${escapeHtml(doc.dn_display)}</div>
         <div class="pmeta">From <b>${escapeHtml(doc.from.name)}</b> · ${escapeHtml(when.toLocaleDateString())} ${escapeHtml(when.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))}</div>
         ${doc.internal_ref? `<div class="pmeta">Their internal ref.: <b id="rcDnRef">${escapeHtml(doc.internal_ref)}</b></div>` : ""}
+        <div class="pmeta" id="rcReviewDevice">${escapeHtml(rcDeviceText())}</div>
       </div>
       ${res.replaces? `<div class="box" style="margin-bottom:8px"><b>Replaces ${escapeHtml(dnDisplayFor(doc.from.branch_id,res.replaces.dnNo,doc.till_code))}</b>: that Delivery Note is now closed for this branch and can't be received. Check what you counted against this one.
         <div style="margin-top:6px"><button class="btn btn-sm btn-outline" id="rcSendCancelAck">Send cancellation confirmation for ${escapeHtml(dnDisplayFor(doc.from.branch_id,res.replaces.dnNo,doc.till_code))}</button></div></div>` : ""}
@@ -414,7 +434,7 @@
       try{ await dnfPut(doc.from.branch_id, doc.dn_no, { text, file_name:"", saved_ts:new Date().toISOString() }); }catch(e){}
       let savedNote = "";
       if(isTauriApp()){ try{ savedNote = "Saved to "+(await tauriSaveFile("Receipts", c.fileName, grvText)).full; }catch(e){} }
-      rcVoucher(wrap, body, { header:h, grv, text:grvText, thumbs:doc.items.map(i=>i.thumb||null), persistFailed, savedNote });
+      rcVoucher(wrap, body, { header:h, grv, text:grvText, thumbs:doc.items.map(i=>i.thumb||null), persistFailed, savedNote, moved:c.moved });
     }catch(e){
       body.innerHTML = `<div class="box"><p style="font-weight:700;margin:0 0 6px">${escapeHtml(c.grv.text)} was recorded</p>
         <p class="muted" style="margin:0">The stock has been added, but the voucher could not be built (${escapeHtml(e.message||String(e))}). Open <b>Receipts history</b> and choose <b>View voucher</b> to create it again.</p></div>
@@ -427,6 +447,8 @@
       <div class="box" style="text-align:center;margin-bottom:10px">
         <p style="font-size:16px;font-weight:700;margin:0 0 4px">${escapeHtml(r.grv.grv_display)} — stock received</p>
         <p class="muted" style="margin:0">${r.grv.totals.lines} line${r.grv.totals.lines===1?"":"s"} · ${r.grv.totals.units} unit${r.grv.totals.units===1?"":"s"} from ${escapeHtml(r.grv.from.name)}</p>
+        ${r.moved && r.moved.length? `<div id="rvMoved" style="margin:8px 0 0;font-size:13px;text-align:left">${rcMovedLines(r.moved).map(t=>`<div>${escapeHtml(t)}</div>`).join("")}</div>
+        <p class="muted" style="margin:6px 0 0;font-size:12px">${escapeHtml(rcDeviceText())}</p>` : ""}
         ${r.persistFailed? `<p style="color:#b42318;margin:6px 0 0;font-size:12.5px">Warning: this device couldn't save to its storage just now. Keep the app open and don't clear browser data.</p>` : ""}
         ${r.savedNote? `<p class="muted" style="margin:6px 0 0;font-size:12px">${escapeHtml(r.savedNote)}</p>` : ""}
       </div>

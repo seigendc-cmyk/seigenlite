@@ -16,6 +16,7 @@ const migrationFiles = () => fs.readdirSync(MIG).filter((f) => /^\d{14}_\w+\.sql
 // Files in the repo that are NOT applied on live (and so not recorded in
 // supabase_migrations.schema_migrations there).
 const NOT_ON_LIVE_FILES = [
+  '20261023120000_admin_passcode_from_main.sql',           // waiting for the owner's "apply"
 ];
 
 // Supabase's own objects that the schema depends on (never part of a migration).
@@ -57,4 +58,30 @@ async function buildFromRepo(pg, opts = {}) {
   return applied;
 }
 
-module.exports = { SUPABASE_STUB, migrationFiles, NOT_ON_LIVE_FILES, newPglite, buildFromRepo, READ, MIG };
+// App v21 sends the new device's Admin check value with a join code request,
+// and its build with a join (20261023120000_admin_passcode_from_main). A suite
+// that pins an OLDER server chain (one that never had those arguments) drops
+// them before the call; the v21 rules themselves are tested against the real
+// migration (test/admin-passcode-from-main.test.js and its database test).
+const V21_JOIN_ARGS = ['p_admin_salt', 'p_admin_check', 'p_admin_rounds', 'p_app_build'];
+function preV21Args(fn, body) {
+  if (fn !== 'cl_branch_issue_join_code' && fn !== 'cl_terminal_join') return body;
+  const out = Object.assign({}, body);
+  V21_JOIN_ARGS.forEach((k) => { delete out[k]; });
+  return out;
+}
+
+// The Admin check value a v21 server hands a joining device (PBKDF2-HMAC-SHA-256,
+// as src/passcode-check.js). A suite pinned to an older server adds it to the
+// join answer itself, standing in for the main till that set it.
+function v21AdminSeed(passcode) {
+  const crypto = require('crypto');
+  const salt = crypto.randomBytes(16).toString('hex');
+  return { salt, check: crypto.pbkdf2Sync(String(passcode).trim(), Buffer.from(salt, 'hex'), 150000, 32, 'sha256').toString('hex'), rounds: 150000 };
+}
+function withV21JoinSeed(fn, answer, passcode) {
+  if (fn !== 'cl_terminal_join' || !answer || answer.error || answer.admin_seed) return answer;
+  return Object.assign({}, answer, { admin_seed: v21AdminSeed(passcode) });
+}
+
+module.exports = { SUPABASE_STUB, migrationFiles, NOT_ON_LIVE_FILES, newPglite, buildFromRepo, READ, MIG, preV21Args, v21AdminSeed, withV21JoinSeed };

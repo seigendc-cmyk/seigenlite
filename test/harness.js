@@ -30,7 +30,9 @@ function loadVendorNacl(ctx){
 }
 
 // One app instance = one branch's device.
-function makeApp(settings){
+// opts.dom: a real (JSDOM) document, so a test can open the app's own screens
+// (openModal, innerHTML, buttons) and read what they say: A.dom, A.File(text, name).
+function makeApp(settings, opts){
   const db = new Compat();
   const sqlCtor = function(x){ return x && x.__db ? x.__db : new Compat(); };
   // __fields simulates the handful of checkout-form inputs completeSale()
@@ -60,6 +62,12 @@ function makeApp(settings){
     AbortController: (typeof AbortController!=="undefined")? AbortController : undefined,
     escapeHtmlStub:null, SQLctor:sqlCtor, __db:db, persistCount:0,
   };
+  let dom = null;
+  if(opts && opts.dom){
+    const { JSDOM } = require("jsdom");
+    dom = new JSDOM(`<!DOCTYPE html><body><div id="app"></div><div id="printArea"></div></body>`, { url:"http://localhost/" });
+    Object.assign(ctx, { document:dom.window.document, window:dom.window, FileReader:dom.window.FileReader });
+  }
   vm.createContext(ctx);
   loadVendorNacl(ctx);
   const prelude = `const APP_BUILD = ${APP_BUILD};
@@ -72,7 +80,7 @@ function makeApp(settings){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -98,6 +106,8 @@ function makeApp(settings){
         moveStock, recordStockMovement, stockLedgerCheck, docDisplay, formatDocNo, currentTillCode, cleanInternalRef, INTERNAL_REF_MAX, receiptLabel, receiptDisplay,
         dnSearchText, dnDisplayFor, ownDnDisplay, dnTillFor, cancelAckFileName, dnVoucherHtml, setTerminalActive, isTerminalInactive, noteTerminalRefusal, TERMINAL_INACTIVE_TEXT,
         receiveTransfer, startCancelCase, commitAckImport, ackCheckBytes, buildAckFromRow, cancelNoticeFor, dnCaseByNo, dnBuildFromDb, grvImportCheckBytes, commitGrvImport,
+        storeAdminSeed, adminComesFromMain, setTerminalAdmin, openAddTerminalModal, openSetTerminalAdminModal, adminCheckMake, adminCheckMatches, ADMIN_FROM_MAIN_TEXT, renderSettings, loadTerminalList,
+        GRV_IMPORT_HINT, grvImportDnFileMessage, openGrvImportScreen, openReceiveScreen, openDispatchHistory, dnReceivedLabel, DN_RECEIVED_NOTE, rcDeviceText, rcMovedLines,
         getRpnLink, hasRpnLink, saveRpnLink, rpnFieldsHtml, rpnFieldsFromInputs, rpnSectionHtml, wireRpnSection, rpnLinkState, requestRpnLink, trySendRpnLink, refreshRpnStatus, rpnAfterCheckin, rpnOnboardedByText, rpnVerifyFieldsHtml, rpnLinkStatusHtml, licenceStatusCardHtml,
         supportSectionHtml, wireSupportSection, openSupportHandoff, openExternalUrl, waLink, isTauriApp,
         businessDateToday, oldestOpenShift, openShiftForDate, eodOperatorName, eodOperatorStaffId, shiftBlockReason,
@@ -140,7 +150,8 @@ function makeApp(settings){
   // Replace a function/binding inside the app (e.g. spy on downloadDb).
   const hook = (name, fn)=>{ ctx.__h[name]=fn; vm.runInContext(name+" = __h."+name+";", ctx); };
   const setField = (id, value)=>{ fields[id]=value; };
-  return { api, ctx, db, hook, setField };
+  const File = dom? (text, name)=> new dom.window.File([text], name||"file.json") : null;
+  return { api, ctx, db, hook, setField, dom, File };
 }
 
 // A fixed test clock for one app: its realm's Date (new Date(), Date.now())

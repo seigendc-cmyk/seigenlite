@@ -101,14 +101,24 @@
       p_join_code: o.code, p_label: o.label||null, p_legacy_branch_id: o.legacyBranchId||null,
       p_device_phrase: o.devicePhrase||null, p_device_code: getSetting("install_date","")? currentDeviceCode() : null,
       p_business_name: getSetting("shop_name","")||null, p_expected_branch_name: o.expectedBranchName||null,
+      p_app_build: (typeof APP_BUILD!=="undefined")? APP_BUILD : null,   // v21: the server refuses an app before v21 (it would ignore the Admin passcode)
     }));
     if(r.ok){ storeTerminal(r.data); await persist(); }
     return r;
   }
-  // Main-branch tills only (the server decides). o: { branchId } or { newBranchName }.
+  // Main-branch tills only (the server decides). o: { branchId } or { newBranchName }, and
+  // seed: the new device's Admin passcode check value (adminCheckMake, passcode-check.js; v21).
   function issueJoinCode(o){
+    const seed = o.seed||{};
     return terminalRpc("cl_branch_issue_join_code", Object.assign(terminalAuth(), {
       p_branch_id: o.branchId||null, p_new_branch_name: o.newBranchName||null,
+      p_admin_salt: seed.salt||null, p_admin_check: seed.check||null, p_admin_rounds: seed.rounds||null,
+    }));
+  }
+  // v21: a main-branch till sets another till's Admin passcode (its check value; delivered at that till's next check-in).
+  function setTerminalAdmin(terminalId, seed){
+    return terminalRpc("cl_terminal_admin_set", Object.assign(terminalAuth(), {
+      p_terminal_id: terminalId, p_admin_salt: seed.salt, p_admin_check: seed.check, p_admin_rounds: seed.rounds,
     }));
   }
   function fetchBusinessBranches(){ return terminalRpc("cl_branch_list", terminalAuth()); }
@@ -161,6 +171,7 @@
     if(c==="ALREADY_JOINED") return "This device is already a till in another branch.";
     if(c==="OTHER_BUSINESS") return "This device already belongs to a different business.";
     if(c==="TERMINAL_INACTIVE") return TERMINAL_INACTIVE_TEXT;
+    if(c==="ADMIN_SEED_MISSING") return "Update the main branch till first. This join code came from an older version of the app on the main branch, so it can't set this device's Admin passcode. Update the main till, then get a new join code.";
     if(c==="DUPLICATE_BUSINESS"){   // Billing-B: one business per name and phrase
       const d = r.data||{};
       return (d.business_name||"This business")+" is already registered on seiGEN from another device"+(d.main_branch? " (main branch: "+d.main_branch+")" : "")+
@@ -168,6 +179,11 @@
     }
     const m = String(r.message||"");
     if(/JOIN_LOCKED/.test(m)) return "Too many wrong codes. Wait an hour, then try again.";
+    if(/UPDATE_MAIN_FIRST/.test(m)) return "Update the main branch till first.";
+    if(/APP_UPDATE_NEEDED/.test(m)) return "Update this app first, then join again. Your join code is still valid.";
+    if(/ADMIN_SEED_INVALID/.test(m)) return "That Admin passcode couldn't be prepared. Try again.";
+    if(/sets its own Admin passcode/i.test(m)) return "This till's own Admin passcode is set in Settings → Staff.";
+    if(/can set a till's Admin passcode/i.test(m)) return "Only an active till on the main branch can set another till's Admin passcode.";
     if(/PLAN_BRANCH_LIMIT/.test(m)) return m.replace(/^.*PLAN_BRANCH_LIMIT:\s*/, "");   // price plans: Lite allows one branch
     if(/secret phrase does not match/i.test(m)) return "This device's activation phrase doesn't match what Digital Commerce has. Check it in Settings → Activation secret phrase.";
     if(/registered to another device/i.test(m)) return "Digital Commerce has this install ID registered to another device. Contact Digital Commerce to re-admit this device.";
@@ -246,7 +262,7 @@
       join.disabled = true; join.textContent = "Joining…"; setTermStatus("");
       const own = getSetting("branch_name","") || currentBranch();
       const r = await joinBusiness({ phrase, code, expectedBranchName: own, devicePhrase: getSetting("secret_phrase",""), legacyBranchId: getBranchId() });
-      if(r.ok){ logAudit("Joined business", "", "Till "+r.data.till_code+" of "+r.data.branch_name); await persist(); render(); return; }
+      if(r.ok){ logAudit("Joined business", "", "Till "+r.data.till_code+" of "+r.data.branch_name); if(typeof storeAdminSeed==="function") storeAdminSeed(r.data.admin_seed, "join"); await persist(); render(); return; }
       noteTerminalRefusal(r);
       if(r.code==="TERMINAL_INACTIVE"){ await persist(); render(); return; }
       join.disabled = false; join.textContent = "Join your business";
@@ -271,10 +287,11 @@
         ${(b.terminals||[]).length? (b.terminals||[]).map(t=>{ byId[t.id] = { till:t.till_code, branch:b.name };
           return `<div class="term-row" data-term-id="${escapeHtml(t.id)}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0">
             <span class="muted" style="font-size:12.5px">${escapeHtml(t.till_code)}${t.label? " · "+escapeHtml(t.label) : ""}${t.last_seen_ts? " · last seen "+escapeHtml(new Date(t.last_seen_ts).toLocaleString()) : ""}${t.active? "" : ` · <b style="color:var(--danger)">deactivated</b>`}${t.id===own? " · this till" : ""}</span>
-            ${t.id===own? "" : `<button class="btn btn-sm btn-outline" style="flex:none" data-term-active="${t.active? "0" : "1"}" data-term="${escapeHtml(t.id)}">${t.active? "Deactivate" : "Reactivate"}</button>`}
+            ${t.id===own? "" : `<span style="display:flex;gap:6px;flex:none">${t.active? `<button class="btn btn-sm btn-outline" data-term-admin="${escapeHtml(t.id)}">Set its Admin passcode</button>` : ""}<button class="btn btn-sm btn-outline" data-term-active="${t.active? "0" : "1"}" data-term="${escapeHtml(t.id)}">${t.active? "Deactivate" : "Reactivate"}</button></span>`}
           </div>`; }).join("")
           : `<div class="muted" style="font-size:12.5px">No tills yet</div>`}
       </div>`).join("") || `<p class="muted">No branches yet.</p>`;
+    box.querySelectorAll("[data-term-admin]").forEach(btn=>btn.onclick = ()=> openSetTerminalAdminModal(btn.dataset.termAdmin, byId[btn.dataset.termAdmin] || { till:"that till", branch:"" }));
     box.querySelectorAll("[data-term]").forEach(btn=>btn.onclick = async ()=>{
       const t = byId[btn.dataset.term] || { till:"this till", branch:"" }, active = btn.dataset.termActive==="1";
       const label = t.till+(t.branch? " ("+t.branch+")" : "");
@@ -288,6 +305,50 @@
       loadTerminalList();
     });
   }
+  // v21: the main till's Admin sets the other device's Admin passcode. Only its
+  // check value (passcode-check.js) goes to seiGEN, never the passcode.
+  function adminSeedFormHtml(idp, forWhat){
+    return `
+      <label>Your Admin passcode (this till)</label>
+      <input class="field" id="${idp}Main" type="password" autocomplete="off" placeholder="To confirm it's you">
+      <label>Admin passcode for ${escapeHtml(forWhat)} (at least ${ADMIN_SEED_PASSCODE_MIN} characters)</label>
+      <input class="field" id="${idp}New" type="password" autocomplete="new-password" placeholder="Choose a passcode">
+      <label>Repeat it</label>
+      <input class="field" id="${idp}New2" type="password" autocomplete="new-password" placeholder="Repeat it">
+      <p class="muted" style="font-size:12px;margin-top:4px">It unlocks Settings, prices and stock changes on that device. Tell it only to the person who runs that till. seiGEN never sees the passcode itself.</p>`;
+  }
+  // -> { seed } or { error }
+  function adminSeedFromForm(root, idp){
+    const v = (id)=> (root.querySelector("#"+idp+id)||{}).value||"";
+    if(!hasAdminPasscode()) return { error:"Set an Admin passcode for this till first: Settings → Staff." };
+    if(!findAdmin(v("Main"))) return { error:"Incorrect Admin passcode for this till." };
+    const bad = adminSeedPasscodeProblem(v("New"), v("New2"));
+    if(bad) return { error:bad };
+    return { seed: adminCheckMake(v("New")) };
+  }
+  // v21: set (or reset) another till's Admin passcode; that till picks it up at its next check-in.
+  function openSetTerminalAdminModal(terminalId, t){
+    const label = t.till+(t.branch? " ("+t.branch+")" : "");
+    const wrap = openModal("Set its Admin passcode", `
+      <p class="muted" style="margin:0 0 8px">For <b>${escapeHtml(label)}</b>. It replaces any Admin passcode on that device, and reaches it the next time it is online.</p>
+      ${adminSeedFormHtml("termSet", label)}
+      <button class="btn btn-primary" id="termSetGo" style="margin-top:12px">Set the Admin passcode</button>
+      <p class="muted" id="termSetStatus" style="font-size:12.5px;margin-top:8px"></p>`);
+    const go = wrap.querySelector("#termSetGo"), st = wrap.querySelector("#termSetStatus");
+    go.onclick = async ()=>{
+      go.disabled = true; go.textContent = "Preparing…"; st.textContent = ""; st.style.color = "";
+      await new Promise((res)=> setTimeout(res, 30));
+      const f = adminSeedFromForm(wrap, "termSet");
+      const fail = (text)=>{ go.disabled = false; go.textContent = "Set the Admin passcode"; st.textContent = text; st.style.color = "var(--danger)"; };
+      if(f.error) return fail(f.error);
+      go.textContent = "Sending…";
+      const r = await setTerminalAdmin(terminalId, f.seed);
+      if(!r.ok) return fail(terminalProblemText(r));
+      logAudit("Admin passcode set for a till", "", label);
+      persist();
+      wrap.querySelector(".modal-body").innerHTML = `<div class="box" id="termSetDone"><b>Set for ${escapeHtml(label)}.</b> It takes effect there at its next check-in (open the app there while online). Tell the passcode to the person who runs that till yourself.</div>`;
+    };
+  }
   // Main: pick which branch the new till is for, get a one-time code.
   function openAddTerminalModal(){
     const own = getSetting("terminal_branch_name","") || currentBranch();
@@ -300,6 +361,7 @@
         <option value="__new">A new branch…</option>
       </select>
       <input class="field" id="termAddNewName" placeholder="New branch name" style="display:none;margin-top:8px">
+      ${adminSeedFormHtml("termAdd", "the new device")}
       <button class="btn btn-primary" id="termAddIssue" style="margin-top:12px">Get a join code</button>
       <p class="muted" id="termAddStatus" style="font-size:12.5px;margin-top:8px"></p>
       <div id="termAddResult"></div>`);
@@ -310,17 +372,23 @@
       const v = sel.value;
       const req = v==="__own"? { branchId: getSetting("branch_uuid","") } : { newBranchName: v==="__new"? nn.value.trim() : v };
       if(req.newBranchName!==undefined && !req.newBranchName){ st.textContent = "Enter the new branch's name."; st.style.color="var(--danger)"; return; }
-      btn.disabled = true; btn.textContent = "Getting a code…"; st.textContent = ""; st.style.color = "";
+      btn.disabled = true; btn.textContent = "Preparing…"; st.textContent = ""; st.style.color = "";
+      await new Promise((res)=> setTimeout(res, 30));                // let "Preparing…" show: the check value takes a moment
+      const f = adminSeedFromForm(wrap, "termAdd");
+      if(f.error){ btn.disabled = false; btn.textContent = "Get a join code"; st.textContent = f.error; st.style.color = "var(--danger)"; return; }
+      req.seed = f.seed;
+      btn.textContent = "Getting a code…";
       const r = await issueJoinCode(req);
       btn.disabled = false; btn.textContent = "Get a join code";
       if(!r.ok){ st.textContent = terminalProblemText(r); st.style.color = "var(--danger)"; return; }
-      logAudit("Join code issued", "", "For "+r.data.branch_name);
+      logAudit("Join code issued", "", "For "+r.data.branch_name+", with its Admin passcode");
+      ["termAddMain","termAddNew","termAddNew2"].forEach(id=>{ const el = wrap.querySelector("#"+id); if(el) el.value = ""; });
       persist();
       const expires = new Date(r.data.expires_ts).toLocaleString();
       const text = "Join code for "+r.data.branch_name+" ("+(getSetting("shop_name","")||"our business")+"): "+r.data.code+"\nValid until "+expires+". Enter it in seiGEN Commerce Lite → Setup → Join an existing branch, with the business secret phrase.";
       wrap.querySelector("#termAddResult").innerHTML = `
         <div class="device-code" id="termAddCode">${escapeHtml(r.data.code)}</div>
-        <p class="muted" style="margin:0 0 8px">For <b>${escapeHtml(r.data.branch_name)}</b>. Use it once, before ${escapeHtml(expires)}. Give it to the new till together with the business secret phrase.</p>
+        <p class="muted" style="margin:0 0 8px">For <b>${escapeHtml(r.data.branch_name)}</b>. Use it once, before ${escapeHtml(expires)}. Give it to the new till together with the business secret phrase. The Admin passcode you chose goes with it: tell it to the person who runs that till yourself (it isn't in the message).</p>
         <div class="row">
           <button class="btn btn-outline" id="termCopyCode">Copy</button>
           <button class="btn btn-ghost" id="termShareCode">📲 Share on WhatsApp</button>

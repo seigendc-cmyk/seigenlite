@@ -187,7 +187,7 @@
   // The same Admin unlock Remote Settings uses: an active Admin with a passcode.
   const NO_ADMIN_PASSCODE_MSG = "Set an Admin passcode in Settings first";
   function hasAdminPasscode(){
-    return !!one("SELECT 1 AS x FROM staff WHERE role='Admin' AND active=1 AND trim(COALESCE(passcode,''))<>'' LIMIT 1");
+    return !!one("SELECT 1 AS x FROM staff WHERE role='Admin' AND active=1 AND (trim(COALESCE(passcode,''))<>'' OR COALESCE(passcode_check,'')<>'') LIMIT 1");   // v21: or set by main
   }
   // -> { product, old, new, admin }. Throws a plain message on any refusal; changes nothing then.
   function applyRemotePriceEdit(o){

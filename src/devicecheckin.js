@@ -150,6 +150,8 @@
       // (null = this install isn't a till, or an older server).
       if(data.terminal_active===false) setSetting("terminal_inactive", "1");
       else if(data.terminal_active===true) setSetting("terminal_inactive", "");
+      // v21: an Admin passcode the main branch set for this till (a check value, delivered once)
+      if(data.admin_seed && typeof storeAdminSeed==="function") storeAdminSeed(data.admin_seed, "checkin");
       setSetting("dc_checkin_error", "");
       setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);

@@ -118,11 +118,27 @@
     }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
   }
 
+  // ---- plain words (owner test 2026-10-13: "received, but no quantity added") ----
+  // Import GRV is the SENDER's step and never moves stock; the receiver adds
+  // stock with Receive stock on its own device.
+  const GRV_IMPORT_HINT = "For the voucher the other branch sends back (their GRV), or their cancellation confirmation. It never changes stock. To take in goods sent TO this branch, use Receive stock on Products.";
+  // A Delivery Note file given to Import GRV: say which button, on which branch's device.
+  async function grvImportDnFileMessage(text){
+    let doc = null;
+    try{ const p = await parseDN(text); if(p.ok) doc = p.doc; }catch(e){}
+    if(!doc) return "This is a Delivery Note, not a Goods Received Voucher. Delivery Notes are taken in with Receive stock (Products) on the receiving branch's device. Nothing was changed.";
+    const to = doc.to.name;
+    if(doc.from.branch_id===getBranchId())
+      return "This is "+doc.dn_display+", the Delivery Note this branch sent to "+to+". Send it to "+to+": they take it in with Receive stock on a "+to+" device. Import GRV is for the voucher they send back. Nothing was changed.";
+    return "This is a Delivery Note for "+to+" ("+doc.dn_display+" from "+doc.from.name+"): open it with Receive stock (Products) on a "+to+" device. Import GRV is only for the voucher the other branch sends back. Nothing was changed.";
+  }
+
   // ---- screen ----
   function openGrvImportWithFile(file){ openGrvImportScreen(file); }
   function openGrvImportScreen(file, onDone){
     const wrap = openModal("Import GRV", `
       <p class="muted" style="margin-top:0">Choose the Goods Received Voucher file the receiving branch sent back. Any file name works.</p>
+      <p class="muted" id="giHint" style="font-size:12.5px">${escapeHtml(GRV_IMPORT_HINT)}</p>
       <input type="file" id="giFile">`);
     const body = wrap.querySelector(".modal-body");
     wrap.querySelector("#giFile").onchange=(e)=>{ const f = e.target.files[0]; e.target.value=""; if(f) handle(f); };
@@ -158,6 +174,7 @@
       const fmt = sniffJsonFormat(bytes);
       if(fmt===ACK_FORMAT) return handleAck(bytes);
       if(fmt===CANCEL_FORMAT) return blocked({ stage:"file", message:"This is a cancellation notice for the receiving branch. It goes through Products, then Receive stock, on the branch it was sent to." });
+      if(fmt===DN_FORMAT) return blocked({ stage:"dn-file", message: await grvImportDnFileMessage(decodeBytesUtf8(bytes)) });
       let out;
       try{ out = await grvImportCheckBytes(bytes); }catch(e){ return blocked({ stage:"file", message:"Could not read that file as a Goods Received Voucher." }); }
       if(!out.res.ok && out.res.stage==="conflict"){

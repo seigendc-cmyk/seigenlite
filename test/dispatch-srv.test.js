@@ -29,7 +29,7 @@ async function t(name, fn){
 
 (async ()=>{
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f)=> f !== "20261017120000_dispatch_grv.sql") });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f)=> f !== "20261017120000_dispatch_grv.sql" && f !== "20261023120000_admin_passcode_from_main.sql") });
   const q = async (sql, p)=> (await pg.query(sql, p)).rows;
 
   // PostgREST, as anon: POST /rest/v1/rpc/<fn> with named arguments
@@ -71,11 +71,11 @@ async function t(name, fn){
   await t("setup: Harare registers, T2 and Murehwa's two tills join with join codes (the app's own calls)", async ()=>{
     let r = await H1.api.registerMainBranch("Counter");
     assert.ok(r.ok, JSON.stringify(r));
-    r = await H1.api.issueJoinCode({ branchId: H1.api.getSetting("branch_uuid","") });
+    r = await H1.api.issueJoinCode({ branchId: H1.api.getSetting("branch_uuid",""), seed: H1.api.adminCheckMake("Branch-Admin-1") });
     assert.ok((await H2.api.joinBusiness({ phrase:"Mandie Phrase", code:r.data.code, label:"Back" })).ok);
-    r = await H1.api.issueJoinCode({ newBranchName:"Murehwa" });
+    r = await H1.api.issueJoinCode({ newBranchName:"Murehwa", seed: H1.api.adminCheckMake("Branch-Admin-1") });
     assert.ok((await M1.api.joinBusiness({ phrase:"Mandie Phrase", code:r.data.code, label:"Till 1", expectedBranchName:"Murehwa" })).ok);
-    r = await H1.api.issueJoinCode({ branchId: M1.api.getSetting("branch_uuid","") });
+    r = await H1.api.issueJoinCode({ branchId: M1.api.getSetting("branch_uuid",""), seed: H1.api.adminCheckMake("Branch-Admin-1") });
     assert.ok((await M2.api.joinBusiness({ phrase:"Mandie Phrase", code:r.data.code, label:"Till 2", expectedBranchName:"Murehwa" })).ok);
     same([H1, H2, M1, M2].map((A)=> A.api.getSetting("till_code","")), ["T1", "T2", "T1", "T2"]);
     for(const A of [H1, H2, M1, M2]) assert.strictEqual(A.api.dsEnabled(), true);
