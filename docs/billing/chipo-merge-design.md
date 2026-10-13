@@ -74,7 +74,20 @@ The merge doesn't refund or re-charge anything. Sothleapark's **next** licence i
 
 ## Undo
 
-The data fix is not reversible by a rollback file. To split them again, a SysAdmin would unarchive the old business and move the branch, till and vendor back. That would be written as its own data fix if ever needed.
+**The undo is a data fix of its own:** `supabase/data-fixes/20261021_chipo_merge_undo.sql`. It is written and tested now, before the merge runs, and is run only on the owner's "apply":
+
+- **It puts back what the merge moved:**
+  - Sothleapark's branch goes back to the old business, as its main branch again.
+  - Its till and device row go back with it.
+  - The old business is unarchived.
+  - KDS003, LMD001 and MB005 go back, with new change numbers.
+  - Pricing is back to a main till (USD 15).
+  - It is logged as `business_unmerged`.
+- **It refuses, changing nothing,** if anything since the merge ties the two together: a dispatch through seiGEN, customers, suppliers, supplier GRVs, shared or branch stock, or a catalogue product added since. Splitting them then needs its own plan.
+- **On the till (v20):** at its next check-in, Sothleapark's till follows its business back and is a main branch again (`terminalFollowBusiness` works both ways). Nothing on the device is removed.
+- **What doesn't come back:**
+  - Sothleapark's old join code (it was unused; it stays expired).
+  - Products Harare CBD's till already pulled stay on that till as local items.
 
 The schema rollback (`supabase/rollbacks/20261021120000_billing_b.rollback.sql`) removes the functions only.
 

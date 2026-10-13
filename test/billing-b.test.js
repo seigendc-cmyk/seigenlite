@@ -27,7 +27,7 @@ async function waitFor(cond, what){
 (async ()=>{
   const MIG = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261021120000_billing_b.sql"), "utf8");
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES });   // the live shape (without Billing-B), as when the Chipo tills registered
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261021120000_billing_b.sql"]) });   // the live shape without Billing-B, as when the Chipo tills registered
   const q = async (sql, p)=> (await pg.query(sql, p)).rows;
   async function rpc(fn, body){
     const names = Object.keys(body);
@@ -59,7 +59,7 @@ async function waitFor(cond, what){
   // Harare CBD's own list of destination branches (as on live: Sothleapark typed in by hand)
   H.api.run("INSERT INTO branch_register(name) VALUES('Sothleapark')");
 
-  let HBIZ, SBIZ;
+  let HBIZ, SBIZ, preMergeDn;
   await t("before Billing-B: both Chipo tills register Chipo Clothing, so seiGEN has two businesses (the live case)", async ()=>{
     const a = await H.api.registerMainBranch(null), b = await S.api.registerMainBranch(null);
     assert.ok(a.ok && b.ok, JSON.stringify([a, b]));
@@ -90,6 +90,7 @@ async function waitFor(cond, what){
     assert.strictEqual(H.api.dsFileOnlyReason(""), "", "nothing until a branch is chosen");
     const dn = H.api.dnCommitDispatch({ branch:"Harare CBD", toBranch:"Sothleapark", now:new Date(), lines:[{ product:P(H, "PNT001"), qty:2 }], srv:null });
     assert.ok(!H.api.dnHeaderFor(dn.n).srv_id, "file only");
+    preMergeDn = dn.n;
     assert.strictEqual((await q("select count(*)::int c from cl_dispatches"))[0].c, 0);
   });
 
@@ -120,6 +121,43 @@ async function waitFor(cond, what){
     assert.strictEqual(JSON.stringify(S.api.all("SELECT sku FROM products WHERE cat_uid IS NOT NULL ORDER BY sku").map((p)=> p.sku.toLowerCase())), JSON.stringify(["kds003", "lmd001", "mb005", "pnt001"]));   // across the app's vm realm
   });
 
+  const pants = (A)=> A.api.one("SELECT * FROM products WHERE lower(sku)='pnt001' AND branch=?", [A.api.currentBranch()]);
+  await t("the Delivery Note sent by file before the merge stays file only; Sothleapark receives it with the file (Pants now in its catalogue: 0 -> 2)", async ()=>{
+    const h = H.api.dnHeaderFor(preMergeDn);
+    assert.ok(h && !h.srv_id, "still file only");
+    const { text } = await H.api.dnBuildFromDb(h);
+    const chk = await S.api.receiveCheckBytes(new Uint8Array(Buffer.from(text, "utf8")));
+    assert.strictEqual(chk.res.ok, true, chk.res.message);
+    const before = pants(S).stock;
+    assert.strictEqual(before, 0, "came from the catalogue pull, with no stock");
+    S.api.commitReceive(chk.res.doc, new Date());
+    assert.strictEqual(pants(S).stock, 2);
+    assert.strictEqual(pants(H).stock, 18, "Harare CBD's stock went down when it dispatched, not again");
+    assert.strictEqual((await q("select count(*)::int c from cl_dispatches"))[0].c, 0, "nothing on seiGEN");
+  });
+
+  // The undo file (supabase/data-fixes/20261021_chipo_merge_undo.sql), with this database's ids.
+  const undoSql = ()=> fs.readFileSync(path.join(__dirname, "..", "supabase", "data-fixes", "20261021_chipo_merge_undo.sql"), "utf8")
+    .split("95f0ba44-4041-4e6e-ac52-3516902d20e0").join(HBIZ).split("7c47d0ea-ced3-4297-9c38-1c15fb24ac07").join(SBIZ)
+    .split("07930efd-f41f-461d-a227-897c58956b46").join(S.api.getSetting("branch_uuid", "")).split("f1a153a3-9e3c-4021-a41d-a0ba46b235b1").join(H.api.getSetting("branch_uuid", ""));
+  await t("the undo: Sothleapark's next check-in makes it a main branch of its own business again; its products and stock stay", async ()=>{
+    const nProducts = S.api.one("SELECT count(*) c FROM products").c, stockBefore = JSON.stringify(S.api.all("SELECT sku, stock FROM products ORDER BY sku"));
+    await pg.exec(undoSql());
+    await S.api.deviceCheckin();
+    await waitFor(async ()=> S.api.getSetting("business_id", "") === SBIZ, "the old business again");
+    assert.strictEqual(S.api.getSetting("terminal_is_main", ""), "1");
+    assert.strictEqual(S.api.getSetting("branch_type", ""), "main", "a main branch on this till again");
+    assert.match(S.api.one("SELECT details FROM audit_log WHERE action='Business changed on seiGEN' ORDER BY id DESC").details, /Now the main branch \(Sothleapark\) of Chipo Clothing/);
+    assert.strictEqual(S.api.one("SELECT count(*) c FROM products").c, nProducts, "nothing removed on the till");
+    assert.strictEqual(JSON.stringify(S.api.all("SELECT sku, stock FROM products ORDER BY sku")), stockBefore, "stock unchanged");
+    // ... and the merge again (as the data fix would), so the rest runs on the merged business
+    const r = (await q(`select public.cl_business_merge_core($1, $2, 'again', true, null) j`, [SBIZ, HBIZ]))[0].j;
+    assert.strictEqual(r.ok, true, JSON.stringify(r));
+    await S.api.deviceCheckin();
+    await waitFor(async ()=> S.api.getSetting("business_id", "") === HBIZ, "the merged business again");
+    assert.strictEqual(S.api.getSetting("branch_type", ""), "remote");
+  });
+
   await t("Harare CBD -> Sothleapark now goes through seiGEN: no file-only note, sent, and waiting in Sothleapark's Incoming", async ()=>{
     H.api.setSetting("ds_branches_ts", "");
     await H.api.dsRefreshBranches();
@@ -133,6 +171,13 @@ async function waitFor(cond, what){
     assert.ok(r.ok, JSON.stringify(r));
     assert.strictEqual(S.api.dsIncomingWaiting().length, 1);
     assert.strictEqual(H.api.dsFileOnlyReason("Sothleapark", { short:true }), "", "the earlier file-only DN's line now just says file only, without the old reason");
+  });
+
+  await t("once a dispatch went through seiGEN between them, the undo file refuses and changes nothing", async ()=>{
+    let err = "";
+    try{ await pg.exec(undoSql()); }catch(e){ err = e.message; await pg.exec("rollback").catch(()=>{}); }
+    assert.match(err, /since the merge, Chipo Clothing has 1 dispatches/);
+    assert.strictEqual((await q("select business_id from cl_branches where id = $1", [S.api.getSetting("branch_uuid", "")]))[0].business_id, HBIZ);
   });
 
   console.log(passed + " passed, " + failed + " failed");

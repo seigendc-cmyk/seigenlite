@@ -14,6 +14,7 @@ const { NOT_ON_LIVE_FILES, newPglite, buildFromRepo, READ } = require('./rebuild
 
 const ROOT = path.join(__dirname, '..');
 const FIX = READ(path.join(ROOT, 'data-fixes', '20261021_chipo_merge.sql'));
+const UNDO = READ(path.join(ROOT, 'data-fixes', '20261021_chipo_merge_undo.sql'));
 const MIG = READ(path.join(ROOT, 'migrations', '20261021120000_billing_b.sql'));
 const LIVE = { into: '95f0ba44-4041-4e6e-ac52-3516902d20e0', from: '7c47d0ea-ced3-4297-9c38-1c15fb24ac07',
   sbr: '07930efd-f41f-461d-a227-897c58956b46', hbr: 'f1a153a3-9e3c-4021-a41d-a0ba46b235b1' };
@@ -26,7 +27,7 @@ function ok(name, cond, extra) {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261021120000_billing_b.sql']) });   // just before Billing-B (it is on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const run = async (sql) => { try { const res = await pg.exec(sql); return { ok: true, res }; } catch (e) { await pg.exec('rollback').catch(() => {}); return { e: e.message }; } };
 
@@ -69,6 +70,40 @@ function ok(name, cond, extra) {
   ok('logged as business_merged (by the data fix: no staff)', (await q(`select count(*)::int c from cl_activity_log where action = 'business_merged' and staff_id is null`))[0].c === 1);
   r = await run(local);
   ok('a second run is refused (the duplicate is archived now) and changes nothing', /expected both Chipo Clothing businesses, not archived \(found 1\)/.test(r.e || ''), r.e);
+
+  // ---- the undo file (20261021_chipo_merge_undo.sql) ----
+  const undo = UNDO.split(LIVE.into).join(h.business_id).split(LIVE.from).join(s.business_id).split(LIVE.sbr).join(s.branch_id).split(LIVE.hbr).join(h.branch_id);
+  ok('the undo file names the same 4 live ids', [LIVE.into, LIVE.from, LIVE.sbr, LIVE.hbr].every((id) => UNDO.includes(id)));
+  // a customer written since the merge ties them together: refused, nothing changed
+  await q(`insert into cl_customers (business_id, customer_uid, name, phone, phone_norm, change_seq)
+    values ($1, 'since-the-merge-1', 'Since the merge', '0771234567', '263771234567', 1)`, [h.business_id]).catch((e) => console.log('    (insert: ' + e.message + ')'));
+  const nCust = (await q(`select count(*)::int c from cl_customers where business_id = $1`, [h.business_id]))[0].c;
+  if (nCust) {
+    r = await run(undo);
+    ok('undo: with a customer written since the merge, it refuses and changes nothing',
+      /since the merge, Chipo Clothing has 1 customers/.test(r.e || '') && (await q(`select archived_at from cl_businesses where id = $1`, [s.business_id]))[0].archived_at !== null, r.e);
+    await q(`delete from cl_customers where business_id = $1`, [h.business_id]);
+  } else ok('undo: (a customer row could be written for the refusal check)', false, 'insert into cl_customers failed');
+  const seqBefore = (await q(`select max(change_seq)::bigint m from cl_catalogue_products`))[0].m;
+  r = await run(undo);
+  ok('undo: it runs', r.ok, r.e);
+  const after = await q(`select b.name, b.is_main, b.business_id = $1 as kept from cl_branches b where b.id in ($2, $3) order by b.name`, [h.business_id, h.branch_id, s.branch_id]);
+  ok('undo: two businesses again, each with its own main branch',
+    after.length === 2 && after[0].name === 'Harare CBD' && after[0].is_main && after[0].kept && after[1].name === 'Sothleapark' && after[1].is_main && !after[1].kept, JSON.stringify(after));
+  ok('undo: the duplicate is no longer archived; its till and device row are back',
+    (await q(`select archived_at from cl_businesses where id = $1`, [s.business_id]))[0].archived_at === null &&
+    (await q(`select count(*)::int c from cl_terminals t join cl_vendors v on v.id = t.vendor_id where t.business_id = $1 and v.business_id = $1 and t.install_id = '2KBZ'`, [s.business_id]))[0].c === 1);
+  const cats = await q(`select business_id = $1 as back, lower(code) code, change_seq::bigint s from cl_catalogue_products order by code`, [s.business_id]);
+  ok('undo: the 3 products are back at Sothleapark with new change numbers; pnt001 stays at Harare CBD',
+    cats.filter((c) => c.back).map((c) => c.code).join() === 'kds003,lmd001,mb005' && cats.filter((c) => c.back).every((c) => Number(c.s) > Number(seqBefore)) &&
+    cats.filter((c) => !c.back).map((c) => c.code).join() === 'pnt001', JSON.stringify(cats));
+  const p2 = (await q(`select public.cl_plan_price(null, '2KBZ', 30) j`))[0].j;
+  ok('undo: Sothleapark\'s till is priced as a main till again (USD 15), logged as business_unmerged',
+    p2.till_role === 'main' && Number(p2.unit_fee) === 15 && (await q(`select count(*)::int c from cl_activity_log where action = 'business_unmerged'`))[0].c === 1, JSON.stringify(p2));
+  r = await run(undo);
+  ok('undo: a second run is refused and changes nothing', /isn't archived by the merge/.test(r.e || ''), r.e);
+  r = await run(local);
+  ok('after the undo, the merge file can run again', r.ok, r.e);
 
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);

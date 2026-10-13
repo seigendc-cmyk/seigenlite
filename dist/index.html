@@ -13735,6 +13735,7 @@ ${readOnly? "" : `
     setSetting("ds_branches", JSON.stringify((r.data.branches||[]).map(b=>({ id:b.id, name:b.name, is_main:!!b.is_main }))));
     setSetting("ds_branches_ts", new Date().toISOString());
     if(wasMain && !mine.is_main) setSetting("branch_type", "remote");
+    if(!wasMain && mine.is_main) setSetting("branch_type", "main");   // the merge undone: main again
     logAudit("Business changed on seiGEN", "", "Now "+(mine.is_main? "the main branch" : "a branch")+" ("+(mine.name||"")+") of "+(r.data.business_name||"")+(wasName? "; was "+wasName : ""));
     await persist();
     return true;

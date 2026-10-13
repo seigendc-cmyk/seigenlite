@@ -23,7 +23,7 @@ function ok(name, cond, extra) {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });   // the shape just before this migration (it is on live now)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261021120000_billing_b.sql']) });   // the shape just before this migration (it is on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   const as = async (role, sql) => {
