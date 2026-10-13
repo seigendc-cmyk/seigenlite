@@ -64,10 +64,11 @@ export function makeHandler(env, fetchImpl) {
     }, env.anonKey);
     const text1 = await req1.text();
     if (!req1.ok) {
-      // the device check raises (not registered, wrong phrase or key): say so plainly
+      // the device check raises (not registered, wrong phrase or key): say so plainly.
+      // Anything else (the database function missing, a fault) gets the plain try-again.
       const msg = message(text1);
-      return json(req1.status >= 500 && !/registered|phrase|device|install/i.test(msg) ? 502 : 400,
-        { ok: false, code: "DEVICE_REFUSED", message: msg || TRY_AGAIN });
+      if (req1.status !== 404 && /registered|phrase|device|install/i.test(msg)) return json(400, { ok: false, code: "DEVICE_REFUSED", message: msg });
+      return json(502, { ok: false, code: "SERVER", message: TRY_AGAIN });
     }
     const ans = JSON.parse(text1);
     if (!ans || ans.ok !== true) return json(200, { ok: false, code: (ans && ans.code) || "REFUSED", message: (ans && ans.message) || TRY_AGAIN });

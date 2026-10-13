@@ -78,7 +78,7 @@ async function check(browser, base, desktop){
 
   // finish setup (check-in intercepted), reload: the Start screen
   await page.fill("#setShop", "Preview Check"); await page.fill("#setBranch", "Harare CBD"); await page.fill("#setSecret", "preview check phrase");
-  await page.click("#setupNext"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
+  await page.click("#setupNext"); await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2"); await page.click("#setupNext3"); await page.click("#setupFinish");
   await page.waitForSelector("#logoutBtn", { timeout: 20000 });
   await page.waitForTimeout(800);
   await page.reload();

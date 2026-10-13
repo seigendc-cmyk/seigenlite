@@ -249,6 +249,13 @@ const ledgerRows = async ()=> (await sq("select count(*)::int n from cl_ledger_e
     assert.strictEqual(r.json.ok, false); assert.strictEqual(r.json.code, "DEVICE_REFUSED"); assert.match(r.json.message, /not registered/);
     assert.strictEqual((await sq("select count(*)::int n from cl_trials"))[0].n, 0);
   });
+  await t("before the migration is on the server (no cl_trial_request): the plain try-again, never the database's text", async ()=>{
+    const real = handler;
+    handler = makeHandler(Object.assign({}, ENV, { supabaseUrl: BASE + "/nowhere" }));
+    const r = await callFn({ install_id:"NOPE", phrase:"x", device_key:"y" });
+    handler = real;
+    assert.strictEqual(r.status, 502); assert.strictEqual(r.json.code, "SERVER"); assert.match(r.json.message, /Try again in a minute/);
+  });
   await checkin("TRA1", "Trial Shop One");
   await t("refusals pass through as answers (200, ok:false, the code and its plain message): no RPN, wrong PIN, suspended RPN, bad phone", async ()=>{
     let r = await ask("TRA1", { field_force_no:null, pin:null });
