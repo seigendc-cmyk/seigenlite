@@ -60,6 +60,23 @@
     const me = dsMyBranchUuid();
     return dsBranches().find(b=> b.id!==me && sameBranchName(b.name, name)) || null;
   }
+  // Why a Delivery Note to this branch WON'T go through seiGEN (Billing-B):
+  // "" when it will, or when there's nothing certain to say (a shared-stock
+  // till). o.short: the one-line form for the list.
+  function dsFileOnlyReason(toName, o){
+    o = o||{};
+    const to = String(toName||"").trim();
+    if(!to) return "";
+    if(typeof sharedStockTill==="function" && sharedStockTill()) return "";
+    if(typeof isTerminalRegistered!=="function" || !isTerminalRegistered())
+      return o.short? "This till isn't registered with seiGEN." : "This till isn't registered with seiGEN, so Delivery Notes go by file only: share the file with "+to+". Register it in Settings → Business & Terminals.";
+    if(typeof isTerminalInactive==="function" && isTerminalInactive())
+      return o.short? "This till is switched off for the business." : "This till is switched off for the business on seiGEN, so Delivery Notes go by file only: share the file with "+to+".";
+    if(dsBranchFor(to)) return "";
+    const biz = getSetting("business_name","") || getSetting("shop_name","") || "this business";
+    return o.short? to+" isn't a branch of "+biz+" on seiGEN."
+      : to+" isn't a branch of "+biz+" on seiGEN, so this Delivery Note won't go through seiGEN: it won't show in their Incoming dispatches. Share the file with them. To fix this, "+to+" joins "+biz+" with a join code (on a main-branch till: Settings → Business & Terminals → Add a terminal → New branch).";
+  }
   // Joined branches are destinations too, even before main adds them to the register.
   function dsDestinationNames(){
     if(!dsEnabled()) return [];

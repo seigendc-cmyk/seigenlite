@@ -87,7 +87,7 @@ function makeApp(settings){
         syncReminderShouldShow, syncReminderVisible, dismissSyncReminder, checkSyncReminderModal,
         DC_SUPABASE_URL, DC_ANON_KEY, cloudSyncStatusText,
         deviceCheckin, startDeviceCheckin, dcIsRegistered, dcRegistration, dcCheckinProblemText, marketRegistrationHtml, dcLockCartReason, dcLockAddProductReason, dcMessages, dcPendingMessages, dcMergeMessages, dcDismissMessage, dcMessagesBannerHtml,
-        newInstallId, deviceKey, terminalIdentity, isTerminalRegistered, storeTerminal, terminalRpc, registerMainBranch, joinBusiness, issueJoinCode, fetchBusinessBranches, terminalProblemText, formatJoinCode, LONG_INSTALL_ID, SYNC_UID_TABLES, TERMINAL_STAMP_TABLES,
+        newInstallId, deviceKey, terminalIdentity, isTerminalRegistered, storeTerminal, terminalRpc, registerMainBranch, joinBusiness, issueJoinCode, fetchBusinessBranches, terminalFollowBusiness, terminalProblemText, formatJoinCode, LONG_INSTALL_ID, SYNC_UID_TABLES, TERMINAL_STAMP_TABLES,
         catalogueSyncNow, catPull, catPushProducts, catPushOutbox, catApplyBaseline, catPrepareBaseline, catBaselinePlan, catalogueSyncStatus, catStatusLine,
         catQueuePrice, catPicsEnabled, catPicsNeeded, catDownloadPictures, catPicHtml, catPicLoadKeys, catPicClear, catPicGet, catProductsWithoutCode, catEffectivePrice,
         catProblemText, getCatState:()=>catState, tillStockPending, tillStockNoteHtml, setBranchPrice, setBranchPriceMode, applyRemotePriceEdit, catalogueImportPreflight, catalogueSyncCardHtml,
@@ -123,7 +123,7 @@ function makeApp(settings){
         setStocktakeQuery:(q)=>{ stocktakeQuery=q; }, getStocktakeQuery:()=>stocktakeQuery,
         parseImportRows, findImportMatch, classifyImportRows, runImport, IMPORT_COLUMN_MAP,
         marketProductRows, marketCleanSelection, marketAddToSelection, marketSavedSelection, MARKET_OPS, MARKET_MAX_PRODUCTS,
-        dsUuid, dsHex, dsEnabled, dsBranches, dsRefreshBranches, dsBranchFor, dsDestinationNames, dsCached, dsCachedOne, dsPending, dsSendPending, dsPull, dsAfterCheckin, dsPostGrv, dsCancel, dsWriteOff, dsResolveExtra, dsRedispatch, dsReconcile, dsIncomingWaiting, dsOpenIssues, dsInTransit, dsFileCheck, dsLandedCosts, dsCountProblems, dsCreateProduct, dsFindProduct, dsProblems, dsStatusText,
+        dsUuid, dsHex, dsEnabled, dsBranches, dsRefreshBranches, dsBranchFor, dsFileOnlyReason, dsDestinationNames, dsCached, dsCachedOne, dsPending, dsSendPending, dsPull, dsAfterCheckin, dsPostGrv, dsCancel, dsWriteOff, dsResolveExtra, dsRedispatch, dsReconcile, dsIncomingWaiting, dsOpenIssues, dsInTransit, dsFileCheck, dsLandedCosts, dsCountProblems, dsCreateProduct, dsFindProduct, dsProblems, dsStatusText,
         sgSuppliers, sgSupplier, sgSaveSupplier, sgLanded, sgPostGrv, sgSendPending, sgPull, sgAfterCheckin, sgInvoiceKey, groupPurchases,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.

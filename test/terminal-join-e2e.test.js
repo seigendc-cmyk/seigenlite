@@ -14,7 +14,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { passJoinTrialScreen } = require("./test-activation");
+const { passJoinTrialScreen, writeSettings } = require("./test-activation");
 const { stubTerminals, newTerminalState } = require("./terminal-fake");
 
 let chromium;
@@ -49,22 +49,34 @@ async function setupShop(page, o){
   await page.fill("#setShop", o.shop);
   await page.fill("#setBranch", o.branch);
   await page.fill("#setSecret", o.phrase);
-  if(o.remote) await page.click("#setRemoteBtn");
   await page.click("#setupNext");
-  if(o.remote){ await page.fill("#setAdminPass", "admin123"); await page.fill("#setAdminPass2", "admin123"); }
   await page.fill("#setOwnerPhone", "0771234567"); await page.click("#setupNext2");
   await page.click("#setupNext3");
   await page.click("#setupFinish");
   await page.waitForSelector("[data-route]");
+  if(o.remote){
+    // A remote branch set up by an older version: before Billing-B a remote
+    // could finish setup without a join code. Setup can't make one any more
+    // ("Remote Branch" asks for the code), so the branch type is written into
+    // the app's database the way that setup left it.
+    await page.waitForTimeout(800);   // let setup's own saves (check-in etc.) land first
+    await writeSettings(page, [["branch_type", "remote"]]);
+    await page.reload();
+    await page.waitForSelector("#startSignIn", { timeout: 30000 });
+    await page.click("#startSignIn");
+    await page.waitForSelector("#whoName, #logoutBtn");
+    if(await page.$("#whoName")){ await page.fill("#whoName", "Test User"); await page.click("#whoContinue"); }
+    await page.waitForSelector("[data-route]");
+  }
 }
 async function openSettings(page, remote){
   await page.click('[data-route="more"]');
   await page.click('[data-kebab-toggle="moretab"]');
   await page.click('[data-tab="settings"]');
   if(remote){
-    await page.waitForSelector("#settingsPasscode");
-    await page.fill("#settingsPasscode", "admin123");
-    await page.click("#unlockSettings");
+    await page.waitForSelector("#settingsPasscode, #newAdminPass");
+    if(await page.$("#newAdminPass")){ await page.fill("#newAdminPass", "admin123"); await page.fill("#newAdminPass2", "admin123"); await page.click("#createAdmin"); }
+    else { await page.fill("#settingsPasscode", "admin123"); await page.click("#unlockSettings"); }
   }
   await page.waitForSelector("#terminalCard");
 }
@@ -140,6 +152,49 @@ async function scrollTo(page, sel){ await page.locator(sel).scrollIntoViewIfNeed
     assert.deepStrictEqual(pageErrors, []);
   });
 
+  await t("Billing-B: a second device can't register the same business (same name and phrase); it is told to join with a code", async ()=>{
+    const { page, fake, pageErrors } = await device(browser, server);
+    const before = server.businesses.length;
+    await setupShop(page, { shop:"gentronix", branch:"Mutare", phrase:"Gold Leaf 42" });
+    await openSettings(page);
+    await page.click("#termRegisterBtn");
+    await waitFor(async()=> /already registered on seiGEN/.test(await page.textContent("#termStatus")), "the duplicate message");
+    const msg = await page.textContent("#termStatus");
+    assert.match(msg, /Gentronix is already registered on seiGEN from another device \(main branch: Harare CBD\)/);
+    assert.match(msg, /join with a join code/); assert.match(msg, /bill it as a separate shop/);
+    assert.strictEqual(await page.getAttribute("#terminalCard","data-registered"), "0", "not registered");
+    assert.strictEqual(server.businesses.length, before, "no second business");
+    assert.ok(fake.calls.some(c=>c.name==="cl_branch_register"));
+    await scrollTo(page, "#terminalCard"); await shot(page, "settings-duplicate-business.png");
+    assert.deepStrictEqual(pageErrors, []);
+  });
+
+  await t("Billing-B: Setup → Remote Branch asks for a join code; a code for a new branch makes it a remote branch of the business", async ()=>{
+    const mainTerm = server.terminals.find(x=>x.till==="T1" && server.branches.find(b=>b.id===x.branch && b.is_main));
+    const br = { id:"br-r"+(++server.seq), business:mainTerm.business, name:"Mutare", is_main:false }; server.branches.push(br);
+    const code = "MUTR"+(3000+server.seq); server.codes.push({ code, branch:br.id, used:false });
+    const { page, fake, pageErrors } = await device(browser, server);
+    await page.fill("#setShop", "Gentronix"); await page.fill("#setSecret", "Gold Leaf 42");
+    await page.click("#setRemoteBtn");
+    await page.waitForSelector("#setRemoteJoinIntro");
+    assert.match(await page.textContent(".setup-card"), /Set up a remote branch/);
+    assert.match(await page.textContent("#setRemoteJoinIntro"), /New branch/);
+    assert.ok(!(await page.$("#setupNext")), "no way on without the code");
+    await shot(page, "setup-remote-branch-join.png");
+    await page.click("#setupJoin");
+    await waitFor(async()=> /join code/.test(await page.textContent("#setupJoinStatus")), "the needs-a-code message");
+    await page.fill("#setJoinCode", code.slice(0,4)+"-"+code.slice(4));
+    await page.click("#setupJoin");
+    await passJoinTrialScreen(page);
+    assert.strictEqual(fake.calls.find(c=>c.name==="cl_terminal_join").body.p_join_code, code.slice(0,4)+"-"+code.slice(4));
+    await openSettings(page, true);
+    const text = await page.textContent("#terminalCard");
+    assert.match(text, /Gentronix/); assert.match(text, /Mutare/);
+    assert.strictEqual((await page.textContent("#termTill")).trim(), "T1");
+    assert.ok(!(await page.$("#termAddBtn")), "a remote branch till can't add terminals");
+    assert.deepStrictEqual(pageErrors, []);
+  });
+
   await t("join refusals: a used code and a wrong code each say why, and setup stays on the join step", async ()=>{
     const { page, pageErrors } = await device(browser, server);
     await page.click("#setJoinBtn");
@@ -170,8 +225,7 @@ async function scrollTo(page, sel){ await page.locator(sel).scrollIntoViewIfNeed
   await t("existing remote device: a branch-name mismatch says the name doesn't match and keeps the code; the right branch joins", async ()=>{
     // main issues a code for a branch it calls "Bulawayo Main St"; the remote device is "Bulawayo"
     // main (registered in the first test) issues codes through the shared fake server
-    const mainInstall = Object.keys(server.vendors)[0];
-    const mainTerm = server.terminals.find(x=>x.install===mainInstall);
+    const mainTerm = server.terminals.find(x=>x.till==="T1" && server.branches.find(b=>b.id===x.branch && b.is_main));
     const issue = (name)=>{ const br = { id:"br-x"+(++server.seq), business:mainTerm.business, name, is_main:false }; server.branches.push(br);
       const code = "RMTE"+(2000+server.seq); server.codes.push({ code, branch:br.id, used:false }); return code.slice(0,4)+"-"+code.slice(4); };
     const wrongCode = issue("Bulawayo Main St");

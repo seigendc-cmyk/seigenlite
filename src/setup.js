@@ -1,7 +1,7 @@
   // ================== SETUP FLOW ==================
   let setupStep = 1;
-  let setupData = {shop_name:"",branch_name:"",secret_phrase:"",owner_phone:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",admin_pass:"",admin_pass2:"",
-    join_code:"",till_label:"",
+  let setupData = {shop_name:"",branch_name:"",secret_phrase:"",owner_phone:"",contact_phone:"",banner_image:"",currency:"$",branch_type:"main",
+    join_code:"",till_label:"",join_kind:"till",   // join_kind: "till" (another till of a branch) | "remote" (a new branch: Billing-B, a join code is required)
     rpn:{rpn_name:"",rpn_code:"",rpn_whatsapp:"",city_area:""}, rpnVerify:{ff:"",pin:""}};
 
   function renderSetup(){
@@ -10,8 +10,12 @@
         <div class="setup-card">
           <div class="step-dots">${[1,2,3,4].map(n=>`<span class="${n<=setupStep?'on':''}"></span>`).join("")}</div>
           ${setupStep===1 && setupData.branch_type==='join'? `
+            ${setupData.join_kind==='remote'? `
+            <h2>Set up a remote branch</h2>
+            <p class="muted" id="setRemoteJoinIntro">A remote branch joins your business on seiGEN with a join code, so it's billed as a branch and dispatches between your branches go through seiGEN. On a main-branch device: Settings → Business &amp; Terminals → Add a terminal → <b>New branch</b>, with this branch's name. Then type the code here.</p>
+            <p class="muted">Remote branches can sell, but can't add or edit items, change stock quantities directly, or see item costs.</p>` : `
             <h2>Join an existing branch</h2>
-            <p class="muted">Add this device as another till of a business that already uses seiGEN Commerce Lite. Your main branch gives you a join code (Settings → Business &amp; Terminals → Add a terminal).</p>
+            <p class="muted">Add this device as another till of a business that already uses seiGEN Commerce Lite. Your main branch gives you a join code (Settings → Business &amp; Terminals → Add a terminal).</p>`}
             <label>Business secret phrase</label>
             <input class="field" id="setSecret" value="${escapeHtml(setupData.secret_phrase)}" placeholder="The main branch's activation phrase" autocomplete="off">
             <label>Join code</label>
@@ -37,8 +41,7 @@
               <button type="button" class="btn ${setupData.branch_type==='main'?'btn-primary':'btn-outline'}" id="setMainBtn">Main Branch</button>
               <button type="button" class="btn ${setupData.branch_type==='remote'?'btn-primary':'btn-outline'}" id="setRemoteBtn">Remote Branch</button>
             </div>
-            <p class="muted" style="margin-top:8px">Remote branches can sell, but can't add or edit items, change stock quantities directly, or see item costs.</p>
-            ${setupData.branch_type==='remote'? `<p class="muted" id="setRemoteJoinHint" style="margin-top:4px;font-weight:600">Another branch of a business that already uses seiGEN? Use "Join an existing branch" below: it shares the business's free trial. A remote branch set up here counts as a shop of its own.</p>` : ""}
+            <p class="muted" style="margin-top:8px">A remote branch needs a join code from your main branch (it shares the business's free trial).</p>
             <button type="button" class="btn btn-outline" id="setJoinBtn" style="margin-top:8px">Join an existing branch</button>
             <p class="muted" style="margin-top:4px">Adding another till to a business that's already set up? Join it with a code from your main branch.</p>
             <button class="btn btn-primary" id="setupNext" style="margin-top:16px">Continue</button>
@@ -54,13 +57,6 @@
             <label>Shop banner / logo image (optional)</label>
             <input class="field" id="setBanner" type="file" accept="image/*">
             ${setupData.banner_image? `<img class="banner-img" src="${setupData.banner_image}">`:""}
-            ${setupData.branch_type==='remote'? `
-              <div class="hr"></div>
-              <label>Admin passcode for this branch (at least ${ADMIN_PASSCODE_MIN} characters)</label>
-              <input class="field" id="setAdminPass" type="password" value="${escapeHtml(setupData.admin_pass)}" placeholder="Choose a passcode">
-              <label>Repeat the passcode</label>
-              <input class="field" id="setAdminPass2" type="password" value="${escapeHtml(setupData.admin_pass2)}" placeholder="Repeat it">
-              <p class="muted">It unlocks Settings and price changes on this remote branch. You create it here; it does not come from the main branch.</p>` : ""}
             <div class="row" style="margin-top:16px">
               <button class="btn btn-outline" id="setupBack">Back</button>
               <button class="btn btn-primary" id="setupNext2">Continue</button>
@@ -83,9 +79,8 @@
             <table class="simple">
               <tr><td class="muted">Shop</td><td>${escapeHtml(setupData.shop_name)}</td></tr>
               <tr><td class="muted">Branch</td><td>${escapeHtml(setupData.branch_name)||"—"}</td></tr>
-              <tr><td class="muted">Branch type</td><td>${setupData.branch_type==='main'?'Main Branch':'Remote Branch'}</td></tr>
+              <tr><td class="muted">Branch type</td><td>Main Branch</td></tr>
               <tr><td class="muted">Activation phrase</td><td>Entered</td></tr>
-              ${setupData.branch_type==='remote'? `<tr><td class="muted">Admin passcode</td><td>Set</td></tr>` : ""}
               <tr><td class="muted">Owner's phone</td><td>${escapeHtml(setupData.owner_phone)}</td></tr>
               <tr><td class="muted">Contact</td><td>${escapeHtml(setupData.contact_phone||setupData.owner_phone)||"—"}</td></tr>
               <tr><td class="muted">Currency</td><td>${escapeHtml(setupData.currency)}</td></tr>
@@ -154,8 +149,9 @@
         setupData.secret_phrase = document.getElementById("setSecret").value.trim();
       };
       document.getElementById("setMainBtn").onclick=()=>{ keepStep1(); setupData.branch_type="main"; renderSetup(); };
-      document.getElementById("setRemoteBtn").onclick=()=>{ keepStep1(); setupData.branch_type="remote"; renderSetup(); };
-      document.getElementById("setJoinBtn").onclick=()=>{ keepStep1(); setupData.branch_type="join"; renderSetup(); };
+      // Billing-B: a remote branch joins the business with a join code (no code-less remote set-up any more)
+      document.getElementById("setRemoteBtn").onclick=()=>{ keepStep1(); setupData.branch_type="join"; setupData.join_kind="remote"; renderSetup(); };
+      document.getElementById("setJoinBtn").onclick=()=>{ keepStep1(); setupData.branch_type="join"; setupData.join_kind="till"; renderSetup(); };
       document.getElementById("setupNext").onclick=()=>{
         keepStep1();
         if(!setupData.shop_name) return alert("Enter your shop name");
@@ -168,7 +164,6 @@
         setupData.owner_phone = document.getElementById("setOwnerPhone").value.trim();
         setupData.contact_phone = document.getElementById("setContact").value.trim();
         setupData.currency = document.getElementById("setCurrency").value.trim()||"$";
-        const pa = document.getElementById("setAdminPass"); if(pa){ setupData.admin_pass = pa.value; setupData.admin_pass2 = document.getElementById("setAdminPass2").value; }
         const f = e.target.files[0];
         if(!f) return;
         const reader = new FileReader();
@@ -180,12 +175,6 @@
         setupData.contact_phone = document.getElementById("setContact").value.trim();
         setupData.currency = document.getElementById("setCurrency").value.trim()||"$";
         if(!normPhone(setupData.owner_phone)) return alert("Enter the owner's phone number, e.g. 07x xxx xxxx or +263 7x xxx xxxx.");
-        if(setupData.branch_type==='remote'){
-          setupData.admin_pass = document.getElementById("setAdminPass").value;
-          setupData.admin_pass2 = document.getElementById("setAdminPass2").value;
-          const bad = adminPasscodeProblem(setupData.admin_pass, setupData.admin_pass2);
-          if(bad) return alert(bad);
-        }
         setupStep=3; renderSetup();
       };
     } else if(setupStep===3){
@@ -231,8 +220,6 @@
         setSetting("setup_complete","1");
         currency = setupData.currency;
         backfillBranch(db, currentBranch());
-        if(setupData.branch_type==='remote') createDeviceAdmin(setupData.admin_pass, setupData.admin_pass2);
-        setupData.admin_pass = setupData.admin_pass2 = "";
         // Foundation data only, and optional at onboarding (Part A.1/A.3):
         // if the RPN step was left untouched, skip it entirely rather than
         // queuing an empty sync record for every install. Any deliberate

@@ -1,0 +1,75 @@
+// node supabase/tests/chipo-merge-fix-test.js
+//
+// Tests supabase/data-fixes/20261021_chipo_merge.sql in an in-memory PGlite
+// (the live shape + 20261021120000_billing_b), never the live database: the
+// Chipo Clothing state as on live is rebuilt (two businesses, one till each,
+// Business plan, Sothleapark's 3 catalogue products), the file's ids are
+// swapped for this database's, and the file is run exactly as
+// tools/db/run-data-fix.js runs it. Then: its self-checks refuse when live
+// differs (and change nothing), and a second run is refused.
+'use strict';
+const path = require('path');
+const crypto = require('crypto');
+const { NOT_ON_LIVE_FILES, newPglite, buildFromRepo, READ } = require('./rebuild-helpers');
+
+const ROOT = path.join(__dirname, '..');
+const FIX = READ(path.join(ROOT, 'data-fixes', '20261021_chipo_merge.sql'));
+const MIG = READ(path.join(ROOT, 'migrations', '20261021120000_billing_b.sql'));
+const LIVE = { into: '95f0ba44-4041-4e6e-ac52-3516902d20e0', from: '7c47d0ea-ced3-4297-9c38-1c15fb24ac07',
+  sbr: '07930efd-f41f-461d-a227-897c58956b46', hbr: 'f1a153a3-9e3c-4021-a41d-a0ba46b235b1' };
+
+let pass = 0, fail = 0;
+function ok(name, cond, extra) {
+  if (cond) { pass++; console.log('  ok   ' + name); }
+  else { fail++; console.log('  FAIL ' + name + (extra ? ' -> ' + String(extra).slice(0, 600) : '')); }
+}
+
+(async () => {
+  const pg = await newPglite();
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES });
+  const q = async (sql, p) => (await pg.query(sql, p)).rows;
+  const run = async (sql) => { try { const res = await pg.exec(sql); return { ok: true, res }; } catch (e) { await pg.exec('rollback').catch(() => {}); return { e: e.message }; } };
+
+  let r = await run(FIX);
+  ok('before Billing-B is applied, the fix refuses and changes nothing', /billing_b is not applied/.test(r.e || ''), JSON.stringify(r).slice(0, 300));
+
+  // Chipo Clothing as on live (registered before Billing-B existed)
+  const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || crypto.randomBytes(16).toString('hex'));
+  const reg = async (iid, branch) => {
+    await pg.exec('set role anon');
+    try { return (await q(`select public.cl_branch_register($1, 'Chipo Phrase', $2, 'Chipo Clothing', $3, $4) j`, [iid, key(iid), branch, 'B-' + (iid + 'XXXXXXXX').slice(0, 8)]))[0].j; }
+    finally { await pg.exec('reset role'); }
+  };
+  const h = await reg('HG58', 'Harare CBD'), s = await reg('2KBZ', 'Sothleapark');
+  const sys = (await q(`insert into cl_staff (id, full_name, passcode_hash, is_sysadmin, active, created_at) values (gen_random_uuid(), 'Sys', 'x', true, true, now()) returning id`))[0].id;
+  for (const b of [h.business_id, s.business_id]) await q(`insert into cl_plan_assignments (business_id, plan_code, reason, set_by) values ($1, 'business', 'test', $2)`, [b, sys]);
+  const product = (biz, code) => q(`insert into cl_catalogue_products (business_id, product_uid, code, name, price, cost, low_threshold, active, change_seq, last_op_id, updated_ts)
+    values ($1, replace(gen_random_uuid()::text, '-', ''), $2, $2, 5, 2, 0, true, nextval('cl_catalogue_seq'), 'test-op', now())`, [biz, code]);
+  await product(h.business_id, 'pnt001');
+  for (const c of ['kds003', 'lmd001', 'mb005']) await product(s.business_id, c);
+  await pg.exec(MIG);
+  const local = FIX.split(LIVE.into).join(h.business_id).split(LIVE.from).join(s.business_id).split(LIVE.sbr).join(s.branch_id).split(LIVE.hbr).join(h.branch_id);
+  ok('the file names exactly the 4 live ids it was written for', [LIVE.into, LIVE.from, LIVE.sbr, LIVE.hbr].every((id) => FIX.includes(id)) && !/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/.test(local.split(h.business_id).join('').split(s.business_id).join('').split(s.branch_id).join('').split(h.branch_id).join('')));
+
+  // live differs: an extra catalogue product at Sothleapark -> refused, nothing changed
+  await product(s.business_id, 'xx999');
+  r = await run(local);
+  ok('if live differs from the design (4 products, not 3), it refuses and changes nothing',
+    /expected 3 catalogue products at Sothleapark \(found 4\)/.test(r.e || '') && (await q(`select archived_at from cl_businesses where id = $1`, [s.business_id]))[0].archived_at === null, r.e);
+  await q(`delete from cl_catalogue_products where business_id = $1 and code = 'xx999'`, [s.business_id]);
+
+  r = await run(local);
+  ok('as designed: it runs', r.ok, r.e);
+  const br = await q(`select name, is_main, business_id from cl_branches where business_id = $1 order by is_main desc`, [h.business_id]);
+  ok('one business: Harare CBD (main) and Sothleapark (branch)', br.length === 2 && br[0].name === 'Harare CBD' && br[0].is_main && br[1].name === 'Sothleapark' && !br[1].is_main, JSON.stringify(br));
+  const price = (await q(`select public.cl_plan_price(null, '2KBZ', 30) j`))[0].j;
+  ok('Sothleapark\'s till is priced as a branch (USD 7)', price.till_role === 'branch' && Number(price.unit_fee) === 7, JSON.stringify(price));
+  ok('the duplicate is archived; 4 catalogue products in the kept business',
+    (await q(`select archived_at from cl_businesses where id = $1`, [s.business_id]))[0].archived_at !== null && (await q(`select count(*)::int c from cl_catalogue_products where business_id = $1`, [h.business_id]))[0].c === 4);
+  ok('logged as business_merged (by the data fix: no staff)', (await q(`select count(*)::int c from cl_activity_log where action = 'business_merged' and staff_id is null`))[0].c === 1);
+  r = await run(local);
+  ok('a second run is refused (the duplicate is archived now) and changes nothing', /expected both Chipo Clothing businesses, not archived \(found 1\)/.test(r.e || ''), r.e);
+
+  console.log('\n' + pass + ' passed, ' + fail + ' failed');
+  process.exit(fail ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });

@@ -251,6 +251,8 @@
     // To a branch of this business on seiGEN, the dispatch also goes through seiGEN, with an optional delivery cost.
     const delivery = { cost:"", currency:getSetting("ds_currency","USD"), carrier:"", ref:"" };
     const srvFor = ()=> typeof dsBranchFor==="function"? dsBranchFor(toName) : null;
+    // Billing-B: say plainly when this Delivery Note WON'T go through seiGEN, and why
+    const fileOnly = (short)=> typeof dsFileOnlyReason==="function"? dsFileOnlyReason(toName, { short }) : "";
     function deliveryProblem(){
       if(!srvFor()) return "";
       const raw = String(delivery.cost).trim();
@@ -306,6 +308,7 @@
             <label style="flex:1;margin:0">Currency<input class="field" id="doDelCur" maxlength="3" value="${escapeHtml(delivery.currency)}"></label></div>
           <div style="display:flex;gap:6px"><label style="flex:1;margin:0">Carrier<input class="field" id="doDelCarrier" maxlength="80" value="${escapeHtml(delivery.carrier)}"></label>
             <label style="flex:1;margin:0">Reference<input class="field" id="doDelRef" maxlength="80" value="${escapeHtml(delivery.ref)}"></label></div></div>` : ""}
+        ${fileOnly()? `<div class="box" id="doFileOnly" style="margin-top:8px;font-size:12.5px;border-color:#b54708;background:#fffaeb"><b>File only: not through seiGEN.</b> ${escapeHtml(fileOnly())}</div>` : ""}
         ${dests.length? "" : `<p class="muted" style="font-size:12px">No destination branches are set up yet. Main adds them under Settings → Destination branches, and a remote receives the list with its catalogue.</p>`}
         <div class="hr"></div>
         <label style="margin-top:0">Add product — search, or scan a barcode/SKU and press Enter</label>
@@ -327,7 +330,7 @@
         <div id="doErr" style="color:#b42318;font-size:12.5px;margin-top:6px"></div>
         <button class="btn btn-primary" id="doReview" style="margin-top:8px">Review</button>`;
       const dest = body.querySelector("#doDest"), search = body.querySelector("#doSearch");
-      dest.onchange = ()=>{ const was = !!srvFor(); toName = dest.value; if(!!srvFor()!==was) renderEdit(); };
+      dest.onchange = ()=>{ const was = !!srvFor()+"|"+fileOnly(); toName = dest.value; if(!!srvFor()+"|"+fileOnly()!==was) renderEdit(); };
       const refEl = body.querySelector("#doRef");
       refEl.oninput = ()=>{ internalRef = refEl.value; };
       [["doDelCost","cost"],["doDelCur","currency"],["doDelCarrier","carrier"],["doDelRef","ref"]].forEach(([id,k])=>{
@@ -364,6 +367,7 @@
         ${lines.map(l=>`<div class="product-row" style="align-items:center"><div style="display:flex;gap:8px;align-items:center">${thumbImg(l.product)}<div><div class="pname">${escapeHtml(l.product.name)}</div><div class="pmeta">${escapeHtml(l.product.sku||"no SKU")}</div></div></div><b style="flex:none">${Number(l.qty)}</b></div>`).join("")}
         <p style="margin:10px 0"><b>${lines.length}</b> line${lines.length===1?"":"s"} · <b>${units}</b> unit${units===1?"":"s"}. Stock is deducted as soon as you confirm.</p>
         ${srvFor()? `<p class="muted" id="doSrvReview" style="margin:-4px 0 10px;font-size:12.5px">Goes through seiGEN to ${escapeHtml(srvFor().name)}${Number(delivery.cost)>0? " · delivery cost "+escapeHtml(String(delivery.currency).toUpperCase()+" "+Number(delivery.cost).toFixed(2)) : ""}.</p>` : ""}
+        ${fileOnly()? `<p id="doFileOnlyReview" style="margin:-4px 0 10px;font-size:12.5px;color:#b54708"><b>File only: not through seiGEN.</b> ${escapeHtml(fileOnly(true))}</p>` : ""}
         <div style="display:flex;gap:8px"><button class="btn btn-outline" id="doBack">Back</button><button class="btn btn-primary" id="doConfirm" style="flex:1">Dispatch</button></div>`;
       body.querySelector("#doBack").onclick=()=>renderEdit();
       body.querySelector("#doConfirm").onclick=()=>confirm_();
@@ -558,7 +562,8 @@
           ${st==="awaiting"? `<div class="pmeta" style="color:#b54708">No GRV after ${awaitingDays()} days.</div>` : ""}
           ${mr && chainText(mr)? `<div class="pmeta" style="color:#b54708">${escapeHtml(chainText(mr))}</div>` : ""}
           ${mr && mr.cancelPending && st!=="cancel_pending"? `<div class="pmeta" style="color:#b54708">Cancel pending: waiting for ${escapeHtml(h.receive_branch_name)}'s confirmation.</div>` : ""}
-          ${h.srv_id? `<div class="pmeta dh-srv" style="${h.srv_status==="error"? "color:#b42318" : ""}">Through seiGEN: ${escapeHtml(dsStatusText(h.srv_status))}${h.srv_error? " ("+escapeHtml(h.srv_error)+")" : ""}</div>` : ""}
+          ${h.srv_id? `<div class="pmeta dh-srv" style="${h.srv_status==="error"? "color:#b42318" : ""}">Through seiGEN: ${escapeHtml(dsStatusText(h.srv_status))}${h.srv_error? " ("+escapeHtml(h.srv_error)+")" : ""}</div>`
+            : `<div class="pmeta dh-fileonly" style="color:#b54708">File only: not through seiGEN${(typeof dsFileOnlyReason==="function" && dsFileOnlyReason(h.receive_branch_name, { short:true }))? ". "+escapeHtml(dsFileOnlyReason(h.receive_branch_name, { short:true })) : "."}</div>`}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button class="btn btn-sm btn-outline" data-view="${h.dn_no}">View voucher</button>
             ${DN_CLOSED_STATUSES.includes(st)? "" : `<button class="btn btn-sm btn-outline" data-share="${h.dn_no}">${dnShareLabel()}</button>`}

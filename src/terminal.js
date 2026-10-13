@@ -112,6 +112,31 @@
     }));
   }
   function fetchBusinessBranches(){ return terminalRpc("cl_branch_list", terminalAuth()); }
+  // Billing-B: seiGEN merged this till's business into another (staff fixing a
+  // business registered twice). A check-in reports the new business; the
+  // till then takes its new identity from the branch list: business, whether
+  // its branch is still main (a merged branch isn't, so it becomes a remote
+  // branch here too), and a full catalogue pull from the start. -> changed?
+  async function terminalFollowBusiness(bizId){
+    bizId = String(bizId||"");
+    if(!bizId || !isTerminalRegistered() || getSetting("business_id","")===bizId) return false;
+    const r = await fetchBusinessBranches();
+    if(!r.ok || !r.data || String(r.data.business_id||"")!==bizId) return false;
+    const mine = (r.data.branches||[]).find(b=>b.id===getSetting("branch_uuid",""));
+    if(!mine) return false;
+    const wasName = getSetting("business_name",""), wasMain = getSetting("terminal_is_main","")==="1";
+    setSetting("business_id", bizId);
+    setSetting("business_name", r.data.business_name||"");
+    setSetting("terminal_branch_name", mine.name||"");
+    setSetting("terminal_is_main", mine.is_main? "1" : "");
+    setSetting("cat_cursor", "0");                                   // the whole catalogue of the business, from the start
+    setSetting("ds_branches", JSON.stringify((r.data.branches||[]).map(b=>({ id:b.id, name:b.name, is_main:!!b.is_main }))));
+    setSetting("ds_branches_ts", new Date().toISOString());
+    if(wasMain && !mine.is_main) setSetting("branch_type", "remote");
+    logAudit("Business changed on seiGEN", "", "Now "+(mine.is_main? "the main branch" : "a branch")+" ("+(mine.name||"")+") of "+(r.data.business_name||"")+(wasName? "; was "+wasName : ""));
+    await persist();
+    return true;
+  }
   // Main-branch tills only, never their own row (the server decides).
   function setTerminalActive(terminalId, active){
     return terminalRpc("cl_terminal_set_active", Object.assign(terminalAuth(), { p_terminal_id: terminalId, p_active: !!active }));
@@ -135,6 +160,11 @@
     if(c==="ALREADY_JOINED") return "This device is already a till in another branch.";
     if(c==="OTHER_BUSINESS") return "This device already belongs to a different business.";
     if(c==="TERMINAL_INACTIVE") return TERMINAL_INACTIVE_TEXT;
+    if(c==="DUPLICATE_BUSINESS"){   // Billing-B: one business per name and phrase
+      const d = r.data||{};
+      return (d.business_name||"This business")+" is already registered on seiGEN from another device"+(d.main_branch? " (main branch: "+d.main_branch+")" : "")+
+        ". If this device is another branch or till of it, join with a join code from that device instead: Settings → Business & Terminals → Add a terminal. Registering it again would bill it as a separate shop.";
+    }
     const m = String(r.message||"");
     if(/JOIN_LOCKED/.test(m)) return "Too many wrong codes. Wait an hour, then try again.";
     if(/PLAN_BRANCH_LIMIT/.test(m)) return m.replace(/^.*PLAN_BRANCH_LIMIT:\s*/, "");   // price plans: Lite allows one branch

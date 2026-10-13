@@ -43,6 +43,9 @@ async function stubTerminals(target, opts){
       vendor(b, true);
       const have = state.terminals.find(x=>x.install===b.p_install_id);
       if(have) return have.active===false? { error:"TERMINAL_INACTIVE" } : termJson(have);   // Phase 2
+      // Billing-B (20261021120000): one business per name and phrase
+      const dup = state.businesses.find(x=>!x.archived && key(x.name)===key(b.p_business_name) && x.phrase===norm(b.p_secret_phrase));
+      if(dup) return { error:"DUPLICATE_BUSINESS", business_name:dup.name, main_branch:(state.branches.find(x=>x.business===dup.id && x.is_main)||{}).name||null };
       const bz = { id:id("biz"), name:b.p_business_name, phrase:norm(b.p_secret_phrase) }; state.businesses.push(bz);
       const br = { id:id("br"), business:bz.id, name:b.p_branch_name, is_main:true }; state.branches.push(br);
       const t = { id:id("term"), business:bz.id, branch:br.id, install:b.p_install_id, till:"T1", label:b.p_label||null }; state.terminals.push(t);

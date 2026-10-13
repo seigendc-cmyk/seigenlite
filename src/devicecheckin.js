@@ -141,6 +141,9 @@
       // Multi-terminal: only ever filled in, never cleared, by a check-in —
       // registering/joining (terminal.js) is what sets the full identity.
       if(data.business_id && !getSetting("business_id","")) setSetting("business_id", String(data.business_id));
+      // Billing-B: a different business = seiGEN merged this till's business into another (terminal.js)
+      else if(data.business_id && String(data.business_id)!==getSetting("business_id","") && typeof terminalFollowBusiness==="function")
+        terminalFollowBusiness(String(data.business_id)).then(ch=>{ if(ch && typeof render==="function") render(); }).catch(()=>{});
       if(data.terminal_id && !getSetting("terminal_id","")) setSetting("terminal_id", String(data.terminal_id));
       // Phase 2: main can deactivate a till. Selling is unaffected; Settings
       // says so and hides register/join. Only a true/false answer changes it

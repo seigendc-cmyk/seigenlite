@@ -179,15 +179,28 @@ const PHRASE = "Licence Test Phrase";
 async function device(browser, kind, file){
   const desktop = kind==="desktop";
   const ctx = await browser.newContext({ viewport: desktop? { width:1280, height:800 } : { width:390, height:844 } });
-  const d = { blockServer:false };
+  // timeMs: the time this test says it is (set with the page's clock, below).
+  // cl_server_time (20261020120000) answers it, as seiGEN's server would on
+  // that day; the app trusts it over the device clock. noServerTime: no
+  // answer from it (the device clock is all the app has).
+  const d = { blockServer:false, timeMs:null, noServerTime:false };
   await ctx.route(/urbopdsubwawtybwrxjd\.supabase\.co\//, async route=>{
     const req = route.request();
     if(d.blockServer) return route.abort("internetdisconnected");
     if(req.method()==="HEAD") return route.fulfill({ status:200, headers:{ "access-control-allow-origin":"*" }, body:"" });
+    if(/\/rest\/v1\/rpc\/cl_server_time$/.test(new URL(req.url()).pathname)){
+      if(d.noServerTime) return route.abort("internetdisconnected");
+      return route.fulfill({ status:200, contentType:"application/json", headers:{ "access-control-allow-origin":"*" },
+        body: JSON.stringify({ now: new Date(d.timeMs==null? Date.now() : d.timeMs).toISOString() }) });
+    }
     const r = await fetch(BASE + new URL(req.url()).pathname, { method:req.method(), headers:{ "content-type":"application/json", apikey:req.headers()["apikey"]||"", authorization:req.headers()["authorization"]||"" }, body: req.method()==="POST"? req.postData() : undefined });
     return route.fulfill({ status:r.status, contentType:"application/json", headers:{ "access-control-allow-origin":"*" }, body: await r.text() });
   });
   const page = await ctx.newPage();
+  const clock = page.clock, ms = (t)=> new Date(t).getTime();
+  for(const k of ["setFixedTime", "setSystemTime"]){ const f = clock[k].bind(clock); clock[k] = (t)=>{ d.timeMs = ms(t); return f(t); }; }
+  { const f = clock.install.bind(clock); clock.install = (o)=>{ if(o && o.time!=null) d.timeMs = ms(o.time); return f(o); }; }
+  { const f = clock.fastForward.bind(clock); clock.fastForward = (n)=>{ if(d.timeMs!=null) d.timeMs += n; return f(n); }; }
   const pageErrors = [], dialogs = [];
   page.on("pageerror", e=>pageErrors.push(e.message));
   page.on("dialog", d=>{ dialogs.push(d.message()); d.accept(); });
@@ -419,10 +432,12 @@ async function trialByLink(d, issuedMs, untilMs){
       await sq("delete from cl_licence_redeem_failures");
     });
     await t(kind+": the clock moved back: the lock screen explains it", async ()=>{
+      d.noServerTime = true;                    // with seiGEN's time the device clock wouldn't count
       await p.clock.setFixedTime(new Date(NOW - 3*DAY)); await p.reload();
       await p.waitForSelector("#lockReason", { timeout:30000 });
       assert.match(await p.textContent("#app"), /date\/time appears to have moved backward/);
       await shot(d, "13-lock-clock-rollback");
+      d.noServerTime = false;
       await p.clock.setFixedTime(new Date(NOW)); await p.reload(); await p.waitForSelector("#actCode", { timeout:30000 });
     });
     let first;

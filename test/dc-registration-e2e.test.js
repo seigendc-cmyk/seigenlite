@@ -119,8 +119,13 @@ async function tryPrepare(page){
     assert.match(alerts.pop()||"", /activation secret phrase/);
     assert.ok(await page.$("#setSecret"), "still on step 1");
     await page.fill("#setSecret", "Gold Leaf 42");
+    // Billing-B: "Remote Branch" asks for a join code (the join screen, remote wording)
     await page.click("#setRemoteBtn");
-    await page.click("#setMainBtn");
+    await page.waitForSelector("#setRemoteJoinIntro");
+    assert.ok(await page.$("#setJoinCode"), "a remote branch needs a join code");
+    assert.strictEqual(await page.inputValue("#setSecret"), "Gold Leaf 42", "the phrase comes along");
+    await page.click("#setupJoinBack");
+    await page.waitForSelector("#setShop");
     assert.strictEqual(await page.inputValue("#setSecret"), "Gold Leaf 42");
     assert.strictEqual(await page.inputValue("#setShop"), "Test Shop");
     assert.strictEqual(fake.calls.length, 0, "nothing sent before setup finishes");
