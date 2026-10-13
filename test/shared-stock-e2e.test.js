@@ -63,21 +63,33 @@ const sq = async (sql, p)=> (await pg.query(sql, p)).rows;
 async function device(browser, kind){
   const desktop = kind==="desktop";
   const ctx = await browser.newContext({ viewport: desktop? { width:1280, height:800 } : { width:390, height:844 } });
+  const calls = [], loads = [];   // every RPC (name, when, answered?) and every page load, for bootSyncDone
   await ctx.route(/urbopdsubwawtybwrxjd\.supabase\.co\/rest\/v1\/rpc\/([a-z_]+)$/, async route=>{
     const name = /\/rpc\/([a-z_]+)$/.exec(route.request().url())[1];
     let body = {}; try{ body = JSON.parse(route.request().postData()||"{}"); }catch(e){}
+    const call = { name, t:Date.now(), done:false }; calls.push(call);
     const r = await serverCall(name, body);
+    call.done = true;
     return route.fulfill({ status:r.status, contentType:"application/json", headers:{ "access-control-allow-origin":"*" }, body:JSON.stringify(r.json) });
   });
   const page = await ctx.newPage();
   const pageErrors = [], dialogs = [];
   page.on("pageerror", e=>pageErrors.push(e.message));
+  page.on("load", ()=>loads.push(Date.now()));
   page.on("dialog", d=>{ dialogs.push(d.message()); d.accept(); });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-ss-"));
   fs.copyFileSync(BUILDS[desktop? "desktop" : "phone"], path.join(dir, "index.html"));
   await page.goto(fileUrl(path.join(dir, "index.html")));
   await page.waitForSelector("#setShop", { timeout: 30000 });
-  return { ctx, page, pageErrors, dialogs, desktop };
+  return { ctx, page, pageErrors, dialogs, desktop, calls, loads };
+}
+// The app syncs catalogue + stock 4 s after every start (startCatalogueSync).
+// Wait for that sync after the last (re)load to be answered, so it can't land
+// later, in the middle of a step that needs this till's figures to stay as
+// they are (T2 "still thinking one sugar is left").
+async function bootSyncDone(d){
+  const since = d.loads[d.loads.length-1] || 0;
+  await waitFor(async()=> d.calls.some(c=>c.name==="cl_stock_sync" && c.t>=since && c.done), "the till's startup sync", 30000);
 }
 async function nav(d, route){
   if(d.desktop){ await d.page.click("#hamburgerBtn"); await d.page.click('#navDrawer [data-route="'+route+'"]'); }
@@ -153,6 +165,7 @@ const server = async (code)=> (await sq(`select bs.total, bs.available from cl_b
     await B.page.fill("#setSecret", "Gold Leaf 42"); await B.page.fill("#setJoinCode", code.code);
     await B.page.click("#setupJoin");
     await passJoinTrialScreen(B.page); await activateForTest(B.page);   // trial rules: the till asks for the business trial (cover) and shows the answer (none here), then an activation
+    await bootSyncDone(B);   // activateForTest reloaded T2: its startup sync must not land after T1 sells the last sugar
     await nav(B, "products");
     await waitFor(async()=> /Rice 2kg/.test(await B.page.textContent("#productsTableArea")), "products on T2", 30000);
     assert.match(await B.page.textContent(".till-stock-note"), /This till has no stock yet/, "while the branch is local, T2 has no stock");
