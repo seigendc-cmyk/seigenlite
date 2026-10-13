@@ -16,6 +16,7 @@ const ROOT = path.join(__dirname, '..');
 const FIX = READ(path.join(ROOT, 'data-fixes', '20261021_chipo_merge.sql'));
 const UNDO = READ(path.join(ROOT, 'data-fixes', '20261021_chipo_merge_undo.sql'));
 const MIG = READ(path.join(ROOT, 'migrations', '20261021120000_billing_b.sql'));
+const LINKS = READ(path.join(ROOT, 'migrations', '20261022120000_catalogue_merge_links.sql'));
 const LIVE = { into: '95f0ba44-4041-4e6e-ac52-3516902d20e0', from: '7c47d0ea-ced3-4297-9c38-1c15fb24ac07',
   sbr: '07930efd-f41f-461d-a227-897c58956b46', hbr: 'f1a153a3-9e3c-4021-a41d-a0ba46b235b1' };
 
@@ -27,7 +28,7 @@ function ok(name, cond, extra) {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261021120000_billing_b.sql']) });   // just before Billing-B (it is on live now)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql']) });   // just before Billing-B (it is on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const run = async (sql) => { try { const res = await pg.exec(sql); return { ok: true, res }; } catch (e) { await pg.exec('rollback').catch(() => {}); return { e: e.message }; } };
 
@@ -48,8 +49,21 @@ function ok(name, cond, extra) {
     values ($1, replace(gen_random_uuid()::text, '-', ''), $2, $2, 5, 2, 0, true, nextval('cl_catalogue_seq'), 'test-op', now())`, [biz, code]);
   await product(h.business_id, 'pnt001');
   for (const c of ['kds003', 'lmd001', 'mb005']) await product(s.business_id, c);
+  // as on live: Kids Sneaker has a picture (and, to test it too, a Sothleapark branch price on lmd001)
+  const uidOf = async (code) => (await q(`select product_uid from cl_catalogue_products where business_id = $1 and code = $2`, [s.business_id, code]))[0].product_uid;
+  const PIC = 'data:image/jpeg;base64,' + 'A'.repeat(40);
+  await q(`insert into cl_catalogue_images (business_id, product_uid, image_hash, data) values ($1, $2, $3, $4)`, [s.business_id, await uidOf('kds003'), 'a'.repeat(64), PIC]);
+  await q(`insert into cl_branch_prices (business_id, branch_id, product_uid, price, change_seq, last_op_id) values ($1, $2, $3, 7.5, nextval('cl_catalogue_seq'), 'test-op')`, [s.business_id, s.branch_id, await uidOf('lmd001')]);
   await pg.exec(MIG);
-  const local = FIX.split(LIVE.into).join(h.business_id).split(LIVE.from).join(s.business_id).split(LIVE.sbr).join(s.branch_id).split(LIVE.hbr).join(h.branch_id);
+  // what live did on 2026-10-13: without 20261022120000 the picture stops the merge
+  r = await run(`begin; select public.cl_business_merge_core('${s.business_id}', '${h.business_id}', 'as on live, 2026-10-13', true, null); commit;`);
+  ok('without 20261022120000 (as live on 2026-10-13): a product with a picture can\'t move; refused by the picture\'s key',
+    /violates foreign key constraint "cl_catalogue_images_business_id_product_uid_fkey"/.test(r.e || '') && (await q(`select archived_at from cl_businesses where id = $1`, [s.business_id]))[0].archived_at === null, r.e);
+  const local0 = FIX.split(LIVE.into).join(h.business_id).split(LIVE.from).join(s.business_id).split(LIVE.sbr).join(s.branch_id).split(LIVE.hbr).join(h.branch_id);
+  r = await run(local0);
+  ok('... and the data fix now says so itself, changing nothing', /20261022120000_catalogue_merge_links is not applied/.test(r.e || ''), r.e);
+  await pg.exec(LINKS);
+  const local =FIX.split(LIVE.into).join(h.business_id).split(LIVE.from).join(s.business_id).split(LIVE.sbr).join(s.branch_id).split(LIVE.hbr).join(h.branch_id);
   ok('the file names exactly the 4 live ids it was written for', [LIVE.into, LIVE.from, LIVE.sbr, LIVE.hbr].every((id) => FIX.includes(id)) && !/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/.test(local.split(h.business_id).join('').split(s.business_id).join('').split(s.branch_id).join('').split(h.branch_id).join('')));
 
   // live differs: an extra catalogue product at Sothleapark -> refused, nothing changed
@@ -61,6 +75,10 @@ function ok(name, cond, extra) {
 
   r = await run(local);
   ok('as designed: it runs', r.ok, r.e);
+  ok('the picture and the branch price moved with their products',
+    (await q(`select count(*)::int c from cl_catalogue_images where business_id = $1 and data = $2`, [h.business_id, PIC]))[0].c === 1 &&
+    (await q(`select count(*)::int c from cl_branch_prices where business_id = $1 and branch_id = $2 and price = 7.5`, [h.business_id, s.branch_id]))[0].c === 1 &&
+    (await q(`select count(*)::int c from cl_catalogue_images where business_id = $1`, [s.business_id]))[0].c === 0);
   const br = await q(`select name, is_main, business_id from cl_branches where business_id = $1 order by is_main desc`, [h.business_id]);
   ok('one business: Harare CBD (main) and Sothleapark (branch)', br.length === 2 && br[0].name === 'Harare CBD' && br[0].is_main && br[1].name === 'Sothleapark' && !br[1].is_main, JSON.stringify(br));
   const price = (await q(`select public.cl_plan_price(null, '2KBZ', 30) j`))[0].j;
@@ -97,6 +115,9 @@ function ok(name, cond, extra) {
   ok('undo: the 3 products are back at Sothleapark with new change numbers; pnt001 stays at Harare CBD',
     cats.filter((c) => c.back).map((c) => c.code).join() === 'kds003,lmd001,mb005' && cats.filter((c) => c.back).every((c) => Number(c.s) > Number(seqBefore)) &&
     cats.filter((c) => !c.back).map((c) => c.code).join() === 'pnt001', JSON.stringify(cats));
+  ok('undo: the picture and the branch price went back with their products',
+    (await q(`select count(*)::int c from cl_catalogue_images where business_id = $1 and data = $2`, [s.business_id, PIC]))[0].c === 1 &&
+    (await q(`select count(*)::int c from cl_branch_prices where business_id = $1 and price = 7.5`, [s.business_id]))[0].c === 1);
   const p2 = (await q(`select public.cl_plan_price(null, '2KBZ', 30) j`))[0].j;
   ok('undo: Sothleapark\'s till is priced as a main till again (USD 15), logged as business_unmerged',
     p2.till_role === 'main' && Number(p2.unit_fee) === 15 && (await q(`select count(*)::int c from cl_activity_log where action = 'business_unmerged'`))[0].c === 1, JSON.stringify(p2));

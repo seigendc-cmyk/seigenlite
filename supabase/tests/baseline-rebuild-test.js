@@ -98,8 +98,8 @@ async function liveSnapshot() {
   await buildFromRepo(pgLive, { skip: NOT_ON_LIVE_FILES });
   const rebuilt = fingerprint(await snapshot(async (sql) => (await pgLive.query(sql)).rows));
   const extras = diff(full, rebuilt);
-  ok(NOT_ON_LIVE_FILES.length ? `the files not on live add ${extras.onlyA.length} objects (and drop ${extras.onlyB.length})` : 'every migration file is on live: the two builds are the same',
-    NOT_ON_LIVE_FILES.length ? extras.onlyA.length > 0 : (extras.onlyA.length === 0 && extras.onlyB.length === 0), show(extras));
+  ok(NOT_ON_LIVE_FILES.length ? `the files not on live add ${extras.onlyA.length} objects, change ${extras.changed.length} (and drop ${extras.onlyB.length})` : 'every migration file is on live: the two builds are the same',
+    NOT_ON_LIVE_FILES.length ? (extras.onlyA.length > 0 || extras.changed.length > 0) : (extras.onlyA.length === 0 && extras.onlyB.length === 0), show(extras));
 
   const targets = [['committed live fingerprint', JSON.parse(fs.readFileSync(FIXTURE, 'utf8')).objects]];
   if (process.argv[2] === 'live') {

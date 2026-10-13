@@ -5,7 +5,7 @@
 -- Harare CBD <-> Sothleapark go through seiGEN.
 -- Owner's decision 2026-10-13: "Sothleapark as a remote branch" of Chipo Clothing.
 -- Design: docs/billing/chipo-merge-design.md
--- Needs 20261021120000_billing_b.sql applied first (cl_business_merge_core).
+-- Needs 20261021120000_billing_b.sql (cl_business_merge_core) and 20261022120000_catalogue_merge_links.sql (a picture moves with its product) applied first.
 -- Run only after the owner has seen this file and said "apply":
 --   node tools/db/run-data-fix.js apply supabase/data-fixes/20261021_chipo_merge.sql
 -- Checks itself first and raises (changing nothing) if live isn't what the
@@ -25,6 +25,10 @@ declare
 begin
   if to_regprocedure('public.cl_business_merge_core(uuid, uuid, text, boolean, uuid)') is null then
     raise exception 'chipo_merge aborted: 20261021120000_billing_b is not applied. Nothing was changed.';
+  end if;
+  -- Sothleapark's Kids Sneaker has a picture: its key must follow the product (2026-10-13: the first run was refused by it)
+  if (select count(*) from pg_constraint where conname = 'cl_catalogue_images_business_id_product_uid_fkey' and confupdtype = 'c') <> 1 then
+    raise exception 'chipo_merge aborted: 20261022120000_catalogue_merge_links is not applied (a product picture can''t move without it). Nothing was changed.';
   end if;
   -- what the design was made from
   select count(*) into n from cl_businesses where id in (v_into, v_from) and name = 'Chipo Clothing' and archived_at is null;

@@ -94,7 +94,14 @@ The main till makes the check value itself:
   - It is the smallest change, and the person holds a code the owner gave them.
   - But it only moves "whoever opens Settings first" to "whoever types the join code", often the same cashier.
 
-## Questions for you
+## Owner's answers (2026-10-13): build it after the Chipo merge is checked
+
+1. **Yes:** the main branch's Admin sets the new device's Admin passcode.
+2. **Yes:** also for extra tills of the main branch.
+3. **Yes:** a 6-character minimum.
+4. **Refuse** join codes from an older main build (no check value), with the message "**Update the main branch till first**".
+
+## Questions as asked
 
 1. **A as recommended?** That is: the main's Admin sets the new device's passcode when issuing the code, or later on that till's row.
 2. **Also for extra tills of the main branch?** A first Admin there only from the main branch's T1. I recommend yes; otherwise the gap stays open on those tills.

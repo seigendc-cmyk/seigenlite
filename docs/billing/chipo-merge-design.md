@@ -39,6 +39,20 @@ What that causes:
 - The merge is logged in `cl_activity_log` as `business_merged`.
 - Sothleapark's unused join code is expired.
 
+## First run, 2026-10-13: refused by the database, nothing changed
+
+**What happened:**
+- The data fix's own checks passed. It printed BEFORE: Sothleapark priced as main, USD 15.
+- Then `cl_business_merge_core` was refused by the database: `cl_catalogue_images_business_id_product_uid_fkey`.
+- Sothleapark's Kids Sneaker 3-5 Years has a picture. The picture table points at its product by (business, product), so the product couldn't change business.
+- The transaction rolled back. A read-only check afterwards showed live unchanged.
+- The tests had no pictures, so they missed it.
+
+**The fix is migration `20261022120000_catalogue_merge_links.sql`:**
+- The picture, branch-price and branch-stock keys follow their product (ON UPDATE CASCADE).
+- Deletes are still refused.
+- The data fix now checks for that migration first.
+
 ## How it runs
 
 1. **"apply" for the migration.** `node tools/db/apply-migration.js apply supabase/migrations/20261021120000_billing_b.sql`. It adds:
