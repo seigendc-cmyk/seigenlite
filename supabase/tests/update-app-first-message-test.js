@@ -35,7 +35,7 @@ const run = async (pg, sql) => { try { await pg.exec(sql); return { ok: true }; 
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });   // the live shape
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261024120000_branch_stock.sql']) });   // the shape just before it (both are on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || crypto.randomBytes(16).toString('hex'));
@@ -77,7 +77,7 @@ const run = async (pg, sql) => { try { await pg.exec(sql); return { ok: true }; 
 
   // B1 comes after it
   const pg2 = await newPglite();
-  await buildFromRepo(pg2, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });
+  await buildFromRepo(pg2, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261024120000_branch_stock.sql']) });
   r = await run(pg2, MIG);
   const r2 = await run(pg2, B1);
   ok('then 20261024120000_branch_stock applies on top of it', r.ok && r2.ok, (r.e || '') + (r2.e || ''));

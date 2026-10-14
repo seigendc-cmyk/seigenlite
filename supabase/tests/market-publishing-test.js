@@ -37,7 +37,7 @@ const webp = (seed, pad) => 'data:image/webp;base64,' + Buffer.concat([Buffer.fr
 const BUCKET_URL = 'https://proj.supabase.co/storage/v1/object/public/listing-images/';
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261017120000_dispatch_grv.sql', '20261018120000_supplier_grv.sql', '20261018180000_customers_wholesale.sql', '20261019120000_trial_rules.sql', '20261020120000_server_time.sql', '20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql', '20261023120000_admin_passcode_from_main.sql']) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261017120000_dispatch_grv.sql', '20261018120000_supplier_grv.sql', '20261018180000_customers_wholesale.sql', '20261019120000_trial_rules.sql', '20261020120000_server_time.sql', '20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql', '20261023120000_admin_passcode_from_main.sql', '20261023180000_update_app_first_message.sql', '20261024120000_branch_stock.sql']) });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const tryQ = async (sql, p) => { try { return { r: await q(sql, p) }; } catch (e) { return { e: e.message }; } };
   const before = fingerprint(await snapshot(q));
