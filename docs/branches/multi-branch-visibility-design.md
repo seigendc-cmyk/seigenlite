@@ -716,3 +716,408 @@ One page, filtered by branch, type, date and person. It lists:
 **Owner's answer (2026-10-14): A.** "Add up the tills, show each till's own figure under the branch total on main, and show the amber warning when tills look like copies of the same list." Built in B1.
 
 **Later option (not planned yet): C, shared stock**, branch by branch, for one shop floor with several tills, once the "no shared stock on real branches" rule is lifted. A branch already in shared mode shows seiGEN's figure in B1.
+
+---
+
+# Addendum (Stage A, 2026-10-14): roles and rights, cross-branch views, search, ledgers, Directory, Cart, Stocktake, Requisition
+
+Status: **design only, waiting for the owner's answers and "go".** Nothing here is built.
+Owner decisions of 13–14 Oct (A–I below). This **adds to** the design above; where it changes an earlier decision it says so (§R10).
+Code state: commit `f8a6ef0` (app v24 on the previews; production v10). B1 (`20261024120000_branch_stock`) is applied on live; B2–B5 are not built.
+
+Read-only look at live today (counts only): `cl_customers` 3 rows, all with `created_terminal`; `cl_suppliers` 1 row, with `created_terminal`; 4 businesses with 2+ branches; `cl_till_stock_levels` 3 rows; `cl_dispatches` 5 (4 received, 1 received with differences), 1 issue. **No shop staff or roles table exists on the server.** `cl_staff` / `cl_staff_module_access` are the **Console's** staff (baseline 20260923000000:201-215), not shop staff, so the new tables need other names.
+
+## R1. Bug A: "All branches" shows this till's own quantity (VERIFIED in code)
+
+**Where:** More → Product List (`renderProductList`, src/products.js:372-386).
+
+**Cause:**
+1. With "All branches" picked (`plistBranch === ""`), `plistResults` calls `searchProducts(plistQuery, "")` (src/products.js:355).
+2. `searchProducts` with no branch reads **this device's own `products` table** (src/pos.js:4-5).
+3. That table holds this till's own products, plus any **file-merged** branches' rows as frozen snapshots (src/db.js:640-642). It never holds seiGEN's figures.
+4. The Stock cell prints each local row's `p.stock` (src/products.js:338). It's one row per local product, not a sum.
+5. seiGEN's figures (`br_stock`, src/branch-stock.js:104-106) are used only when **one joined-only branch** is picked (src/products.js:349-353).
+6. **So "All branches" = this till's own count.** On a multi-till branch it isn't even the branch's count: T2's stock is missing too.
+
+**Same cause, also to fix:**
+- **A joined branch that was also merged by file once** (e.g. an old "Norton"): it's left out of the seiGEN choices because its name is already local (`bsJoinedOnlyBranchNames`, src/branch-stock.js:224-227). So picking it shows the **stale file snapshot**, not seiGEN's figure.
+- **Reports → Inventory / Low stock with "All branches"** (src/reports.js:249, :270) and every `branchSelectHtml` (src/eod.js:636-643) read only local tables. They keep that meaning, but get "(this device)" in the title, as planned in §3, point 2.
+- **Products page, multi-till branch:** "Stock" is this till's own count. "Other branches" (src/branch-stock.js:173-177) leaves out this branch's other tills, so T2's stock shows nowhere on T1's Products page.
+
+**Fix (app only; `br_stock` already has the data):**
+- **"All branches":**
+  - one row per product, matched across branches the same way Stock by branch does (catalogue uid, then code, then name; src/branch-stock.js:262-268);
+  - **Stock = the sum over branches** (each branch = the sum of its tills, B1 rule);
+  - for **this branch**, the figure is this till's **live** local count plus the other tills' seiGEN figures (`r.t` minus this till's code). So a sale here shows at once instead of 60 s later.
+- **Tap or click the figure** to see each branch's figure with "updated 14:05" (amber after 24 h) and, under it, each till's own count (§R5).
+- **Branch names known only from a file merge** (not on seiGEN) are **not added to the total**. They're listed under it as "File copy from <date>, not counted".
+- **A joined branch that also has local merged rows** uses seiGEN's figure. The file copy is ignored.
+- **Not registered, offline with no copy, or a single-till business:** the list says "This till only" and shows local stock, as today.
+
+**Test (`test/all-branches-total-e2e.test.js`):**
+- main with 2 tills (T1 5, T2 3) + Norton 7 + Harare 0 → All = 15; Harare shows 0, not "—";
+- a sale on T1 → 14 at once;
+- a stale merged "Norton" row (qty 40) is ignored;
+- a merged-only "Bulawayo" is listed as "File copy …, not counted";
+- the search still filters.
+
+## R2. Search in any order (B)
+
+**The shared matcher (v17) is `productSearch` / `productMatches`** (src/utils.js:55-120): every term must match, in any order; word = start of a word; number = whole number; number+unit; code = SKU prefix. **The older `matchesAnyOrder`** (src/utils.js:19-24) is a plain substring test. It's still used by Directory (src/credit.js:27, :115), Dispatch history (src/dispatch-out.js:585), Receive history (src/receive-in.js:528), Help and Reports.
+
+**New:** one generic `textMatches(query, fields)` in utils.js, built on `productSearchParts` / `productTermMatches`:
+- fields = `{ text, codes, phones, dates }`;
+- a phone term matches 3+ digits anywhere in a phone, in any spelling (as `customerSearch` does today, src/customers.js:30-46);
+- a date term matches "14 oct", "14/10", "2026-10-14" (each record's dates are given in those forms);
+- `productMatches` becomes `textMatches` with the product's name, SKU and keywords, so product behaviour is unchanged (the product search tests must stay green).
+
+| Screen | Today | Change |
+|---|---|---|
+| Products page | shared matcher (src/products.js:177-179) **VERIFIED** | none |
+| Sell (phone and desktop) | shared matcher (src/pos.js:6, :743, :840; src/desktop/sales-desktop.js:33) **VERIFIED** | none |
+| Product List, a joined branch picked | substring (src/products.js:351-352) | the shared matcher |
+| Stock by branch → Stock | substring (src/branch-stock.js:269-270) | the shared matcher |
+| Stock by branch → Dispatches | **no search box** (src/branch-stock.js:288-299) | new box (below) |
+| Dispatch history / Receive history | substring on `dnSearchText` (src/docnum.js:120-124) | `textMatches`, the same fields as below where known locally |
+| Directory | substring (src/credit.js:115) | `textMatches`: name, phone, source branch |
+| Cart customer combo | own matcher: name words **or** phone (src/customers.js:30-46) | `textMatches`: every term on name / phone / source branch ("tendai 0772" now works) |
+| Stocktake | shared matcher (src/stocktake.js:142, :151) | none |
+
+**The DN search box (Stock by branch → Dispatches)** matches:
+- DN number, from and to branch, the date sent / received ("14 oct"), status ("in transit", "received", "differences", "cancelled"), internal ref and the GRV's internal ref;
+- **transport charge** (the amount, e.g. "25" or "25.00", plus carrier and reference);
+- product names and SKUs on its lines (with the product rules).
+- **Server:** `cl_device_business_dispatches` (20261024120000:191-218) doesn't return `internal_ref`, `grv_internal_ref`, `delivery_cost`, `delivery_currency`, `carrier` or `delivery_ref`. They're added (§R11). The transport amount isn't a product cost; decision 1d already lets the receiver see it.
+
+**Tests:** any order on each screen above ("oil 2l" = "2l oil"; "5" doesn't match 15lt; a DN found by "norton 14 oct", by its transport amount, by a product on its lines; a customer by "0772 tendai" and by its source branch).
+
+## R3. Double-click (tap on phone) opens the full record (C)
+
+**Item ledger (Product List and Products → a product):**
+- **Double-click on desktop, a single tap on the name on a phone** (Products already uses a tap for the ⋮ menu and the Other branches figure, so the tap is on the name cell only).
+- **This branch (this till):**
+  - the ledger **already exists**: `stock_movements` (src/db.js:232-242) and `itemLedgerData` (src/returns.js:742), shown today only as the Report Writer report "Item Ledger" (src/report-writer.js:268-271; main only, because Report Writer is hidden at remotes, src/router.js:352, :389);
+  - the modal reuses it: date/time, type (labels `LEDGER_KIND_LABEL`), document, branch, till, user, in, out, running balance; a date range.
+- **Branch filter: this branch / each branch / all.** Other branches come from the server and show **only what it has**:
+
+  | Kind | On the server today | When |
+  |---|---|---|
+  | Dispatch out / in, GRV, differences | `cl_dispatches`, `cl_dispatch_lines`, `cl_dispatch_issues` | now |
+  | Supplier GRV | `cl_supplier_grvs` | now |
+  | Adjustments, write-offs, stocktakes | none (local only) | B5 (`cl_stock_docs`, §5) |
+  | Sales, returns | none | B4 |
+
+  - Kinds not yet synced show one grey line: "Sales and adjustments at Norton are not on seiGEN yet (after the update)".
+  - **Another branch's running balance can't be built from partial movements**, so its rows show in/out without a balance. Its **current figure** (B1 levels, "updated 14:05") is shown at the top.
+- **Cost and value columns only with "View costs"** (§R8). `stock_movements` has no cost, so value = qty × the product's **current cost on this till**, labelled "at today's cost". GRV lines show their GRV unit cost where it's stored.
+- **Server:** new `cl_device_item_ledger(auth, p_product_key, p_branch_id, p_from, p_to, p_staff_token)` (§R11).
+
+**DN ledger card (Stock by branch → Dispatches, and the seiGEN Sent / Incoming lists):**
+- **Header:** DN number, from/to, created by (`sent_by`), sent / received / cancelled dates, status, internal ref, GRV number and its internal ref.
+- **Transport:** amount, currency, carrier, reference, and **who pays** (always "Receiving branch" until B2 adds `delivery_paid_by`).
+- **Every line:** sent / received / short / damaged (/ rejected after B2), with reasons.
+- **Linked items:** the issues and how each was settled (written off on ADJ…, re-dispatched as DN…, extra confirmed or disputed); the linked GRV; returns after B2.
+- **Status history:** built from the timestamps the server keeps (sent, received, cancelled, each issue raised and settled, with who). **There is no event table today.** B2 adds `cl_dispatch_events` for returns; until then the history is derived.
+- **Print** (printReport) and **Share file** (the existing DN file builder, src/dispatch-out.js:418-453, for a dispatch this till sent; for others, a PDF of the card).
+- **Costs (unit cost, line value, landed cost) only with "View costs"**, and never to a non-main till until §R8's server check exists (decision 12).
+- **Server:** new `cl_device_dispatch_card(auth, p_dispatch_id, p_staff_token)`.
+
+**Tests:**
+- the item ledger and the DN card open on double-click (desktop build) and on tap (phone build);
+- cost columns are absent without the right, and the server's answer has no cost fields for a caller without it;
+- another branch's rows are marked as partial.
+
+## R4. Reports by role at every branch (D): **changes decision 6**
+
+**Today:**
+- Report Writer is **hidden at remote branches** (src/router.js:352, :389);
+- reports flagged `remoteHidden` / `mainOnly` are filtered (src/report-writer.js:285: Margin, Purchases, Items missing price/cost, Stock Adjustments, Stock Movements);
+- the Reports page hides Margin at remotes (src/reports.js:71).
+- Every report reads **this device's tables only**.
+
+**New rule:**
+- **Report Writer at every branch** for roles with the Reports right.
+- **Without "View other branches' reports":**
+  - own branch only (the branch selector shows just this branch);
+  - **plus inventory balances and items for all branches** (quantities only), from B1's server figures;
+  - available to every role.
+- **With the right** (Owner and Admin by default; Admin can grant it):
+  - other branches' **stock-type reports** now (B1 levels; dispatches; supplier GRVs);
+  - **sales and activity reports** after B4 / B5. Until then they show "Available after the update".
+- **Cost reports** (Margin, Purchases, Items missing price/cost, the value columns) also need **"View costs"**, and on a remote till they need §R8's server check.
+
+**Every place that assumed "remote branches see none of the other branches' sales" (decision 6), all to change:**
+
+| Place | What it assumes |
+|---|---|
+| this doc §6, last line ("No sales and no activity logs for remotes") | remotes never |
+| this doc §7 table (rows "Main, other staff" / "Remote, any staff") | per-branch rules, not per role |
+| this doc §3, "Main-only readers" (`cl_device_branch_sales_summary`, `_list`) | the server checks `is_main` only |
+| Owner decisions table, row 6 | remotes see none |
+| Owner decisions table, row 7 ("View all branches" flag on main) | replaced by the right "View other branches' reports" on any branch |
+| src/router.js:352, :389 | Report Writer hidden at remotes |
+| src/report-writer.js:285 and the `remoteHidden` / `mainOnly` flags | branch decides, not role |
+| src/reports.js:71 | Margin hidden at remotes |
+| 20261024120000:168-169, :177 (`cl_device_branch_stock`) | per-till figures only for main callers (E wants them everywhere, §R5) |
+
+**The server can't enforce "the person"** today (staff live on the device, A5). §R8 adds that; **other branches' sales reads (B4) must not ship before §R8**.
+
+## R5. Product list across branches (E)
+
+- **Products page, every branch** (today main only, src/branch-stock.js:216):
+  - the "Other branches" column, and **"This branch"** when the branch has 2+ tills;
+  - tap a figure for each branch → its tills' own counts → "updated …".
+- **Product List:** the R1 list; expandable per branch, per till.
+- **Sell:** see question Q3. Recommended: no column, but a line in the product's tap / long-press detail ("Norton 7 · Harare 0, updated 14:05").
+- **Quantities only** unless "View costs" (value at cost stays main-only until §R8).
+- **Server:**
+  - `cl_device_branch_stock` returns `tills` and per-till `t` to **every** caller. Today it does that only for main (20261024120000:168-169, :177).
+  - Quantities only, so no right is needed. Till codes are not sensitive.
+
+## R6. Directory and Cart (F)
+
+**Today:**
+- **Directory** (More → Directory, `renderDirectory`, src/credit.js:145-165) lists **customers only**. There's **no Suppliers tab**.
+  - Suppliers live in Purchasing, **main only** (src/supplier-grv.js:29, :60; src/router.js:351, :388).
+- **Customers are already business-wide** (v17 `cl_customers`, pull with a cursor, src/customers.js:293-319).
+  - But a pulled customer's local `branch` is set to **this** till's branch (src/customers.js:306-307), so the source is lost on the device.
+- **Source branch on the server:** `cl_customers.created_terminal` and `cl_suppliers.created_terminal` exist (20261018180000:89; 20261018120000:52). All 4 live rows have it. **The source branch can be derived; no data is missing today.**
+  - But `created_terminal` is `on delete set null`. Deleting a till would lose it.
+  - `cl_customer_json` (20261018180000:112-117) doesn't return it.
+- **Suppliers:** `cl_device_suppliers_pull` already answers **any** till of the business (20261018120000:128-141), so a remote can read the list. Only the app hides it.
+
+**Change:**
+- **Directory → two tabs, Customers / Suppliers**, business-wide. Each name shows its **source branch** ("added at Norton").
+  - **Suppliers are read-only at remotes** (still added on main).
+  - Search: `textMatches` on name, phone and source branch.
+- **Cart combo:**
+  - the same list, with the source branch in each option;
+  - **choosing another branch's customer shows a notice before the sale can continue**: "This customer was added at Norton. Continue?" (Continue / Cancel), in `wireCustomerCombo`'s pick handler (src/customers.js:85);
+  - **a credit sale** adds: "Their credit balance here covers this till only (until the update that shares sales)". `customerBalance` (src/pos.js:220) reads local sales only;
+  - see Q4 / Q5.
+- **Server (small, §R11):**
+  - `cl_customers.created_branch_id` and `cl_suppliers.created_branch_id`, backfilled from `created_terminal` (4 rows) and set on insert;
+  - the JSON adds `source_branch_id` and `source_branch`;
+  - the device stores `src_branch` / `src_branch_name` locally (new columns; **not** the existing `branch`, which other code uses).
+
+## R7. Stocktake (G)
+
+**Today:**
+- Stocktake is **hidden at remotes** (src/router.js:349, :386).
+- On main, its branch picker (`branchSelectHtml`, src/stocktake.js:55; src/eod.js:636) offers **every local branch name**, including file-merged ones. So main could count, and post, a stale **copy** of another branch's stock (src/stocktake.js:231, :243).
+
+**Change:**
+- **The branch is always this branch** (no picker).
+- **The form lists all branches' stock read-only** next to the count box: each other branch's figure with "updated …", from B1, quantities only. The expected figure for this branch stays hidden while counting, as today (src/stocktake.js:157).
+- **Remotes may count and post their own stock** (a rule change: remotes can already adjust, so stocktake is allowed too).
+  - Posting keeps today's confirm. With roles, it needs the Stocktake right.
+- **Server:** none. The posted counts go up as levels (B1) and as a stock document in B5.
+
+## R8. Settings → Staff: roles and rights (I)
+
+### Today (VERIFIED)
+- Roles are **Admin or Cashier** (src/staff.js:37, :113-114), plus one flag, `can_create_customers` (src/db.js:522; src/customers.js:21-25).
+- **Menus aren't gated by role at all.** NAV_ITEMS (src/router.js:11-18) and MORE_TABS (src/router.js:343-354) are hidden **by branch** (remote) only.
+  - Sensitive actions ask for the **Admin passcode** each time (`findAdmin`, src/staff.js:400; about 20 callers);
+  - Settings unlocks with it (src/settings.js:30).
+- **Staff are per device and per branch** (`staff.branch`, src/staff.js:43, :76). The Staff section is **main only** (src/settings.js:114).
+- **"Single operator mode" is ON by default** (src/staff.js:25): no staff list, just a typed name. **So most tills today have no signed-in person at all.**
+- PINs: salted SHA-256 (src/staff.js:16), 5 tries then a 5-minute lockout (src/staff.js:304-328).
+
+### Menu rights (one per menu; a menu without the right is **hidden**)
+- **Nav bar:** Sell, Products, Credit, Reports, Marketing.
+- **Products icons:** Dispatch, Receive (GRV), Adjustments, the seiGEN Incoming list.
+- **More:** Product List, Stock by branch, Stocktake, Requests (the customer notepad), Purchasing / Supplier GRV, Report Writer, Directory, Settings.
+- **Settings sections:** Staff, Business & Terminals.
+- **Reports page:** End of Day.
+- Help and About are always shown.
+- **Your list didn't name Credit, Product List or Requests (the notepad).** They're added so nothing is ungated.
+
+**Action rights:**
+- View costs; Edit prices; Create customers; **Review stock requisitions** (decision 13's name);
+- View other branches' reports; Approve write-offs; Void/return; Credit sales over limit.
+
+### Default roles (proposed; for your approval)
+
+✓ = has it; – = hidden; "passcode" = shown, but the action still asks for the Admin passcode (or a signed-in holder of the approval right).
+
+| Right | Owner | Admin | Manager | Stores | Cashier |
+|---|---|---|---|---|---|
+| Sell | ✓ | ✓ | ✓ | – | ✓ |
+| Credit (customer accounts, payments) | ✓ | ✓ | ✓ | – | ✓ |
+| Products | ✓ | ✓ | ✓ | ✓ | – |
+| Product List, Stock by branch (quantities) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Dispatch | ✓ | ✓ | ✓ | ✓ | – |
+| Receive (GRV) | ✓ | ✓ | ✓ | ✓ | – |
+| Supplier GRV / Purchasing (main tills only, as today) | ✓ | ✓ | ✓ | ✓ | – |
+| Stocktake | ✓ | ✓ | ✓ | ✓ | – |
+| Adjustments | ✓ | ✓ | ✓ | passcode | – |
+| Requisition (create; see own) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Directory | ✓ | ✓ | ✓ | – | ✓ |
+| Requests (customer notepad) | ✓ | ✓ | ✓ | – | ✓ |
+| Reports page (own branch) | ✓ | ✓ | ✓ | stock reports only | own branch: sales, EOD, stock |
+| Report Writer | ✓ | ✓ | ✓ | stock reports only | – |
+| End of Day | ✓ | ✓ | ✓ | – | ✓ |
+| Marketing | ✓ | ✓ | ✓ | – | – |
+| Settings | ✓ | ✓ | – | – | – |
+| Staff (people and roles) | ✓ | ✓ (not Owners) | – | – | – |
+| Business & Terminals | ✓ | ✓ | – | – | – |
+| **Owner-only:** licence and billing, adding or removing Owners, deleting a role | ✓ | – | – | – | – |
+| View costs | ✓ | ✓ | ✓ | – | – |
+| Edit prices | ✓ | ✓ | ✓ | – | – |
+| Create customers | ✓ | ✓ | ✓ | – | – (a role option) |
+| Review stock requisitions | ✓ | ✓ | ✓ | – | – |
+| View other branches' reports | ✓ | ✓ | ✓ | – | – |
+| Approve write-offs | ✓ | ✓ | ✓ | – | – |
+| Void/return | ✓ | ✓ | ✓ | – | start only; approval needed (as today, src/returns.js:254) |
+| Credit sales over limit | ✓ | ✓ | ✓ | – | – |
+
+**Notes:**
+- **Stores and costs:** a Supplier GRV needs the invoice's unit cost **typed in** (src/supplier-grv.js:55-58). Recommended: Stores may **type** a cost on a GRV, but can't **see** costs elsewhere.
+- **Every branch has the same roles.** Rights follow the person. The **till's branch still limits some things** (catalogue add/edit stays main-only; supplier GRV stays main-only).
+- **Custom roles:** Admin creates them by name and ticks the rights. Built-ins can be edited (except Owner) but **not deleted**.
+
+### Business-wide staff and roles: synced through seiGEN
+
+**Server tables** (names avoid the Console's `cl_staff`):
+- `cl_shop_roles(id uuid, business_id, name, builtin text null, rights text[], change_seq, updated_at)`;
+- `cl_shop_staff(id uuid, business_id, name, role_id, home_branch_id, other_branches uuid[], active, pin_salt, pin_check, pin_rounds, pin_changed_at, legacy_pins jsonb, change_seq, updated_at)`;
+- `cl_shop_staff_sessions(token_hash, staff_id, terminal_id, created_at, expires_at, revoked_at)`;
+- `cl_shop_staff_signin_fails(staff_id, at)`.
+
+**How they sync:**
+- **Pull with a cursor**, like customers. Every till gets the roles and the staff allowed at its branch, with the PIN **check values**.
+- **The sign-in list on a till** = active staff whose home branch or other branches include this branch.
+- **Saving staff or roles needs a server-checked session** with the Staff right (see below). **Bootstrap:** while the business has no roles, a main-branch till may upload its existing staff once.
+
+### How a sign-in is proven to the server (recommended)
+
+**PIN → session token, on top of the device key:**
+1. **On the till:** the PIN is checked offline against the synced check value. Use **PBKDF2-HMAC-SHA-256 with a salt and rounds**, reusing src/passcode-check.js from "Admin passcode from main". It's stronger than today's single SHA-256, since check values now travel to every till of the business.
+2. **When online**, the till calls `cl_device_staff_signin(auth, staff_id, pin)`:
+   - the server checks the PIN against its own copy, with **5 tries per person per 15 minutes**;
+   - the caller must be a **registered, active till of the same business** (device key);
+   - it returns a random **session token** (stored hashed; 12 h, or until sign-out or End of Day) and the person's rights.
+3. **Every reader of other branches' or cost data** takes `p_staff_token`. The server checks `cl_staff_has(token, terminal, right)`:
+   - the token belongs to this till;
+   - it isn't expired or revoked;
+   - the person is active;
+   - the role has the right.
+   - **No token = what a till gets today:** quantities, own branch.
+
+**Offline:**
+- Sign-in works offline (local check). Menus follow the **last synced** roles.
+- Server data isn't reachable offline anyway; the screens show their last copy, with "offline".
+- **The PIN is held in memory only** for the session, so the till can get a token when it comes back online. It's never stored, and it's cleared at sign-out. If the app restarts while offline, the person signs in again.
+
+**Rights changes:**
+- They reach online tills at the next pull (a check-in, or every 5 minutes while open).
+- **Deactivating a person revokes their tokens on the server at once**, so server data stops immediately.
+- **An offline till learns at its next pull.** The person can still use that till's local menus until then. Accepted risk; the same as today's local staff.
+
+**Why not trust the device:** the app is JavaScript on the shop's device. A changed copy could claim any role. **Only the server can gate other branches' data.** The device key proves the till; the token proves the person.
+
+### Moving existing staff into roles (nobody loses access)
+
+1. **Admin → Admin; Cashier → Cashier.**
+2. **Cashier with "Can create customers"** → a custom role **"Cashier + customers"** (Cashier + Create customers), made automatically only if such staff exist.
+3. **Owner:** not auto-assigned (see Q2).
+   - **Until a business has an Owner, Admins keep the Owner-only items**, so nobody loses licence or billing access.
+   - The Owner is chosen once, at main, by an Admin, with the Admin passcode.
+4. **The same person on several tills** (staff are per device today): matched by **branch + name**, ignoring case and spaces.
+   - **If their PINs differ, both keep working** (`legacy_pins`) until they sign in once and choose one PIN.
+   - Different people with the same name are shown to Admin as "Check: 2 people called Rudo at Norton".
+5. **Single operator mode** (the default) stays as it is: no sign-in, every menu shown, the Admin passcode for approvals, exactly as today.
+   - **Server-gated extras** (other branches' reports, costs at a remote) need a signed-in person with the right.
+   - So a shop that wants them switches single operator mode off.
+6. **The Admin passcode stays** for approvals. A signed-in holder of the matching right (Approve write-offs, Void/return, Credit sales over limit) may approve with their **own PIN** instead. Their name is logged (B5).
+7. **Upload order:** main first, then each other till. Its staff are merged by rule 4. A till that hasn't updated keeps its local staff unchanged.
+
+**Tests:**
+- each default role at main and at a remote: menus shown or hidden, data visible or hidden;
+- a custom role;
+- the server refuses another branch's sales without the right;
+- an existing Admin, Cashier and "can create customers" Cashier keep their access after the move;
+- two tills' copies of the same person with different PINs both work.
+
+## R9. Stock Requisition visible at every branch (H): changes §15's pull rule
+
+- **§15 said:** a reviewing till gets the whole business; other tills get only their own branch's requisitions and those approved from their branch.
+- **New:** **every till gets every requisition** of the business, read-only. Requisitions carry no customer data.
+- **The list:**
+  - filters: status (Pending / Approved / Dispatched / Rejected / Ordered; plus Received, from §15), from-branch, to-branch, date;
+  - a search box using `textMatches` on the SRQ number, branches, requester, products and note;
+  - **double-click or tap → full history**: who asked, who reviewed, the decision note, the linked DN (opens the DN card, §R3) and the GRV.
+- **Approve and Reject** stay with **Review stock requisitions**, checked by the server with the staff token (§R8). In single operator mode: the Admin passcode at main, as §15.
+- **"From branch"** lists **all branches**, each with its quantity of the requested item (B1).
+- **Server:** `cl_device_stock_requisitions_pull` returns the whole business to any till. `_decide` checks the right.
+
+## R10. Earlier decisions this changes
+
+| Earlier | Now |
+|---|---|
+| Decision 6: remotes see none of the other branches' sales | §R4: with the right "View other branches' reports", at any branch |
+| Decision 7 / §7: "View all branches" flag, main only | replaced by the right "View other branches' reports" (any branch) |
+| §7: "the server can't enforce the person" | §R8: staff token + rights checked by the server |
+| §6: remotes get quantities and dispatch activity only | unchanged for quantities; per-till figures now for everyone (§R5) |
+| §15: non-reviewers see only their branch's requisitions | §R9: everyone sees all of them |
+| Stocktake main-only (src/router.js:349) | §R7: every branch, own stock only |
+| Report Writer main-only (src/router.js:352) | §R4: every branch, by role |
+
+## R11. Server changes (each with a migration, rollback, PGlite test, backup, the SQL shown, your "apply")
+
+**Order of the migrations** (after the applied `20261025120000_min_app_build`):
+
+| # | Migration | What |
+|---|---|---|
+| 1 | `20261026120000_branch_views` | `cl_device_branch_stock`: tills / per-till figures to every caller (quantities only). `cl_device_business_dispatches`: + `internal_ref`, `grv_internal_ref`, `delivery_cost`, `delivery_currency`, `carrier`, `delivery_ref`. New `cl_device_dispatch_card` (no costs in this step). New `cl_device_item_ledger` (dispatch / GRV / supplier GRV rows; no costs). `cl_customers` / `cl_suppliers` + `created_branch_id` (backfill: 4 rows), and their JSON + `source_branch`. The business merge (`cl_business_merge_core`) and its undo already move these tables (no new table) |
+| 2 | `20261027120000_shop_roles` | `cl_shop_roles`, `cl_shop_staff`, `_sessions`, `_signin_fails`; `cl_device_staff_pull` / `_save` / `_role_save` / `_signin` / `_signout`; `cl_staff_has()`; the readers above take `p_staff_token`, and **costs are returned only with "View costs"**; the business merge moves the new tables; the delete guard lists them |
+| 3 | `20261028120000_dispatch_returns_transport` | B2 as designed, + `cl_dispatch_events` (the DN card's history) |
+| 4 | `20261029120000_stock_requisitions` | B3 as designed, with §R9's pull rule and server-checked review |
+| 5 | `20261030120000_branch_sales` | B4: the sales readers check the right "View other branches' reports" via the token (not `is_main`) |
+| 6 | `20261031120000_branch_activity` | B5 (+ `cl_stock_docs`: the item ledger's adjustments and stocktakes) |
+
+## R12. Phases and order (recommended)
+
+| Step | Contents | Server | Why this order |
+|---|---|---|---|
+| **1. v25: Bug A + search** | R1 (All branches), R2 except the server-only DN fields, R5 at every branch (totals; per-till figures stay main-only until step 2), R7 (stocktake own branch) | none | your priority; app only; all the data is already on the till |
+| **2. Branch views (migration 1) + v26** | DN search fields; the DN card; the item ledger (own branch + server rows); Directory tabs + source branch; the cart notice; per-till figures everywhere; Report Writer at remotes **own branch + inventory all branches** (safe without roles: it's the "no right" view) | migration 1 | small, read-only additions; no person check needed yet, because nothing in it is beyond "no right" |
+| **3. Roles (migration 2) + v27** | R8 whole; costs by right; R4's "other branches" switch (stock-type reports) | migration 2 | must exist **before** any data that's gated per person reaches a till |
+| 4. B2 | as designed + the DN card's returns, transport payer, events | migration 3 | |
+| 5. B3 | as designed + R9 | migration 4 | review is checked by the server through Roles |
+| 6. B4, then B5 | as designed; other branches' sales and activity in Report Writer by right | migrations 5–6 | |
+
+## R13. Questions (each with a recommendation)
+
+1. **The default rights table (§R8).** **[Recommend: as proposed, including Credit, Product List and Requests as menus; Stores may type GRV costs but not view costs.]**
+2. **Owner:** a separate person from Admin, or the first Admin? More than one?
+   - **[Recommend: a separate role, given once by an Admin at main; more than one allowed (e.g. partners); the last Owner can't be removed; until an Owner exists, Admins keep the Owner-only items.]**
+3. **Cashier and other branches' stock in Sell?** **[Recommend: yes, but not as a column: one line in the product's tap / long-press detail ("Norton 7 · Harare 0, updated 14:05"). Sell stays uncluttered, and the figure is there when a customer asks.]**
+4. **The "customer from another branch" notice: every time, or once per customer per till?**
+   - **[Recommend: once per customer per till for cash sales, and every time for a credit sale (it carries the "this till only" balance warning).]**
+5. **A credit sale to another branch's customer:**
+   - **[Recommend: allowed with a warning + the Admin passcode, or a signed-in holder of "Credit sales over limit", until B4.]**
+   - Why not just warned: this till can't see their balance at the other branch, so the limit check here is incomplete.
+   - Blocking would stop normal trade.
+6. **Stock Requests notepad shared business-wide?**
+   - **[Recommend: no. It holds customers' names and phones, and it's a till's notepad.]**
+   - Add instead **"Make a Stock Requisition"** on a notepad entry, which carries the item and quantity, **not** the customer.
+7. **New: "View costs" at a remote till.** Today no cost ever reaches a remote device: the catalogue pull sends cost to main only (20261006120000:304, :329), and decision 12 strips dispatch costs.
+   - **[Recommend: costs at a remote only after the Roles step, sent by the server only to a signed-in person with "View costs", for that session, never stored in the till's database. Until then, "View costs" works on main tills only.]**
+8. **New: File-merged branch names in "All branches"** (a name known only from an old file merge, not on seiGEN). **[Recommend: not counted in the total; listed under it as "File copy from <date>".]**
+
+## R14. Owner decisions (2026-10-14): all as recommended
+
+| # | Decision |
+|---|---|
+| Q1 | The §R8 default rights table as proposed (Credit, Product List and the Requests notepad are menus; Stores may type a GRV cost but not view costs) |
+| Q2 | **Owner:** a separate role, given by an Admin at main; more than one allowed; the last can't be removed; Admins keep the Owner-only items until an Owner exists |
+| Q3 | A Cashier sees other branches' stock in **Sell as one line when tapping a product** (no column) |
+| Q4 | The other-branch customer notice: **once per customer per till for cash, every time for credit** |
+| Q5 | A credit sale to another branch's customer: **allowed with a warning and the Admin passcode** until B4 |
+| Q6 | The Stock Requests notepad stays per till; add **"Make a Stock Requisition"** on an entry (without the customer) |
+| Q7 | **View costs at a remote till only after the Roles step**, sent only to a signed-in person with the right, never stored on the till |
+| Q8 | File-merge-only branches are **not counted** in "All branches"; listed as **"File copy from <date>"** |
+
+**Go for step 1 (v25)**: bug A, the shared search on every screen listed, stock figures at every branch, stocktake for this branch only. App only; previews only; stop and report before step 2.
