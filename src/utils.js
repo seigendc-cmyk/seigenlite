@@ -119,6 +119,36 @@
     return out.map(x=>x.p);
   }
 
+  // ---- The same matcher for any record (Branches addendum §R2) ----
+  // textMatches(query, { text, phones, dates }): every term must match, in
+  // any order, by the product rules above (word = start of a word, number =
+  // a whole number, number+unit, code = start of a code or word) against
+  // `text` (a string or a list), or, for a term of 3+ digits ("0772",
+  // "+263 77"), digits anywhere in one of `phones` (any spelling), or a date
+  // in `dates` written as "14 oct", "14/10", "14/10/2026" or "2026-10-14".
+  const SEARCH_MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const SEARCH_MONTHS_LONG = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  function searchDateWords(ts){
+    const d = ts? new Date(ts) : null;
+    if(!d || isNaN(d)) return "";
+    const dd = d.getDate(), mm = d.getMonth()+1, y = d.getFullYear(), p2 = (n)=> String(n).padStart(2,"0");
+    return [dd, SEARCH_MONTHS[mm-1], SEARCH_MONTHS_LONG[mm-1], y, dd+"/"+mm, p2(dd)+"/"+p2(mm), p2(dd)+"/"+p2(mm)+"/"+y, dd+"/"+mm+"/"+y, y+"-"+p2(mm)+"-"+p2(dd)].join(" ");
+  }
+  function textMatches(query, f){
+    const terms = searchTokens(query);
+    if(!terms.length) return true;
+    f = f || {};
+    const text = [].concat(f.text==null? [] : f.text).concat((f.dates||[]).map(searchDateWords)).filter(x=> x!=null && x!=="").join(" ");
+    const parts = productSearchParts(text);
+    const phones = (f.phones||[]).map(p=> String(p||"").replace(/\D/g,"")).filter(Boolean);
+    return terms.every(t=>{
+      if(productTermMatches(t, parts)) return true;
+      if(!phones.length || !/^\+?[\d\s()-]+$/.test(t)) return false;
+      const d = t.replace(/\D/g,"");
+      return d.length>=3 && phones.some(p=> p.includes(d) || (d[0]==="0" && d.length>=4 && p.includes(d.slice(1))));
+    });
+  }
+
   // Small outline SVG icons (stroke="currentColor" so they pick up the
   // button's own color, e.g. orange on btn-outline) used in place of
   // text labels on compact action buttons.
@@ -232,6 +262,14 @@
     const from = document.getElementById(fromId).value;
     const to = document.getElementById(toId).value;
     return businessRange(from, to);
+  }
+  // A name known on this device only from a file merge: when it came in ("" = not known).
+  function fileCopyDate(branch){
+    let map = {}; try{ map = JSON.parse(getSetting("file_copy_ts","{}"))||{}; }catch(e){}
+    const k = Object.keys(map).find(n=> String(n).trim().toLowerCase()===String(branch||"").trim().toLowerCase());
+    if(k) return map[k];
+    const s = one("SELECT MAX(merged_ts) t FROM sales WHERE branch=? AND COALESCE(merged_ts,'')<>''",[branch]);
+    return (s && s.t) || "";
   }
   function listBranches(){
     const rows = all(`SELECT branch FROM products WHERE branch<>''

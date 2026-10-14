@@ -362,16 +362,25 @@
     const byUid = (tbl, uid)=> uid? one(`SELECT id FROM ${tbl} WHERE uid=?`,[uid]) : null;
     const tid = (r)=> r.terminal_id||null, buid = (r)=> r.branch_uuid||null;
 
-    const prodMap = {};
+    const prodMap = {}, newCopyBranches = new Set();
     allX(impDb,"SELECT * FROM products").forEach(p=>{
       const existing = byUid("products",p.uid) || one("SELECT * FROM products WHERE name=? AND branch=?",[p.name,p.branch]);
       if(existing){ prodMap[p.id]=existing.id; }
       else{
+        if(p.branch && !sameBranchName(p.branch, currentBranch())) newCopyBranches.add(p.branch);
         run("INSERT INTO products(name,price,stock,low_threshold,sku,branch,image,cost,created_ts,description,uid) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
           [p.name,p.price,p.stock,p.low_threshold,p.sku||"",p.branch,p.image||"",p.cost||0,p.created_ts||new Date().toISOString(),p.description||"",p.uid||null]);
         prodMap[p.id] = one("SELECT last_insert_rowid() as id").id;
       }
     });
+    // Branches addendum §R1: when each other branch's file copy came in ("File copy from <date>").
+    // Only a merge that brought that branch's products in sets it: merged rows are never
+    // updated, so re-merging the same file changes nothing (not even this date).
+    if(newCopyBranches.size) try{
+      const fc = JSON.parse(getSetting("file_copy_ts","{}"))||{}, nowIso = new Date().toISOString();
+      newCopyBranches.forEach(b=>{ fc[b] = nowIso; });
+      setSetting("file_copy_ts", JSON.stringify(fc));
+    }catch(e){}
 
     const custMap = {};
     allX(impDb,"SELECT * FROM customers").forEach(c=>{

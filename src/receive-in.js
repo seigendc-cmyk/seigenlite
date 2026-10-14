@@ -520,12 +520,13 @@
     const body = wrap.querySelector(".modal-body");
     let query = "";
     body.innerHTML = `<div id="rhMsg"></div>
-      <input class="field" id="rhSearch" type="search" placeholder="Search number, branch or internal ref." autocomplete="off" style="margin-bottom:8px">
+      <input class="field" id="rhSearch" type="search" placeholder="Search number, branch, date, status, ref. or product" autocomplete="off" style="margin-bottom:8px">
       <div id="rhList"></div>`;
     body.querySelector("#rhSearch").oninput=(e)=>{ query = e.target.value; list(); };
     function list(msg){
       const rows = all("SELECT * FROM dispatch_docs WHERE direction='in' ORDER BY imported_ts DESC, dn_no DESC");
-      const shown = rows.filter(h=>matchesAnyOrder(query, dnSearchText(h)));
+      const lw = query.trim()? dnLineWords() : null;
+      const shown = rows.filter(h=> textMatches(query, dnSearchFields(h, lw, h.status==="received"? "received" : h.status==="cancelled"? "cancelled" : "variance pending")));   // the shared matcher (Branches addendum §R2)
       body.querySelector("#rhMsg").innerHTML = msg? `<div class="box" style="margin-bottom:8px;font-size:12.5px">${escapeHtml(msg)}</div>` : "";
       body.querySelector("#rhList").innerHTML = rows.length===0? `<p class="muted">Nothing received yet.</p>`
         : shown.length===0? `<p class="muted">No Delivery Note matches “${escapeHtml(query.trim())}”.</p>` : shown.map(h=>{

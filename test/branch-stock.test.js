@@ -129,10 +129,10 @@ const hex = ()=> require("crypto").randomBytes(16).toString("hex");
     assert.match(html, /Other branches/); assert.match(html, /data-bsprod="\d+"[^>]*>7</);
     H1.api.openBsProductModal(p);
     const txt = H1.dom.window.document.querySelector(".modalOverlay").textContent.replace(/\s+/g, " ");
-    assert.match(txt, /Harare \(this branch\) ?14/); assert.match(txt, /T1 \(own count\): 10/); assert.match(txt, /T2 \(own count\): 4/);
+    assert.match(txt, /All branches ?21/); assert.match(txt, /Harare \(this branch\) ?14/); assert.match(txt, /T1 \(this till, now\): 10/); assert.match(txt, /T2 \(own count\): 4/);
     assert.match(txt, /Murehwa ?7/); assert.match(txt, /updated \d{1,2}:\d\d/); assert.match(txt, /the sum of its tills/);
     H1.dom.window.document.querySelectorAll(".modalOverlay").forEach((m)=> m.remove());
-    assert.strictEqual(M1.api.bsShowOtherColumn(), false, "no column on a remote");
+    assert.strictEqual(M1.api.bsShowOtherColumn(), false, "a remote that hasn't read the branches yet: no column (it has one at every branch once it has: addendum §R5)");
   });
 
   await t("More → Stock by branch on main: the grid, each till's count, value at main's cost", async ()=>{

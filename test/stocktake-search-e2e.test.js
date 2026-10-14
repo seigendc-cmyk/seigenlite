@@ -50,7 +50,8 @@ function makeDomApp(settings){
     async function persist(){}
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
   `;
-  const files = ["db.js","utils.js","eod.js","stocktake.js"];
+  // docnum.js: sameBranchName (stocktake counts this branch only, Branches addendum §R7)
+  const files = ["db.js","utils.js","eod.js","docnum.js","stocktake.js"];
   const code = prelude + files.map(src).join("\n");
   vm.runInContext(code, ctx, { filename: "app-sources" });
   vm.runInContext(`db.run(SCHEMA); migrate(db);`, ctx);

@@ -576,15 +576,16 @@
     let query = "";
     body.innerHTML = `<div id="dhMsg"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><button class="btn btn-sm btn-primary" id="dhImport">📥 Import GRV / reply</button><span class="muted" id="dhImportHint" style="font-size:12px">${escapeHtml(GRV_IMPORT_HINT)}</span></div>
-      <input class="field" id="dhSearch" type="search" placeholder="Search number, branch or internal ref." autocomplete="off" style="margin-bottom:8px">
+      <input class="field" id="dhSearch" type="search" placeholder="Search number, branch, date, status, ref. or product" autocomplete="off" style="margin-bottom:8px">
       <div id="dhList"></div>`;
     body.querySelector("#dhImport").onclick=()=>{ openGrvImportScreen(null, ()=>{ renderList(); render(); }); };
     body.querySelector("#dhSearch").oninput=(e)=>{ query = e.target.value; renderList(); };
     function renderList(msg){
       const rows = all("SELECT * FROM dispatch_docs WHERE direction='out' AND dispatch_branch_id=? ORDER BY dn_no DESC",[getBranchId()]);
-      const shown = rows.filter(h=>matchesAnyOrder(query, dnSearchText(h)));
       const mv = dnStatusMap();
       const statusOf = (h)=>{ const r = mv.get(h.dispatch_branch_id+"|"+h.dn_no); return r? r.status : (h.status==="received"? "received" : "dispatched"); };
+      const lw = query.trim()? dnLineWords() : null;
+      const shown = rows.filter(h=> textMatches(query, dnSearchFields(h, lw, statusOf(h))));   // the shared matcher (Branches addendum §R2)
       body.querySelector("#dhMsg").innerHTML = msg? `<div class="box" style="margin-bottom:8px;font-size:12.5px">${escapeHtml(msg)}</div>` : "";
       body.querySelector("#dhList").innerHTML = rows.length===0? `<p class="muted">No dispatches yet.</p>`
         : shown.length===0? `<p class="muted">No Delivery Note matches “${escapeHtml(query.trim())}”.</p>` : shown.map(h=>{

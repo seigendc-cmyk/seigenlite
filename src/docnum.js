@@ -122,6 +122,24 @@
     if(h.grv_no!=null) p.push(formatDocNo("GRV",h.grv_no), docDisplay("GRV",h.grv_no,h.grv_till_code));
     return p.filter(Boolean).join(" ");
   }
+  // Branches addendum §R2: the Dispatch / Receipts history search, with the shared
+  // matcher (textMatches): numbers, branches, refs, dates, status, transport and the
+  // products on its lines. lines: dnLineWords() (once per list).
+  function dnSearchFields(h, lines, status){
+    const st = status || h.status || "";
+    const words = [dnSearchText(h), st, st==="dispatched" || st==="sent"? "in transit" : "", /variance|diff/.test(st)? "differences variance" : "",
+      h.srv_status && typeof dsStatusText==="function"? dsStatusText(h.srv_status) : "", h.received_by,
+      Number(h.delivery_cost)? Number(h.delivery_cost).toFixed(2) : "", h.delivery_currency, (lines && h.uid && lines.get(h.uid)) || ""];
+    return { text:words.filter(Boolean).map(String), dates:[h.created_iso||h.created_ts, h.received_iso||h.received_ts, h.imported_ts, h.cancelled_ts].filter(Boolean) };
+  }
+  // doc_uid -> "name code name code …" for every Delivery Note / GRV in the ledger.
+  function dnLineWords(){
+    const m = new Map();
+    all("SELECT doc_uid, product_name, product_code FROM stock_movements WHERE doc_type IN ('dn','grv') AND doc_uid IS NOT NULL").forEach(r=>{
+      m.set(r.doc_uid, (m.get(r.doc_uid)||"")+" "+(r.product_name||"")+" "+(r.product_code||""));
+    });
+    return m;
+  }
   function currentTillCode(){
     const t = String(getSetting("till_code","")||"").trim();
     return TILL_CODE_RE.test(t)? t : "";

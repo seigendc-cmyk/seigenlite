@@ -183,10 +183,11 @@
     // gets change-price in branch_edits mode.
     const rowActions = remote? (priceEdit? ["price","adjust"] : ["adjust"]) : ["edit","restock","adjust"];
     if(products.length===0) return `<p class="muted" style="padding:10px 4px">No products match.</p>`;
-    const bsCol = typeof bsShowOtherColumn==="function" && bsShowOtherColumn();   // Branches B1: main sees the other branches' stock
+    const bsCol = typeof bsShowOtherColumn==="function" && bsShowOtherColumn();   // Branches B1 (+ addendum §R5: every branch): the other branches' stock
+    const bsThis = bsCol && typeof bsShowThisBranchColumn==="function" && bsShowThisBranchColumn();   // ... and this branch's tills together
     return `
       <table class="simple">
-        <tr><th></th><th>Item</th><th>Shelf</th><th>Price</th><th>Stock</th>${bsCol? `<th class="bs-col" title="The other branches' stock on seiGEN (tap a figure for each branch)">Other branches</th>` : ""}<th></th></tr>
+        <tr><th></th><th>Item</th><th>Shelf</th><th>Price</th><th>${bsThis? "This till" : "Stock"}</th>${bsThis? `<th class="bs-col" title="This branch: every till's stock">This branch</th>` : ""}${bsCol? `<th class="bs-col" title="The other branches' stock on seiGEN (tap a figure for each branch)">Other branches</th>` : ""}<th></th></tr>
         ${products.map(p=>`
           <tr>
             <td><input type="checkbox" class="catCheck" data-cat="${p.id}"></td>
@@ -194,6 +195,7 @@
             <td>${escapeHtml(p.shelf||"—")}</td>
             <td>${currency}${p.price.toFixed(2)}</td>
             <td>${(typeof stockLineText==="function" && stockLineText(p))? `<span class="ss-stock">${escapeHtml(stockLineText(p))}</span>` : p.stock<0? `<span class="pill neg">${p.stock} below zero</span>` : p.stock+(p.stock<=p.low_threshold?` <span class="pill low">low</span>`:"")}</td>
+            ${bsThis? `<td class="bs-col">${bsThisCellHtml(p)}</td>` : ""}
             ${bsCol? `<td class="bs-col">${bsCellHtml(p)}</td>` : ""}
             <td><button class="btn btn-sm btn-outline dots-btn" data-rowmenu="${p.id}" data-actions="${rowActions.join(" ")}" title="Actions">⋮</button></td>
           </tr>`).join("")}
@@ -213,7 +215,7 @@
     persist(); render();
   }
   function wireProductRowButtons(scope, remote){
-    if(!remote && typeof wireBsCells==="function") wireBsCells(scope);   // Branches B1: the Other branches column is main-only
+    if(typeof wireBsCells==="function") wireBsCells(scope);   // Branches B1: the Other branches column (every branch since the addendum, §R5)
     scope.querySelectorAll("[data-rowmenu]").forEach(b=>{
       b.onclick=()=>{
         const pid = +b.dataset.rowmenu;
@@ -324,8 +326,37 @@
 
   // Read-only, cross-branch product browser — distinct from the Products
   // screen (which stays scoped to the current branch for add/edit/restock).
+  // Branches addendum §R1 (bug A, owner 2026-10-14): with seiGEN's figures
+  // (branch-stock.js bsProductListView) "All branches" is one row per product,
+  // its stock the SUM over the branches (each the sum of its tills; this
+  // branch with this till's live count), each branch's figure under it; a
+  // name known only from a file merge is listed, never counted. Without
+  // seiGEN's figures the list is this device's own, as before.
+  let _plistView = null;
   function productListRowsHtml(results){
-    return results.length===0? `<p class="muted" style="padding:10px 4px">No products match.</p>` : `
+    const v = _plistView;
+    if(v && v.mode==="all"){
+      const times = v.branches.map(b=> escapeHtml(b.name)+": "+(b.mine? "this till now, the other tills as sent" : `<span style="${b.updated.old? "color:#b54708" : ""}">${escapeHtml(b.updated.text)}</span>`)).join(" · ");
+      return `<div class="muted plist-times" style="font-size:12px;margin-bottom:6px">${times}</div>` + (results.length===0? `<p class="muted" style="padding:10px 4px">No products match.</p>` : `
+    <table class="simple plist-all">
+      <tr><th>Item</th><th>Shelf</th><th>Branches</th><th>Price</th><th>All branches</th></tr>
+      ${results.map((p, i)=>{
+        const parts = p.parts.map(x=> `<span class="plist-part">${escapeHtml(x.name)} ${escapeHtml(String(x.qty))}</span>`).join(" · ");
+        const files = p.files.map(f=> `<div class="pmeta plist-file" style="color:#b54708">${escapeHtml(f.name)} ${escapeHtml(String(f.qty))} (${escapeHtml(bsFileCopyText(f))})</div>`).join("");
+        return `<tr class="${p.stock!=null && p.stock<=0? "stock-out" : ""}">
+          <td>${skuNameCellScreen(p.sku,p.name)}</td>
+          <td>${escapeHtml(p.shelf||"—")}</td>
+          <td class="pmeta">${parts || "—"}${files}</td>
+          <td>${p.price==null? "—" : currency+Number(p.price).toFixed(2)}</td>
+          <td><button type="button" class="btn btn-sm btn-ghost plist-total" data-plrow="${i}" title="Each branch and till">${p.stock==null? "—" : escapeHtml(String(p.stock))}</button></td>
+        </tr>`;
+      }).join("")}
+    </table>`);
+    }
+    const note = !plistBranch && !v? `<div class="muted plist-local" style="font-size:12px;margin-bottom:6px">Figures on this device only${typeof bsRegistered==="function" && bsRegistered()? " (no figures from seiGEN yet)" : " (not on seiGEN)"}.</div>` : "";
+    const fc = plistBranch && !v && typeof bsFileCopyNames==="function" && bsRegistered() && bsFileCopyNames().some(n=> n===plistBranch)
+      ? `<div class="box plist-filecopy" style="font-size:12.5px;margin-bottom:6px;color:#b54708">${escapeHtml(plistBranch)}: ${escapeHtml(bsFileCopyText({ date:fileCopyDate(plistBranch) }).replace(", not counted",""))}. Not live figures; not counted in All branches.</div>` : "";
+    return note + fc + (results.length===0? `<p class="muted" style="padding:10px 4px">No products match.</p>` : `
     <table class="simple">
       <tr><th>Item</th><th>Shelf</th><th>Branch</th><th>Price</th><th>Stock</th></tr>
       ${results.map(p=>{
@@ -338,36 +369,38 @@
           <td>${p.stock}</td>
         </tr>`;
       }).join("")}
-    </table>`;
+    </table>`);
   }
-  // Branches B1 (the joining fix): a branch that joined this business on seiGEN
-  // is in the list even when no file merge brought its rows here; its products
-  // are its stock figures from seiGEN (quantities only, read-only).
   function plistResults(){
-    const local = listBranches();
-    const joined = typeof bsJoinedOnlyBranchNames==="function"? bsJoinedOnlyBranchNames(local) : [];
-    if(plistBranch && joined.some(n=>n===plistBranch)){
-      const b = bsBranchByName(plistBranch);
-      const q = String(plistQuery||"").trim().toLowerCase();
-      return (b? b.rows||[] : []).filter(r=> !q || String(r.name||"").toLowerCase().includes(q) || String(r.code||"").toLowerCase().includes(q))
-        .map(r=>({ sku:r.code||"", name:r.name, shelf:"", branch:b.name, price:null, stock:Number(r.qty)||0, low_threshold:Number(r.low)||0 }));
-    }
+    _plistView = typeof bsProductListView==="function"? bsProductListView(plistBranch, plistQuery) : null;
+    if(_plistView && _plistView.mode==="all") return _plistView.rows;
+    if(_plistView) return _plistView.rows.map(r=>({ sku:r.sku, name:r.name, shelf:r.shelf, branch:r.parts[0]? r.parts[0].name : plistBranch,
+      price:r.price, stock:r.stock==null? 0 : r.stock, low_threshold:0 }));
     return searchProducts(plistQuery, plistBranch);
   }
+  // Branches: this one, every branch on seiGEN, then names known only from a file merge.
   function plistBranchSelectHtml(){
     const local = listBranches();
-    const joined = typeof bsJoinedOnlyBranchNames==="function"? bsJoinedOnlyBranchNames(local) : [];
-    return `<select class="field" id="plistBranchSel">
-      <option value="" ${plistBranch===""?"selected":""}>All branches</option>
-      ${local.map(b=>`<option value="${escapeHtml(b)}" ${b===plistBranch?"selected":""}>${escapeHtml(b)}</option>`).join("")}
-      ${joined.map(b=>`<option value="${escapeHtml(b)}" ${b===plistBranch?"selected":""}>${escapeHtml(b)} (stock from seiGEN)</option>`).join("")}
-    </select>`;
+    const opt = (v, label)=> `<option value="${escapeHtml(v)}" ${v===plistBranch?"selected":""}>${escapeHtml(label)}</option>`;
+    const brs = typeof bsBranches==="function" && typeof bsRegistered==="function" && bsRegistered()? bsBranches() : [];
+    if(!brs.length) return `<select class="field" id="plistBranchSel">${opt("", "All branches")}${local.map(b=>opt(b, b)).join("")}</select>`;
+    const me = bsMyBranchUuid();
+    const mine = local.find(n=> sameBranchName(n, currentBranch())) || currentBranch();
+    const others = brs.filter(b=> b.id!==me && !sameBranchName(b.name, currentBranch()));
+    const files = bsFileCopyNames(brs);
+    return `<select class="field" id="plistBranchSel">${opt("", "All branches")}${opt(mine, mine+" (this branch)")}
+      ${others.map(b=> opt(b.name, b.name+" (stock from seiGEN)")).join("")}
+      ${files.map(n=> opt(n, n+" ("+bsFileCopyText({ date:fileCopyDate(n) }).replace(", not counted","")+")")).join("")}</select>`;
   }
   function renderProductListResultsOnly(){
     const results = plistResults();
     const target = document.getElementById("plistResults");
     if(!target) return;
     target.innerHTML = productListRowsHtml(results);
+    wirePlistRows(target, results);
+  }
+  function wirePlistRows(scope, results){
+    scope.querySelectorAll("[data-plrow]").forEach(b=> b.onclick=()=>{ const r = results[+b.dataset.plrow]; if(r) openBsProductModal(r.probe, r.files); });
   }
   function renderProductList(main){
     const results = plistResults();
@@ -380,7 +413,8 @@
       <div style="height:10px"></div>
       <div id="plistResults">${productListRowsHtml(results)}</div>
     `;
-    const input = document.getElementById("plistSearch");
+    wirePlistRows(main.querySelector("#plistResults"), results);
+    const input = main.querySelector("#plistSearch");
     input.oninput = (e)=>{ plistQuery = e.target.value; renderProductListResultsOnly(); };
-    document.getElementById("plistBranchSel").onchange = (e)=>{ plistBranch = e.target.value; renderProductListResultsOnly(); };
+    main.querySelector("#plistBranchSel").onchange = (e)=>{ plistBranch = e.target.value; renderProductListResultsOnly(); };
   }

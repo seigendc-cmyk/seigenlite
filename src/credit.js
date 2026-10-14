@@ -24,7 +24,7 @@
   // Credit tab: debtors only — focused purely on balances and payment reminders.
   function creditListHtml(customers, query){
     if(customers.length===0) return `<p class="muted">No credit customers yet — they appear here after a Credit sale at checkout.</p>`;
-    const filtered = customers.filter(c=> matchesAnyOrder(query, c.name+" "+(c.phone||"")));
+    const filtered = customers.filter(c=> textMatches(query, { text:[c.name], phones:[c.phone, c.phone_norm] }));   // the shared matcher (Branches addendum §R2)
     if(filtered.length===0) return `<p class="muted">No customers match "${escapeHtml(query)}".</p>`;
     return filtered.map(c=>{
       const bal = customerBalance(c.id);
@@ -112,7 +112,7 @@
   // Directory (under More): every customer, for marketing WhatsApp messages only.
   function directoryListHtml(customers, query){
     if(customers.length===0) return `<p class="muted">No customers yet. Add them here, or with "+ Add new customer" in the cart.</p>`;
-    const filtered = customers.filter(c=> matchesAnyOrder(query, c.name+" "+(c.phone||"")));
+    const filtered = customers.filter(c=> textMatches(query, { text:[c.name], phones:[c.phone, c.phone_norm] }));   // the shared matcher (Branches addendum §R2)
     if(filtered.length===0) return `<p class="muted">No customers match "${escapeHtml(query)}".</p>`;
     return filtered.map(c=>`
       <div class="card" style="display:flex;justify-content:space-between;align-items:center">

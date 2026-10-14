@@ -143,6 +143,16 @@
     await persist();
     return { ok:true, count:(r.data.dispatches||[]).length };
   }
+  // What the Dispatches search box matches (Branches addendum §R2): DN, branches, till, dates,
+  // status, people, refs, transport (once seiGEN sends it: 20261026120000) and the lines' products.
+  function bsDispatchSearchFields(d){
+    const st = typeof dsStatusText==="function"? dsStatusText(d.status) : (d.status||"");
+    const words = [d.dn_display, d.from_branch, d.to_branch, d.from_till, st, d.status==="sent"? "in transit" : "",
+      d.status==="received_diff" || d.open_issues? "differences" : "", d.grv_display, d.sent_by, d.grv_by,
+      d.internal_ref, d.grv_internal_ref, d.delivery_cost? Number(d.delivery_cost).toFixed(2) : "", d.delivery_currency, d.carrier, d.delivery_ref];
+    (d.lines||[]).forEach(l=>{ words.push(l.name, l.code); });
+    return { text:words.filter(Boolean).map(String), dates:[d.sent_at, d.received_at, d.cancelled_at].filter(Boolean) };
+  }
   function bsDispatches(){ try{ return JSON.parse(getSetting("bs_dispatches","[]"))||[]; }catch(e){ return []; } }
 
   // After a check-in, on reconnect and every 5 minutes: the branch list
@@ -212,8 +222,141 @@
     const sameDay = d.toDateString()===now.toDateString();
     return { text:"updated "+(sameDay? hm : d.toLocaleDateString([], { day:"numeric", month:"short" })+" "+hm), old: now - d > 24*3600*1000 };
   }
-  // Products: the "Other branches" column (main, registered, a business with other branches).
-  function bsShowOtherColumn(){ return !isRemote() && bsRegistered() && bsOtherBranches().length>0; }
+  // This till's own product for a branch row or a probe { cat_uid, sku, name }: catalogue uid, then a unique code, then a unique name.
+  function bsLocalMatch(p){
+    if(!p) return null;
+    const br = currentBranch();
+    if(p.cat_uid){ const r = one("SELECT * FROM products WHERE branch=? AND cat_uid=? AND COALESCE(active,1)=1",[br, p.cat_uid]); if(r) return r; }
+    const code = String(p.sku!=null? p.sku : (p.code||"")).trim();
+    if(code){ const r = all("SELECT * FROM products WHERE branch=? AND lower(trim(sku))=? AND COALESCE(active,1)=1",[br, code.toLowerCase()]); if(r.length===1) return r[0]; }
+    const n = all("SELECT * FROM products WHERE branch=? AND lower(trim(name))=? AND COALESCE(active,1)=1",[br, bsNorm(p.name)]);
+    return n.length===1? n[0] : null;
+  }
+  // Branches addendum §R1: one branch's figure for one product -> { qty, t, live } | null (the branch doesn't have it).
+  // Another branch: seiGEN's figure (the sum of its tills). THIS branch: this till's live count
+  // (a sale here shows at once) plus the other tills' figures on seiGEN; a till that sees no
+  // per-till figures (not main, until 20261026120000) uses seiGEN's branch figure when the
+  // branch has other tills. A shared-stock branch: seiGEN's figure.
+  // p: this till's product row (has id + branch), or a probe { cat_uid, sku, name }.
+  function bsBranchQty(b, p){
+    const r = bsRowFor(b, p);
+    if(b.id!==bsMyBranchUuid() || b.stock_mode==="shared") return r? { qty:Number(r.qty)||0, t:r.t||null, live:false } : null;
+    const mine = (p && p.id!=null && p.branch!=null && sameBranchName(p.branch, currentBranch()))? p : bsLocalMatch(p);
+    const myQty = mine? (Number(mine.stock)||0) : null;
+    const code = typeof currentTillCode==="function"? currentTillCode() : "";
+    if(r && r.t && code){
+      const t = Object.assign({}, r.t);
+      if(myQty!==null) t[code] = myQty;
+      return { qty:Object.keys(t).reduce((s,k)=> s+(Number(t[k])||0), 0), t, live:true };
+    }
+    if(myQty!==null && (!r || (Number(b.active_tills)||1)<=1)) return { qty:myQty, t:null, live:true };
+    if(r) return { qty:Number(r.qty)||0, t:null, live:false };
+    return null;
+  }
+  // One entry per product across this till's products and the branches' rows: the same
+  // catalogue uid, else the same code, else (no code) the same name. -> { groups, find }
+  function bsGroupProducts(branches, locals){
+    const groups = new Map(), byCat = new Map(), byCode = new Map(), byName = new Map();
+    const find = (cat, code, name)=>{ const c = bsNorm(code), n = bsNorm(name); const k = (cat && byCat.get(cat)) || (c && byCode.get(c)) || (!c && byName.get(n)) || null; return k? groups.get(k) : null; };
+    const add = (cat, code, name, local)=>{
+      const c = bsNorm(code), n = bsNorm(name);
+      let g = find(cat, code, name);
+      if(!g){ const k = cat || (c? "c:"+c : "n:"+n); g = groups.get(k); if(!g){ g = { key:k, name, code:code||"", cat_uid:cat||null, local:null }; groups.set(k, g); } }
+      if(cat){ byCat.set(cat, g.key); if(!g.cat_uid) g.cat_uid = cat; }
+      if(c) byCode.set(c, g.key); else byName.set(n, g.key);
+      if(local && !g.local) g.local = local;
+      return g;
+    };
+    (locals||[]).forEach(p=> add(p.cat_uid||null, p.sku, p.name, p));
+    (branches||[]).forEach(b=> (b.rows||[]).forEach(r=> add(r.cat_uid||null, r.code, r.name, null)));
+    return { groups:[...groups.values()], find };
+  }
+  // More → Product List with seiGEN's figures (Branches addendum §R1, owner 2026-10-14).
+  // branchSel: "" = All branches, or a branch name. -> null when this till has no seiGEN figures
+  // (not registered, none pulled yet, a single-till business, or a name known only from a file
+  // merge): the list stays this device's own, as before. Otherwise
+  // { mode:"all"|"branch", branches:[{ name, updated }], rows:[{ name, sku, description, shelf,
+  //   price, stock, parts:[{ name, qty }], files:[{ name, qty, date }], probe }] }.
+  // All branches = the sum over seiGEN's branches; a file copy is listed, never counted.
+  function bsProductListView(branchSel, query){
+    if(!bsRegistered() || getSetting("bs_server_enabled","")==="0") return null;
+    const brs = bsBranches();
+    if(!brs.length) return null;
+    const me = bsMyBranchUuid();
+    let shown = brs;
+    if(branchSel){
+      const b = brs.find(x=> x.id===me && sameBranchName(branchSel, currentBranch())) || brs.find(x=> sameBranchName(x.name, branchSel));
+      if(!b) return null;
+      shown = [b];
+    }
+    const locals = (!branchSel || shown[0].id===me)? all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[currentBranch()]) : [];
+    const files = branchSel? [] : bsFileCopyNames(brs).map(n=>({ name:n, date:fileCopyDate(n), rows:all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1",[n]) }));
+    const { groups, find } = bsGroupProducts(shown, locals);
+    const fileOf = new Map();
+    files.forEach(f=> f.rows.forEach(p=>{
+      let g = find(p.cat_uid||null, p.sku, p.name);
+      if(!g){ g = { key:"f:"+f.name+":"+p.id, name:p.name, code:p.sku||"", cat_uid:p.cat_uid||null, local:null }; groups.push(g); }
+      if(!fileOf.has(g.key)) fileOf.set(g.key, []);
+      fileOf.get(g.key).push({ name:f.name, qty:Number(p.stock)||0, date:f.date });
+    }));
+    const rows = groups.map(g=>{
+      const probe = g.local || { cat_uid:g.cat_uid, sku:g.code, name:g.name };
+      const parts = shown.map(b=>{ const q = bsBranchQty(b, probe); return q? { name:b.name, qty:q.qty, mine:b.id===me } : null; }).filter(Boolean);
+      if(!branchSel && g.local && !shown.some(b=> b.id===me)) parts.unshift({ name:currentBranch(), qty:Number(g.local.stock)||0, mine:true });   // this branch isn't in seiGEN's answer yet
+      const fl = fileOf.get(g.key) || [];
+      if(!parts.length && !fl.length) return null;
+      const local = g.local;
+      return { name:g.name, sku:g.code, description:local? local.description||"" : "", shelf:local? local.shelf||"" : "",
+        price:local? local.price : null, stock:parts.length? parts.reduce((s,x)=> s+x.qty, 0) : null, parts, files:fl, probe };
+    }).filter(Boolean).sort((a,b)=> String(a.name).localeCompare(String(b.name)));
+    return { mode:branchSel? "branch" : "all", files:files.map(f=>({ name:f.name, date:f.date })),
+      branches:shown.map(b=>({ name:b.name, mine:b.id===me, updated:b.id===me? null : bsUpdatedText(b.updated_at) })),
+      rows:productSearch(rows, query) };
+  }
+  // Names in this device's tables (a file merge) that aren't a branch on seiGEN, other than this one.
+  function bsFileCopyNames(brs){
+    brs = brs || bsBranches();
+    return listBranches().filter(n=> !sameBranchName(n, currentBranch()) && !brs.some(b=> sameBranchName(b.name, n)));
+  }
+  function bsFileCopyText(f){
+    const d = f.date? new Date(f.date) : null;
+    return "file copy from "+(d && !isNaN(d)? d.toLocaleDateString([], { day:"numeric", month:"short", year:"numeric" }) : "an earlier merge")+", not counted";
+  }
+  // Sell (owner 2026-10-14, Q3): one line when a product is tapped. "" when there's nothing to say.
+  function bsSellLineText(p){
+    if(!bsTabAvailable()) return "";
+    const others = bsOtherBranches();
+    const parts = others.map(b=>{ const q = bsBranchQty(b, p); return q? b.name+" "+q.qty : null; }).filter(Boolean);
+    if(!others.length) return "";
+    if(!parts.length) return "Other branches: none have it";
+    const times = others.map(b=> Date.parse(b.updated_at)||0).filter(Boolean);
+    return "Other branches: "+parts.join(" · ")+(times.length? " ("+bsUpdatedText(new Date(Math.min(...times)).toISOString()).text+")" : "");
+  }
+  // The Sell product whose line is open (a tap on its name; a second tap closes it).
+  let _bsSellOpenId = null;
+  function bsSellLineHtml(p){
+    if(_bsSellOpenId!==p.id) return "";
+    const t = bsSellLineText(p);
+    return t? `<div class="pmeta bs-sell-line" style="color:var(--ink-soft,#555)">${escapeHtml(t)}</div>` : "";
+  }
+  // Sell (phone and desktop): a tap on a product's name shows or hides its other-branches line.
+  function wireBsSellLines(scope, redraw){
+    if(!bsTabAvailable()) return;
+    scope.querySelectorAll("[data-bsline]").forEach(el=>{
+      el.style.cursor = "pointer";
+      el.onclick = ()=>{ const id = +el.dataset.bsline; _bsSellOpenId = _bsSellOpenId===id? null : id; redraw(); };
+    });
+  }
+  // Products: the "Other branches" column at every branch (registered, a business with other branches).
+  // Branches addendum §R5: remotes too (quantities only).
+  function bsShowOtherColumn(){ return bsRegistered() && bsOtherBranches().length>0; }
+  // ... and "This branch" when this branch has other tills: this till's live count + theirs.
+  function bsMyBranch(){ const me = bsMyBranchUuid(); return me? bsBranches().find(b=> b.id===me) || null : null; }
+  function bsShowThisBranchColumn(){ const b = bsMyBranch(); return bsRegistered() && !!b && (Number(b.active_tills)||0)>1; }
+  function bsThisCellHtml(p){
+    const b = bsMyBranch(), q = b? bsBranchQty(b, p) : null;
+    return `<button type="button" class="btn btn-sm btn-ghost bs-this" data-bsprod="${p.id}" title="This branch: every till">${q? escapeHtml(String(q.qty)) : "—"}</button>`;
+  }
   // More → Stock by branch / Other branches: a registered till of a business with 2+ branches.
   function bsTabAvailable(){
     if(!bsRegistered()) return false;
@@ -236,22 +379,31 @@
     scope.querySelectorAll("[data-bsprod]").forEach(b=> b.onclick=()=>{ const p = one("SELECT * FROM products WHERE id=?",[+b.dataset.bsprod]); if(p) openBsProductModal(p); });
   }
   // One product in every branch: the branch total, its time and (main) each till's own figure.
-  function openBsProductModal(p){
-    const main = !isRemote();
-    const rows = bsBranches().map(b=>{
-      const r = bsRowFor(b, p), u = bsUpdatedText(b.updated_at);
-      const tills = main && r && r.t? Object.keys(r.t).sort().map(k=>`<div class="pmeta bs-till">${escapeHtml(k)} (own count): ${escapeHtml(String(r.t[k]))}</div>`).join("") : "";
+  // p: this till's product row, or a probe { cat_uid, sku, name } (the Product List).
+  // files: [{ name, qty, date }] file copies of other branches (listed, not counted).
+  function openBsProductModal(p, files){
+    const main = !isRemote(), me = bsMyBranchUuid(), code = typeof currentTillCode==="function"? currentTillCode() : "";
+    const brs = bsBranches();
+    let total = null;
+    const rows = brs.map(b=>{
+      const q = bsBranchQty(b, p), u = bsUpdatedText(b.updated_at), mine = b.id===me;
+      if(q) total = (total||0) + q.qty;
+      const tills = q && q.t? Object.keys(q.t).sort().map(k=>`<div class="pmeta bs-till">${escapeHtml(k)}${mine && k===code? " (this till, now)" : " (own count)"}: ${escapeHtml(String(q.t[k]))}</div>`).join("") : "";
+      const when = mine && q && q.live? (q.t? "this till now; the other tills "+u.text : "this till, now") : u.text;
       return `<div class="card bs-branch" style="padding:8px;margin-bottom:6px">
-        <div style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(b.name)}${b.id===bsMyBranchUuid()? " (this branch)" : ""}</b><b>${r? escapeHtml(String(r.qty)) : "—"}</b></div>
-        <div class="pmeta" style="${u.old? "color:#b54708" : ""}">${escapeHtml(b.stock_mode==="shared"? "Shared stock on seiGEN · "+u.text : u.text)}</div>${tills}</div>`;
+        <div style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(b.name)}${mine? " (this branch)" : ""}</b><b>${q? escapeHtml(String(q.qty)) : "—"}</b></div>
+        <div class="pmeta" style="${u.old && !(mine && q && q.live && !q.t)? "color:#b54708" : ""}">${escapeHtml(b.stock_mode==="shared"? "Shared stock on seiGEN · "+u.text : when)}</div>${tills}</div>`;
     }).join("");
-    openModal(p.name, `${rows || `<p class="muted">No branch figures yet. They arrive after the tills check in.</p>`}
+    const fileRows = (files||[]).map(f=>`<div class="card bs-file" style="padding:8px;margin-bottom:6px;opacity:.8">
+        <div style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(f.name)}</b><span>${escapeHtml(String(f.qty))}</span></div>
+        <div class="pmeta" style="color:#b54708">${escapeHtml(bsFileCopyText(f))}</div></div>`).join("");
+    openModal(p.name, `${rows? `<div class="card bs-total" style="padding:8px;margin-bottom:6px;display:flex;justify-content:space-between"><b>All branches</b><b>${total==null? "—" : escapeHtml(String(total))}</b></div>`+rows : `<p class="muted">No branch figures yet. They arrive after the tills check in.</p>`}${fileRows}
       <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills.${main? "" : " Quantities only."}</p>`);
   }
 
   function renderBranchStock(main){
     const isMain = !isRemote();
-    let tab = getSetting("bs_tab","stock"), branchSel = getSetting("bs_branch",""), query = "", msg = "";
+    let tab = getSetting("bs_tab","stock"), branchSel = getSetting("bs_branch",""), query = "", dquery = "", msg = "";
     function stockHtml(){
       const mineId = bsMyBranchUuid();
       const list = isMain? bsBranches() : bsOtherBranches();
@@ -259,16 +411,11 @@
       if(!list.length) return `<p class="muted">No branch figures yet. Tap Refresh when you're online; each till sends its stock after it checks in.</p>`;
       const shown = branchSel? list.filter(b=>b.id===branchSel) : list;
       // one line per product across the branches: the same catalogue uid, else the same code, else the same name
-      const names = new Map(), byCat = new Map(), byCode = new Map(), byName = new Map();
-      shown.forEach(b=>(b.rows||[]).forEach(r=>{
-        const c = bsNorm(r.code), n = bsNorm(r.name);
-        const k = (r.cat_uid && byCat.get(r.cat_uid)) || (c && byCode.get(c)) || (!c && byName.get(n)) || (r.cat_uid || (c? "c:"+c : "n:"+n));
-        if(!names.has(k)) names.set(k, { name:r.name, code:r.code, cat_uid:r.cat_uid });
-        if(r.cat_uid) byCat.set(r.cat_uid, k); if(c) byCode.set(c, k); else byName.set(n, k);
-      }));
-      const q = bsNorm(query);
-      const items = [...names.entries()].filter(([,v])=> !q || bsNorm(v.name).includes(q) || bsNorm(v.code).includes(q)).sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name)));
-      const qtyOf = (b, v)=> bsRowFor(b, { cat_uid:v.cat_uid, sku:v.code, name:v.name });
+      const sorted = bsGroupProducts(shown, []).groups.sort((a,b)=> String(a.name).localeCompare(String(b.name)));
+      // the shared matcher (Branches addendum §R2): every term, any order
+      const items = productSearch(sorted.map(g=>({ name:g.name, sku:g.code, description:"", g })), query).map(x=>[x.g.key, x.g]);
+      // this branch: this till's live count + the other tills (bsBranchQty)
+      const qtyOf = (b, v)=>{ const pr = { cat_uid:v.cat_uid, sku:v.code, name:v.name }, r = bsRowFor(b, pr), q = bsBranchQty(b, pr); return q? { qty:q.qty, t:q.t, low:r? r.low : 0 } : null; };
       const heads = shown.map(b=>{ const u = bsUpdatedText(b.updated_at); return `<th class="bs-col">${escapeHtml(b.name)}${b.id===mineId? " (this)" : ""}<div class="pmeta" style="font-weight:400;${u.old? "color:#b54708" : ""}">${escapeHtml(u.text)}</div></th>`; }).join("");
       const warn = isMain? shown.map(b=>bsCopies(b).map(c=>`<div class="box bs-copies" style="margin-bottom:8px;border-color:#b54708;background:#fffaeb;color:#b54708;font-size:12.5px"><b>${escapeHtml(b.name)}: ${escapeHtml(c.a)} and ${escapeHtml(c.b)} look like copies of the same stock list</b> (${c.same} of ${c.of} products show the same figure). The branch total may count those products twice. Count the stock (Stocktake) on one of them.</div>`).join("")).join("") : "";
       const value = isMain && bsCostsVisible()? `<div class="muted bs-value" style="margin-top:8px;font-size:12.5px">${shown.map(b=>{ const v = bsValueAtCost(b); return escapeHtml(b.name)+": value at cost "+escapeHtml(currency+v.value.toFixed(2))+(v.unmatched? " ("+v.unmatched+" product"+(v.unmatched===1?"":"s")+" without a cost here)" : ""); }).join("<br>")}</div>` : "";
@@ -286,8 +433,10 @@
         <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills' own figures${isMain? "; under it, each till's own count" : ""}. Quantities only${isMain? "" : ": costs are kept on the main branch"}.</p>`;
     }
     function dispatchesHtml(){
-      const rows = bsDispatches();
-      if(!rows.length) return `<p class="muted">No dispatches through seiGEN in the last 30 days.</p>`;
+      const all_ = bsDispatches();
+      if(!all_.length) return `<p class="muted">No dispatches through seiGEN in the last 30 days.</p>`;
+      const rows = all_.filter(d=> textMatches(dquery, bsDispatchSearchFields(d)));
+      if(!rows.length) return `<p class="muted">No dispatch matches “${escapeHtml(dquery.trim())}”.</p>`;
       return rows.map(d=>{
         const units = (d.lines||[]).reduce((s,l)=>s+(Number(l.qty)||0),0);
         const diffs = (d.lines||[]).filter(l=>l.short||l.damaged||l.extra).map(l=>escapeHtml(l.name)+": "+[l.short? "short "+l.short : "", l.damaged? "damaged "+l.damaged : "", l.extra? "extra "+l.extra : ""].filter(Boolean).join(", ")).join(" · ");
@@ -310,7 +459,8 @@
         ${tab==="stock"? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
             <select class="field" id="bsBranchSel" style="flex:1;min-width:150px;margin:0"><option value="">${isMain? "All branches" : "All other branches"}</option>${list.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===branchSel?"selected":""}>${escapeHtml(b.name)}</option>`).join("")}</select>
             <input class="field" id="bsSearch" placeholder="Search products or code…" value="${escapeHtml(query)}" style="flex:2;min-width:150px;margin:0"></div>
-          <div id="bsBody">${stockHtml()}</div>` : `<div id="bsBody">${dispatchesHtml()}</div>`}`;
+          <div id="bsBody">${stockHtml()}</div>` : `<input class="field" id="bsDispSearch" type="search" autocomplete="off" placeholder="Search DN, branch, date, status, ref., transport or product…" value="${escapeHtml(dquery)}" style="margin-bottom:8px">
+          <div id="bsBody">${dispatchesHtml()}</div>`}`;
       main.querySelector("#bsTabStock").onclick=()=>{ tab="stock"; setSetting("bs_tab","stock"); draw(); };
       main.querySelector("#bsTabDisp").onclick=()=>{ tab="dispatches"; setSetting("bs_tab","dispatches"); draw(); if(!getSetting("bs_dispatches_ts","")) refresh(); };
       main.querySelector("#bsRefresh").onclick=()=>refresh();
@@ -318,6 +468,8 @@
       if(sel) sel.onchange=()=>{ branchSel = sel.value; setSetting("bs_branch", branchSel); draw(); };
       const s = main.querySelector("#bsSearch");
       if(s) s.oninput=()=>{ query = s.value; main.querySelector("#bsBody").innerHTML = stockHtml(); };
+      const ds = main.querySelector("#bsDispSearch");
+      if(ds) ds.oninput=()=>{ dquery = ds.value; main.querySelector("#bsBody").innerHTML = dispatchesHtml(); };
     }
     async function refresh(){
       msg = "Loading…"; draw();

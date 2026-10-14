@@ -137,7 +137,10 @@ function makeApp(settings, opts){
         sgSuppliers, sgSupplier, sgSaveSupplier, sgLanded, sgPostGrv, sgSendPending, sgPull, sgAfterCheckin, sgInvoiceKey, groupPurchases,
         bsPush, bsPull, bsPullDispatches, bsDispatches, bsBranches, bsOtherBranches, bsOtherQty, bsRowFor, bsCopies, bsValueAtCost, bsUpdatedText, bsShowOtherColumn, bsTabAvailable,
         bsJoinedOnlyBranchNames, bsBranchByName, bsLocalRows, bsAfterCheckin, bsSoon, renderBranchStock, openBsProductModal, renderProductList,
-        setPlistBranch:(b)=>{ plistBranch=b; }, plistResults,
+        setPlistBranch:(b)=>{ plistBranch=b; }, setPlistQuery:(q)=>{ plistQuery=q; }, plistResults,
+        textMatches, searchDateWords, fileCopyDate, dnSearchFields, dnLineWords, customerSearch,
+        bsBranchQty, bsGroupProducts, bsProductListView, bsFileCopyNames, bsSellLineText, bsShowThisBranchColumn, bsLocalMatch, bsDispatchSearchFields,
+        stocktakeCountingTableHtml, stocktakeIsOwnBranch, renderStocktakeReport, productsTableHtml, productListHtml,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.
   // Tests must never reach it, so every app instance instead reads the old

@@ -246,7 +246,8 @@ ${readOnly? "" : `
       const products = b? all("SELECT * FROM products WHERE branch=? ORDER BY name",[b]) : all("SELECT * FROM products ORDER BY branch,name");
       const rows = products.map(p=> b? [skuNameCell(p.sku,p.name), p.stock] : [skuNameCell(p.sku,p.name), escapeHtml(p.branch), p.stock]);
       const headers = b? ["Item","Qty"] : ["Item","Branch","Qty"];
-      printReport("Inventory Report", `${b||"All branches"}`, headers, rows, "");
+      // Branches addendum §R1: these read this device's own tables (seiGEN's figures are in More → Product List)
+      printReport("Inventory Report", `${b||"All branches (this device)"}`, headers, rows, "");
     };
 
     document.getElementById("genStock").onclick=()=>{
@@ -267,7 +268,7 @@ ${readOnly? "" : `
                          : all("SELECT * FROM products WHERE stock<=low_threshold ORDER BY branch,stock");
       const rows = lowStock.map(p=> b? [skuNameCell(p.sku,p.name), p.stock, p.low_threshold] : [skuNameCell(p.sku,p.name), escapeHtml(p.branch), p.stock, p.low_threshold]);
       const headers = b? ["Item","Current Stock","Alert Level"] : ["Item","Branch","Current Stock","Alert Level"];
-      printReport("Low Stock Report", `${b||"All branches"} · ${new Date().toLocaleDateString()}`, headers, rows, "");
+      printReport("Low Stock Report", `${b||"All branches (this device)"} · ${new Date().toLocaleDateString()}`, headers, rows, "");
     };
 
     document.getElementById("genCredit").onclick=()=>{

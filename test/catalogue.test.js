@@ -606,7 +606,8 @@ const priceOf = (app, code)=>app.api.one("SELECT price FROM products WHERE lower
     assert.ok(/data-actions="[^"]*\bprice\b/.test(table)); assert.ok(!/data-actions="[^"]*\b(edit|restock)\b/.test(table), "no full-edit or add-stock menu items on a remote, even in branch_edits");
     const bound = []; const scope = { querySelectorAll:(sel)=>{ bound.push(sel); return []; } };
     R.api.wireProductRowButtons(scope, true);
-    assert.strictEqual(bound.join(),"[data-rowmenu]", "only the row menu is wired; it offers price and adjust-stock (no full editor)");
+    // Branches addendum §R5: a remote also wires the read-only Other branches figures ([data-bsprod] opens a view, never an editor)
+    assert.strictEqual(bound.join(),"[data-bsprod],[data-rowmenu]", "only the row menu is wired for changes; it offers price and adjust-stock (no full editor)");
     assert.ok(/data-actions="[^"]*\badjust\b/.test(table));
     const alerts = [], modals = []; R.hook("alert",(m)=>alerts.push(m)); R.hook("openModal",(ti)=>{ modals.push(ti); return {}; });
     R.api.productModal(p);                                              // the full editor is still refused

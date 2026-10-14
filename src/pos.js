@@ -811,10 +811,11 @@
           <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
             ${typeof catPicHtml==="function"? catPicHtml(p, 'class="prod-thumb"', `<div class="prod-thumb-placeholder">${ICON_STOREFRONT}</div>`)
               : (p.image? `<img class="prod-thumb" src="${p.image}">` : `<div class="prod-thumb-placeholder">${ICON_STOREFRONT}</div>`)}
-            <div style="min-width:0">
+            <div style="min-width:0" data-bsline="${p.id}">
               ${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}
               <div class="pname">${escapeHtml(p.name)}</div>
               <div class="pmeta">${currency}${p.price.toFixed(2)} · ${(typeof stockLineText==="function" && stockLineText(p))? `<span class="ss-stock">${escapeHtml(stockLineText(p))}</span>` : p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
+              ${typeof bsSellLineHtml==="function"? bsSellLineHtml(p) : ""}
             </div>
           </div>
           <button class="add-chip" data-add="${p.id}" ${sellable(p)<=0?"disabled":""}>${sellable(p)<=0?"Out":"Add"}</button>
@@ -824,6 +825,7 @@
     scope.querySelectorAll("[data-add]").forEach(b=>{
       b.onclick=()=>{ const p = one("SELECT * FROM products WHERE id=?",[+b.dataset.add]); addToCart(p); };
     });
+    if(typeof wireBsSellLines==="function") wireBsSellLines(scope, renderPOSListOnly);   // Branches addendum: other branches' stock on a tap
   }
   // Rendering Audit fix: this used to target document.querySelector("#main
   // .card") — NOT unique. shiftBlockBannerHtml()/dcMessagesBannerHtml()/the

@@ -209,10 +209,10 @@ async function credentials(install){ return (await sq("select install_id, shop_s
   await t("main's Products page: the 'Other branches' column (Bib 7, Cap 2, Socks 0); a tap shows each branch and till", async ()=>{
     await nav(A, "products");
     const row = A.page.locator('#productsTableArea tr:has-text("Bib")');
-    assert.strictEqual((await row.locator("[data-bsprod]").textContent()).trim(), "7");
-    assert.strictEqual((await A.page.locator('#productsTableArea tr:has-text("Socks") [data-bsprod]').textContent()).trim(), "0");
+    assert.strictEqual((await row.locator("[data-bsprod].bs-other").textContent()).trim(), "7");
+    assert.strictEqual((await A.page.locator('#productsTableArea tr:has-text("Socks") [data-bsprod].bs-other').textContent()).trim(), "0");
     await shot(A.page, "desktop-1280-products-other-branches.png");
-    await row.locator("[data-bsprod]").click();
+    await row.locator("[data-bsprod].bs-other").click();
     await A.page.waitForSelector(".bs-branch");
     const m = (await A.page.textContent(".modalOverlay")).replace(/\s+/g, " ");
     assert.match(m, /Harare \(this branch\) ?14/); assert.match(m, /T2 \(own count\): 4/); assert.match(m, /Murehwa ?7/);
@@ -250,6 +250,71 @@ async function credentials(install){ return (await sq("select install_id, shop_s
     assert.match(d, /Harare → Murehwa/); assert.match(d, /1 line · 5 units/); assert.doesNotMatch(d, /cost|\$|3\.00|0\.80/i);
     await shot(C.page, "phone-390-other-branches-dispatches.png");
     assert.deepStrictEqual(C.pageErrors, []); assert.deepStrictEqual(E.pageErrors, []);
+  });
+
+  // ---- Branches addendum step 1 (v25): bug A, search, stock at every branch, stocktake ----
+  await t("bug A (1280px): Product List 'All branches' = Harare T1 10 + T2 4 + Murehwa 7 = 21 for Bib, each branch under it", async ()=>{
+    await moreTab(A, "productlist");
+    await A.page.selectOption("#plistBranchSel", "");
+    await waitFor(async()=> /All branches/.test(await A.page.textContent("#plistResults")), "the All branches list");
+    const row = A.page.locator('#plistResults tr:has-text("Bib")');
+    assert.strictEqual((await row.locator(".plist-total").textContent()).trim(), "21");
+    assert.match((await row.textContent()).replace(/\s+/g, " "), /Harare 14 · Murehwa 7/);
+    await shot(A.page, "desktop-1280-product-list-all-branches.png");
+    await A.page.setViewportSize({ width:390, height:844 });
+    await shot(A.page, "phone-390-product-list-all-branches.png");
+    await A.page.setViewportSize({ width:1280, height:800 });
+    await row.locator(".plist-total").click();
+    await A.page.waitForSelector(".bs-total");
+    assert.match((await A.page.textContent(".modalOverlay")).replace(/\s+/g, " "), /All branches ?21.*Harare \(this branch\) ?14.*T1 \(this till, now\): 10.*T2 \(own count\): 4.*Murehwa ?7/);
+    await shot(A.page, "desktop-1280-product-list-each-branch.png");
+    await A.page.click(".modalOverlay [data-modal-close]");
+    await A.page.fill("#plistSearch", "kb ib");
+    assert.match(await A.page.textContent("#plistResults"), /No products match/);
+    await A.page.fill("#plistSearch", "");
+    assert.deepStrictEqual(A.pageErrors, []);
+  });
+
+  await t("every branch (390px): Murehwa's Products page has 'Other branches' (Bib 14); Sell: a tap on the name shows one line", async ()=>{
+    await nav(C, "products");
+    const row = C.page.locator('#productsTableArea tr:has-text("Bib")');
+    assert.strictEqual((await row.locator(".bs-other").textContent()).trim(), "14");
+    await shot(C.page, "phone-390-remote-products-other-branches.png");
+    await nav(C, "pos");
+    await C.page.fill("#searchInput", "bib");
+    await C.page.click('#posResultsArea [data-bsline]');
+    await C.page.waitForSelector(".bs-sell-line");
+    assert.match(await C.page.textContent(".bs-sell-line"), /Other branches: Harare 14 \(updated /);
+    await shot(C.page, "phone-390-sell-other-branches-line.png");
+    await C.page.click('#posResultsArea [data-bsline]');
+    assert.strictEqual(await C.page.$(".bs-sell-line"), null, "a second tap closes it");
+    await C.page.fill("#searchInput", "");
+    assert.deepStrictEqual(C.pageErrors, []);
+  });
+
+  await t("search (390px): Other branches → Dispatches has a box that finds the DN by product and by date", async ()=>{
+    await moreTab(C, "branches");
+    await C.page.click("#bsTabDisp");
+    await C.page.waitForSelector("#bsDispSearch");
+    const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"], d = new Date();
+    await C.page.fill("#bsDispSearch", "socks " + d.getDate() + " " + months[d.getMonth()]);
+    assert.match((await C.page.textContent("#bsBody")).replace(/\s+/g, " "), /DN-T1-0001.*Harare → Murehwa/);
+    await shot(C.page, "phone-390-dispatch-search.png");
+    await C.page.fill("#bsDispSearch", "bib");
+    assert.match(await C.page.textContent("#bsBody"), /No dispatch matches/);
+    await C.page.click("#bsTabStock");
+  });
+
+  await t("stocktake at a remote (390px): this branch only, other branches read-only next to the count", async ()=>{
+    await moreTab(C, "stocktake");
+    await C.page.click("#startStocktake");
+    assert.match(await C.page.textContent(".modalOverlay"), /Murehwa \(this branch\)/);
+    await C.page.click("#stConfirm");
+    await C.page.waitForSelector("#stCountTable");
+    const txt = (await C.page.textContent("#stCountTable")).replace(/\s+/g, " ");
+    assert.match(txt, /Other branches/); assert.match(txt, /Harare 14/);
+    await shot(C.page, "phone-390-stocktake-other-branches.png");
+    assert.deepStrictEqual(C.pageErrors, []);
   });
 
   await browser.close();

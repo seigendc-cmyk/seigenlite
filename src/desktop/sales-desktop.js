@@ -76,9 +76,10 @@
           <div class="ds-prod">
             ${typeof catPicHtml==="function"? catPicHtml(p, 'class="ds-thumb"', `<div class="ds-thumb-placeholder">${ICON_STOREFRONT}</div>`)
               : (p.image? `<img class="ds-thumb" src="${p.image}">` : `<div class="ds-thumb-placeholder">${ICON_STOREFRONT}</div>`)}
-            <div style="min-width:0">
+            <div style="min-width:0" data-bsline="${p.id}">
               <div class="ds-pname">${escapeHtml(p.name)}</div>
               <div class="ds-psub">${p.sku? escapeHtml(p.sku)+" · ":""}${escapeHtml(p.category||"Uncategorized")}</div>
+              ${typeof bsSellLineHtml==="function"? bsSellLineHtml(p) : ""}
             </div>
           </div>
         </td>
@@ -189,6 +190,7 @@
       // that's what refreshes the cart panel after adding an item.
       b.onclick = ()=>{ const p = one("SELECT * FROM products WHERE id=?",[+b.dataset.add]); addToCart(p); };
     });
+    if(typeof wireBsSellLines==="function") wireBsSellLines(scope, refreshDesktopRows);   // Branches addendum: other branches' stock on a tap
   }
   function wireDesktopCartActions(main){
     // Digital Commerce device check-in: none of the elements this function

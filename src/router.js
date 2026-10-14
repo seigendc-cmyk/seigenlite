@@ -346,7 +346,7 @@
     { id:"directory", label:"Directory" },
     { id:"productlist", label:"Product List" },
     { id:"branches", label:"Stock by branch", remoteLabel:"Other branches", needs:()=> typeof bsTabAvailable==="function" && bsTabAvailable() },   // Branches B1
-    { id:"stocktake", label:"Stocktake", remoteHidden:true },
+    { id:"stocktake", label:"Stocktake" },   // every branch counts its own stock (Branches addendum §R7)
     { id:"requests", label:"Requests" },
     { id:"purchasing", label:"Purchasing", remoteHidden:true },
     { id:"reportwriter", label:"Report Writer", remoteHidden:true },
@@ -383,7 +383,7 @@
     else if(moreTab==="directory") renderDirectory(body);
     else if(moreTab==="productlist") renderProductList(body);
     else if(moreTab==="branches"){ if(typeof bsTabAvailable==="function" && bsTabAvailable()) renderBranchStock(body); else { moreTab="help"; renderHelp(body); } }
-    else if(moreTab==="stocktake"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderStocktake(body); }
+    else if(moreTab==="stocktake") renderStocktake(body);
     else if(moreTab==="requests") renderStockRequests(body);
     else if(moreTab==="purchasing"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderPurchasing(body); }
     else if(moreTab==="reportwriter"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderReportWriter(body); }

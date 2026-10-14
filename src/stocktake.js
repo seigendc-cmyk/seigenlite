@@ -51,8 +51,13 @@
   }
   function startStocktakeModal(){
     const today = businessDateOf();   // the business date (utils.js), not the UTC date
+    // Branches addendum §R7 (owner 2026-10-14): only this branch's own stock is counted and
+    // posted. Other branches' figures show read-only while counting; a name known here only
+    // from a file merge is a copy, never counted.
     const wrap = openModal("Start Stocktake", `
-      <label>Branch</label>${branchSelectHtml("stBranch", currentBranch())}
+      <label>Branch</label><div class="field" id="stBranchFixed" style="background:var(--surface)">${escapeHtml(currentBranch())} (this branch)</div>
+      <p class="muted" style="margin-top:4px">A stocktake counts this branch's own stock. Other branches count theirs on their own tills.</p>
+      <input type="hidden" id="stBranch" value="${escapeHtml(currentBranch())}">
       <label>Team names</label>
       <input class="field" id="stTeam" placeholder="e.g. Tapiwa, Rudo">
       <label>Start date</label>
@@ -70,10 +75,9 @@
       const existing = one("SELECT * FROM stocktakes WHERE branch=? AND status='Open'",[b]);
       warningEl.textContent = existing? `${b} already has an open stocktake — cut it off before starting another.` : "";
     }
-    branchSel.onchange = updateWarning;
     updateWarning();
     wrap.querySelector("#stConfirm").onclick=()=>{
-      const branch = branchSel.value;
+      const branch = currentBranch();
       if(!branch) return alert(`Pick a specific branch for this stocktake — it can't target "All branches".`);
       if(one("SELECT * FROM stocktakes WHERE branch=? AND status='Open'",[branch])){
         alert(`${branch} already has an open stocktake. Cut it off before starting another.`);
@@ -95,24 +99,34 @@
   // already uses for the Products tab's own search box, kept here instead
   // of full innerHTML rebuilds specifically so the search <input> itself is
   // never touched/recreated and never loses focus mid-keystroke).
-  function stocktakeCountingTableHtml(products, countMap){
+  // Branches addendum §R7: each other branch's figure (seiGEN, read-only) next to the count box.
+  // This branch's own expected figure stays hidden. ownBranch false: an old stocktake of a
+  // file-merged copy; nothing can be counted.
+  function stocktakeCountingTableHtml(products, countMap, ownBranch){
     if(products.length===0) return `<p class="muted" style="padding:10px 4px">No products match.</p>`;
+    const others = ownBranch!==false && typeof bsTabAvailable==="function" && bsTabAvailable()? bsOtherBranches() : [];
     return `
       <table class="simple">
-        <tr><th>Item</th><th>Shelf</th><th>Counted Qty</th></tr>
+        <tr><th>Item</th><th>Shelf</th>${others.length? `<th class="st-others" title="Other branches' stock on seiGEN, read-only">Other branches</th>` : ""}<th>Counted Qty</th></tr>
         ${products.map(p=>{
           const c = countMap[p.id];
+          const o = others.map(b=>{ const q = bsBranchQty(b, p); return escapeHtml(b.name)+" "+(q? escapeHtml(String(q.qty)) : "—"); }).join(" · ");
           return `<tr>
             <td>${skuNameCellScreen(p.sku,p.name)}</td>
             <td>${escapeHtml(p.shelf||"—")}</td>
-            <td><input class="field" data-count="${p.id}" type="number" min="0" style="max-width:90px" value="${c?c.counted_qty:""}" placeholder="—"></td>
+            ${others.length? `<td class="pmeta st-others">${o}</td>` : ""}
+            <td><input class="field" data-count="${p.id}" type="number" min="0" style="max-width:90px" value="${c?c.counted_qty:""}" placeholder="—" ${ownBranch===false? "disabled" : ""}></td>
           </tr>`;
         }).join("")}
       </table>`;
   }
+  // A stocktake can be counted and applied only for this branch (owner 2026-10-14).
+  function stocktakeIsOwnBranch(take){ return !!take && sameBranchName(take.branch, currentBranch()); }
+  const STOCKTAKE_NOT_OWN = "This stocktake is for another branch's copy on this device. Only this branch's own stock can be counted and applied here.";
   function wireStocktakeCountInputs(scope, take){
     scope.querySelectorAll("[data-count]").forEach(inp=>{
       inp.onchange=(e)=>{
+        if(!stocktakeIsOwnBranch(take)){ alert(STOCKTAKE_NOT_OWN); return; }
         const pid = +inp.dataset.count;
         const val = e.target.value;
         if(val==="") return;
@@ -140,7 +154,7 @@
     const counted = all("SELECT * FROM stocktake_counts WHERE stocktake_id=?",[take.id]);
     const countMap = {}; counted.forEach(c=> countMap[c.product_id]=c);
     const results = productSearch(products, stocktakeQuery);
-    target.innerHTML = stocktakeCountingTableHtml(results, countMap);
+    target.innerHTML = stocktakeCountingTableHtml(results, countMap, stocktakeIsOwnBranch(take));
     wireStocktakeCountInputs(target, take);
   }
   function renderStocktakeCounting(main, take){
@@ -153,11 +167,12 @@
       <h3>Stocktake — ${escapeHtml(take.branch)} — ${escapeHtml(take.start_date)}${take.end_date?` to ${escapeHtml(take.end_date)}`:""}</h3>
       <p class="muted">Team: ${escapeHtml(take.team_names||"—")} · Counted ${counted.length} of ${products.length}</p>
       <p class="muted">Count what's physically on the shelf — the system's expected quantity is hidden while you count, so it doesn't bias you.</p>
+      ${stocktakeIsOwnBranch(take)? "" : `<div class="box st-not-own" style="color:#b42318;margin-bottom:8px">${escapeHtml(STOCKTAKE_NOT_OWN)}</div>`}
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="stCountSearch" placeholder="Search products, SKU, description…" value="${escapeHtml(stocktakeQuery)}">
       </div>
-      <div id="stCountTable">${stocktakeCountingTableHtml(results, countMap)}</div>
+      <div id="stCountTable">${stocktakeCountingTableHtml(results, countMap, stocktakeIsOwnBranch(take))}</div>
       <button class="btn btn-danger" id="cutoffStocktake" style="margin-top:14px">Cut Off & Generate Report</button>
     `;
     document.getElementById("stCountSearch").oninput=(e)=>{ stocktakeQuery = e.target.value; renderStocktakeCountingListOnly(take); };
@@ -206,7 +221,8 @@
         <button class="btn btn-outline" id="printStocktake">🖨️ Print/PDF</button>
         <button class="btn btn-outline" id="backToStocktakes">Back to Stocktakes</button>
       </div>
-      ${take.status==="Closed"? `<button class="btn btn-danger" id="applyStocktake" style="margin-top:10px">Apply counts to inventory</button>` : ""}
+      ${take.status==="Closed" && stocktakeIsOwnBranch(take)? `<button class="btn btn-danger" id="applyStocktake" style="margin-top:10px">Apply counts to inventory</button>` : ""}
+      ${take.status==="Closed" && !stocktakeIsOwnBranch(take)? `<p class="muted st-not-own">${escapeHtml(STOCKTAKE_NOT_OWN)}</p>` : ""}
     `;
     document.getElementById("printStocktake").onclick=()=>{
       const headers = ["Item","Shelf","System Qty","Counted Qty","Variance"];
@@ -216,6 +232,7 @@
     document.getElementById("backToStocktakes").onclick=()=>{ stocktakeReportId=null; render(); };
     const applyBtn = document.getElementById("applyStocktake");
     if(applyBtn) applyBtn.onclick=async ()=>{
+      if(!stocktakeIsOwnBranch(take)){ alert(STOCKTAKE_NOT_OWN); return; }
       // Multi-terminal Phase 3b (owner Q4): at a shared-stock branch every
       // counted product is posted to the server, which sets the branch total;
       // refused while another till still holds stock to sell offline.

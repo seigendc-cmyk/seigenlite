@@ -26,19 +26,18 @@
   const CUSTOMER_TYPES = { retail:"Retail", wholesale:"Wholesale" };
   function customerTypeLabel(c){ return CUSTOMER_TYPES[(c && c.customer_type)||"retail"] || "Retail"; }
 
-  // ---- search (name: start of a word; phone: digits anywhere, any spelling) ----
+  // ---- search: the shared matcher (Branches addendum §R2): every term, in any order, on the
+  // name (start of a word) or the phone (3+ digits anywhere, any spelling): "tendai 0772" ----
   function customerSearch(query, limit){
     const q = String(query||"").trim().toLowerCase();
     const rows = all("SELECT * FROM customers ORDER BY name");
     if(!q) return rows.slice(0, limit||8);
-    const terms = q.split(/\s+/).filter(Boolean);
-    const qDigits = q.replace(/\D/g,""), qNorm = normPhone(q);
+    // a whole phone number typed with spaces ("077 123 4567") still finds them
+    const qDigits = /^[+\d\s()-]+$/.test(q)? q.replace(/\D/g,"") : "", qNorm = qDigits? normPhone(q) : "";
     const out = rows.filter(c=>{
-      const words = String(c.name||"").toLowerCase().match(/[a-z0-9]+/g) || [];
-      const byName = terms.every(t=> words.some(w=> w.startsWith(t.replace(/[^a-z0-9]/g,""))));
+      if(textMatches(q, { text:[c.name], phones:[c.phone, c.phone_norm] })) return true;
       const digits = String(c.phone||"").replace(/\D/g,"");
-      const byPhone = qDigits.length>=3 && (digits.includes(qDigits) || (c.phone_norm||"").includes(qDigits.replace(/^0/,"")) || (qNorm && c.phone_norm===qNorm));
-      return byName || byPhone;
+      return qDigits.length>=3 && (digits.includes(qDigits) || (c.phone_norm||"").includes(qDigits.replace(/^0/,"")) || (!!qNorm && c.phone_norm===qNorm));
     });
     return out.slice(0, limit||8);
   }
