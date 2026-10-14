@@ -109,6 +109,19 @@ function shop(){
     const st = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "stocktake.js"), "utf8");
     assert.strictEqual((st.match(/productSearch\(products, stocktakeQuery\)/g)||[]).length, 2, "both Stocktake renders");
   });
+  await t("the search matches the category (owner 2026-10-14: no category pills, search filters)", ()=>{
+    const A = rig();
+    addProduct(A, { name:"Tail Lamp XTrail", sku:"TLT30" });
+    addProduct(A, { name:"Brake Pad Set", sku:"BPS" });
+    A.api.run("UPDATE products SET category='Lighting' WHERE sku='TLT30'");
+    const products = A.api.all("SELECT * FROM products ORDER BY name");
+    assert.deepStrictEqual(names(A.api.productSearch(products, "light")), ["Tail Lamp XTrail"]);
+    assert.deepStrictEqual(names(A.api.productSearch(products, "lighting xtrail")), ["Tail Lamp XTrail"]);
+  });
+  await t("the desktop Sell screen has no category pills", ()=>{
+    const src = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "desktop", "sales-desktop.js"), "utf8");
+    assert.ok(!/ds-pill|data-cat=/.test(src));
+  });
   await t("searching never modifies any product", ()=>{
     const { A, products } = shop();
     const before = JSON.stringify(A.api.all("SELECT * FROM products"));

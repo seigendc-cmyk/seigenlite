@@ -10,8 +10,6 @@
   // so this screen's inputs reuse those same ids instead of introducing a
   // second read path.
 
-  let desktopCategory = "";
-
   // Registered once at script load (not inside renderPOSDesktop, which
   // reruns on every add-to-cart) so Ctrl+K never accumulates duplicate
   // listeners across re-renders.
@@ -22,17 +20,10 @@
     }
   });
 
-  function desktopCategories(){
-    return all(
-      "SELECT DISTINCT category FROM products WHERE branch=? AND category IS NOT NULL AND category<>'' ORDER BY category",
-      [currentBranch()]
-    ).map(r=>r.category);
-  }
-
+  // No category pills (owner, 2026-10-14): the search box is the filter, and
+  // it matches the category too (utils.js productMatches).
   function desktopSearchResults(){
-    let results = searchProducts(searchQuery);
-    if(desktopCategory) results = results.filter(p=>p.category===desktopCategory);
-    return results;
+    return searchProducts(searchQuery);
   }
 
   function desktopStockLabel(p){
@@ -64,7 +55,6 @@
             <input class="ds-search-input" id="dsSearch" placeholder="Search products or SKU…" value="${escapeHtml(searchQuery)}">
             <span class="ds-kbd">Ctrl K</span>
           </div>
-          <div class="ds-pills">${desktopPillsHtml()}</div>
           <div class="ds-table-wrap">
             <table class="ds-table">
               <thead><tr><th>Product</th><th>Stock</th><th>Price</th><th></th></tr></thead>
@@ -76,12 +66,6 @@
       </div>
     `;
     wireDesktopSales(main);
-  }
-
-  function desktopPillsHtml(){
-    const categories = desktopCategories();
-    return `<button class="ds-pill ${desktopCategory===""?"active":""}" data-cat="">All</button>` +
-      categories.map(c=>`<button class="ds-pill ${desktopCategory===c?"active":""}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("");
   }
 
   function desktopRowsHtml(results){
@@ -188,9 +172,6 @@
     wireDcMessagesBanner();
     const search = document.getElementById("dsSearch");
     search.oninput = (e)=>{ searchQuery = e.target.value; window._dsListScroll = 0; const l = main.querySelector(".ds-main"); if(l) l.scrollTop = 0; refreshDesktopRows(); };
-    main.querySelectorAll("[data-cat]").forEach(b=>{
-      b.onclick = ()=>{ desktopCategory = b.dataset.cat; renderPOSDesktop(main); };
-    });
     wireDesktopRowActions(document.getElementById("dsRows"));
     wireDesktopCartActions(main);
     keepDesktopScroll(main);

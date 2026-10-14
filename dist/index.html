@@ -3532,7 +3532,7 @@ const APP_BUILD = 24;
   function productMatches(query, p){
     const terms = searchTokens(query);
     if(!terms.length) return true;
-    const parts = productSearchParts([p.name, p.sku, p.description].join(" "));
+    const parts = productSearchParts([p.name, p.sku, p.description, p.category].join(" "));
     return terms.every(t=> productTermMatches(t, parts));
   }
   // The products matching the query, best first: name starts with the first
