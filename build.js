@@ -86,8 +86,12 @@ function readVersion() {
 // build guard reads it). One source: sw-pwa.js's "// build: vN" line, which
 // is bumped for every release anyway.
 function readBuild() {
-  const m = /^\/\/ build: v(\d+)\b/m.exec(fs.readFileSync(path.join(ROOT, "sw-pwa.js"), "utf8"));
+  const sw = fs.readFileSync(path.join(ROOT, "sw-pwa.js"), "utf8");
+  const m = /^\/\/ build: v(\d+)\b/m.exec(sw);
   if (!m) throw new Error("sw-pwa.js: '// build: vN' line missing");
+  // the worker answers the update banner's "which build?" with SW_BUILD (v23)
+  const s = /^const SW_BUILD = (\d+);$/m.exec(sw);
+  if (!s || s[1] !== m[1]) throw new Error("sw-pwa.js: SW_BUILD must equal the '// build: v" + m[1] + "' line");
   return Number(m[1]);
 }
 

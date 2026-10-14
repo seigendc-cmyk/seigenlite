@@ -152,6 +152,14 @@
       else if(data.terminal_active===true) setSetting("terminal_inactive", "");
       // v21: an Admin passcode the main branch set for this till (a check value, delivered once)
       if(data.admin_seed && typeof storeAdminSeed==="function") storeAdminSeed(data.admin_seed, "checkin");
+      // v23: seiGEN's minimum build (20261025120000). Only the minimum is kept:
+      // "must update" is worked out here against the build running now, so the
+      // red bar (pwa-extras.js) goes as soon as the app is updated. An older
+      // server sends no min_build: the stored value is left as it was.
+      if(data.min_build!==undefined && data.min_build!==null){
+        setSetting("dc_min_build", String(Math.max(0, Number(data.min_build)||0)));
+        try{ window.dispatchEvent(new CustomEvent("scl:minbuild", { detail:{ min_build: Number(data.min_build)||0 } })); }catch(e){}
+      }
       setSetting("dc_checkin_error", "");
       setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);

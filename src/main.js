@@ -48,12 +48,38 @@
       if(t) renderLinkResult(await applyLicence(t, "link"));
     });
   }
+  // v23 updates (src/pwa-extras.js, which runs outside this closure): may a
+  // waiting new version install itself now? Only on the Start screen or an
+  // empty Sales screen: no cart, no drawer or window open, nothing typed.
+  // pwa-extras.js adds the "untouched for 2 minutes" part. Read-only, apart
+  // from save() (the same persist() every change already uses).
+  if(typeof window!=="undefined"){
+    window.sclUpdateHooks = {
+      idle(){
+        try{
+          if(route!=="start" && route!=="pos") return false;
+          if(cart.length || appliedVoucher || drawerOpen || reqDrawerOpen || navDrawerOpen) return false;
+          if(String(searchQuery||"").trim()) return false;
+          if(document.querySelector(".modalOverlay")) return false;
+          const typed = Array.from(document.querySelectorAll("#app input, #app textarea"))
+            .some(el=> el.type!=="checkbox" && el.type!=="radio" && el.type!=="hidden" && String(el.value||"").trim()!=="");
+          return !typed;
+        }catch(e){ return false; }
+      },
+      save(){ return db? persist() : Promise.resolve(); },
+      minBuild(){ try{ return Number(getSetting("dc_min_build","0"))||0; }catch(e){ return 0; } }
+    };
+  }
   // Only registers when actually served over http(s)/localhost — this
   // silently does nothing when the file is just double-clicked (file://),
   // so it's safe to leave in either way. When it IS registered (device
   // running a local server, or hosted), it's what makes "Install app"
   // available and caches the app + the sql.js library for full offline use.
-  if("serviceWorker" in navigator && location.protocol !== "file:"){
+  // Not inside the installed Windows program (Tauri): its files are built in,
+  // and a worker there can't update itself (src-tauri/sw-off.js removes one an
+  // older build left). The same dist-tauri hosted on the web keeps its worker.
+  const inTauriProgram = typeof window!=="undefined" && (!!window.__TAURI__ || location.hostname==="tauri.localhost");
+  if("serviceWorker" in navigator && location.protocol !== "file:" && !inTauriProgram){
     window.addEventListener("load", ()=>{
       navigator.serviceWorker.register("sw.js").catch(()=>{});
     });

@@ -9,7 +9,7 @@
         <button class="btn btn-primary" id="waAbout2">📲 WhatsApp +263789487287</button>
         <div class="hr"></div>
         <p class="muted" style="font-size:11.5px">Distributed under license from seiGEN Commerce Infrastructure.</p>
-        <p class="muted" style="font-size:11.5px">Version ${escapeHtml(APP_VERSION)}</p>
+        <p class="muted" style="font-size:11.5px" id="aboutVersion">Version ${escapeHtml(APP_VERSION)} · build ${escapeHtml(String(APP_BUILD))}</p>
       </div>
     `;
     const intro = "Hi, I'm using seiGEN Commerce Lite and would like to get in touch.";
