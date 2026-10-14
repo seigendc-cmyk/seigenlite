@@ -19,7 +19,21 @@
     // branches joined to the business on seiGEN are destinations too (dispatch-srv.js)
     const joined = (typeof dsDestinationNames==="function"? dsDestinationNames() : [])
       .filter(n=>!reg.some(b=>sameBranchName(b.name,n))).map(n=>({ name:n, whatsapp:"" }));
-    return joined.length? reg.concat(joined).sort((a,b)=>a.name.localeCompare(b.name)) : reg;
+    // srv: this name is a branch of the business on seiGEN (same name, ignoring
+    // case, spaces and punctuation), so a dispatch to it goes through seiGEN;
+    // otherwise it's a local-only name (file only).
+    return reg.concat(joined).map(b=>Object.assign({}, b, { srv: !!(typeof dsBranchFor==="function" && dsBranchFor(b.name)) }))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+  }
+  // The dialog's choices: seiGEN's branches first, then names only this device
+  // knows (from Destination branches or an old file merge), marked file only.
+  function destinationOptionsHtml(dests, selected){
+    const opt = (b, label)=>`<option value="${escapeHtml(b.name)}" ${b.name===selected?"selected":""}>${escapeHtml(label)}</option>`;
+    const onSrv = typeof dsEnabled==="function" && dsEnabled();
+    if(!onSrv) return dests.map(b=>opt(b, b.name)).join("");
+    const srv = dests.filter(b=>b.srv), local = dests.filter(b=>!b.srv);
+    return (srv.length? `<optgroup label="Through seiGEN">${srv.map(b=>opt(b, b.name)).join("")}</optgroup>` : "")
+      + (local.length? `<optgroup label="File only (not on seiGEN)">${local.map(b=>opt(b, b.name+" (file only)")).join("")}</optgroup>` : "");
   }
   function branchRegisterCardHtml(){
     ensureSelfInRegister();
@@ -31,6 +45,11 @@
         ${rows.map(b=>`
           <div class="product-row" style="align-items:flex-start">
             <div style="flex:1;min-width:0"><div class="pname">${escapeHtml(b.name)}</div><div class="pmeta">${escapeHtml(b.whatsapp||"no WhatsApp number")}</div>
+              ${(!sameBranchName(b.name, currentBranch()) && typeof dsEnabled==="function" && dsEnabled())
+                ? (dsBranchFor(b.name)
+                  ? `<div class="pmeta reg-srv" style="color:#027a48">On seiGEN: dispatches go through seiGEN.</div>`
+                  : `<div class="pmeta reg-srv" style="color:#b54708">Not a branch on seiGEN: Delivery Notes to it are file only.</div>`)
+                : ""}
               ${sameBranchName(b.name, currentBranch())? "" : catalogueRegisterExtras(b)}</div>
             <div style="display:flex;flex-direction:column;gap:4px;flex:none">
               ${sameBranchName(b.name, currentBranch())? "" : (destinationLock(b.name)
@@ -239,14 +258,27 @@
     const branch = currentBranch();
     const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
     if(products.length===0){ alert("No products in this branch to dispatch."); return; }
-    const dests = branchDestinations();
-    // Branches B1 (the joining fix): fetch the business's branch list now, for this screen's next opening
-    if(typeof dsRefreshBranches==="function" && typeof dsEnabled==="function" && dsEnabled() && isOnline()) dsRefreshBranches().then(()=>persist()).catch(()=>{});
+    let dests = branchDestinations();
     let lines = [];            // { product, qty:"" }
     let query = "";
     let stage = "edit";
 
     const wrap = openModal("Dispatch Stock", "");
+    // seiGEN's branch list, fetched now; when it lands while this window is
+    // open, the choices follow it at once (a branch that joined a minute ago
+    // moves to "Through seiGEN"; v20/v21 could show File only until the next
+    // 6-hourly refresh, and v22 only from the next opening).
+    if(typeof dsRefreshBranches==="function" && typeof dsEnabled==="function" && dsEnabled() && isOnline())
+      dsRefreshBranches().then(()=>{
+        persist();
+        const nd = branchDestinations();
+        if(JSON.stringify(nd)===JSON.stringify(dests)) return;
+        dests = nd;
+        if(stage==="edit" && wrap.isConnected){
+          const s = body.querySelector("#doSearch");
+          renderEdit(!!s && document.activeElement===s);
+        }
+      }).catch(()=>{});
     const body = wrap.querySelector(".modal-body");
     let toName = "";
     let internalRef = "";                    // Phase 2: the shop's own optional reference ("Internal ref.")
@@ -301,7 +333,7 @@
         <label style="margin-top:0">Destination branch</label>
         <select class="field" id="doDest">
           <option value="">Choose a branch…</option>
-          ${dests.map(b=>`<option value="${escapeHtml(b.name)}" ${b.name===toName?"selected":""}>${escapeHtml(b.name)}</option>`).join("")}
+          ${destinationOptionsHtml(dests, toName)}
         </select>
         <label>Internal ref. (optional)</label>
         <input class="field" id="doRef" maxlength="${INTERNAL_REF_MAX}" value="${escapeHtml(internalRef)}" placeholder="Your own reference, e.g. a PO or order number" autocomplete="off">
@@ -332,7 +364,9 @@
         <div id="doErr" style="color:#b42318;font-size:12.5px;margin-top:6px"></div>
         <button class="btn btn-primary" id="doReview" style="margin-top:8px">Review</button>`;
       const dest = body.querySelector("#doDest"), search = body.querySelector("#doSearch");
-      dest.onchange = ()=>{ const was = !!srvFor()+"|"+fileOnly(); toName = dest.value; if(!!srvFor()+"|"+fileOnly()!==was) renderEdit(); };
+      // which seiGEN branch, not just whether: Norton -> Harare must redraw "Goes through seiGEN to ..."
+      const destKey = ()=> (srvFor()? srvFor().id : "")+"|"+fileOnly();
+      dest.onchange = ()=>{ const was = destKey(); toName = dest.value; if(destKey()!==was) renderEdit(); };
       const refEl = body.querySelector("#doRef");
       refEl.oninput = ()=>{ internalRef = refEl.value; };
       [["doDelCost","cost"],["doDelCur","currency"],["doDelCarrier","carrier"],["doDelRef","ref"]].forEach(([id,k])=>{

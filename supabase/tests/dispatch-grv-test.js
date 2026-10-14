@@ -30,7 +30,7 @@ const uuid = () => crypto.randomUUID();
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261018120000_supplier_grv.sql', '20261018180000_customers_wholesale.sql', '20261019120000_trial_rules.sql', '20261020120000_server_time.sql', '20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql', '20261023120000_admin_passcode_from_main.sql', '20261023180000_update_app_first_message.sql', '20261024120000_branch_stock.sql']) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261018120000_supplier_grv.sql', '20261018180000_customers_wholesale.sql', '20261019120000_trial_rules.sql', '20261020120000_server_time.sql', '20261021120000_billing_b.sql', '20261022120000_catalogue_merge_links.sql', '20261023120000_admin_passcode_from_main.sql', '20261023180000_update_app_first_message.sql', '20261024120000_branch_stock.sql', '20261025120000_min_app_build.sql']) });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   async function as(claims, sql, p) {

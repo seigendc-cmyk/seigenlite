@@ -11,7 +11,8 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v23 — Updates: an open app looks for a new version every 30 minutes, when the internet comes back and when it comes back to the screen; it installs it by itself when the till is idle (Start screen, or an empty Sales screen untouched for 2 minutes; never with items in the cart or a window open); a clearer banner ("Update ready (build N)", Update now, ✕ hides it for an hour); More → About shows the build, with Check for updates; seiGEN's minimum build (20261025120000) shows a red "This app must be updated" bar
+// build: v24 — Dispatch: the destination list follows seiGEN's branch list while the dialog is open (a branch that just joined moves to "Through seiGEN" at once); names only this device knows are grouped and marked "(file only)"; Destination branches says which names are on seiGEN; "Goes through seiGEN to ..." names the branch just chosen (it kept the first one)
+// v23: Updates: an open app looks for a new version every 30 minutes, when the internet comes back and when it comes back to the screen; it installs it by itself when the till is idle (Start screen, or an empty Sales screen untouched for 2 minutes; never with items in the cart or a window open); a clearer banner ("Update ready (build N)", Update now, ✕ hides it for an hour); More → About shows the build, with Check for updates; seiGEN's minimum build (20261025120000) shows a red "This app must be updated" bar
 // v22: Branches B1: stock by branch (each registered till of a business with 2+ tills sends its own stock figures to seiGEN; a branch = the sum of its tills); main: an Other branches column on Products, More → Stock by branch with each till's own count, a warning when two tills look like copies, value at main's cost; remotes: More → Other branches (quantities and dispatches, no costs); the Product List lists joined branches; the branch list refreshes at every check-in; "too old to add terminals" in plain words (UPDATE_MAIN_FIRST)
 // v21: Admin passcode from the main branch: a joined device's Admin passcode is set on a main-branch till (with the join code, or "Set its Admin passcode" on its row) and arrives as a check value, never the passcode; a joined device can't make its own first Admin passcode; receiving in plain words (the sender's list says "Received at <branch> (their GRV)", Receive stock names this device and shows each line before -> after, Import GRV says what a Delivery Note file is for)
 // v20: Billing-B: a remote branch joins with a join code at setup (no code-less remote set-up); Register refuses a business already registered (same name and phrase); a till follows its business when seiGEN merges a duplicate; the Dispatch dialog and each Delivery Note say "File only: not through seiGEN" and why
@@ -121,7 +122,7 @@ self.addEventListener("activate", (event) => {
 // ever takes over a page that isn't mid-sale.
 // "GET_BUILD" (v23): the banner asks a waiting worker which build it brings.
 // SW_BUILD must equal the "// build: vN" line above (build.js checks).
-const SW_BUILD = 23;
+const SW_BUILD = 24;
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
   else if (event.data === "GET_BUILD" && event.ports && event.ports[0]) event.ports[0].postMessage({ build: SW_BUILD });
