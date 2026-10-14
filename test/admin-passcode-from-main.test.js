@@ -15,7 +15,11 @@
 //     its next check-in ("Check now"), and replaces a passcode someone set there;
 //   - extra tills of the main branch follow the same rule; the main branch's
 //     T1 keeps its own Admins;
-//   - an older main build's code: "Update the main branch till first".
+//   - an older main build's code: "Update the main branch till first";
+//     an app too old to send the check value: "This version of the app is too
+//     old to add terminals" (20261023180000);
+//   - a main till with no Admin passcode of its own is stopped before it asks
+//     seiGEN: "Set an Admin passcode for this till first".
 "use strict";
 const assert = require("assert");
 const crypto = require("crypto");
@@ -40,6 +44,7 @@ async function waitFor(cond, what){
   const pg = await newPglite();
   await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261023120000_admin_passcode_from_main.sql"]) });
   await pg.exec(MIG);
+  await pg.exec(fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261023180000_update_app_first_message.sql"), "utf8"));
   // one database call at a time: an app's background call (role anon) must not overlap the test's own reads
   let lock = Promise.resolve();
   const serial = (fn)=>{ const run = lock.then(fn, fn); lock = run.catch(()=>{}); return run; };
@@ -214,10 +219,29 @@ async function waitFor(cond, what){
     assert.throws(()=> T2.api.saveStaffMember({ name:"Self Made", role:"Admin", passcode:"2222", pin:"4823" }), /Enter the current Admin passcode/);
   });
 
-  await t("an older main build (no check value): 'Update the main branch till first'", async ()=>{
+  await t("a main till with no Admin passcode of its own: 'Set an Admin passcode for this till first', and seiGEN isn't asked", async ()=>{
+    const N = till("No Admin", { install_id:"NOADM", branch_name:"Borrowdale", branch_id:"B-BORROW01", shop_name:"Plain Shop", secret_phrase:"Plain Phrase" });
+    assert.ok((await N.api.registerMainBranch(null)).ok);
+    assert.strictEqual(N.api.hasAdminPasscode(), false);
+    let asked = 0; const real = N.ctx.fetch;
+    N.hook("fetch", async (url, opts)=>{ if(/cl_branch_issue_join_code/.test(String(url))) asked++; return real(url, opts); });
+    const codesBefore = (await q("select count(*)::int c from cl_branch_join_codes"))[0].c;
+    closeModals(N); N.api.openAddTerminalModal();
+    fill(N, { termAddMain:"", termAddNew:"new-till-1", termAddNew2:"new-till-1" });
+    await $(N, "termAddIssue").onclick();
+    assert.strictEqual(text($(N, "termAddStatus")), "Set an Admin passcode for this till first: Settings → Staff.");
+    assert.strictEqual($(N, "termAddIssue").disabled, false, "the button works again");
+    assert.strictEqual($(N, "termAddCode"), null, "no code");
+    assert.strictEqual(asked, 0, "seiGEN wasn't asked");
+    assert.strictEqual((await q("select count(*)::int c from cl_branch_join_codes"))[0].c, codesBefore);
+    closeModals(N);
+  });
+
+  await t("an app too old to send the check value: 'This version of the app is too old to add terminals'", async ()=>{
     const r = await M.api.issueJoinCode({ newBranchName:"Avondale" });
     assert.strictEqual(r.ok, false);
-    assert.strictEqual(M.api.terminalProblemText(r), "Update the main branch till first.");
+    assert.match(String(r.message||""), /^UPDATE_MAIN_FIRST: This version of the app is too old to add terminals. Update this app, then try again./, "the server's own words (for apps that show them)");
+    assert.strictEqual(M.api.terminalProblemText(r), "This version of the app is too old to add terminals. Update this app, then try again.");
     // a code made before the migration (no check value) is refused at the joining device
     const br = (await q("select id from cl_branches where name = 'Harare'"))[0].id, mt = M.api.getSetting("terminal_id", "");
     await q(`insert into cl_branch_join_codes (branch_id, code_hash, issued_by_terminal, expires_ts) values ($1, encode(extensions.digest('OLDCODE1', 'sha256'), 'hex'), $2, now() + interval '1 day')`, [br, mt]);

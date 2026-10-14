@@ -1,6 +1,6 @@
 # Multi-branch visibility and stock management: Stage A design
 
-Status: **design answered by the owner on 2026-10-13** (see "Owner decisions" at the end). B1 waits for one answer: how a multi-till branch's stock is counted.
+Status: **design answered by the owner on 2026-10-13** (see "Owner decisions" at the end). Multi-till branches answered on 2026-10-14: **A, the sum of the tills** (each till's own figure under the branch total on main, amber warning for copies); shared stock (C) noted as a later option.
 Date: 2026-10-13. Branch `activation-v2`.
 
 Every fact below comes from the repo (file:line) or from a read-only look at live (counts and short ids only). Labels: **VERIFIED** (seen in code or on live), **ASSUMED** (my reading, not proven), **BLOCKED** (I can't see it from here), **PROPOSED** (design).
@@ -157,7 +157,7 @@ Schema: src/db.js:56-314; added columns: :315-518.
 3. **In a `local` branch with several tills, each till keeps its own stock** (corrected 2026-10-13; an earlier draft said only the stock holder's counts).
    - A sale on T2 lowers T2's stock only. A T2 with no stock is told: "Receive stock on this till, or ask the main till to start shared stock for the branch" (src/pos.js:86-97).
    - The "stock holder" (the earliest active till, docs/multi-terminal/phase3b-design.md:98-99) matters only when **shared stock** is started: its stock seeds the branch.
-   - How a multi-till branch's stock is counted is **open: see "Multi-till branches" below**. Mandie Harare has 3 tills.
+   - How a multi-till branch's stock is counted: **A, the sum of the tills (owner, 2026-10-14): see "Multi-till branches" below**. Mandie Harare has 3 tills.
 4. **Uncommitted work in this folder:**
    - v21, "Admin passcode from main", Stage B, plus the receiving-wording fix;
    - 24 changed and 7 new files, migration `20261023120000` not applied.
@@ -210,7 +210,7 @@ cl_till_stock_push(
   - **Per branch:** name, is_main, stock_mode, `as_of` (the "last updated" time), and rows `{product_key, cat_uid, code, name, qty, low}`. **Never cost.**
   - **The branch figure:**
     - for a `shared` branch: `cl_branch_stock.total`;
-    - for a `local` branch: **waiting for your answer** on multi-till branches (see "Multi-till branches" below; recommended: the sum of the tills).
+    - for a `local` branch: **the sum of its active tills' own figures** (owner, 2026-10-14; see "Multi-till branches" below).
   - **Main callers only** also get the other tills' own figures, labelled "Till T2 (own count)".
 
 **The device (B1):**
@@ -689,7 +689,7 @@ One page, filtered by branch, type, date and person. It lists:
 | 15 | **Log sign-ins and Admin passcode use** (B5) | as §4 |
 | 16 | All other questions: as recommended | none |
 
-## Multi-till branches: how should a branch's stock be counted? (WAITING for your answer)
+## Multi-till branches: how should a branch's stock be counted? (ANSWERED 2026-10-14: A)
 
 **How it works today (VERIFIED):**
 - In a normal (`local`) branch, **each till keeps its own stock list**.
@@ -713,4 +713,6 @@ One page, filtered by branch, type, date and person. It lists:
 
 **To check on Mandie Harare (T1, T2, T3) and KNIX Phones (5 active tills, one branch):** on each till, open Products and look at 2 or 3 products. If T2 and T3 show the **same numbers as T1**, they were loaded with copies, and A would count them 3 times there until those tills are counted.
 
-**STOP: waiting for your answer (A, B or C) before B1.** Nothing for B1 is built yet.
+**Owner's answer (2026-10-14): A.** "Add up the tills, show each till's own figure under the branch total on main, and show the amber warning when tills look like copies of the same list." Built in B1.
+
+**Later option (not planned yet): C, shared stock**, branch by branch, for one shop floor with several tills, once the "no shared stock on real branches" rule is lifted. A branch already in shared mode shows seiGEN's figure in B1.

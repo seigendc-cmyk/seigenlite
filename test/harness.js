@@ -75,12 +75,12 @@ function makeApp(settings, opts){
     const IDB_NAME="x",IDB_STORE="x",IDB_KEY="x"; let route="", cart=[];
     let sessionStaffId=null, accessStep=1, accessSelectedStaffId=null, accessPinDigits="", accessError="";
     let moreTab="help", settingsUnlocked=false, drawerOpen=false, appliedVoucher=null;
-    let stocktakeReportId=null, stocktakeQuery="";
+    let stocktakeReportId=null, stocktakeQuery="", plistQuery="", plistBranch="";
     function render(){} async function persist(){ persistCount++; }
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js","branch-stock.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -135,6 +135,9 @@ function makeApp(settings, opts){
         marketProductRows, marketCleanSelection, marketAddToSelection, marketSavedSelection, MARKET_OPS, MARKET_MAX_PRODUCTS,
         dsUuid, dsHex, dsEnabled, dsBranches, dsRefreshBranches, dsBranchFor, dsFileOnlyReason, dsDestinationNames, dsCached, dsCachedOne, dsPending, dsSendPending, dsPull, dsAfterCheckin, dsPostGrv, dsCancel, dsWriteOff, dsResolveExtra, dsRedispatch, dsReconcile, dsIncomingWaiting, dsOpenIssues, dsInTransit, dsFileCheck, dsLandedCosts, dsCountProblems, dsCreateProduct, dsFindProduct, dsProblems, dsStatusText,
         sgSuppliers, sgSupplier, sgSaveSupplier, sgLanded, sgPostGrv, sgSendPending, sgPull, sgAfterCheckin, sgInvoiceKey, groupPurchases,
+        bsPush, bsPull, bsPullDispatches, bsDispatches, bsBranches, bsOtherBranches, bsOtherQty, bsRowFor, bsCopies, bsValueAtCost, bsUpdatedText, bsShowOtherColumn, bsTabAvailable,
+        bsJoinedOnlyBranchNames, bsBranchByName, bsLocalRows, bsAfterCheckin, bsSoon, renderBranchStock, openBsProductModal, renderProductList,
+        setPlistBranch:(b)=>{ plistBranch=b; }, plistResults,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.
   // Tests must never reach it, so every app instance instead reads the old

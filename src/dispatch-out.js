@@ -240,6 +240,8 @@
     const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
     if(products.length===0){ alert("No products in this branch to dispatch."); return; }
     const dests = branchDestinations();
+    // Branches B1 (the joining fix): fetch the business's branch list now, for this screen's next opening
+    if(typeof dsRefreshBranches==="function" && typeof dsEnabled==="function" && dsEnabled() && isOnline()) dsRefreshBranches().then(()=>persist()).catch(()=>{});
     let lines = [];            // { product, qty:"" }
     let query = "";
     let stage = "edit";

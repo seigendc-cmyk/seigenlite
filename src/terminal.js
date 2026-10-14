@@ -179,7 +179,7 @@
     }
     const m = String(r.message||"");
     if(/JOIN_LOCKED/.test(m)) return "Too many wrong codes. Wait an hour, then try again.";
-    if(/UPDATE_MAIN_FIRST/.test(m)) return "Update the main branch till first.";
+    if(/UPDATE_MAIN_FIRST/.test(m)) return "This version of the app is too old to add terminals. Update this app, then try again.";
     if(/APP_UPDATE_NEEDED/.test(m)) return "Update this app first, then join again. Your join code is still valid.";
     if(/ADMIN_SEED_INVALID/.test(m)) return "That Admin passcode couldn't be prepared. Try again.";
     if(/sets its own Admin passcode/i.test(m)) return "This till's own Admin passcode is set in Settings → Staff.";

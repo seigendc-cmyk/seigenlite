@@ -345,13 +345,17 @@
     { id:"about", label:"About" },
     { id:"directory", label:"Directory" },
     { id:"productlist", label:"Product List" },
+    { id:"branches", label:"Stock by branch", remoteLabel:"Other branches", needs:()=> typeof bsTabAvailable==="function" && bsTabAvailable() },   // Branches B1
     { id:"stocktake", label:"Stocktake", remoteHidden:true },
     { id:"requests", label:"Requests" },
     { id:"purchasing", label:"Purchasing", remoteHidden:true },
     { id:"reportwriter", label:"Report Writer", remoteHidden:true },
     { id:"settings", label:"Settings" },
   ];
-  function moreTabsAvailable(){ return MORE_TABS.filter(t=> !(t.remoteHidden && isRemote())); }
+  function moreTabsAvailable(){
+    return MORE_TABS.filter(t=> !(t.remoteHidden && isRemote()) && !(t.needs && !t.needs()))
+      .map(t=> t.remoteLabel && isRemote()? Object.assign({}, t, { label:t.remoteLabel }) : t);
+  }
   function renderMore(main){
     const tabs = moreTabsAvailable();
     const active = tabs.find(t=>t.id===moreTab) || tabs[0];
@@ -378,6 +382,7 @@
     else if(moreTab==="about") renderAbout(body);
     else if(moreTab==="directory") renderDirectory(body);
     else if(moreTab==="productlist") renderProductList(body);
+    else if(moreTab==="branches"){ if(typeof bsTabAvailable==="function" && bsTabAvailable()) renderBranchStock(body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="stocktake"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderStocktake(body); }
     else if(moreTab==="requests") renderStockRequests(body);
     else if(moreTab==="purchasing"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderPurchasing(body); }

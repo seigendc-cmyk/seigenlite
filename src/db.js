@@ -301,6 +301,15 @@
       voucher_id INTEGER, exchange_sale_id INTEGER, ref TEXT DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS ix_credit_note_refunds_cn ON credit_note_refunds(cn_id);
+    -- Stock by branch (Branches B1, branch-stock.js): every branch's figures as
+    -- pulled from seiGEN (one row per branch, the server's JSON), and what this
+    -- till last sent per product. Local only: mergeDatabase never reads them.
+    CREATE TABLE IF NOT EXISTS br_stock(
+      branch_id TEXT PRIMARY KEY, name TEXT, is_main INTEGER DEFAULT 0, json TEXT NOT NULL, pulled_ts TEXT
+    );
+    CREATE TABLE IF NOT EXISTS bs_sent(
+      product_key TEXT PRIMARY KEY, sig TEXT
+    );
     CREATE TABLE IF NOT EXISTS print_queue(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT DEFAULT '',
@@ -622,6 +631,7 @@
       try{ run("ROLLBACK TO move_stock"); run("RELEASE move_stock"); }catch(_){}
       throw e;
     }
+    if(typeof bsSoon==="function") bsSoon();       // Branches B1: send this till's changed figure in a minute (branch-stock.js)
     return delta;
   }
   // For the paths that INSERT a product with its starting stock: the stock is

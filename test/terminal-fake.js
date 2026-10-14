@@ -59,7 +59,7 @@ async function stubTerminals(target, opts){
       const myBranch = me && state.branches.find(x=>x.id===me.branch);
       if(!myBranch || !myBranch.is_main) throw err("Only a main-branch terminal can add terminals");
       // v21 (20261023120000): the code carries the new device's Admin check value
-      if(!seedOk(b.p_admin_salt, b.p_admin_check, b.p_admin_rounds)) throw err("UPDATE_MAIN_FIRST: Update the main branch till first. It sets the new device's Admin passcode when it issues the code.");
+      if(!seedOk(b.p_admin_salt, b.p_admin_check, b.p_admin_rounds)) throw err("UPDATE_MAIN_FIRST: This version of the app is too old to add terminals. Update this app, then try again.");
       let br = b.p_branch_id? state.branches.find(x=>x.id===b.p_branch_id)
         : state.branches.find(x=>x.business===me.business && key(x.name)===key(b.p_new_branch_name));
       if(!br){ br = { id:id("br"), business:me.business, name:b.p_new_branch_name, is_main:false }; state.branches.push(br); }

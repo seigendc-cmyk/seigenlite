@@ -183,9 +183,10 @@
     // gets change-price in branch_edits mode.
     const rowActions = remote? (priceEdit? ["price","adjust"] : ["adjust"]) : ["edit","restock","adjust"];
     if(products.length===0) return `<p class="muted" style="padding:10px 4px">No products match.</p>`;
+    const bsCol = typeof bsShowOtherColumn==="function" && bsShowOtherColumn();   // Branches B1: main sees the other branches' stock
     return `
       <table class="simple">
-        <tr><th></th><th>Item</th><th>Shelf</th><th>Price</th><th>Stock</th><th></th></tr>
+        <tr><th></th><th>Item</th><th>Shelf</th><th>Price</th><th>Stock</th>${bsCol? `<th class="bs-col" title="The other branches' stock on seiGEN (tap a figure for each branch)">Other branches</th>` : ""}<th></th></tr>
         ${products.map(p=>`
           <tr>
             <td><input type="checkbox" class="catCheck" data-cat="${p.id}"></td>
@@ -193,6 +194,7 @@
             <td>${escapeHtml(p.shelf||"—")}</td>
             <td>${currency}${p.price.toFixed(2)}</td>
             <td>${(typeof stockLineText==="function" && stockLineText(p))? `<span class="ss-stock">${escapeHtml(stockLineText(p))}</span>` : p.stock<0? `<span class="pill neg">${p.stock} below zero</span>` : p.stock+(p.stock<=p.low_threshold?` <span class="pill low">low</span>`:"")}</td>
+            ${bsCol? `<td class="bs-col">${bsCellHtml(p)}</td>` : ""}
             <td><button class="btn btn-sm btn-outline dots-btn" data-rowmenu="${p.id}" data-actions="${rowActions.join(" ")}" title="Actions">⋮</button></td>
           </tr>`).join("")}
       </table>`;
@@ -211,6 +213,7 @@
     persist(); render();
   }
   function wireProductRowButtons(scope, remote){
+    if(!remote && typeof wireBsCells==="function") wireBsCells(scope);   // Branches B1: the Other branches column is main-only
     scope.querySelectorAll("[data-rowmenu]").forEach(b=>{
       b.onclick=()=>{
         const pid = +b.dataset.rowmenu;
@@ -331,26 +334,49 @@
           <td>${skuNameCellScreen(p.sku,p.name)}</td>
           <td>${escapeHtml(p.shelf||"—")}</td>
           <td>${escapeHtml(p.branch)}</td>
-          <td>${currency}${p.price.toFixed(2)}</td>
+          <td>${p.price==null? "—" : currency+p.price.toFixed(2)}</td>
           <td>${p.stock}</td>
         </tr>`;
       }).join("")}
     </table>`;
   }
+  // Branches B1 (the joining fix): a branch that joined this business on seiGEN
+  // is in the list even when no file merge brought its rows here; its products
+  // are its stock figures from seiGEN (quantities only, read-only).
+  function plistResults(){
+    const local = listBranches();
+    const joined = typeof bsJoinedOnlyBranchNames==="function"? bsJoinedOnlyBranchNames(local) : [];
+    if(plistBranch && joined.some(n=>n===plistBranch)){
+      const b = bsBranchByName(plistBranch);
+      const q = String(plistQuery||"").trim().toLowerCase();
+      return (b? b.rows||[] : []).filter(r=> !q || String(r.name||"").toLowerCase().includes(q) || String(r.code||"").toLowerCase().includes(q))
+        .map(r=>({ sku:r.code||"", name:r.name, shelf:"", branch:b.name, price:null, stock:Number(r.qty)||0, low_threshold:Number(r.low)||0 }));
+    }
+    return searchProducts(plistQuery, plistBranch);
+  }
+  function plistBranchSelectHtml(){
+    const local = listBranches();
+    const joined = typeof bsJoinedOnlyBranchNames==="function"? bsJoinedOnlyBranchNames(local) : [];
+    return `<select class="field" id="plistBranchSel">
+      <option value="" ${plistBranch===""?"selected":""}>All branches</option>
+      ${local.map(b=>`<option value="${escapeHtml(b)}" ${b===plistBranch?"selected":""}>${escapeHtml(b)}</option>`).join("")}
+      ${joined.map(b=>`<option value="${escapeHtml(b)}" ${b===plistBranch?"selected":""}>${escapeHtml(b)} (stock from seiGEN)</option>`).join("")}
+    </select>`;
+  }
   function renderProductListResultsOnly(){
-    const results = searchProducts(plistQuery, plistBranch);
+    const results = plistResults();
     const target = document.getElementById("plistResults");
     if(!target) return;
     target.innerHTML = productListRowsHtml(results);
   }
   function renderProductList(main){
-    const results = searchProducts(plistQuery, plistBranch);
+    const results = plistResults();
     main.innerHTML = `
       <div class="search-wrap">
         <span class="ic">🔎</span>
         <input class="field" id="plistSearch" placeholder="Search products or SKU…" value="${escapeHtml(plistQuery)}">
       </div>
-      <label>Branch</label>${branchSelectHtml("plistBranchSel", plistBranch)}
+      <label>Branch</label>${plistBranchSelectHtml()}
       <div style="height:10px"></div>
       <div id="plistResults">${productListRowsHtml(results)}</div>
     `;

@@ -484,8 +484,8 @@
   }
   function dsAfterCheckin(){
     if(!dsEnabled()) return Promise.resolve();
-    const last = Date.parse(getSetting("ds_branches_ts","")) || 0;
-    const br = Date.now()-last > 6*3600000? dsRefreshBranches().then(()=>setSetting("ds_branches_ts", new Date().toISOString())) : Promise.resolve();
+    // Branches B1 (the joining fix): the business's branch list at EVERY check-in, so a branch that joined a minute ago is there
+    const br = dsRefreshBranches().then(()=>setSetting("ds_branches_ts", new Date().toISOString()));
     return br.then(()=>dsPull()).catch(()=>{});
   }
   if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", ()=>{ if(dsEnabled()) dsPull().catch(()=>{}); });
