@@ -348,13 +348,15 @@
     { id:"branches", label:"Stock by branch", remoteLabel:"Other branches", needs:()=> typeof bsTabAvailable==="function" && bsTabAvailable() },   // Branches B1
     { id:"stocktake", label:"Stocktake" },   // every branch counts its own stock (Branches addendum §R7)
     { id:"requests", label:"Requests" },
+    { id:"itredorders", label:"Orders Fulfillment", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },      // iTred orders (itred-orders.js)
+    { id:"itredfeedback", label:"Marketplace Feedback", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },
     { id:"purchasing", label:"Purchasing", remoteHidden:true },
     { id:"reportwriter", label:"Report Writer", remoteHidden:true },
     { id:"settings", label:"Settings" },
   ];
   function moreTabsAvailable(){
     return MORE_TABS.filter(t=> !(t.remoteHidden && isRemote()) && !(t.needs && !t.needs()))
-      .map(t=> t.remoteLabel && isRemote()? Object.assign({}, t, { label:t.remoteLabel }) : t);
+      .map(t=> t.remoteLabel && isRemote()? Object.assign({}, t, { label:t.remoteLabel }) : t.dynLabel? Object.assign({}, t, { label:itredMoreLabel(t.id) }) : t);
   }
   function renderMore(main){
     const tabs = moreTabsAvailable();
@@ -385,6 +387,7 @@
     else if(moreTab==="branches"){ if(typeof bsTabAvailable==="function" && bsTabAvailable()) renderBranchStock(body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="stocktake") renderStocktake(body);
     else if(moreTab==="requests") renderStockRequests(body);
+    else if(moreTab==="itredorders" || moreTab==="itredfeedback"){ if(typeof itredAvailable==="function" && itredAvailable()) renderItredMoreTab(moreTab, body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="purchasing"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderPurchasing(body); }
     else if(moreTab==="reportwriter"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderReportWriter(body); }
     else if(moreTab==="settings") renderSettings(body);

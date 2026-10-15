@@ -48,6 +48,7 @@
       ${typeof tillStockNoteHtml==="function" && tillStockPending()? `<div style="padding:12px 24px 0">${tillStockNoteHtml()}</div>` : ""}
       ${typeof sharedStockOfflineBadgeHtml==="function" && sharedStockOfflineBadgeHtml()? `<div style="padding:12px 24px 0">${sharedStockOfflineBadgeHtml()}</div>` : ""}
       ${dcMessagesBannerHtml()}
+      ${typeof itredBannerHtml==="function" && itredBannerHtml()? `<div style="padding:12px 24px 0">${itredBannerHtml()}</div>` : ""}
       <div class="desktop-sales">
         <div class="ds-main">
           <div class="ds-searchbar">
@@ -171,6 +172,7 @@
   function wireDesktopSales(main){
     wireShiftBlockBanner();
     wireDcMessagesBanner();
+    if(typeof wireItredBanner==="function") wireItredBanner();
     const search = document.getElementById("dsSearch");
     search.oninput = (e)=>{ searchQuery = e.target.value; window._dsListScroll = 0; const l = main.querySelector(".ds-main"); if(l) l.scrollTop = 0; refreshDesktopRows(); };
     wireDesktopRowActions(document.getElementById("dsRows"));

@@ -1,5 +1,6 @@
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
+  // @itred-shared begin — build.js copies every block between these markers into iTred Market Place (one search rule for both)
   // Whitespace-split, lower-cased, empty-entry-free token list — the one
   // tokenization rule every any-order search in this app shares. Extracted
   // out of matchesAnyOrder() below (Stocktake Multi-Token Search Engine
@@ -22,6 +23,7 @@
     const hay = (searchableText||"").toLowerCase();
     return tokens.every(t=> hay.includes(t));
   }
+  // @itred-shared end
 
   // ---- Phone numbers ----
   // One number, one spelling: digits, country code first, no "+"
@@ -49,6 +51,7 @@
     return n.length>=8? "+"+n.slice(0,5)+"•••"+n.slice(-4) : (n? "•••"+n.slice(-2) : "");
   }
 
+  // @itred-shared begin
   // ---- Product search (POS fixes, docs/pos/pos-fixes-design.md §4) ----
   // ONE matcher for every product search box (Sell, desktop Sales, Products,
   // Stocktake and the product pickers): the query is split into terms and a
@@ -148,6 +151,7 @@
       return d.length>=3 && phones.some(p=> p.includes(d) || (d[0]==="0" && d.length>=4 && p.includes(d.slice(1))));
     });
   }
+  // @itred-shared end
 
   // Small outline SVG icons (stroke="currentColor" so they pick up the
   // button's own color, e.g. orange on btn-outline) used in place of

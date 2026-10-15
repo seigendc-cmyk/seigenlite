@@ -1,33 +1,31 @@
 // Run: node --no-warnings test/itred-orders-e2e.test.js
 // (build first: node build.js --itred)
-// iTred purchase orders — draft orders built from Market Space, and sending
-// them — in a REAL browser (Playwright/Chromium) against
-// dist-itred/index.html:
-//   * "Add to order" on live listings; one draft per vendor, several
-//     vendors' drafts side by side; no button for a vendor without a
-//     WhatsApp number (the order can't reach them)
-//   * #/orders: quantities, per-currency totals, remove, discard, custom
+// iTred orders in a REAL browser (Playwright/Chromium) against
+// dist-itred/index.html (docs/itred/itred-upgrade-design.md E6):
+//   * "Add" on live listings; one draft per vendor, several vendors' drafts
+//     side by side; no Add for a vendor without a WhatsApp number
+//   * Your Orders: quantities, per-currency totals, remove, discard, custom
 //     "please source this" requests, shop/customer text can't inject markup
 //   * drafts survive a reload, follow another tab's changes, and still work
 //     (with a warning) when the browser won't store them
 //   * a listed item that's no longer live is flagged and can be kept as a
-//     custom request
-//   * sending needs a signed-in customer; "Sign in to send" comes back to
-//     #/orders; nothing is written to Supabase while drafting
-//   * Send: the order and its lines are saved (granted columns only; prices
-//     from the database), then the Sales Order PDF is shared — or, where the
-//     browser can't share files, downloaded with a WhatsApp chat link;
-//     cancelled shares, a listing that expired meanwhile, a PDF tool that
-//     won't load and a failed save each leave things consistent
-//   * sent orders are listed from the account on any device, and "Send PDF"
-//     makes and shares the PDF again
+//     custom request; sending needs a signed-in customer
+//   * Send saves the order and its lines (granted columns only; prices from
+//     the database); no share sheet. Each sent order has Download PDF
+//     (iTred-Order-<ref>-<vendor>.pdf, a normal download, with each line's
+//     status), Share (WhatsApp with a short summary, no phone or email) and
+//     Message (one thread per order with the vendor)
+//   * the vendor's tills set what was fulfilled (the fake's vendorSetLine);
+//     the customer confirms or reports a problem per answered line; the
+//     customer can no longer record delivery
+//   * offline: the device copy of the account's orders, and the PDF
 // Supabase is the in-test fake from test/itred-fake-supabase.js. jsPDF is
-// fetched once from its pinned CDN URL and served to every page from memory.
+// the copy the site serves itself (dist-itred/jspdf-4.2.1.umd.min.js).
 "use strict";
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
-const { createFakeSupabase, listingRow } = require("./itred-fake-supabase");
+const { createFakeSupabase, listingRow, PROJECT } = require("./itred-fake-supabase");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -63,18 +61,18 @@ function catalogue(){
   ];
 }
 
-// The site's pinned jsPDF, fetched once for the whole run.
-const JSPDF_URL = fs.readFileSync(DIST, "utf8").match(/const JSPDF_URL = '([^']+)'/)[1];
-let jsPdfSource = null;
-async function serveJsPdf(page, o){
-  await page.route(JSPDF_URL, route=> (o && o.blockJsPdf && o.blockJsPdf())
-    ? route.abort()
-    : route.fulfill({ status:200, contentType:"application/javascript", headers:{ "Access-Control-Allow-Origin":"*" }, body:jsPdfSource }));
+// Makes the site's jsPDF fail to load while window.__blockJsPdf is true.
+function BLOCK_JSPDF(){
+  window.__blockJsPdf = true;
+  const orig = HTMLHeadElement.prototype.appendChild;
+  HTMLHeadElement.prototype.appendChild = function(el){
+    if(window.__blockJsPdf && el.tagName === "SCRIPT" && /jspdf/.test(el.src)){ setTimeout(()=> el.onerror && el.onerror(new Event("error")), 0); return el; }
+    return orig.call(this, el);
+  };
 }
 
-// Stands in for the phone's share sheet: records what was shared (the PDF
-// as a binary string) and, per call, can act out a cancel or a block via
-// window.__shareMode = ["AbortError", …].
+// Stands in for the phone's share sheet: records anything shared, so a test
+// can prove nothing is (Send and Download PDF never open it).
 function SHARE_STUB(){
   window.__shared = []; window.__shareMode = [];
   Object.defineProperty(navigator, "canShare", { configurable:true, value:(d)=> !!(d && d.files && d.files.length) });
@@ -99,16 +97,16 @@ async function open(browser, fake, hash, o){
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", e=> errors.push(e.message));
-  page.on("dialog", d=> d.accept());
+  page.on("dialog", d=> d.type() === "prompt" ? d.accept(page.__prompt || "") : d.accept());
   if(o.init) await page.addInitScript(o.init);
-  await serveJsPdf(page, o);
   await fake.install(page);
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   await page.goto(SITE + (hash||""));
   await page.waitForSelector(".page.active");
   return { context, page, errors };
 }
-// The Market Space card for a product, by name.
-const card = (page, name)=> page.locator("#marketResults .product-card", { has: page.locator("h4", { hasText: name }) });
+// The market row for a product, by name.
+const card = (page, name)=> page.locator("#marketList .lrow", { has: page.locator(".n", { hasText: name }) });
 async function addFromMarket(page, name){
   await card(page, name).locator("[data-add-to-order]").click();
   await card(page, name).locator("[data-in-order]").waitFor();
@@ -143,8 +141,8 @@ async function openSignedIn(browser, fake, o){
 }
 // Tariro's Boka draft: Sugar ×2, Cooking Oil ×1, a custom request ×3.
 async function buildBokaDraft(page, customName){
-  await page.goto(SITE + "#/market-space");
-  await page.waitForSelector("#marketResults .product-card");
+  await page.goto(SITE + "#/");
+  await page.waitForSelector("#marketList .lrow");
   await addFromMarket(page, "Sugar 2kg");
   await addFromMarket(page, "Cooking Oil 2L");
   await page.goto(SITE + "#/orders");
@@ -157,39 +155,59 @@ async function buildBokaDraft(page, customName){
   await page.waitForFunction((v)=> document.querySelectorAll('.po-card[data-vendor="'+v+'"] .po-line').length === 3, BOKA);
 }
 const sendBoka = (page)=> draftCard(page, BOKA).locator('[data-po-action="send"]').click();
-const sentCard = (page)=> page.locator(".po-sent").first();
+const sentCard = (page)=> page.locator(".oc").first();
+const refOf = (order)=> "PO-" + order.id.replace(/-/g,"").slice(0,8).toUpperCase();
+let browser;
+// An order already sent from Tariro's account to Boka: Sugar ×2, Oil ×1,
+// and a custom request ×3 — seeded straight into the fake, as if sent on
+// another visit — opened on Your Orders.
+async function openWithSentOrder(o){
+  o = o || {};
+  const fake = createFakeSupabase({ listings: catalogue() });
+  const r = await openSignedIn(browser, fake, o);
+  const uid = fake.users.get("tariro@example.com").id;
+  const order = { id:"9f000000-0000-4000-8000-000000000001", customer_id:uid, vendor_id:BOKA, status:o.status||"sent", pdf_url:null, completed_at:null, created_at:new Date().toISOString() };
+  fake.orders.push(order);
+  const line = (id, name, qty, custom, listing, price)=>({ id, purchase_order_id:order.id, vendor_listing_id: custom? null : listing, item_name:name,
+    unit_price: custom? null : price, currency: custom? null : "USD", quantity_requested:qty, quantity_fulfilled:0, is_custom_request:custom,
+    fulfillment_status:"outstanding", created_at:order.created_at, vendor_note:null, vendor_updated_at:null, customer_confirmed_at:null, customer_dispute:null });
+  fake.items.push(line("9f100000-0000-4000-8000-000000000001", "Sugar 2kg", 2, false, "a0000000-0000-4000-8000-000000000001", 3.5),
+                  line("9f100000-0000-4000-8000-000000000002", "Cooking Oil 2L", 1, false, "a0000000-0000-4000-8000-000000000002", 4.25),
+                  line("9f100000-0000-4000-8000-000000000003", "Brown rice 10kg", 3, true));
+  await r.page.goto(SITE + "#/orders");
+  await sentCard(r.page).waitFor();
+  return Object.assign(r, { fake, order });
+}
 const shared = (page)=> page.evaluate(()=> window.__shared);
 
 (async()=>{
-  jsPdfSource = await (await fetch(JSPDF_URL)).text();
-  assert.ok(/jsPDF/.test(jsPdfSource), "couldn't fetch "+JSPDF_URL);
-  const browser = await chromium.launch();
+  browser = await chromium.launch();
 
-  await t("'Add to order' on Market Space starts one draft per vendor; no button for a vendor without WhatsApp", async ()=>{
+  await t("'Add' on the market starts one draft per vendor; no button for a vendor without WhatsApp", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
+    const { context, page, errors } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
     assert.strictEqual(await card(page, "Bread").locator("[data-add-to-order]").count(), 0, "Mbare Bakery has no WhatsApp number");
     assert.strictEqual(await navCount(page), "");
 
     await addFromMarket(page, "Sugar 2kg");
     assert.strictEqual(await navCount(page), "1");
     assert.match(await page.textContent("#orderToast"), /Added to your order with Boka General Dealer/);
-    assert.strictEqual(await page.getAttribute("#orderToast a", "href"), "#/orders");
+    assert.strictEqual(await page.getAttribute("#orderToast a", "href"), "/orders");
     await addFromMarket(page, "Cooking Oil 2L");
     assert.strictEqual(await navCount(page), "1", "same vendor, same draft");
     await addFromMarket(page, "Cement 50kg");
     assert.strictEqual(await navCount(page), "2", "a second vendor gets its own draft");
     // An item already in a draft links to it instead of adding again.
-    assert.strictEqual(await card(page, "Sugar 2kg").locator("[data-in-order]").getAttribute("href"), "#/orders");
+    assert.strictEqual(await card(page, "Sugar 2kg").locator("[data-in-order]").getAttribute("href"), "/orders");
 
-    // List view has the same buttons.
-    await page.click("#viewListBtn");
-    const listItem = page.locator("#marketResults .product-list-item", { has: page.locator("h4", { hasText:"Airtime bundle" }) });
+    // Text only has the same buttons.
+    await page.click("#viewText");
+    const listItem = page.locator("#marketList .lrow.text", { has: page.locator(".n", { hasText:"Airtime bundle" }) });
     await listItem.locator("[data-add-to-order]").click();
     await listItem.locator("[data-in-order]").waitFor();
 
-    await page.click("#ordersNavLink");
+    await page.click('#topLinks a[href="/orders"]');
     await page.waitForSelector(".po-card");
     const vendors = await page.$$eval(".po-card h3", els=> els.map(e=>e.textContent));
     assert.deepStrictEqual(vendors.sort(), ["Boka General Dealer","Byo Hardware"]);
@@ -202,10 +220,10 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     await context.close();
   });
 
-  await t("#/orders: quantities update line and per-currency totals; bad quantities snap back; remove and discard", async ()=>{
+  await t("Your Orders: quantities update line and per-currency totals; bad quantities snap back; remove and discard", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
+    const { context, page, errors } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
     for(const n of ["Sugar 2kg","Cooking Oil 2L","Airtime bundle","Cement 50kg"]) await addFromMarket(page, n);
     await page.goto(SITE + "#/orders");
     await page.waitForSelector(".po-card");
@@ -252,8 +270,8 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
 
   await t("custom requests: added per vendor, 'vendor to quote', empty names refused, markup shown as text", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
+    const { context, page, errors } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
     await addFromMarket(page, "Sugar 2kg");
     await page.goto(SITE + "#/orders");
     await page.waitForSelector(".po-card");
@@ -283,12 +301,12 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
 
   await t("drafts survive a reload and follow changes made in another tab", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
+    const { context, page, errors } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
     await addFromMarket(page, "Sugar 2kg");
     await addFromMarket(page, "Cement 50kg");
     await page.reload();
-    await page.waitForSelector("#marketResults [data-in-order]");
+    await page.waitForSelector("#marketList [data-in-order]");
     assert.strictEqual(await navCount(page), "2");
     assert.strictEqual(await card(page, "Sugar 2kg").locator("[data-in-order]").count(), 1);
 
@@ -336,12 +354,12 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
 
   await t("when the browser won't store drafts they still work for this visit, with a warning", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await open(browser, fake, "#/market-space", { init: ()=>{
+    const { context, page, errors } = await open(browser, fake, "#/", { init: ()=>{
       Storage.prototype.setItem = function(){ throw new DOMException("blocked", "QuotaExceededError"); };
     }});
-    await page.waitForSelector("#marketResults .product-card");
+    await page.waitForSelector("#marketList .lrow");
     await addFromMarket(page, "Sugar 2kg");
-    await page.click("#ordersNavLink");
+    await page.click('#topLinks a[href="/orders"]');
     await page.waitForSelector(".po-card");
     assert.match(await page.textContent("#draftsNotSaved"), /lost if you close or reload/);
     assert.deepStrictEqual(errors, []);
@@ -350,8 +368,8 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
 
   await t("a listed item that's no longer live is flagged, blocks nothing while drafting, and can be kept as a custom request", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
+    const { context, page, errors } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
     await addFromMarket(page, "Sugar 2kg");
     await addFromMarket(page, "Cooking Oil 2L");
     // The oil listing expires; the price of sugar changes.
@@ -375,12 +393,12 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     await context.close();
   });
 
-  await t("sending needs an account: 'Sign in to send' returns to #/orders once signed in", async ()=>{
+  await t("sending needs an account: 'Sign in to send' returns to Your Orders once signed in", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
+    const { context, page, errors } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
     await addFromMarket(page, "Sugar 2kg");
-    await page.click("#ordersNavLink");
+    await page.click('#topLinks a[href="/orders"]');
     await page.waitForSelector(".po-card");
     assert.strictEqual(await page.locator('[data-po-action="send"]').count(), 0);
     await page.click("[data-po-signin]");
@@ -394,10 +412,10 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     await context.close();
   });
 
-  await t("#/orders at phone width: no sideways scrolling, controls reachable", async ()=>{
+  await t("Your Orders at phone width: no sideways scrolling, controls reachable", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await open(browser, fake, "#/market-space", { ctxOpts:{ viewport:{ width:360, height:780 } } });
-    await page.waitForSelector("#marketResults .product-card");
+    const { context, page, errors } = await open(browser, fake, "#/", { ctxOpts:{ viewport:{ width:360, height:780 } } });
+    await page.waitForSelector("#marketList .lrow");
     await addFromMarket(page, "Sugar 2kg");
     await page.goto(SITE + "#/orders");
     await page.waitForSelector(".po-card");
@@ -413,20 +431,22 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     await context.close();
   });
 
+
   // ================= Sending =================
-  await t("Send saves the order (granted columns only, database prices), shares the Sales Order PDF, and the draft becomes a sent order", async ()=>{
+  await t("Send saves the order (granted columns only, database prices); the draft becomes a sent order with PDF, Share and Message; no share sheet", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
     const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB });
     await buildBokaDraft(page, "Maize (white) 10kg ✓");
     // Another vendor's draft is left alone.
-    await page.goto(SITE + "#/market-space");
+    await page.goto(SITE + "#/");
     await addFromMarket(page, "Cement 50kg");
     await page.goto(SITE + "#/orders");
     await page.waitForSelector('[data-po-action="send"]:not([disabled])');
+    assert.match(await draftCard(page, BOKA).locator(".po-send .hint").textContent(), /The vendor sees your name and phone number\./);
     // The price changes after the draft was built: the database's wins.
     fake.listings.find(l=> l.product_name==="Sugar 2kg").price = 3.75;
     await sendBoka(page);
-    await sentCard(page).locator(".po-note.ok").waitFor();
+    await sentCard(page).locator(".note.ok").waitFor();
 
     const [poReq] = fake.requests("/rest/v1/purchase_orders", "POST");
     const user = [...fake.users.values()][0];
@@ -440,81 +460,127 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     ]);
     assert.strictEqual(po.status, "sent");
     assert.strictEqual(fake.requests("/rest/v1/purchase_orders", "PATCH").length, 0);
-
-    const ref = "PO-" + po.id.replace(/-/g,"").slice(0,8).toUpperCase();
-    const s = await shared(page);
-    assert.strictEqual(s.length, 1);
-    assert.strictEqual(s[0].name, "Sales-Order-"+ref+".pdf");
-    assert.strictEqual(s[0].type, "application/pdf");
-    assert.strictEqual(s[0].title, "Sales Order "+ref);
-    assert.match(s[0].text, new RegExp("^Hello Boka General Dealer, this is Tariro M\\. Here is my Sales Order "+ref+" from iTred Market Place \\(3 items\\)"));
-    const pdf = s[0].pdf;
-    assert.ok(pdf.startsWith("%PDF-"), "not a PDF");
-    for(const txt of ["SALES ORDER", ref, "TO (VENDOR)", "Boka General Dealer", "Harare", "WhatsApp: 0771234567",
-      "FROM (CUSTOMER)", "Tariro M", "Phone: 0772000111", "tariro@example.com",
-      "LISTED ITEMS", "Sugar 2kg", "USD 3.75", "USD 7.50", "Cooking Oil 2L", "USD 4.25", "USD 11.75",
-      "PLEASE SOURCE AND QUOTE", "To quote", "Page 1 of 1"]){
-      const esc = txt.replace(/[()\\]/g, m=> "\\"+m); // PDF string escaping
-      assert.ok(pdf.includes("("+esc+")") || pdf.includes(esc), "PDF is missing "+JSON.stringify(txt));
-    }
-    assert.ok(pdf.includes("(Maize \\(white\\) 10kg ?)"), "custom text: brackets escaped, the tick (not in the PDF font) printed as ?");
-    assert.ok(!pdf.includes("3.50"), "the page's stale price isn't used");
+    assert.deepStrictEqual(await shared(page), [], "no share sheet opens on Send");
 
     // The draft is gone, the other one stays, and the sent order shows up.
-    assert.strictEqual(await navCount(page), "1");
     assert.strictEqual(await draftCard(page, BOKA).count(), 0);
     assert.strictEqual(await draftCard(page, BYO).count(), 1);
     const stored = await page.evaluate(()=> Object.keys(JSON.parse(localStorage.getItem("itred.draftOrders.v1")).drafts));
     assert.deepStrictEqual(stored, [BYO]);
-    const cardText = (await sentCard(page).textContent()).replace(/\s+/g," ");
-    assert.match(cardText, new RegExp(ref+" · 3 items · Harare"));
-    assert.match(cardText, /Boka General Dealer/);
-    assert.match(cardText, /Listed items: USD 11\.75 plus 1 item for the vendor to quote/);
-    assert.match(await sentCard(page).locator(".po-note").textContent(), /Shared\. If you picked WhatsApp, check it went to Boka General Dealer \(0771234567\)/);
-    assert.strictEqual(await sentCard(page).locator(".po-status").textContent(), "Sent");
-    const chat = await sentCard(page).locator("[data-order-chat]").getAttribute("href");
-    assert.match(chat, /^https:\/\/wa\.me\/263771234567\?text=/);
-    assert.match(decodeURIComponent(chat.split("text=")[1]), new RegExp(ref+".*attaching the PDF here"));
+    const ref = refOf(po);
+    const cardText = (await sentCard(page).innerText()).replace(/\s+/g," ");
+    assert.match(cardText, new RegExp("Boka General Dealer " + ref + " · \\d+ \\w+ \\d{4} · Harare"));
+    assert.match(cardText, /Total USD 11\.75/);
+    assert.match(cardText, /\+ 1 to quote/);
+    assert.match(await sentCard(page).locator(".note").textContent(), /Sent to Boka General Dealer\. Their shop sees it in Orders Fulfillment/);
+    assert.strictEqual((await sentCard(page).locator(".oh .chip").textContent()).trim(), "Sent");
+    assert.deepStrictEqual(await sentCard(page).locator(".ol .chip").allTextContents(), ["Outstanding", "Outstanding", "Outstanding"]);
+    for(const sel of ['[data-order-action="pdf"]', "[data-order-share]", '[data-order-action="thread"]'])
+      assert.strictEqual(await sentCard(page).locator(sel).count(), 1, sel);
+    assert.strictEqual(await sentCard(page).locator("input").count(), 0, "the customer can't type a fulfilled quantity");
+    assert.ok(!/Record delivery/.test(await page.textContent("body")));
     assert.deepStrictEqual(errors, []);
     assert.deepStrictEqual(fake.unexpected, []);
     await context.close();
   });
 
-  await t("sent orders come from the account on any device; Send PDF makes and shares it again", async ()=>{
+  await t("Download PDF: a normal download named iTred-Order-<ref>-<vendor>.pdf, with each line's status", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const first = await openSignedIn(browser, fake, { init: SHARE_STUB });
-    await buildBokaDraft(first.page);
-    await sendBoka(first.page);
-    await sentCard(first.page).locator(".po-note.ok").waitFor();
-    const firstPdf = (await shared(first.page))[0];
-    await first.context.close();
-
-    // A fresh browser: no drafts, nothing cached — just the account.
     const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB });
-    await page.goto(SITE + "#/orders");
+    await buildBokaDraft(page, "Maize (white) 10kg ✓");
+    await sendBoka(page);
+    await sentCard(page).locator(".note.ok").waitFor();
+    fake.vendorSetLine(fake.items.find(i=> i.item_name==="Sugar 2kg").id, 1, "1 more on Friday");
+    await page.reload();
     await sentCard(page).waitFor();
-    const get = fake.requests("/rest/v1/purchase_orders", "GET").pop();
-    const q = new URLSearchParams(get.query);
-    assert.strictEqual(q.get("customer_id"), "eq."+[...fake.users.values()][0].id);
-    assert.match(q.get("select"), /vendors\(business_name,\s*whatsapp_number,\s*city\)/);
-    assert.match(q.get("select"), /purchase_order_items\(/);
-    assert.strictEqual(q.get("order"), "created_at.desc");
-    assert.strictEqual(await page.locator("#ordersEmpty").count(), 0);
-    await sentCard(page).locator("summary").click();
-    const lines = await sentCard(page).locator(".po-sent-line").evaluateAll(els=> els.map(e=> e.textContent.replace(/\s+/g," ").trim()));
-    assert.deepStrictEqual(lines, ["Cooking Oil 2L × 1 USD 4.25", "Sugar 2kg × 2 USD 7.00", "Brown rice 10kg × 3 To quote"]);
-
-    await sentCard(page).locator('[data-order-action="share"]').click();
-    await sentCard(page).locator(".po-note.ok").waitFor();
-    const again = (await shared(page))[0];
-    assert.strictEqual(again.name, firstPdf.name);
-    for(const txt of ["Sugar 2kg", "Cooking Oil 2L", "Brown rice 10kg", "USD 11.25", "Tariro M"]) assert.ok(again.pdf.includes(txt), "missing "+txt);
-    assert.strictEqual(fake.requests("/rest/v1/purchase_orders", "POST").length, 1, "Send PDF doesn't create another order");
+    const [download] = await Promise.all([ page.waitForEvent("download"), sentCard(page).locator('[data-order-action="pdf"]').click() ]);
+    const ref = refOf(fake.orders[0]);
+    assert.strictEqual(download.suggestedFilename(), "iTred-Order-" + ref + "-Boka-General-Dealer.pdf");
+    const pdf = fs.readFileSync(await download.path()).toString("latin1");
+    assert.ok(pdf.startsWith("%PDF-"), "not a PDF");
+    for(const txt of ["iTred Market Place", "ORDER", ref, "Partly fulfilled", "TO (VENDOR)", "Boka General Dealer", "Harare", "WhatsApp: 0771234567",
+      "FROM (CUSTOMER)", "Tariro M", "Phone: 0772000111", "tariro@example.com",
+      "LISTED ITEMS", "Sugar 2kg", "1 of 2 fulfilled - 1 more on Friday", "Cooking Oil 2L", "Outstanding", "USD 3.50", "USD 11.25",
+      "PLEASE SOURCE AND QUOTE", "To quote", "Page 1 of 1"]){
+      const esc = txt.replace(/[()\\]/g, m=> "\\"+m); // PDF string escaping
+      assert.ok(pdf.includes("("+esc+")") || pdf.includes(esc), "PDF is missing "+JSON.stringify(txt));
+    }
+    assert.ok(pdf.includes("(Maize \\(white\\) 10kg ?)"), "custom text: brackets escaped, the tick (not in the PDF font) printed as ?");
+    assert.match(await sentCard(page).locator(".note").textContent(), new RegExp("Downloaded iTred-Order-" + ref));
+    assert.deepStrictEqual(await shared(page), [], "a download, never the share sheet");
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  await t("signed out, #/orders never asks Supabase for orders and points to sign in", async ()=>{
+  await t("Share: WhatsApp to the vendor with the order summary (lines, status, total), no phone or email", async ()=>{
+    const { context, page, errors, fake, order } = await openWithSentOrder();
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000001", 2);
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000003", 1);
+    await page.reload(); await sentCard(page).waitFor();
+    const href = await sentCard(page).locator("[data-order-share]").getAttribute("href");
+    assert.match(href, /^https:\/\/wa\.me\/263771234567\?text=/);
+    assert.strictEqual(await sentCard(page).locator("[data-order-share]").getAttribute("target"), "_blank");
+    const text = decodeURIComponent(href.split("text=")[1]);
+    const ref = refOf(order);
+    assert.deepStrictEqual(text.split("\n").slice(1), [
+      "Vendor: Boka General Dealer · Customer: Tariro M",
+      "• Cooking Oil 2L × 1 — USD 4.25 (outstanding)",
+      "• Sugar 2kg × 2 — USD 7.00 (fulfilled)",
+      "• Brown rice 10kg × 3 — to quote, not listed (1 of 3)",
+      "Total USD 11.25 + 1 to quote · Status: partly fulfilled",
+    ]);
+    assert.match(text.split("\n")[0], new RegExp("^iTred order " + ref + " · "));
+    assert.ok(!/0772000111|tariro@example\.com/.test(text), "no phone or email in the summary");
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("a long order: the PDF runs onto numbered pages; Share stops after 15 lines and stays under 1,500 characters", async ()=>{
+    const fake = createFakeSupabase({ listings: catalogue() });
+    const { context, page, errors } = await openSignedIn(browser, fake);
+    await page.evaluate((BOKA)=>{
+      const lines = [{ key:"a0000000-0000-4000-8000-000000000001", listingId:"a0000000-0000-4000-8000-000000000001", name:"Sugar 2kg", unitPrice:3.5, currency:"USD", qty:1, image:"" }];
+      for(let i = 1; i <= 45; i++) lines.push({ key:"c-"+i, listingId:null, custom:true, name:"Special order item number "+i+" with a fairly long description to wrap", qty:i });
+      localStorage.setItem("itred.draftOrders.v1", JSON.stringify({ v:1, drafts:{ [BOKA]:{ vendorId:BOKA, updatedAt:1,
+        vendor:{ name:"Boka General Dealer", city:"Harare", whatsapp:"0771234567" }, lines } } }));
+    }, BOKA);
+    await page.goto(SITE + "#/orders");
+    await page.reload();
+    await page.waitForSelector('[data-po-action="send"]:not([disabled])');
+    await sendBoka(page);
+    await sentCard(page).locator(".note.ok").waitFor();
+    const [download] = await Promise.all([ page.waitForEvent("download"), sentCard(page).locator('[data-order-action="pdf"]').click() ]);
+    const pdf = fs.readFileSync(await download.path()).toString("latin1");
+    const pages = Number((pdf.match(/Page 1 of (\d+)/)||[])[1]);
+    assert.ok(pages >= 2, "expected several pages, got "+pages);
+    assert.ok(pdf.includes("(Page "+pages+" of "+pages+")"));
+    assert.ok(pdf.includes("number 45"));
+    const text = decodeURIComponent((await sentCard(page).locator("[data-order-share]").getAttribute("href")).split("text=")[1]);
+    assert.ok(text.length <= 1500, "share text " + text.length + " chars");
+    assert.match(text, /\n\+ \d+ more items \(see the PDF\)\nTotal USD 3\.50 \+ 45 to quote · Status: sent$/, "the '+ N more' and total lines are kept");
+    assert.ok(text.split("\n").filter(l=> l.startsWith("• ")).length <= 15);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("sent orders come from the account on any device, with the vendor's updates and the messages", async ()=>{
+    const { context, page, errors, fake } = await openWithSentOrder();
+    const get = fake.requests("/rest/v1/purchase_orders", "GET").pop();
+    const q = new URLSearchParams(get.query);
+    assert.strictEqual(q.get("customer_id"), "eq."+fake.users.get("tariro@example.com").id);
+    assert.match(q.get("select"), /vendors\(business_name,\s*whatsapp_number,\s*city\)/);
+    for(const col of ["quantity_fulfilled", "fulfillment_status", "vendor_note", "vendor_updated_at", "customer_confirmed_at", "customer_dispute"])
+      assert.match(q.get("select"), new RegExp("purchase_order_items\\([^)]*" + col), col);
+    assert.match(q.get("select"), /itred_order_messages\(id,\s*author,\s*body,\s*created_at,\s*customer_read_at\)/);
+    assert.ok(!/customer_id,|email/.test(q.get("select").replace("customer_id=", "")), "the order select asks for no email");
+    assert.strictEqual(q.get("order"), "created_at.desc");
+    const lines = await sentCard(page).locator(".ol").evaluateAll(els=> els.map(e=> e.innerText.replace(/\s+/g," ").trim()));
+    assert.deepStrictEqual(lines, ["Cooking Oil 2L × 1 USD 4.25 Outstanding", "Sugar 2kg × 2 USD 7.00 Outstanding", "Brown rice 10kg × 3 (not listed) To quote Outstanding"]);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("signed out, Your Orders never asks Supabase for orders and points to sign in", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
     const { context, page, errors } = await open(browser, fake, "#/orders");
     await page.waitForSelector("#sentSignInHint");
@@ -523,58 +589,30 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     await context.close();
   });
 
-  await t("a cancelled share keeps the order saved and says it's not sent yet; Send PDF tries again", async ()=>{
-    const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB });
-    await buildBokaDraft(page);
-    await page.evaluate(()=>{ window.__shareMode = ["AbortError"]; });
-    await sendBoka(page);
-    await sentCard(page).locator(".po-note").waitFor();
-    await page.waitForFunction(()=> /Not sent yet/.test(document.querySelector(".po-sent .po-note").textContent));
-    assert.strictEqual(fake.orders.length, 1);
-    assert.strictEqual(fake.items.length, 3);
-    assert.strictEqual(await draftCard(page, BOKA).count(), 0);
-    await sentCard(page).locator('[data-order-action="share"]').click();
-    await sentCard(page).locator(".po-note.ok").waitFor();
-    assert.strictEqual((await shared(page)).length, 2);
-    assert.strictEqual(fake.orders.length, 1);
-    assert.deepStrictEqual(errors, []);
-    await context.close();
-  });
-
-  await t("a share blocked because the tap was too long ago asks for another tap", async ()=>{
-    const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB });
-    await buildBokaDraft(page);
-    await page.evaluate(()=>{ window.__shareMode = ["NotAllowedError"]; });
-    await sendBoka(page);
-    await page.waitForFunction(()=> { const n = document.querySelector(".po-sent .po-note"); return n && /Tap Send PDF to share it/.test(n.textContent); });
-    await sentCard(page).locator('[data-order-action="share"]').click();
-    await sentCard(page).locator(".po-note.ok").waitFor();
-    assert.deepStrictEqual(errors, []);
-    await context.close();
-  });
-
-  await t("where the browser can't share files, the PDF is downloaded and the WhatsApp chat is one tap away", async ()=>{
-    const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await openSignedIn(browser, fake, { init: NO_SHARE });
-    await buildBokaDraft(page);
-    const [download] = await Promise.all([ page.waitForEvent("download"), sendBoka(page) ]);
-    const ref = "PO-" + fake.orders[0].id.replace(/-/g,"").slice(0,8).toUpperCase();
-    assert.strictEqual(download.suggestedFilename(), "Sales-Order-"+ref+".pdf");
-    const bytes = fs.readFileSync(await download.path()).toString("latin1");
-    assert.ok(bytes.startsWith("%PDF-") && bytes.includes("(Sugar 2kg)"));
-    await page.waitForFunction(()=> { const n = document.querySelector(".po-sent .po-note"); return n && /has been downloaded/.test(n.textContent); });
-    assert.match(await sentCard(page).locator(".po-note").textContent(), /Tap Open WhatsApp chat, then attach it/);
-    assert.match(await sentCard(page).locator("[data-order-chat]").getAttribute("href"), /^https:\/\/wa\.me\/263771234567\?text=/);
-    assert.strictEqual(await sentCard(page).locator("[data-order-chat]").getAttribute("target"), "_blank");
+  await t("offline: Your Orders shows the copy on this device and the PDF still downloads; signing out removes the copy", async ()=>{
+    const { context, page, errors, fake, order } = await openWithSentOrder();
+    // The connection drops: every Supabase call fails from now on.
+    await page.route(PROJECT + "/rest/**", r=> r.abort("internetdisconnected"));
+    await page.reload();
+    await page.waitForFunction(()=> /couldn't reach iTred/.test((document.getElementById("ordersOffline") || {}).textContent || ""));
+    assert.match(await page.textContent("#ordersOffline"), /Showing the copy on this device from .*couldn't reach iTred/);
+    assert.strictEqual(await page.locator(".oc").count(), 1);
+    const [download] = await Promise.all([ page.waitForEvent("download"), sentCard(page).locator('[data-order-action="pdf"]').click() ]);
+    assert.strictEqual(download.suggestedFilename(), "iTred-Order-" + refOf(order) + "-Boka-General-Dealer.pdf");
+    await page.unroute(PROJECT + "/rest/**");
+    const key = "itred.orders.v1." + fake.users.get("tariro@example.com").id;
+    assert.ok(await page.evaluate((k)=> !!localStorage.getItem(k), key));
+    await page.goto(SITE + "#/account");
+    await page.click("#signOutBtn");
+    await page.waitForSelector("#signInForm");
+    assert.strictEqual(await page.evaluate((k)=> localStorage.getItem(k), key), null, "the account's orders left the device");
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
   await t("a listing that expired after the page loaded: no lines saved, the empty order closed, the item flagged, the draft kept", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB });
+    const { context, page, errors } = await openSignedIn(browser, fake);
     await buildBokaDraft(page);
     fake.listings.find(l=> l.product_name==="Cooking Oil 2L").expires_at = new Date(Date.now()-1000).toISOString();
     await sendBoka(page);
@@ -586,255 +624,166 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     assert.deepStrictEqual(fake.requests("/rest/v1/purchase_orders", "PATCH")[0].body, { status:"closed" });
     await draftCard(page, BOKA).locator(".po-warn").waitFor(); // listings re-checked
     assert.strictEqual(await draftCard(page, BOKA).locator('[data-po-action="send"]').isDisabled(), true);
-    assert.deepStrictEqual(await shared(page), []);
-    assert.strictEqual(await page.locator(".po-sent").count(), 0);
+    assert.strictEqual(await page.locator(".oc").count(), 0);
     // Fix it and send again: a new order goes through; the closed empty one stays hidden.
     await page.click('[data-po-action="to-custom"]');
     await page.waitForSelector('[data-po-action="send"]:not([disabled])');
     await sendBoka(page);
-    await sentCard(page).locator(".po-note.ok").waitFor();
+    await sentCard(page).locator(".note.ok").waitFor();
     assert.strictEqual(fake.orders.length, 2);
     await page.reload();
     await sentCard(page).waitFor();
-    assert.strictEqual(await page.locator(".po-sent").count(), 1);
-    assert.deepStrictEqual(errors, []);
-    await context.close();
-  });
-
-  await t("if the PDF tool can't load, nothing is recorded; once it can, sending works", async ()=>{
-    const fake = createFakeSupabase({ listings: catalogue() });
-    let block = true;
-    const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB, blockJsPdf: ()=> block });
-    await buildBokaDraft(page);
-    await sendBoka(page);
-    await draftCard(page, BOKA).locator(".po-error").waitFor();
-    assert.match(await draftCard(page, BOKA).locator(".po-error").textContent(), /PDF tool couldn't load.*Nothing was sent/);
-    assert.strictEqual(fake.requests("/rest/v1/purchase_orders", "POST").length, 0);
-    block = false;
-    await sendBoka(page);
-    await sentCard(page).locator(".po-note.ok").waitFor();
-    assert.strictEqual(fake.orders.length, 1);
+    assert.strictEqual(await page.locator(".oc").count(), 1);
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
   await t("if the order can't be saved, nothing is sent and the draft stays", async ()=>{
     const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB });
+    const { context, page, errors } = await openSignedIn(browser, fake);
     await buildBokaDraft(page);
     fake.failNextOrderInsert = { status:503, body:{ message:"Service unavailable" } };
     await sendBoka(page);
     await draftCard(page, BOKA).locator(".po-error").waitFor();
     assert.match(await draftCard(page, BOKA).locator(".po-error").textContent(), /couldn't be saved \(Service unavailable\)\. Nothing was sent/);
     assert.strictEqual(fake.requests("/rest/v1/purchase_order_items", "POST").length, 0);
-    assert.deepStrictEqual(await shared(page), []);
     assert.strictEqual((await draftLines(page, BOKA)).length, 3);
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  await t("a long order runs onto more pages, numbered", async ()=>{
-    const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB });
-    await page.evaluate((BOKA)=>{
-      const lines = [{ key:"a0000000-0000-4000-8000-000000000001", listingId:"a0000000-0000-4000-8000-000000000001", name:"Sugar 2kg", unitPrice:3.5, currency:"USD", qty:1, image:"" }];
-      for(let i = 1; i <= 45; i++) lines.push({ key:"c-"+i, listingId:null, custom:true, name:"Special order item number "+i+" with a fairly long description to wrap", qty:i });
-      localStorage.setItem("itred.draftOrders.v1", JSON.stringify({ v:1, drafts:{ [BOKA]:{ vendorId:BOKA, updatedAt:1,
-        vendor:{ name:"Boka General Dealer", city:"Harare", whatsapp:"0771234567" }, lines } } }));
-    }, BOKA);
-    await page.goto(SITE + "#/orders");
-    await page.reload();
-    await page.waitForSelector('[data-po-action="send"]:not([disabled])');
-    await sendBoka(page);
-    await sentCard(page).locator(".po-note.ok").waitFor();
-    const pdf = (await shared(page))[0].pdf;
-    const pages = Number((pdf.match(/Page 1 of (\d+)/)||[])[1]);
-    assert.ok(pages >= 2, "expected several pages, got "+pages);
-    assert.ok(pdf.includes("(Page "+pages+" of "+pages+")"));
-    assert.ok(pdf.includes("number 45"));
+  await t("if the PDF tool can't load, the page says so; a later tap works", async ()=>{
+    let block = true;
+    const { context, page, errors } = await openWithSentOrder({ init: BLOCK_JSPDF });
+    await sentCard(page).locator('[data-order-action="pdf"]').click();
+    await page.waitForFunction(()=> /The PDF couldn't be made/.test((document.querySelector(".oc .note") || {}).textContent || ""));
+    await page.evaluate(()=>{ window.__blockJsPdf = false; });
+    const [download] = await Promise.all([ page.waitForEvent("download"), sentCard(page).locator('[data-order-action="pdf"]').click() ]);
+    assert.match(download.suggestedFilename(), /^iTred-Order-PO-/);
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  await t("a sent order at phone width: no sideways scrolling", async ()=>{
-    const fake = createFakeSupabase({ listings: catalogue() });
-    const { context, page, errors } = await openSignedIn(browser, fake, { init: SHARE_STUB, ctxOpts:{ viewport:{ width:360, height:780 } } });
-    await buildBokaDraft(page);
-    await sendBoka(page);
-    await sentCard(page).locator(".po-note.ok").waitFor();
-    await sentCard(page).locator("summary").click();
+  await t("a sent order at phone width: no sideways scrolling, its buttons on screen and 44 px", async ()=>{
+    const { context, page, errors, fake } = await openWithSentOrder({ ctxOpts:{ viewport:{ width:360, height:780 } } });
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000001", 1, "A very long note from the vendor about when the rest of this item will be in stock again");
+    await page.reload(); await sentCard(page).waitFor();
+    await sentCard(page).locator('[data-order-action="thread"]').click();
     assert.strictEqual(await page.evaluate(()=> document.documentElement.scrollWidth <= window.innerWidth), true);
-    for(const sel of ['[data-order-action="share"]', "[data-order-chat]"]){
-      const box = await sentCard(page).locator(sel).boundingBox();
-      assert.ok(box && box.x >= 0 && box.x + box.width <= 360, sel+" off-screen: "+JSON.stringify(box));
+    for(const sel of ['[data-order-action="pdf"]', "[data-order-share]", '[data-order-action="thread"]', "[data-line-confirm]", "[data-line-dispute]", "[data-msg-send]"]){
+      const box = await sentCard(page).locator(sel).first().boundingBox();
+      assert.ok(box && box.x >= 0 && box.x + box.width <= 360 && box.width >= 44 && box.height >= 44, sel+": "+JSON.stringify(box));
     }
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  // ================= recording delivery (fulfilment) =================
-  // An order already sent from Tariro's account to Boka: Sugar ×2, Oil ×1,
-  // and a custom request ×3 — seeded straight into the fake, as if sent on
-  // another visit.
-  async function openWithSentOrder(o){
-    o = o || {};
-    const fake = createFakeSupabase({ listings: catalogue() });
-    const r = await openSignedIn(browser, fake, o);
-    const uid = fake.users.get("tariro@example.com").id;
-    const order = { id:"9f000000-0000-4000-8000-000000000001", customer_id:uid, vendor_id:BOKA, status:o.status||"sent", pdf_url:null, created_at:new Date().toISOString() };
-    fake.orders.push(order);
-    const line = (id, name, qty, custom, listing, price)=>({ id, purchase_order_id:order.id, vendor_listing_id: custom? null : listing, item_name:name,
-      unit_price: custom? null : price, currency: custom? null : "USD", quantity_requested:qty, quantity_fulfilled:0, is_custom_request:custom,
-      fulfillment_status:"outstanding", created_at:order.created_at });
-    fake.items.push(line("9f100000-0000-4000-8000-000000000001", "Sugar 2kg", 2, false, "a0000000-0000-4000-8000-000000000001", 3.5),
-                    line("9f100000-0000-4000-8000-000000000002", "Cooking Oil 2L", 1, false, "a0000000-0000-4000-8000-000000000002", 4.25),
-                    line("9f100000-0000-4000-8000-000000000003", "Brown rice 10kg", 3, true));
-    await r.page.goto(SITE + "#/orders");
-    await sentCard(r.page).waitFor();
-    return Object.assign(r, { fake, order });
-  }
-  const fulfilRow = (page, name)=> page.locator("#fulfilDialog .fl-line", { has: page.locator(".fl-name", { hasText: name }) });
-  const statusBadge = (page)=> sentCard(page).locator(".po-status").textContent();
-  const itemPatches = (fake)=> fake.log.filter(r=> r.method==="PATCH" && r.path==="/rest/v1/purchase_order_items");
-  async function recordOne(page, name, qty){
-    await sentCard(page).locator('[data-order-action="fulfil"]').click();
-    await fulfilRow(page, name).locator(".fl-qty").fill(String(qty));
-    await page.click("#fulfilSave");
-    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
-  }
-
-  await t("Record delivery opens a dialog listing every line (listed and custom) with ordered and received quantities", async ()=>{
-    const { context, page, errors, fake } = await openWithSentOrder();
-    await sentCard(page).locator('[data-order-action="fulfil"]').click();
-    await page.locator("#fulfilDialog[open]").waitFor();
-    const rows = await page.locator("#fulfilDialog .fl-line").evaluateAll(els=> els.map(e=>({
-      name: e.querySelector(".fl-name").textContent.replace(/\s+/g," ").trim(),
-      ordered: e.querySelector(".fl-ordered").textContent.trim(),
-      received: e.querySelector(".fl-qty").value })));
-    assert.deepStrictEqual(rows, [
-      { name:"Cooking Oil 2L", ordered:"1", received:"0" },
-      { name:"Sugar 2kg", ordered:"2", received:"0" },
-      { name:"Brown rice 10kg Custom request", ordered:"3", received:"0" }]);
-    assert.match(await page.textContent("#fulfilDialog .fl-head"), /Boka General Dealer/);
-    await page.keyboard.press("Escape");
-    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
-    assert.strictEqual(itemPatches(fake).length, 0);
+  // ================= The vendor's updates; Confirm / Problem =================
+  await t("the vendor's updates show per line: chip, 'x of y supplied', the note; the order's status; 'completed'", async ()=>{
+    const { context, page, errors, fake, order } = await openWithSentOrder();
+    assert.strictEqual(await sentCard(page).locator("[data-line-confirm]").count(), 0, "nothing to confirm before the vendor answers");
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000001", 1, "1 more on Friday");
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000002", 1);
+    await page.reload(); await sentCard(page).waitFor();
+    const lines = await sentCard(page).locator(".ol").evaluateAll(els=> els.map(e=> e.innerText.replace(/\s+/g," ").trim()));
+    assert.deepStrictEqual(lines, [
+      "Cooking Oil 2L × 1 All supplied USD 4.25 Fulfilled Confirm Problem",
+      "Sugar 2kg × 2 1 of 2 supplied · Vendor: 1 more on Friday USD 7.00 Partly fulfilled Confirm Problem",
+      "Brown rice 10kg × 3 (not listed) To quote Outstanding"]);
+    assert.strictEqual((await sentCard(page).locator(".oh .chip").textContent()).trim(), "Partly fulfilled");
+    fake.vendorComplete(order.id);
+    await page.reload(); await sentCard(page).waitFor();
+    assert.strictEqual((await sentCard(page).locator(".oh .chip").textContent()).trim(), "Partly fulfilled · completed");
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  await t("recording part of one line saves just quantity_fulfilled and the order shows Partly fulfilled", async ()=>{
+  await t("Confirm and Problem: one tap each, the reason goes to the vendor; a changed quantity asks again", async ()=>{
     const { context, page, errors, fake } = await openWithSentOrder();
-    assert.strictEqual((await statusBadge(page)).trim(), "Sent");
-    await recordOne(page, "Sugar 2kg", 1);
-    const patches = itemPatches(fake);
-    assert.strictEqual(patches.length, 1);
-    assert.deepStrictEqual(patches[0].body, { quantity_fulfilled:1 });
-    assert.strictEqual(new URLSearchParams(patches[0].query).get("id"), "eq.9f100000-0000-4000-8000-000000000001");
-    await page.waitForFunction(()=> /Partly fulfilled/.test(document.querySelector(".po-sent .po-status").textContent));
-    assert.strictEqual(fake.orders[0].status, "partially_fulfilled", "status set by the (fake) trigger, not the page");
-    assert.ok(!fake.log.some(r=> r.method==="PATCH" && r.path==="/rest/v1/purchase_orders"), "the page never writes the status itself");
-    assert.match(await page.textContent("#orderToast"), /Delivery recorded\. Order is now: Partly fulfilled\./);
-    await sentCard(page).locator("summary").click();
-    assert.match(await sentCard(page).locator(".po-sent-line", { hasText:"Sugar 2kg" }).textContent(), /1 of 2 delivered/);
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000001", 2);
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000002", 0, "Out of stock");
+    await page.reload(); await sentCard(page).waitFor();
+    await sentCard(page).locator('[data-line-confirm="9f100000-0000-4000-8000-000000000001"]').click();
+    await page.waitForFunction(()=> /You confirmed/.test(document.querySelector('.ol[data-line="9f100000-0000-4000-8000-000000000001"]').textContent));
+    assert.deepStrictEqual(fake.requests("/rest/v1/rpc/itred_line_respond", "POST")[0].body,
+      { p_item_id:"9f100000-0000-4000-8000-000000000001", p_confirm:true, p_dispute:null });
+    assert.strictEqual(await sentCard(page).locator('[data-line-confirm="9f100000-0000-4000-8000-000000000001"]').count(), 0);
+    // Problem: the reason is asked for; an empty answer sends nothing.
+    page.__prompt = "";
+    await sentCard(page).locator('[data-line-dispute="9f100000-0000-4000-8000-000000000002"]').click();
+    await page.waitForTimeout(200);
+    assert.strictEqual(fake.requests("/rest/v1/rpc/itred_line_respond", "POST").length, 1);
+    page.__prompt = "I collected 1 yesterday";
+    await sentCard(page).locator('[data-line-dispute="9f100000-0000-4000-8000-000000000002"]').click();
+    await page.waitForFunction(()=> /You raised: I collected 1 yesterday/.test(document.querySelector('.ol[data-line="9f100000-0000-4000-8000-000000000002"]').textContent));
+    assert.match(await sentCard(page).locator(".note").textContent(), /Sent to the vendor/);
+    // The vendor changes the quantity: the old answer is cleared and Confirm comes back.
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000002", 1);
+    await page.reload(); await sentCard(page).waitFor();
+    assert.ok(!/You raised/.test(await sentCard(page).textContent()));
+    assert.strictEqual(await sentCard(page).locator('[data-line-confirm="9f100000-0000-4000-8000-000000000002"]').count(), 1);
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  await t("out-of-range or blank received quantities are refused on the page with a plain message; nothing is sent", async ()=>{
-    const { context, page, errors, fake } = await openWithSentOrder();
-    await sentCard(page).locator('[data-order-action="fulfil"]').click();
-    const sugar = fulfilRow(page, "Sugar 2kg");
-    for(const [val, msg] of [["3", /Only 2 ordered/], ["-1", /can't be less than 0/], ["", /Enter how many arrived/]]){
-      await sugar.locator(".fl-qty").fill(val);
-      await page.click("#fulfilSave");
-      assert.match(await sugar.locator(".fl-err").textContent(), msg, "for "+JSON.stringify(val));
-      assert.strictEqual(await sugar.locator(".fl-qty").getAttribute("aria-invalid"), "true");
-    }
-    assert.ok(await page.locator("#fulfilDialog[open]").count(), "dialog stays open");
-    assert.strictEqual(itemPatches(fake).length, 0);
-    await sugar.locator(".fl-qty").fill("2");
-    assert.strictEqual(await sugar.locator(".fl-err").textContent(), "", "error clears once the value is fine");
+  await t("a closed order has no Confirm or Problem buttons", async ()=>{
+    const { context, page, errors, fake } = await openWithSentOrder({ status:"closed" });
+    fake.vendorSetLine("9f100000-0000-4000-8000-000000000001", 2);
+    await page.reload(); await sentCard(page).waitFor();
+    assert.strictEqual(await sentCard(page).locator("[data-line-confirm], [data-line-dispute]").count(), 0);
+    assert.strictEqual((await sentCard(page).locator(".oh .chip").textContent()).trim(), "Closed");
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  await t("completing every line in one save moves the order to Fulfilled; badge and toast say so", async ()=>{
-    const { context, page, errors, fake } = await openWithSentOrder();
-    await sentCard(page).locator('[data-order-action="fulfil"]').click();
-    await fulfilRow(page, "Sugar 2kg").locator(".fl-qty").fill("2");
-    await fulfilRow(page, "Cooking Oil 2L").locator(".fl-qty").fill("1");
-    await fulfilRow(page, "Brown rice 10kg").locator(".fl-qty").fill("3");
-    await page.click("#fulfilSave");
-    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
-    // One UPDATE per changed line, in the dialog's order, quantity_fulfilled only.
-    assert.deepStrictEqual(itemPatches(fake).map(p=> p.body), [{ quantity_fulfilled:1 }, { quantity_fulfilled:2 }, { quantity_fulfilled:3 }]);
-    assert.deepStrictEqual(itemPatches(fake).map(p=> new URLSearchParams(p.query).get("id").slice(-1)), ["2","1","3"]);
-    await page.waitForFunction(()=> document.querySelector(".po-sent .po-status").textContent.trim() === "Fulfilled");
-    assert.strictEqual(fake.orders[0].status, "fulfilled");
-    assert.ok(!fake.log.some(r=> r.method==="PATCH" && r.path==="/rest/v1/purchase_orders"), "status comes from the trigger");
-    assert.match(await page.textContent("#orderToast"), /Order is now: Fulfilled\./);
-    // Re-opening shows what's recorded; saving with nothing changed sends nothing.
-    await sentCard(page).locator('[data-order-action="fulfil"]').click();
-    assert.deepStrictEqual(await page.locator("#fulfilDialog .fl-qty").evaluateAll(els=> els.map(e=> e.value)), ["1","2","3"]);
-    await page.click("#fulfilSave");
-    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
-    assert.strictEqual(itemPatches(fake).length, 3);
+  // ================= Messages (one thread per order) =================
+  await t("messages: write to the vendor (client id, granted columns), see replies, unread count on Your Orders clears when read", async ()=>{
+    const { context, page, errors, fake, order } = await openWithSentOrder();
+    await sentCard(page).locator('[data-order-action="thread"]').click();
+    await sentCard(page).locator(".thread").waitFor();
+    assert.match(await sentCard(page).locator(".thread").textContent(), /No messages yet/);
+    await sentCard(page).locator(".thread textarea").fill("Can you deliver to Avondale?");
+    await sentCard(page).locator("[data-msg-send]").click();
+    await page.waitForFunction(()=> /Can you deliver to Avondale\?/.test(document.querySelector(".thread").textContent));
+    const [post] = fake.requests("/rest/v1/itred_order_messages", "POST");
+    assert.deepStrictEqual(Object.keys(post.body).sort(), ["body", "id", "purchase_order_id"]);
+    assert.match(post.body.id, /^[0-9a-f-]{36}$/);
+    assert.strictEqual(post.body.purchase_order_id, order.id);
+    // The vendor replies; the customer sees a count on Your Orders and on the order.
+    fake.vendorReply(order.id, "Yes, tomorrow morning");
+    await page.reload(); await sentCard(page).waitFor();
+    await page.waitForFunction(()=> document.getElementById("ordersNavCount").textContent === "1");
+    assert.strictEqual((await sentCard(page).locator('[data-order-action="thread"] .dot').textContent()).trim(), "1");
+    await sentCard(page).locator('[data-order-action="thread"]').click();
+    await page.waitForFunction(()=> /Yes, tomorrow morning/.test((document.querySelector(".thread") || {}).textContent || ""));
+    const msgs = await sentCard(page).locator(".thread .msg").evaluateAll(els=> els.map(e=> [e.className.replace("msg ", ""), e.lastChild.textContent]));
+    assert.deepStrictEqual(msgs, [["customer", "Can you deliver to Avondale?"], ["vendor", "Yes, tomorrow morning"]]);
+    await page.waitForFunction(()=> document.getElementById("ordersNavCount").textContent === "");
+    assert.deepStrictEqual(fake.requests("/rest/v1/rpc/itred_messages_read", "POST")[0].body, { p_order_id:order.id });
+    assert.ok(fake.messages[1].customer_read_at);
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  await t("a save that fails partway keeps the earlier lines, reloads the true state, and marks the failed line", async ()=>{
+  await t("a message that can't be sent stays in the box with the reason; a resend that already arrived counts as sent", async ()=>{
     const { context, page, errors, fake } = await openWithSentOrder();
-    // Dialog order: Cooking Oil, Sugar, Brown rice. Sugar (second) will fail.
-    fake.failItemPatch = { id:"9f100000-0000-4000-8000-000000000001", status:500, body:{ code:"XX000", message:"server hiccup" } };
-    await sentCard(page).locator('[data-order-action="fulfil"]').click();
-    await fulfilRow(page, "Cooking Oil 2L").locator(".fl-qty").fill("1");
-    await fulfilRow(page, "Sugar 2kg").locator(".fl-qty").fill("1");
-    await fulfilRow(page, "Brown rice 10kg").locator(".fl-qty").fill("2");
-    const getsBefore = fake.requests("/rest/v1/purchase_orders", "GET").length;
-    await page.click("#fulfilSave");
-    await page.locator("#fulfilDialog .fl-line.failed").waitFor();
-
-    // Oil was saved; Sugar failed; Brown rice was never tried.
-    assert.strictEqual(itemPatches(fake).length, 2);
-    const byName = Object.fromEntries(fake.items.map(i=> [i.item_name, i.quantity_fulfilled]));
-    assert.deepStrictEqual(byName, { "Sugar 2kg":0, "Cooking Oil 2L":1, "Brown rice 10kg":0 });
-    assert.ok(fake.requests("/rest/v1/purchase_orders", "GET").length > getsBefore, "orders re-read after the failure");
-    // The dialog shows the database's values, not what was typed.
-    assert.ok(await page.locator("#fulfilDialog[open]").count());
-    const shown = await page.locator("#fulfilDialog .fl-line").evaluateAll(els=> els.map(e=>({
-      name: e.querySelector(".fl-name").childNodes[0].textContent.trim(), value: e.querySelector(".fl-qty").value,
-      failed: e.classList.contains("failed"), err: e.querySelector(".fl-err").textContent })));
-    assert.deepStrictEqual(shown.map(r=> [r.name, r.value, r.failed]),
-      [["Cooking Oil 2L","1",false], ["Sugar 2kg","0",true], ["Brown rice 10kg","0",false]]);
-    assert.match(shown[1].err, /Couldn't be saved: server hiccup/);
-    const note = await page.textContent("#fulfilError");
-    assert.match(note, /1 of 3 changes saved\. Sugar 2kg couldn't be saved, so the change after it wasn't tried either/);
-    assert.match(note, /the order is Partly fulfilled/);
-    assert.strictEqual(await page.evaluate(()=> document.activeElement && document.activeElement.closest(".fl-line.failed") !== null), true, "focus on the failed line");
-    // The card behind reflects it too.
-    await page.waitForFunction(()=> /Partly fulfilled/.test(document.querySelector(".po-sent .po-status").textContent));
-
-    // Fixing it: re-enter and save again; this time it goes through.
-    await fulfilRow(page, "Sugar 2kg").locator(".fl-qty").fill("2");
-    await fulfilRow(page, "Brown rice 10kg").locator(".fl-qty").fill("3");
-    await page.click("#fulfilSave");
-    await page.locator("#fulfilDialog").waitFor({ state:"hidden" });
-    await page.waitForFunction(()=> document.querySelector(".po-sent .po-status").textContent.trim() === "Fulfilled");
-    assert.deepStrictEqual(errors, []);
-    await context.close();
-  });
-
-  await t("a closed order has no Record delivery button", async ()=>{
-    const { context, page, errors } = await openWithSentOrder({ status:"closed" });
-    assert.strictEqual((await statusBadge(page)).trim(), "Closed");
-    assert.strictEqual(await sentCard(page).locator('[data-order-action="fulfil"]').count(), 0);
+    await sentCard(page).locator('[data-order-action="thread"]').click();
+    fake.failNextMessage = { status:503, body:{ message:"Service unavailable" } };
+    await sentCard(page).locator(".thread textarea").fill("Hello?");
+    await sentCard(page).locator("[data-msg-send]").click();
+    await page.waitForFunction(()=> /Message not sent: Service unavailable/.test((document.querySelector(".oc .note") || {}).textContent || ""));
+    assert.strictEqual(await sentCard(page).locator(".thread textarea").inputValue(), "Hello?");
+    assert.strictEqual(fake.messages.length, 0);
+    // The server got it but the answer was lost: the retry hits the same id… modelled as a 409 on a fresh id
+    fake.failNextMessage = { status:409, body:{ code:"23505", message:"duplicate key value violates unique constraint \"itred_order_messages_pkey\"" } };
+    await sentCard(page).locator("[data-msg-send]").click();
+    await page.waitForFunction(()=> document.querySelectorAll(".thread .msg").length === 1);
+    assert.ok(!/Message not sent/.test(await sentCard(page).textContent()));
     assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
   await browser.close();
-  console.log(`\n${passed} passed, ${failed} failed`);
+  console.log("\n"+passed+" passed, "+failed+" failed");
   process.exit(failed?1:0);
 })();

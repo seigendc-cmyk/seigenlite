@@ -49,5 +49,29 @@ t("every required file is checked", ()=>{
   assert.deepStrictEqual(REQUIRED.slice(0, 4), ["index.html", "sw.js", "manifest.json", "market.html"]);
 });
 
+// iTred Market Place (build first: node build.js --itred)
+const { checkItredFolder, TARGETS } = require("../tools/cf/deploy-app.js");
+t("dist-itred passes the iTred checks for itred-preview, and is refused for itredvpd (built for the preview's address)", ()=>{
+  assert.deepStrictEqual(checkItredFolder(path.join(ROOT, "dist-itred"), "itred-preview"), []);
+  assert.match(checkItredFolder(path.join(ROOT, "dist-itred"), "itredvpd").join(";"), /built for https:\/\/itred-preview\.seigendc\.workers\.dev\/, not https:\/\/itredvpd/);
+});
+t("dist-itred without its service worker, or with one from another build, is refused", ()=>{
+  let tmp = copyOf("dist-itred");
+  fs.rmSync(path.join(tmp, "sw.js"));
+  assert.deepStrictEqual(checkItredFolder(tmp, "itred-preview"), ["missing sw.js"]);
+  tmp = copyOf("dist-itred");
+  const sw = path.join(tmp, "sw.js");
+  fs.writeFileSync(sw, fs.readFileSync(sw, "utf8").replace(/\/\/ build: i(\d+)/, (m, n)=> "// build: i" + (Number(n) + 1)));
+  assert.match(checkItredFolder(tmp, "itred-preview").join(";"), /index\.html is build i\d+ but sw\.js is i\d+/);
+});
+t("the source page (with its build tokens) is refused", ()=>{
+  const tmp = copyOf("dist-itred");
+  fs.copyFileSync(path.join(ROOT, "src", "itred", "index.html"), path.join(tmp, "index.html"));
+  assert.match(checkItredFolder(tmp, "itred-preview").join(";"), /build token/);
+});
+t("iTred targets: itred-preview and itredvpd from dist-itred", ()=>{
+  assert.deepStrictEqual([TARGETS["preview:itred"].worker, TARGETS["production:itred"].worker, TARGETS["preview:itred"].build], ["itred-preview", "itredvpd", "dist-itred"]);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

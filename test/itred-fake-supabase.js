@@ -9,9 +9,12 @@
 // published + unexpired listings only for anyone, orders and their lines
 // only for their customer, lines only on a 'sent' order from a live listing
 // of that order's vendor (with the listing's name/price snapshotted), only
-// the granted columns written, customer-recorded quantity_fulfilled within
-// 0..quantity_requested with the order's status following its lines
-// — without creating real accounts or sending
+// the granted columns written; since 20261105120000_itred_order_fulfilment
+// only the vendor's tills set quantity_fulfilled (state.vendorSetLine /
+// state.vendorComplete / state.vendorReply act as a till), the customer
+// confirms or disputes an answered line (rpc itred_line_respond) and writes
+// on the order's message thread (itred_order_messages, rpc
+// itred_messages_read) — without creating real accounts or sending
 // real email. The real
 // RLS itself is covered against the live database by
 // supabase/tests/itred-live-test.js.
@@ -34,6 +37,7 @@ function createFakeSupabase(opts){
   };
   state.orders = [];  // purchase_orders rows
   state.items = [];   // purchase_order_items rows
+  state.messages = []; // itred_order_messages rows
   const userById = (id)=> [...state.users.values()].find(u=>u.id===id);
   // The fake has no vendors table: a vendor is whatever its listings embed.
   const vendorById = (id)=>{ const l = state.listings.find(x=> x.vendor_id===id); return l && l.vendors; };
@@ -62,6 +66,19 @@ function createFakeSupabase(opts){
     o.status = lines.length && lines.every(i=> i.quantity_fulfilled >= i.quantity_requested)? "fulfilled"
       : lines.some(i=> i.quantity_fulfilled > 0)? "partially_fulfilled" : "sent";
   }
+  // A vendor's till (cl_device_itred_line_update / _order_complete / _message_send).
+  state.vendorSetLine = (itemId, qty, note)=>{
+    const i = state.items.find(x=> x.id===itemId);
+    if(i.quantity_fulfilled !== qty){ i.customer_confirmed_at = null; i.customer_dispute = null; }
+    i.quantity_fulfilled = qty; i.vendor_note = note || null; i.vendor_updated_at = new Date().toISOString();
+    i.fulfillment_status = qty<=0? "outstanding" : qty>=i.quantity_requested? "fulfilled" : "partially_fulfilled";
+    syncOrderStatus(i.purchase_order_id);
+  };
+  state.vendorComplete = (orderId)=>{ const o = state.orders.find(x=> x.id===orderId); o.completed_at = o.completed_at || new Date().toISOString(); };
+  state.vendorReply = (orderId, body)=>{
+    const m = { id:crypto.randomUUID(), purchase_order_id:orderId, author:"vendor", body, created_at:new Date().toISOString(), customer_read_at:null };
+    state.messages.push(m); return m;
+  };
   state.requests = (pathPrefix, method)=> state.log.filter(r=> r.path.startsWith(pathPrefix) && (!method || r.method===method));
 
   async function handle(route){
@@ -190,7 +207,7 @@ function createFakeSupabase(opts){
         if(row.customer_id!==userId) return rlsFail("purchase_orders");
         if(!state.customers.has(row.customer_id)) return send(409, { code:"23503", message:"insert or update on table \"purchase_orders\" violates foreign key constraint \"purchase_orders_customer_id_fkey\"" });
         if(!vendorById(row.vendor_id)) return send(409, { code:"23503", message:"insert or update on table \"purchase_orders\" violates foreign key constraint \"purchase_orders_vendor_id_fkey\"" });
-        const stored = { id:crypto.randomUUID(), customer_id:row.customer_id, vendor_id:row.vendor_id, status:"sent", pdf_url:null,
+        const stored = { id:crypto.randomUUID(), customer_id:row.customer_id, vendor_id:row.vendor_id, status:"sent", pdf_url:null, completed_at:null,
           created_at:new Date(Date.now() + state.orders.length).toISOString() };
         state.orders.push(stored);
         return send(201, wantsObject? stored : [stored]);
@@ -210,7 +227,8 @@ function createFakeSupabase(opts){
           .map(o=>{
             const r = Object.assign({}, o);
             if(/vendors\(/.test(select)){ const v = vendorById(o.vendor_id); r.vendors = v? { business_name:v.business_name, whatsapp_number:v.whatsapp_number, city:v.city } : null; }
-            if(/purchase_order_items\(/.test(select)) r.purchase_order_items = state.items.filter(i=> i.purchase_order_id===o.id);
+            if(/purchase_order_items\(/.test(select)) r.purchase_order_items = state.items.filter(i=> i.purchase_order_id===o.id).map(i=> Object.assign({}, i));
+            if(/itred_order_messages\(/.test(select)) r.itred_order_messages = state.messages.filter(m=> m.purchase_order_id===o.id).map(m=> Object.assign({}, m));
             return r;
           });
         return send(200, rows);
@@ -243,7 +261,8 @@ function createFakeSupabase(opts){
           if(!custom && state.listings.find(x=> x.id===r.vendor_listing_id).vendor_id!==po.vendor_id) return rlsFail("purchase_order_items");
           out.push({ id:crypto.randomUUID(), purchase_order_id:r.purchase_order_id, vendor_listing_id:custom? null : r.vendor_listing_id,
             item_name:snap.item_name, unit_price:snap.unit_price, currency:snap.currency, quantity_requested:Number(r.quantity_requested),
-            quantity_fulfilled:0, is_custom_request:custom, fulfillment_status:"outstanding", created_at:new Date().toISOString() });
+            quantity_fulfilled:0, is_custom_request:custom, fulfillment_status:"outstanding", created_at:new Date().toISOString(),
+            vendor_note:null, vendor_updated_at:null, customer_confirmed_at:null, customer_dispute:null });
         }
         state.items.push(...out);
         return send(201, out);
@@ -252,29 +271,44 @@ function createFakeSupabase(opts){
         const mine = new Set(state.orders.filter(o=> o.customer_id===userId).map(o=>o.id));
         return send(200, state.items.filter(i=> mine.has(i.purchase_order_id)));
       }
-      // Customer-recorded fulfilment (20260925120000_itred_po_fulfilment.sql):
-      // quantity_fulfilled only, own orders only, 0..quantity_requested, and
-      // the order's status re-derived from its lines unless it's closed.
-      if(method==="PATCH"){
-        if(!onlyCols(body, ["quantity_fulfilled"])) return denied("purchase_order_items");
-        const mine = new Set(state.orders.filter(o=> o.customer_id===userId).map(o=>o.id));
-        const hits = state.items.filter(i=> mine.has(i.purchase_order_id)
-          && (!q.get("id") || i.id===eqParam("id"))
-          && (!q.get("purchase_order_id") || i.purchase_order_id===eqParam("purchase_order_id")));
-        // Test hook: state.failItemPatch = { id, status, body } fails the next
-        // PATCH that targets that line, once.
-        const f = state.failItemPatch;
-        if(f && hits.some(i=> i.id===f.id)){ state.failItemPatch = null; return send(f.status, f.body); }
-        const qf = Number(body.quantity_fulfilled);
-        if(hits.length && !(qf >= 0)) return send(400, { code:"23514", message:"new row for relation \"purchase_order_items\" violates check constraint \"purchase_order_items_quantity_fulfilled_check\"" });
-        if(hits.some(i=> qf > i.quantity_requested)) return send(400, { code:"23514", message:"new row for relation \"purchase_order_items\" violates check constraint \"purchase_order_items_not_overfulfilled\"" });
-        hits.forEach(i=>{
-          i.quantity_fulfilled = qf;
-          i.fulfillment_status = qf===0? "outstanding" : qf>=i.quantity_requested? "fulfilled" : "partially_fulfilled";
-        });
-        new Set(hits.map(i=> i.purchase_order_id)).forEach(syncOrderStatus);
-        return send(200, hits);
+      // Since 20261105120000 the customer may not change a line at all
+      // (quantity_fulfilled's grant was removed): only the vendor's tills set it.
+      if(method==="PATCH") return denied("purchase_order_items");
+    }
+    // One message thread per order: the customer reads and writes their own.
+    if(url.pathname==="/rest/v1/itred_order_messages"){
+      if(!userId) return denied("itred_order_messages");
+      if(method==="POST"){
+        const row = Array.isArray(body)? body[0] : body;
+        if(!onlyCols(row, ["id","purchase_order_id","body"])) return denied("itred_order_messages");
+        if(state.failNextMessage){ const f = state.failNextMessage; state.failNextMessage = null; return send(f.status, f.body); }
+        if(!state.orders.some(o=> o.id===row.purchase_order_id && o.customer_id===userId)) return rlsFail("itred_order_messages");
+        if(state.messages.some(m=> m.id===row.id)) return send(409, { code:"23505", message:"duplicate key value violates unique constraint \"itred_order_messages_pkey\"" });
+        const len = String(row.body||"").trim().length;
+        if(len<1 || len>1000) return send(400, { code:"23514", message:"new row for relation \"itred_order_messages\" violates check constraint" });
+        const m = { id:row.id, purchase_order_id:row.purchase_order_id, author:"customer", body:row.body, created_at:new Date().toISOString(), customer_read_at:null };
+        state.messages.push(m);
+        return send(201, wantsObject? m : [m]);
       }
+    }
+    if(url.pathname==="/rest/v1/rpc/itred_line_respond" && method==="POST"){
+      if(!userId) return denied("function itred_line_respond");
+      const i = state.items.find(x=> x.id===body.p_item_id && state.orders.some(o=> o.id===x.purchase_order_id && o.customer_id===userId));
+      if(!i) return send(200, { error:"NOT_FOUND" });
+      if(!i.vendor_updated_at) return send(200, { error:"NOT_ANSWERED", message:"The vendor hasn't updated this item yet." });
+      if(body.p_confirm){ i.customer_confirmed_at = new Date().toISOString(); i.customer_dispute = null; }
+      else {
+        const reason = String(body.p_dispute||"").trim();
+        if(!reason) return send(200, { error:"REASON_REQUIRED", message:"Say what is wrong." });
+        i.customer_dispute = reason.slice(0,300); i.customer_confirmed_at = null;
+      }
+      return send(200, { ok:true });
+    }
+    if(url.pathname==="/rest/v1/rpc/itred_messages_read" && method==="POST"){
+      if(!userId) return denied("function itred_messages_read");
+      if(!state.orders.some(o=> o.id===body.p_order_id && o.customer_id===userId)) return send(200, { error:"NOT_FOUND" });
+      state.messages.filter(m=> m.purchase_order_id===body.p_order_id && m.author==="vendor" && !m.customer_read_at).forEach(m=> m.customer_read_at = new Date().toISOString());
+      return send(200, { ok:true });
     }
 
     state.unexpected.push(method+" "+url.pathname+url.search);
@@ -291,7 +325,7 @@ function listingRow(o){
   const now = Date.now();
   return Object.assign({
     id: crypto.randomUUID(), vendor_id: crypto.randomUUID(), product_name:"Product", price:1, currency:"USD", category:null, stock_quantity:1,
-    image_url:null, published_at:new Date(now - 86400000).toISOString(), expires_at:new Date(now + 6*86400000).toISOString(),
+    thumb_url:null, published_at:new Date(now - 86400000).toISOString(), expires_at:new Date(now + 6*86400000).toISOString(),
     status:"published", vendors:{ business_name:"Vendor", whatsapp_number:null, city:null },
   }, o||{});
 }

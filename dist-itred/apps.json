@@ -1,0 +1,17 @@
+{
+  "note": "The Products (our apps) page reads this list at runtime, so a link or line can change without a rebuild: edit, deploy. icon: desktop | phone | store | invoice | leaf.",
+  "apps": [
+    { "name": "Desktop App – seiGEN Commerce Lite", "url": "https://desktoppos-preview.seigendc.workers.dev/", "icon": "desktop",
+      "line": "Point of sale for your shop PC: sell, track stock and run branches, even offline." },
+    { "name": "Mobile App – seiGEN Commerce Lite", "url": "https://mobilepos-preview.seigendc.workers.dev/", "icon": "phone",
+      "line": "Your till in your pocket: sell and check stock from your phone, online or offline." },
+    { "name": "iTred Market Place", "url": "https://itred-preview.seigendc.workers.dev/", "icon": "store",
+      "line": "Find products from local shops and send your order on WhatsApp." },
+    { "name": "Invoice Retail", "url": "https://iqwriter.seigendc.workers.dev/", "icon": "invoice",
+      "line": "Make quotations and invoices for your shop in minutes, then share them on WhatsApp." },
+    { "name": "Invoice Contractors", "url": "https://iqwriterv10.seigendc.workers.dev/", "icon": "invoice",
+      "line": "Quotations and invoices for builders and contractors: labour, materials and jobs." },
+    { "name": "farmPLAN", "url": "https://farmplan.seigendc.workers.dev/", "icon": "leaf",
+      "line": "Plan your farm and keep your records in one place." }
+  ]
+}

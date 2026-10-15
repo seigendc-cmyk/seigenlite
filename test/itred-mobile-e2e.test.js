@@ -1,18 +1,26 @@
 // Run: node --no-warnings test/itred-mobile-e2e.test.js
 // (build first: node build.js --itred)
-// The iTred site at phone widths in a REAL browser (Playwright/Chromium),
-// against dist-itred/index.html with the Supabase fake from
-// test/itred-fake-supabase.js:
-//   * no page scrolls sideways at 375/390/414px, in Market Space grid and
-//     list view too, with long shop-typed names
-//   * list view keeps the text readable (buttons go under it, not beside it)
-//   * listing text and buttons are smaller on a phone than on desktop
-//   * the card buttons carry outline icons, and their labels are unchanged
+// The iTred market list in a REAL browser (Playwright/Chromium) at 390 and
+// 1280 px, served like the Worker (test/itred-serve.js), with the Supabase
+// fake from test/itred-fake-supabase.js (docs/itred/itred-upgrade-design.md
+// E4, E5):
+//   * the list only ever loads the 100×100 thumbnail (thumb_url), never the
+//     full picture; a listing with no thumbnail shows the placeholder and
+//     loads nothing; Text only loads no picture at all, and is remembered
+//   * rows per screen at 390×844 (between the search bar and the footer
+//     bar): at least 8 with pictures, 11 text only
+//   * the search bar stays under the header while the list scrolls
+//   * the search is Commerce Lite's rule: every term, any order, words by
+//     their start, numbers whole; vendor and city count; the result line
+//   * every icon button is at least 44×44 px with a label; nothing scrolls
+//     sideways at 360/390/414 px
+//   * shop-typed text can't inject markup
 "use strict";
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const { createFakeSupabase, listingRow } = require("./itred-fake-supabase");
+const { serveItred } = require("./itred-serve");
 
 let chromium;
 try{ ({ chromium } = require("playwright")); }
@@ -21,128 +29,173 @@ catch(e){
   console.log("0 passed, 0 failed (skipped)");
   process.exit(0);
 }
-
-const DIST = path.join(__dirname, "..", "dist-itred", "index.html");
-if(!fs.existsSync(DIST)){ console.log("Missing dist-itred/index.html — run: node build.js --itred"); process.exit(1); }
-const SITE = "file:///" + DIST.replace(/\\/g, "/");
-const ROUTES = ["#/", "#/market-space", "#/products", "#/rpn", "#/help", "#/contact", "#/orders", "#/account", "#/privacy", "#/terms"];
+if(!fs.existsSync(path.join(__dirname, "..", "dist-itred", "index.html"))){ console.log("Missing dist-itred/index.html — run: node build.js --itred"); process.exit(1); }
 
 let passed=0, failed=0;
 async function t(name, fn){
   try{ await fn(); passed++; console.log("  ok   "+name); }
   catch(e){ failed++; console.log("  FAIL "+name+"\n       "+(e.stack||e.message).split("\n").slice(0,8).join("\n       ")); }
 }
+
+const IMG = "https://img.test/";
+const CHIPO = "c1000000-0000-4000-8000-000000000001", GARA = "c2000000-0000-4000-8000-000000000002";
+const chipo = { business_name:"Chipo Clothing", whatsapp_number:"0771234567", city:"Harare" };
+const gara = { business_name:"Gara Bolts & Fasteners Hardware Supplies", whatsapp_number:"0772222333", city:"Mutare" };
+// 24 listings: even ones have a thumbnail (and a full picture the list must never load), odd ones only the full picture.
 function listings(){
-  const vendorId = "9b1c0000-0000-4000-8000-000000000001";
-  const vendor = { business_name:"Gara Bolts & Fasteners Hardware Supplies", whatsapp_number:"0771234567", city:"Harare" };
-  return [
-    listingRow({ vendor_id:vendorId, vendors:vendor, product_name:"Hex Bolt M12 x 100mm Zinc Plated (box of 50)", price:24.5, stock_quantity:40 }),
-    listingRow({ vendor_id:vendorId, vendors:vendor, product_name:"Supercalifragilisticexpialidocious-Cooking-Oil-Economy-Pack", price:12345.67, stock_quantity:0 }),
-  ];
+  const out = [];
+  for(let i = 0; i < 24; i++){
+    const has = i % 2 === 0;
+    out.push(listingRow({ id:"d0000000-0000-4000-8000-0000000000" + String(i).padStart(2, "0"), vendor_id: i < 12 ? CHIPO : GARA, vendors: i < 12 ? chipo : gara,
+      product_name: i < 12 ? "School shirt size " + (i + 1) : "Hex bolt M" + (i + 1) + " x 100mm zinc",
+      price: 5 + i, image_url: IMG + "full-" + i + ".webp", thumb_url: has ? IMG + "thumb-" + i + "-t.webp" : null,
+      published_at: new Date(Date.now() - i * 60000).toISOString() }));
+  }
+  out.push(listingRow({ vendor_id:GARA, vendors:gara, product_name:'<img src=x onerror="window.__xss=1">Paint 5lt', price:15, published_at:new Date(Date.now() - 99 * 60000).toISOString() }));
+  out.push(listingRow({ vendor_id:GARA, vendors:gara, product_name:"Paint 15lt", price:40, published_at:new Date(Date.now() - 100 * 60000).toISOString() }));
+  return out;
 }
-async function open(browser, width, hash){
+const PNG = fs.readFileSync(path.join(__dirname, "..", "dist-itred", "itred-icon-192.png"));
+
+let srv;
+async function open(browser, width, o){
+  o = o || {};
   const fake = createFakeSupabase({ listings: listings() });
-  const context = await browser.newContext({ viewport:{ width, height:800 }, isMobile: width < 600, hasTouch: width < 600 });
+  const context = o.context || await browser.newContext({ viewport:{ width, height: width < 600 ? 844 : 800 }, isMobile: width < 600, hasTouch: width < 600, serviceWorkers:"block" });
   const page = await context.newPage();
-  const errors = [];
+  const errors = [], images = [];
   page.on("pageerror", e=> errors.push(e.message));
   await fake.install(page);
-  await page.goto(SITE + (hash||"#/market-space"));
-  await page.waitForSelector(".page.active");
-  return { context, page, errors };
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  await page.route(IMG + "**", r => { images.push(r.request().url()); r.fulfill({ status:200, contentType:"image/png", body:PNG }); });
+  await page.goto(srv.base + (o.path || "/"));
+  await page.waitForSelector("#marketList .lrow");
+  return { context, page, errors, images, fake };
 }
-// Elements of the visible page that stick out past the screen edge.
-const overflow = (page)=> page.evaluate(()=>{
-  const vw = document.documentElement.clientWidth, out = [];
-  for(const el of document.querySelectorAll("body *")){
-    if(el.closest(".page") && !el.closest(".page.active")) continue;
-    const cs = getComputedStyle(el); if(cs.display==="none" || cs.visibility==="hidden") continue;
-    const b = el.getBoundingClientRect();
-    if(b.width && (b.right > vw + 0.5 || b.left < -0.5)) out.push(el.tagName.toLowerCase() + (el.className && typeof el.className==="string" ? "."+el.className.trim().replace(/\s+/g,".") : ""));
-  }
-  return { scrollWidth: document.documentElement.scrollWidth, vw, out: out.slice(0,5) };
+const search = async (page, q)=>{ await page.fill("#marketSearch", q); };
+const names = (page)=> page.$$eval("#marketList .lrow .n", els=> els.map(e=> e.textContent));
+// Rows fully visible between the bottom of the search bar and the top of the footer bar (or the screen's bottom).
+const rowsOnScreen = (page)=> page.evaluate(()=>{
+  const top = document.querySelector(".searchbar").getBoundingClientRect().bottom;
+  const fb = document.getElementById("footbar");
+  const bottom = fb && getComputedStyle(fb).display !== "none" ? fb.getBoundingClientRect().top : window.innerHeight;
+  return [...document.querySelectorAll("#marketList .lrow")].filter(r=>{ const b = r.getBoundingClientRect(); return b.top >= top - 0.5 && b.bottom <= bottom + 0.5; }).length;
 });
 
 (async()=>{
   const browser = await chromium.launch();
+  srv = await serveItred();
 
-  for(const width of [375, 390, 414]){
-    await t(`nothing scrolls sideways at ${width}px on any page, including Market Space grid and list view`, async ()=>{
-      const { context, page, errors } = await open(browser, width);
-      await page.waitForSelector("#marketResults .product-card");
-      // So #/orders has lines. Each add re-renders the cards: click the first one left each time.
-      for(let i = 0; i < 5 && await page.locator("[data-add-to-order]").count(); i++) await page.locator("[data-add-to-order]").first().click();
-      for(const route of ROUTES){
-        await page.goto(SITE + route); await page.waitForSelector(".page.active");
-        const views = route === "#/market-space" ? ["#viewCardBtn", "#viewListBtn"] : [null];
-        for(const v of views){
-          if(v){ await page.click(v); await page.waitForTimeout(100); }
-          const o = await overflow(page);
-          assert.ok(o.scrollWidth <= o.vw && !o.out.length, `${route}${v?" "+v:""} at ${width}px: scrollWidth ${o.scrollWidth} > ${o.vw}, ${o.out.join(", ")}`);
-        }
-      }
+  await t("390 px, Pictures: only 100×100 thumbnails load (never the full picture); no thumbnail = the placeholder, nothing loaded", async ()=>{
+    const { context, page, errors, images, fake } = await open(browser, 390);
+    const sel = new URLSearchParams(fake.requests("/rest/v1/vendor_listings", "GET")[0].query).get("select");
+    assert.match(sel, /thumb_url/); assert.ok(!/image_url/.test(sel), "the list never asks for image_url");
+    // scroll through the whole list so every lazy picture would load
+    for(let y = 0; y < 6000; y += 400){ await page.mouse.wheel(0, 400); await page.waitForTimeout(40); }
+    await page.waitForTimeout(300);
+    assert.ok(images.length > 0, "thumbnails were loaded");
+    assert.ok(images.every(u=> /-t\.webp$/.test(u)), "only thumbnails: " + images.filter(u=> !/-t\.webp$/.test(u)).join(", "));
+    const rows = await page.$$eval("#marketList .lrow", els=> els.map(e=> ({ n:e.querySelector(".n").textContent, img:e.querySelector("img.th") && e.querySelector("img.th").getAttribute("src"),
+      ph:!!e.querySelector(".th-empty"), w:e.querySelector(".th, .th-empty").getBoundingClientRect().width, lazy:e.querySelector("img.th") && e.querySelector("img.th").getAttribute("loading") })));
+    const noThumb = rows.filter(r=> !r.img);
+    assert.strictEqual(noThumb.length, 14, "12 odd listings + 2 paint listings have no thumbnail");
+    assert.ok(noThumb.every(r=> r.ph), "each shows the placeholder");
+    assert.ok(rows.filter(r=> r.img).every(r=> r.lazy === "lazy"));
+    assert.ok(rows.every(r=> r.w === 56), "shown at 56 px");
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("390 px: at least 8 rows on screen with pictures, 11 text only; Text only loads no pictures and is remembered", async ()=>{
+    const { context, page, errors, images } = await open(browser, 390);
+    const pics = await rowsOnScreen(page);
+    assert.ok(pics >= 8, "pictures: " + pics + " rows");
+    await page.click("#viewText");
+    assert.strictEqual(await page.getAttribute("#viewText", "aria-pressed"), "true");
+    const text = await rowsOnScreen(page);
+    assert.ok(text >= 11, "text only: " + text + " rows");
+    assert.strictEqual(await page.locator("#marketList img").count(), 0);
+    assert.match(await page.textContent("#marketMeta"), /text only, no pictures/);
+    images.length = 0;
+    await page.reload();
+    await page.waitForSelector("#marketList .lrow.text");
+    for(let y = 0; y < 4000; y += 400){ await page.mouse.wheel(0, 400); await page.waitForTimeout(30); }
+    assert.deepStrictEqual(images, [], "no picture requested in Text only");
+    assert.strictEqual(await page.evaluate(()=> localStorage.getItem("itred.view")), "text");
+    await page.click("#viewPics");
+    assert.strictEqual(await page.evaluate(()=> localStorage.getItem("itred.view")), "pics");
+    console.log("       (rows on screen at 390×844: " + pics + " with pictures, " + text + " text only)");
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("the search bar stays under the header while the list scrolls", async ()=>{
+    const { context, page } = await open(browser, 390);
+    const before = await page.locator(".searchbar").boundingBox();
+    await page.mouse.wheel(0, 1500); await page.waitForTimeout(200);
+    const after = await page.locator(".searchbar").boundingBox();
+    assert.ok(await page.evaluate(()=> window.scrollY) > 500, "the page scrolled");
+    assert.strictEqual(Math.round(after.y), 56, "pinned under the 56 px header");
+    assert.ok(Math.abs(after.height - before.height) < 1);
+    await context.close();
+  });
+
+  await t("Commerce Lite's search: every term, any order; words by their start; numbers whole; vendor and city count", async ()=>{
+    const { context, page, errors } = await open(browser, 390);
+    await search(page, "shirt school 3");
+    assert.deepStrictEqual(await names(page), ["School shirt size 3"], "any order, a number is whole (not 13)");
+    await search(page, "5lt");
+    assert.deepStrictEqual((await names(page)).map(n=> n.replace(/^<img[^>]*>/, "")), ["Paint 5lt"], "5lt is not 15lt");
+    await search(page, "hirt");
+    assert.deepStrictEqual(await names(page), [], "a word matches by its start only");
+    await search(page, "mutare paint");
+    assert.strictEqual((await names(page)).length, 2, "the city and the name");
+    await search(page, "chipo");
+    assert.strictEqual((await names(page)).length, 12, "the vendor");
+    assert.strictEqual(await page.textContent("#marketMeta"), "12 products from 1 vendor");
+    await search(page, "zzz");
+    assert.match(await page.textContent("#marketEmpty"), /No matches[\s\S]*Check the spelling/);
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("Vendors lists each vendor with its city and count; a tap shows its products", async ()=>{
+    const { context, page, errors } = await open(browser, 390);
+    await page.click('#footbar a[href="/vendors"]');
+    await page.waitForSelector("#vendorsRoot .vrow");
+    const rows = await page.$$eval("#vendorsRoot .vrow", els=> els.map(e=> e.innerText.replace(/\s+/g, " ").trim()));
+    assert.deepStrictEqual(rows, ["Chipo Clothing Harare · 12 products Products", "Gara Bolts & Fasteners Hardware Supplies Mutare · 14 products Products"]);
+    await page.click('#vendorsRoot [data-vendor-search="Chipo Clothing"]');
+    await page.waitForFunction(()=> location.pathname === "/" && document.getElementById("marketSearch").value === "Chipo Clothing");
+    assert.strictEqual(await page.textContent("#marketMeta"), "12 products from 1 vendor");
+    assert.deepStrictEqual(errors, []);
+    await context.close();
+  });
+
+  await t("every icon button is at least 44×44 px with a label; nothing scrolls sideways at 360/390/414 px", async ()=>{
+    for(const w of [360, 390, 414]){
+      const { context, page, errors } = await open(browser, w);
+      const small = await page.evaluate(()=> [...document.querySelectorAll(".ib")].filter(e=> e.offsetParent).map(e=>{ const b = e.getBoundingClientRect();
+        return { l:e.getAttribute("aria-label"), w:Math.round(b.width), h:Math.round(b.height) }; }).filter(x=> x.w < 44 || x.h < 44 || !x.l));
+      assert.deepStrictEqual(small, [], w + " px");
+      assert.strictEqual(await page.evaluate(()=> document.documentElement.scrollWidth <= window.innerWidth), true, w + " px scrolls sideways");
+      assert.strictEqual(await page.evaluate(()=> window.__xss), undefined);
       assert.deepStrictEqual(errors, []);
       await context.close();
-    });
-  }
-
-  await t("list view on a phone: buttons sit under the text, which keeps a readable width", async ()=>{
-    const { context, page } = await open(browser, 375);
-    await page.waitForSelector("#marketResults .product-card");
-    await page.click("#viewListBtn");
-    const item = page.locator(".product-list-item").first();
-    const body = await item.locator(".pbody").boundingBox();
-    const actions = await item.locator(".product-actions").boundingBox();
-    assert.ok(body.width > 200, "text column is " + body.width + "px wide");
-    assert.ok(actions.y >= body.y + body.height - 1, "buttons are below the text");
-    await context.close();
-  });
-
-  await t("listing text and buttons are smaller on a phone than on desktop", async ()=>{
-    const sizes = async (width)=>{
-      const { context, page } = await open(browser, width);
-      await page.waitForSelector("#marketResults .product-card");
-      const px = (sel)=> page.$eval("#marketResults .product-card " + sel, el=> parseFloat(getComputedStyle(el).fontSize));
-      const s = { name: await px("h4"), vendor: await px(".vendor"), meta: await px(".product-meta"), button: await px(".product-actions .btn") };
-      await context.close();
-      return s;
-    };
-    const phone = await sizes(390), desk = await sizes(1280);
-    for(const k of Object.keys(desk)){
-      assert.ok(phone[k] < desk[k], `${k}: phone ${phone[k]}px vs desktop ${desk[k]}px`);
-      assert.ok(phone[k] >= 12, `${k} stays readable: ${phone[k]}px`);
     }
   });
 
-  await t("Contact on WhatsApp and Add to order carry outline icons; labels unchanged", async ()=>{
-    const { context, page } = await open(browser, 390);
-    await page.waitForSelector("#marketResults .product-card");
-    const card = page.locator("#marketResults .product-card").first();
-    for(const [sel, label] of [[".btn-gold", "Contact on WhatsApp"], ["[data-add-to-order]", "Add to order"]]){
-      const btn = card.locator(sel);
-      assert.strictEqual((await btn.textContent()).trim(), label);
-      const icon = btn.locator("svg.btn-icon");
-      assert.strictEqual(await icon.count(), 1, label + " has one icon");
-      assert.strictEqual(await icon.getAttribute("fill"), "none", "outline, not filled");
-      assert.strictEqual(await icon.getAttribute("aria-hidden"), "true");
-      const box = await icon.boundingBox();
-      assert.ok(box.width >= 14 && box.width <= 18, label + " icon is " + box.width + "px");
-    }
+  await t("1280 px: the same list, no footer bar, the search bar under the header", async ()=>{
+    const { context, page, errors, images } = await open(browser, 1280);
+    assert.strictEqual(await page.locator("#footbar").isVisible(), false);
+    assert.ok(await rowsOnScreen(page) >= 8);
+    await page.waitForTimeout(300);
+    assert.ok(images.every(u=> /-t\.webp$/.test(u)));
+    assert.deepStrictEqual(errors, []);
     await context.close();
   });
 
-  await t("the page has no iframes, and one added later is capped to the screen width", async ()=>{
-    const { context, page } = await open(browser, 375, "#/");
-    assert.strictEqual(await page.locator("iframe").count(), 0);
-    const w = await page.evaluate(()=>{
-      const f = document.createElement("iframe"); f.width = "640"; f.height = "360";
-      document.querySelector(".page.active .wrap").appendChild(f);
-      return f.getBoundingClientRect().right <= document.documentElement.clientWidth;
-    });
-    assert.ok(w, "a 640px-wide embed fits inside the 375px screen");
-    await context.close();
-  });
-
+  await srv.close();
   await browser.close();
   console.log("\n"+passed+" passed, "+failed+" failed");
   process.exit(failed?1:0);

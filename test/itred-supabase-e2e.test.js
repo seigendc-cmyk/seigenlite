@@ -2,10 +2,9 @@
 // (build first: node build.js --itred)
 // The iTred site's Supabase wiring in a REAL browser (Playwright/Chromium),
 // against dist-itred/index.html:
-//   * Market Space: live vendor_listings + vendors, mapped onto the site's
-//     cards/list; search on name/vendor/category/city; "near me" explains
-//     it can't rank (no coordinates) instead of prompting for location;
-//     shop-typed text can't inject markup
+//   * the market: live vendor_listings + vendors (thumbnail only), mapped
+//     onto the list; search on name/vendor/category/city; shop-typed text
+//     can't inject markup; empty and error states
 //   * #/account: sign up (email confirmation required) -> sign in blocked
 //     until confirmed, with resend -> sign in creates the customers row
 //     from the sign-up name/phone -> edit profile -> survives a reload ->
@@ -79,60 +78,55 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
 
   const browser = await chromium.launch();
 
-  // ================= Market Space =================
-  await t("Market Space shows live listings from vendor_listings + vendors, mapped onto the site's cards", async ()=>{
+  // ================= The market =================
+  await t("the market shows live listings from vendor_listings + vendors: name, vendor · city, price, thumbnail", async ()=>{
     const fake = createFakeSupabase({ listings:[
       listingRow({ product_name:"Sugar 2kg", price:3.5, currency:"USD", category:"Groceries", stock_quantity:12,
-        image_url:"https://example.com/sugar.webp", vendors:{ business_name:"Boka General Dealer", whatsapp_number:"0771234567", city:"Harare" } }),
+        thumb_url:"https://example.com/sugar-t.webp", image_url:"https://example.com/sugar.webp", vendors:{ business_name:"Boka General Dealer", whatsapp_number:"0771234567", city:"Harare" } }),
       listingRow({ product_name:"Bread", price:1, stock_quantity:0, vendors:{ business_name:"Mbare Bakery", whatsapp_number:null, city:"Harare" } }),
       listingRow({ product_name:"Old Oil", status:"published", expires_at:new Date(Date.now()-60000).toISOString() }),
       listingRow({ product_name:"Pending Rice", status:"pending_review" }),
     ]});
-    const { context, page, errors } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
-    const cards = await page.$$eval("#marketResults .product-card", els=> els.map(e=>({
-      name: e.querySelector("h4").textContent, vendor: e.querySelector(".vendor").textContent,
-      meta: e.querySelector(".product-meta").textContent.replace(/\s+/g," ").trim(),
-      img: e.querySelector("img") && e.querySelector("img").getAttribute("src"),
-      noPhoto: !!e.querySelector(".thumb-empty"),
-      wa: e.querySelector("a.btn") && e.querySelector("a.btn").getAttribute("href") })));
-    assert.deepStrictEqual(cards.map(c=>c.name).sort(), ["Bread","Sugar 2kg"]);
-    const sugar = cards.find(c=>c.name==="Sugar 2kg");
-    assert.strictEqual(sugar.vendor, "Boka General Dealer");
-    assert.match(sugar.meta, /Location: Harare/);
-    assert.match(sugar.meta, /Price: USD 3\.50/);
-    assert.match(sugar.meta, /Available: 12/);
-    assert.ok(!/MOQ/.test(sugar.meta), "no MOQ in the schema");
-    assert.strictEqual(sugar.img, "https://example.com/sugar.webp");
-    assert.match(sugar.wa, /^https:\/\/wa\.me\/263771234567\?text=/, "local number converted to 263…");
-    const bread = cards.find(c=>c.name==="Bread");
-    assert.strictEqual(bread.noPhoto, true);
-    assert.strictEqual(bread.wa, null, "no WhatsApp button without a number");
-    assert.match(bread.meta, /Available: 0/);
+    const { context, page, errors } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
+    const rows = await page.$$eval("#marketList .lrow", els=> els.map(e=>({
+      name: e.querySelector(".n").textContent, sub: e.querySelector(".s").textContent, price: e.querySelector(".p").textContent,
+      img: e.querySelector("img") && e.querySelector("img").getAttribute("src"), noPhoto: !!e.querySelector(".th-empty"),
+      add: !!e.querySelector("[data-add-to-order]") })));
+    assert.deepStrictEqual(rows.map(c=>c.name).sort(), ["Bread","Sugar 2kg"]);
+    const sugar = rows.find(c=>c.name==="Sugar 2kg");
+    assert.deepStrictEqual([sugar.sub, sugar.price, sugar.img, sugar.add], ["Boka General Dealer · Harare", "USD 3.50", "https://example.com/sugar-t.webp", true]);
+    const bread = rows.find(c=>c.name==="Bread");
+    assert.deepStrictEqual([bread.noPhoto, bread.add], [true, false], "no thumbnail: the placeholder; no WhatsApp: no Add");
+    // The details sheet: the thumbnail again (never the full picture), the WhatsApp link with 263…
+    await page.click('#marketList .lrow:has-text("Sugar 2kg") [data-detail]');
+    await page.waitForSelector("#detailSheet[open]");
+    assert.strictEqual(await page.getAttribute("#detailSheet img", "src"), "https://example.com/sugar-t.webp");
+    assert.match(await page.textContent("#detailSheet"), /12 available[\s\S]*Groceries/);
+    assert.match(await page.getAttribute('#detailSheet a[aria-label^="Ask"]', "href"), /^https:\/\/wa\.me\/263771234567\?text=/, "local number converted to 263…");
     // The request asks for exactly what anonymous visitors may see.
     const req = fake.requests("/rest/v1/vendor_listings")[0];
     const q = new URLSearchParams(req.query);
     assert.match(q.get("select"), /product_name/);
+    assert.match(q.get("select"), /thumb_url/);
+    assert.ok(!/image_url/.test(q.get("select")), "the full picture is never asked for");
     assert.match(q.get("select"), /vendors\(business_name,\s*whatsapp_number,\s*city\)/);
     assert.strictEqual(q.get("status"), "eq.published");
     assert.match(q.get("expires_at"), /^gt\.\d{4}-\d\d-\d\dT/);
     assert.strictEqual(req.auth, "anon");
-    // List view shows the same listings.
-    await page.click("#viewListBtn");
-    assert.strictEqual(await page.$$eval("#marketResults .product-list-item", els=>els.length), 2);
     assert.deepStrictEqual(errors, []);
     assertNoStaticTableRequests(fake);
     await context.close();
   });
 
-  await t("search matches product name, vendor, category and city (no search keywords in the schema)", async ()=>{
+  await t("search matches product name, vendor, category and city", async ()=>{
     const fake = createFakeSupabase({ listings:[
       listingRow({ product_name:"Sugar 2kg", category:"Groceries", vendors:{ business_name:"Boka General Dealer", whatsapp_number:"", city:"Harare" } }),
       listingRow({ product_name:"Cement 50kg", category:"Building", vendors:{ business_name:"Byo Hardware", whatsapp_number:"", city:"Bulawayo" } }),
     ]});
-    const { context, page } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
-    const names = ()=> page.$$eval("#marketResults h4", els=> els.map(e=>e.textContent).sort());
+    const { context, page } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
+    const names = ()=> page.$$eval("#marketList .n", els=> els.map(e=>e.textContent).sort());
     for(const [query, expect] of [["bulawayo",["Cement 50kg"]],["boka",["Sugar 2kg"]],["groceries",["Sugar 2kg"]],["50kg cement",["Cement 50kg"]],["",["Cement 50kg","Sugar 2kg"]]]){
       await page.fill("#marketSearch", query);
       assert.deepStrictEqual(await names(), expect, "query "+JSON.stringify(query));
@@ -143,53 +137,43 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
     await context.close();
   });
 
-  await t("'near me' says it can't rank by distance yet, and never asks for the visitor's location", async ()=>{
-    const fake = createFakeSupabase({ listings:[ listingRow({ product_name:"Sugar 2kg", vendors:{ business_name:"Boka", whatsapp_number:"", city:"Harare" } }) ]});
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    await page.addInitScript(()=>{
-      window.__geoAsked = 0;
-      Object.defineProperty(navigator, "geolocation", { value:{ getCurrentPosition(){ window.__geoAsked++; } } });
-    });
-    await fake.install(page);
-    await page.goto(SITE + "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
-    await page.click("#nearMeBtn");
-    assert.match(await page.textContent("#nearMeStatus"), /Nearest-first isn't available yet.*city or town/);
-    assert.strictEqual(await page.evaluate(()=>window.__geoAsked), 0);
-    await context.close();
-  });
-
   await t("text typed by shops can't inject markup into the page", async ()=>{
     const fake = createFakeSupabase({ listings:[
       listingRow({ product_name:'<img src=x onerror="window.__pwned=1">Soap', category:"<b>x</b>",
-        image_url:'javascript:alert(1)', vendors:{ business_name:'<script>window.__pwned=2</script>Shop', whatsapp_number:"0771", city:'"><i id=inj>' } }),
+        thumb_url:'javascript:alert(1)', vendors:{ business_name:'<script>window.__pwned=2</script>Shop', whatsapp_number:"0771", city:'"><i id=inj>' } }),
     ]});
-    const { context, page } = await open(browser, fake, "#/market-space");
-    await page.waitForSelector("#marketResults .product-card");
+    const { context, page } = await open(browser, fake, "#/");
+    await page.waitForSelector("#marketList .lrow");
     await page.waitForTimeout(300);
     assert.strictEqual(await page.evaluate(()=>window.__pwned), undefined);
-    assert.strictEqual(await page.$("#marketResults img"), null, "non-http image URL is not rendered");
+    assert.strictEqual(await page.$("#marketList img"), null, "non-http image URL is not rendered");
     assert.strictEqual(await page.$("#inj"), null);
-    assert.match(await page.textContent("#marketResults h4"), /<img src=x/);
+    assert.match(await page.textContent("#marketList .n"), /<img src=x/);
     await context.close();
   });
 
-  await t("with no live listings, Market Space keeps its existing 'being onboarded' empty state", async ()=>{
+  await t("with no live listings the market says so; when the listings can't load it says that", async ()=>{
     const fake = createFakeSupabase({ listings:[] });
-    const { context, page } = await open(browser, fake, "#/market-space");
-    await page.waitForFunction(()=> true);
-    await page.waitForTimeout(300);
+    const { context, page } = await open(browser, fake, "#/");
+    await page.waitForFunction(()=> /No products listed right now/.test(document.querySelector("#marketEmpty h3").textContent));
     assert.strictEqual(await page.isVisible("#marketEmpty"), true);
-    assert.match(await page.textContent("#marketEmpty h3"), /Vendors are being onboarded/);
     await context.close();
+    const broken = createFakeSupabase({ listings:[] });
+    const ctx2 = await browser.newContext();
+    const p2 = await ctx2.newPage();
+    await broken.install(p2);
+    await p2.route(/\/rest\/v1\/vendor_listings/, r=> r.fulfill({ status:500, contentType:"application/json", body:'{"message":"boom"}' }));
+    await p2.goto(SITE + "#/");
+    await p2.waitForFunction(()=> /Market unavailable/.test(document.querySelector("#marketEmpty h3").textContent));
+    assert.match(await p2.textContent("#marketEmpty p"), /couldn't be loaded/);
+    await ctx2.close();
   });
 
   // ================= Accounts =================
   await t("sign up -> 'check your inbox'; sign in before confirming is refused with a resend option; nothing written to customers yet", async ()=>{
     const fake = createFakeSupabase();
     const { context, page, errors } = await open(browser, fake, "#/account");
-    assert.strictEqual(await page.textContent("#accountNavLink"), "Sign in");
+    assert.strictEqual(await page.getAttribute("#accountNavLink", "aria-label"), "Sign in");
     await page.click("#tabSignUp");
     await page.fill("#signupName", "Tendai Moyo");
     await page.fill("#signupPhone", "0771234567");
@@ -224,7 +208,7 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
     await page.fill("#authPassword", "secret123");
     await page.click("#signInBtn");
     await page.waitForSelector("#accountEmail");
-    assert.strictEqual(await page.textContent("#accountNavLink"), "My account");
+    assert.strictEqual(await page.getAttribute("#accountNavLink", "aria-label"), "Your account");
     assert.strictEqual(await page.inputValue("#profileName"), "Tendai Moyo");
     assert.strictEqual(await page.inputValue("#profilePhone"), "0771234567");
     const row = fake.customers.get(u.id);
@@ -249,7 +233,7 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
     await page.click("#signOutBtn");
     await page.waitForSelector("#signInForm");
     assert.match(await accountNotice(page), /signed out/);
-    assert.strictEqual(await page.textContent("#accountNavLink"), "Sign in");
+    assert.strictEqual(await page.getAttribute("#accountNavLink", "aria-label"), "Sign in");
     assert.deepStrictEqual(errors, []);
     assertNoStaticTableRequests(fake);
     await context.close();
@@ -378,7 +362,7 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
     await page.click("#newPasswordBtn");
     await page.waitForSelector("#accountEmail");
     assert.match(await accountNotice(page), /Your password has been changed\. You're signed in\./);
-    assert.strictEqual(await page.textContent("#accountNavLink"), "My account");
+    assert.strictEqual(await page.getAttribute("#accountNavLink", "aria-label"), "Your account");
     assert.strictEqual(await page.inputValue("#profileName"), "Tendai Moyo");
     assert.ok(fake.customers.get(u.id), "profile row created as for any first sign-in");
     assert.strictEqual(u.password, "new-secret");
@@ -423,13 +407,14 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
   await t("RPN application and feedback still go to WhatsApp only; no static section queries Supabase", async ()=>{
     const fake = createFakeSupabase();
     const { context, page, errors } = await open(browser, fake, "#/");
-    // feedback widget
-    await page.click("#feedbackToggle");
+    // site feedback (from the menu)
+    await page.evaluate(()=>{ window.open = (u)=>{ window.__opened = u; return null; }; });
+    await page.click("#navToggle");
+    await page.click("#feedbackOpen");
     await page.fill("#feedbackText", "Nice site");
-    const [fb] = await Promise.all([ context.waitForEvent("page"), page.click("#feedbackSend") ]);
-    assert.match(fb.url(), /(wa\.me\/|api\.whatsapp\.com\/send\/?\?phone=)263789487287/); // wa.me redirects to api.whatsapp.com
-    await fb.close();
-    for(const hash of ["#/","#/products","#/rpn","#/help","#/contact"]){
+    await page.click("#feedbackSend");
+    assert.match(await page.evaluate(()=> window.__opened), /^https:\/\/wa\.me\/263789487287\?text=/);
+    for(const hash of ["#/","#/about","#/apps","#/rpn","#/help","#/contact"]){
       await page.goto(SITE + hash);
       await page.waitForSelector(".page.active");
     }
@@ -446,7 +431,7 @@ const accountNotice = (page)=> page.textContent("#accountNotice");
     const errors = [];
     page.on("pageerror", e=> errors.push(e.message));
     const respP = page.waitForResponse(r=> /\/rest\/v1\/vendor_listings/.test(r.url()), { timeout:20000 }).catch(()=>null);
-    await page.goto(SITE + "#/market-space");
+    await page.goto(SITE + "#/");
     const resp = await respP;
     if(!resp){ console.log("       (skipped: live project not reachable from here)"); await context.close(); return; }
     assert.strictEqual(resp.status(), 200, await resp.text());

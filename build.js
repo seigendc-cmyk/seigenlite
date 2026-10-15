@@ -146,6 +146,7 @@ const SCRIPT_ORDER = [
   "trial.js",
   "dispatch-srv.js",
   "branch-stock.js",
+  "itred-orders.js",
   "supplier-grv.js",
   "marketing.js",
   "passcode-check.js",
@@ -360,20 +361,50 @@ function addMarket(destDir) {
 }
 
 // The public iTred Market Place site — a separate website for customers,
-// not a package of the shop app. It shares no code, styles or shell with
-// the app (its own navy/gold branding, fonts, hash router), so it lives in
-// its own tree, src/itred/, next to src/market/ and src/desktop/. For now
-// that tree is the one self-contained index.html it was written as, and
-// the build copies it through unchanged (byte for byte, not obfuscated).
-// When the site gains code of its own (Supabase auth, listings, the PO
-// cart), split it inside src/itred/ the way buildMarket assembles
-// src/market/, rather than changing this into a copy step for more files.
-const ITRED_SRC = path.join(SRC, "itred", "index.html");
+// not a package of the shop app (its own navy/gold branding, fonts and
+// router), in its own tree, src/itred/. Since iTred-B it's an installable
+// app: the page plus its service worker, manifest, icons, link-preview
+// image, apps.json (the Products page) and the two pinned libraries it
+// serves itself (supabase-js, jsPDF), copied flat into dist-itred/.
+// Into the page go:
+//   - the search rule shared with Commerce Lite: every block of
+//     src/utils.js between "@itred-shared begin" and "@itred-shared end";
+//   - apps.json (the Products page's offline fallback);
+//   - the site's own address for link previews (og:url / og:image), from
+//     --itred-base=URL, default the preview (a production deploy builds
+//     with the production address; tools/cf/deploy-app.js checks it).
+// The page's ITRED_BUILD must equal sw.js's "// build: iN" line.
+const ITRED_DIR = path.join(SRC, "itred");
+const ITRED_SRC = path.join(ITRED_DIR, "index.html");
+const ITRED_FILES = ["sw.js", "manifest.webmanifest", "apps.json", "itred-icon-192.png", "itred-icon-512.png", "itred-maskable-512.png",
+  "apple-touch-icon.png", "og-image.png", "vendor/supabase-2.117.1.js", "vendor/jspdf-4.2.1.umd.min.js"];
+const ITRED_DEFAULT_BASE = "https://itred-preview.seigendc.workers.dev/";
+function itredSharedSearch() {
+  const utils = fs.readFileSync(path.join(SRC, "utils.js"), "utf8").replace(/\r\n/g, "\n");
+  const blocks = [...utils.matchAll(/\/\/ @itred-shared begin[^\n]*\n([\s\S]*?)\n\s*\/\/ @itred-shared end/g)].map((m) => m[1]);
+  if (blocks.length < 2 || !/function textMatches\(/.test(blocks.join("\n"))) throw new Error("src/utils.js: the @itred-shared blocks (searchTokens .. textMatches) are missing");
+  return blocks.join("\n");
+}
 function buildItred() {
-  const html = fs.readFileSync(ITRED_SRC);
+  const baseArg = process.argv.find((a) => a.startsWith("--itred-base="));
+  const base = baseArg ? baseArg.slice("--itred-base=".length) : ITRED_DEFAULT_BASE;
+  if (!/^https:\/\/[a-z0-9.-]+\/$/.test(base)) throw new Error("--itred-base must look like https://host/ (with the last slash)");
+  let html = fs.readFileSync(ITRED_SRC, "utf8");
+  const apps = fs.readFileSync(path.join(ITRED_DIR, "apps.json"), "utf8");
+  JSON.parse(apps);
+  for (const [token, value] of [["/*@@SHARED_SEARCH@@*/", itredSharedSearch()], ["@@APPS_JSON@@", apps.trim()], ["@@ITRED_BASE@@", base]]) {
+    if (!html.includes(token)) throw new Error("src/itred/index.html: missing " + token);
+    html = html.split(token).join(value);
+  }
+  const sw = fs.readFileSync(path.join(ITRED_DIR, "sw.js"), "utf8");
+  const swBuild = (/\/\/ build: i(\d+)/.exec(sw) || [])[1], swConst = (/const ITRED_SW_BUILD = (\d+);/.exec(sw) || [])[1];
+  const pageBuild = (/const ITRED_BUILD = (\d+);/.exec(html) || [])[1];
+  if (!swBuild || swBuild !== swConst || swBuild !== pageBuild) throw new Error("iTred build numbers differ: sw.js line i" + swBuild + ", ITRED_SW_BUILD " + swConst + ", page ITRED_BUILD " + pageBuild);
+  fs.rmSync(DIST_ITRED, { recursive: true, force: true });
   fs.mkdirSync(DIST_ITRED, { recursive: true });
   fs.writeFileSync(path.join(DIST_ITRED, "index.html"), html);
-  console.log("Built dist-itred/index.html (" + html.length + " bytes) from src/itred/index.html.");
+  for (const f of ITRED_FILES) fs.copyFileSync(path.join(ITRED_DIR, f), path.join(DIST_ITRED, path.basename(f)));
+  console.log("Built dist-itred/ (build i" + swBuild + ", index.html " + html.length + " bytes + " + ITRED_FILES.length + " files) for " + base);
 }
 
 // The RPN Field Guide — a separate installable app for RPN agents, not a

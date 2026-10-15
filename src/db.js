@@ -310,6 +310,19 @@
     CREATE TABLE IF NOT EXISTS bs_sent(
       product_key TEXT PRIMARY KEY, sig TEXT
     );
+    -- iTred orders (itred-orders.js): the business's orders from iTred Market
+    -- Place as pulled (one row per order, the server's JSON with its lines and
+    -- messages; seen=0 until opened on this till), and this till's changes
+    -- waiting to be sent (kind line|complete|message|read; status queued|error).
+    -- Status only: nothing here touches stock or sales. Local only.
+    CREATE TABLE IF NOT EXISTS itred_orders(
+      id TEXT PRIMARY KEY, created_at TEXT, status TEXT, completed_at TEXT, updated_at TEXT, change_seq INTEGER,
+      customer_name TEXT DEFAULT '', customer_phone TEXT DEFAULT '', json TEXT NOT NULL, pulled_ts TEXT, seen INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS itred_outbox(
+      uid TEXT PRIMARY KEY, kind TEXT NOT NULL, order_id TEXT NOT NULL, item_id TEXT, payload_json TEXT NOT NULL,
+      created_ts TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', error TEXT DEFAULT ''
+    );
     CREATE TABLE IF NOT EXISTS print_queue(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT DEFAULT '',

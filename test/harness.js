@@ -80,7 +80,7 @@ function makeApp(settings, opts){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js","branch-stock.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js","branch-stock.js","itred-orders.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -136,6 +136,9 @@ function makeApp(settings, opts){
         dsUuid, dsHex, dsEnabled, dsBranches, dsRefreshBranches, dsBranchFor, dsFileOnlyReason, dsDestinationNames, dsCached, dsCachedOne, dsPending, dsSendPending, dsPull, dsAfterCheckin, dsPostGrv, dsCancel, dsWriteOff, dsResolveExtra, dsRedispatch, dsReconcile, dsIncomingWaiting, dsOpenIssues, dsInTransit, dsFileCheck, dsLandedCosts, dsCountProblems, dsCreateProduct, dsFindProduct, dsProblems, dsStatusText,
         sgSuppliers, sgSupplier, sgSaveSupplier, sgLanded, sgPostGrv, sgSendPending, sgPull, sgAfterCheckin, sgInvoiceKey, groupPurchases,
         bsPush, bsPull, bsPullDispatches, bsDispatches, bsBranches, bsOtherBranches, bsOtherQty, bsRowFor, bsCopies, bsValueAtCost, bsUpdatedText, bsShowOtherColumn, bsTabAvailable,
+        itredAvailable, itredPull, itredSendPending, itredAfterCheckin, itredSetLines, itredMarkComplete, itredReply, itredMarkRead, itredMarkSeen, itredDiscard,
+        itredOrders, itredOrderView, itredRow, itredOutbox, itredNewCount, itredUnreadCount, itredWaitingCount, itredGroup, itredStatusHtml,
+        renderItredOrders, renderItredFeedback, openItredOrder, itredBannerHtml, itredMoreLabel, renderItredMoreTab,
         bsJoinedOnlyBranchNames, bsBranchByName, bsLocalRows, bsAfterCheckin, bsSoon, renderBranchStock, openBsProductModal, renderProductList,
         setPlistBranch:(b)=>{ plistBranch=b; }, setPlistQuery:(q)=>{ plistQuery=q; }, plistResults,
         textMatches, searchDateWords, fileCopyDate, dnSearchFields, dnLineWords, customerSearch,

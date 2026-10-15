@@ -744,6 +744,7 @@
     main.innerHTML = `
       ${shiftBlockBannerHtml()}
       ${dcMessagesBannerHtml()}
+      ${typeof itredBannerHtml==="function"? itredBannerHtml() : ""}
       ${tillStockNoteHtml()}
       ${typeof sharedStockOfflineBadgeHtml==="function"? sharedStockOfflineBadgeHtml() : ""}
       ${window._lastReceipt? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
@@ -770,6 +771,7 @@
     `;
     wireShiftBlockBanner();
     wireDcMessagesBanner();
+    if(typeof wireItredBanner==="function") wireItredBanner();
     const input = document.getElementById("searchInput");
     input.oninput = (e)=>{ searchQuery = e.target.value; renderPOSListOnly(); };
     input.focus();

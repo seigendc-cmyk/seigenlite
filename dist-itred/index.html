@@ -2,8 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>iTred Market Place</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>iTred Market Place – Market</title>
+<meta name="description" content="Find products from local shops and send your order on WhatsApp.">
+<meta name="theme-color" content="#12243F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="itred-icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="iTred">
+<!-- Link previews (WhatsApp, Facebook, X): build.js puts the site's own address in place of https://itred-preview.seigendc.workers.dev/. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="iTred Market Place">
+<meta property="og:title" content="iTred Market Place">
+<meta property="og:description" content="Find products from local shops and send your order on WhatsApp.">
+<meta property="og:url" content="https://itred-preview.seigendc.workers.dev/">
+<meta property="og:image" content="https://itred-preview.seigendc.workers.dev/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -321,37 +338,6 @@
   #orderToast a{color:var(--gold);font-weight:600;white-space:nowrap;}
   .po-delivered{display:block;font-size:12.5px;color:var(--text-soft);margin-top:2px;}
 
-  /* ---------- Record delivery (fulfilment) dialog ---------- */
-  #fulfilDialog{
-    border:1px solid var(--border);padding:0;background:var(--white);color:var(--text);
-    width:min(560px, calc(100vw - 32px));max-height:calc(100vh - 48px);
-    box-shadow:0 10px 40px rgba(18,36,63,0.28);
-  }
-  #fulfilDialog::backdrop{background:rgba(18,36,63,0.45);}
-  #fulfilDialog form{margin:0;display:flex;flex-direction:column;max-height:calc(100vh - 50px);}
-  .fl-head{padding:22px 24px 14px 24px;border-bottom:1px solid var(--border);}
-  .fl-head h3{font-size:21px;margin:0 0 2px 0;}
-  .fl-head .hint{font-size:13px;color:var(--text-soft);}
-  .fl-body{padding:4px 24px 8px 24px;overflow-y:auto;}
-  .fl-cols,.fl-line{display:grid;grid-template-columns:1fr 84px 110px;gap:12px;align-items:center;}
-  .fl-cols{font-size:12px;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.04em;padding:12px 0 6px 0;}
-  .fl-cols span:not(:first-child),.fl-line .fl-ordered{text-align:right;}
-  .fl-line{padding:12px 0;border-top:1px solid var(--border);}
-  .fl-line .fl-name{font-weight:600;color:var(--navy);font-size:14.5px;min-width:0;overflow-wrap:anywhere;}
-  .fl-line .fl-ordered{font-size:14px;}
-  .fl-line input.fl-qty{padding:8px 10px;text-align:right;}
-  .fl-line.invalid input.fl-qty{border-color:#B3261E;}
-  .fl-err{grid-column:1 / -1;font-size:12.5px;font-weight:600;color:#8C1D18;}
-  .fl-err:empty{display:none;}
-  .fl-foot{padding:14px 24px 20px 24px;border-top:1px solid var(--border);}
-  .fl-foot .auth-msg{margin:0 0 12px 0;}
-  .fl-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
-  .fl-actions .btn{padding:10px 20px;font-size:13.5px;}
-  @media (max-width:640px){
-    .fl-head,.fl-body,.fl-foot{padding-left:16px;padding-right:16px;}
-    .fl-cols,.fl-line{grid-template-columns:1fr 64px 92px;gap:8px;}
-    .fl-actions .btn{flex:1;justify-content:center;}
-  }
   @media (max-width:640px){
     .po-card{padding:16px;}
     .po-line{grid-template-columns:1fr 84px 34px;grid-template-areas:"name name name" "price qty remove" "total total total";row-gap:8px;}
@@ -428,45 +414,280 @@
     .po-head h3{font-size:18px;}
     .po-totals b{font-size:18px;}
   }
+
+  /* =====================================================================
+     iTred-B (docs/itred/itred-upgrade-design.md, Part E): phone first,
+     outline icons with captions, the search fixed under the header, a
+     floating footer bar on phones, thumbnails or text only.
+     ===================================================================== */
+  html{scroll-padding-top:120px;}
+  main{min-height:calc(100vh - 56px);}
+  body{padding-bottom:calc(84px + env(safe-area-inset-bottom));}
+  @media (min-width:768px){ body{padding-bottom:0;} }
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+  /* One icon button: outline icon, small caption, no border, no background, 44 px tap area. */
+  .ib{min-width:44px;min-height:44px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+      background:none;border:0;padding:2px 4px;margin:0;color:var(--navy);cursor:pointer;font:inherit;text-decoration:none;position:relative;}
+  .ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+  .ib .cap{font-size:10.5px;line-height:1.15;color:var(--navy-soft);white-space:nowrap;}
+  .ib.on,.ib.on .cap{color:var(--gold-dark);}
+  .ib[disabled]{opacity:.4;cursor:not-allowed;}
+  .ib .dot{position:absolute;top:4px;right:6px;min-width:16px;height:16px;border-radius:8px;background:var(--gold);color:var(--navy);
+      font-size:10px;line-height:16px;text-align:center;padding:0 4px;font-weight:700;}
+  .ib .dot:empty{display:none;}
+
+  /* Header: hamburger, logo, (desktop) links, account. */
+  header{height:56px;}
+  .headerbar{height:56px;padding:0 8px;gap:4px;justify-content:flex-start;}
+  .brand{flex:1;min-width:0;gap:8px;}
+  .brand .mark{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .brand-logo{width:30px;height:30px;}
+  nav.toplinks{display:none;gap:2px;align-items:center;}
+  nav.toplinks a{font-size:14px;font-weight:600;color:var(--navy);padding:8px 12px;border-bottom:2px solid transparent;}
+  nav.toplinks a.active{border-bottom-color:var(--gold);color:var(--gold-dark);}
+  @media (min-width:768px){ nav.toplinks{display:flex;} .brand .mark{font-size:20px;} .headerbar{padding:0 16px;} }
+
+  /* The drawer (hamburger). */
+  #drawerScrim{position:fixed;inset:0;background:rgba(18,36,63,.35);z-index:80;display:none;}
+  #drawer{position:fixed;top:0;left:0;bottom:0;width:min(300px,86vw);background:var(--white);z-index:81;transform:translateX(-102%);
+      transition:transform .18s ease;box-shadow:4px 0 18px rgba(18,36,63,.2);padding:10px 0 calc(16px + env(safe-area-inset-bottom));overflow-y:auto;}
+  body.drawer-open #drawerScrim{display:block;}
+  body.drawer-open #drawer{transform:none;}
+  #drawer .dhead{display:flex;align-items:center;gap:8px;padding:6px 16px 12px;font-family:'Fraunces',serif;font-weight:700;color:var(--navy);font-size:17px;}
+  #drawer a.dl{display:flex;align-items:center;gap:14px;padding:0 20px;min-height:50px;color:var(--navy);font-size:15.5px;border-left:3px solid transparent;}
+  #drawer a.dl svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+  #drawer a.dl.active{background:var(--offwhite);border-left-color:var(--gold);}
+  #drawer hr{border:0;border-top:1px solid var(--border);margin:8px 0;}
+  #drawer .small{display:flex;flex-wrap:wrap;gap:4px 14px;padding:4px 20px;}
+  #drawer .small a,#drawer .small button{font-size:13px;color:var(--text-soft);min-height:36px;display:inline-flex;align-items:center;background:none;border:0;padding:0;cursor:pointer;font-family:inherit;}
+
+  /* The floating footer bar (phones). */
+  #footbar{position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));height:60px;z-index:60;
+      background:rgba(255,255,255,.80);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+      border:1px solid var(--border);border-radius:16px;display:flex;justify-content:space-around;align-items:center;}
+  body.typing #footbar{display:none;}
+  @media (min-width:768px){ #footbar{display:none;} }
+
+  /* The market search, fixed under the header. */
+  .searchbar{position:sticky;top:56px;z-index:40;background:rgba(247,244,238,.94);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+      padding:8px 12px;border-bottom:1px solid var(--border);}
+  .searchbar .inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:2px;}
+  .searchbox{flex:1;display:flex;align-items:center;gap:8px;height:42px;background:var(--white);border:1px solid var(--border);padding:0 10px;min-width:0;}
+  .searchbox svg{width:18px;height:18px;stroke:var(--text-soft);fill:none;stroke-width:1.6;flex:none;}
+  .searchbox input{border:0;padding:0;height:40px;outline:none;background:transparent;font-size:15px;min-width:0;}
+  .searchbox input:focus{outline:none;}
+  .searchbox:focus-within{outline:2px solid var(--gold);outline-offset:1px;}
+
+  /* Listings: one row each. */
+  .mwrap{max-width:1080px;margin:0 auto;padding:0 12px 12px;}
+  .meta-line{font-size:12.5px;color:var(--text-soft);padding:6px 4px 4px;}
+  .lrow{display:flex;align-items:center;gap:10px;background:var(--white);border-bottom:1px solid var(--border);padding:8px 2px 8px 8px;min-height:72px;}
+  .lrow .th{width:56px;height:56px;flex:none;object-fit:cover;background:#ECE8E0;}
+  .lrow .th-empty{width:56px;height:56px;flex:none;background:#ECE8E0;display:flex;align-items:center;justify-content:center;}
+  .lrow .th-empty svg{width:22px;height:22px;stroke:#B5AD9C;fill:none;stroke-width:1.4;}
+  .lrow .t{flex:1;min-width:0;cursor:pointer;line-height:1.3;}
+  .lrow .n{font-weight:700;color:var(--navy);font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lrow .s{font-size:12.5px;color:var(--text-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lrow .p{font-size:13.5px;font-weight:600;color:var(--navy);}
+  .lrow.text{min-height:56px;padding-top:5px;padding-bottom:5px;}
+  .lrow.text .s .p{display:inline;}
+  @media (min-width:768px){ #marketList{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;} }
+
+  /* Bottom sheet (a listing's details) and small dialogs. */
+  dialog.sheet{border:0;padding:0;margin:auto auto 0;width:100%;max-width:560px;background:var(--white);color:var(--text);
+      border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(18,36,63,.25);padding-bottom:env(safe-area-inset-bottom);}
+  @media (min-width:768px){ dialog.sheet{margin:auto;border-radius:6px;} }
+  dialog.sheet::backdrop{background:rgba(18,36,63,.4);}
+  .sheet .sh{padding:16px 16px 8px;display:flex;gap:12px;align-items:flex-start;}
+  .sheet .sh img,.sheet .sh .th-empty{width:100px;height:100px;flex:none;object-fit:cover;background:#ECE8E0;}
+  .sheet h3{font-size:18px;margin:0 0 4px;}
+  .sheet .meta{font-size:13px;color:var(--text-soft);line-height:1.5;}
+  .sheet .acts{display:flex;justify-content:flex-end;gap:2px;padding:4px 8px 10px;border-top:1px solid var(--border);}
+  .sheet .body{padding:4px 16px 12px;font-size:14px;}
+
+  /* Your Orders: sent orders. */
+  .oc{background:var(--white);border:1px solid var(--border);padding:12px;margin-bottom:12px;}
+  .oc .oh{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;}
+  .oc h3{font-size:16px;margin:0;font-family:'Inter',sans-serif;font-weight:700;}
+  .oc .sub{font-size:12px;color:var(--text-soft);}
+  .chip{font-size:11px;padding:2px 8px;border-radius:10px;display:inline-block;white-space:nowrap;font-weight:600;}
+  .chip.fulfilled{background:#E3F0E6;color:#1E6B35;}
+  .chip.partially_fulfilled{background:#FFF4E0;color:#8A5A00;}
+  .chip.outstanding,.chip.sent{background:#EEF0F4;color:var(--navy-soft);}
+  .chip.closed{background:#EEE;color:#555;}
+  .ol{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:7px 0;border-bottom:1px dashed var(--border);}
+  .ol .l{min-width:0;overflow-wrap:anywhere;}
+  .ol .r{text-align:right;flex:none;}
+  .ol small{display:block;color:var(--text-soft);font-size:12px;}
+  .ol .resp{display:flex;gap:0;justify-content:flex-end;margin-top:2px;}
+  .ol .resp .ib{min-height:44px;}
+  .oc .ot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px;flex-wrap:wrap;}
+  .oc .ot b{color:var(--navy);}
+  .oc .acts{display:flex;justify-content:flex-end;gap:2px;margin-top:4px;}
+  .oc .note{font-size:12.5px;margin-top:6px;}
+  .thread{border-top:1px solid var(--border);margin-top:8px;padding-top:8px;}
+  .msg{max-width:85%;padding:6px 10px;margin:4px 0;font-size:13.5px;border-radius:10px;}
+  .msg.customer{margin-left:auto;background:#E8EEF7;}
+  .msg.vendor{background:var(--offwhite);border:1px solid var(--border);}
+  .msg small{display:block;color:var(--text-soft);font-size:11px;}
+  .thread form{display:flex;gap:6px;align-items:flex-end;margin-top:6px;}
+  .thread textarea{min-height:44px;height:44px;flex:1;font-size:14px;padding:10px;}
+  .offline-note{font-size:12.5px;color:var(--text-soft);margin:0 0 10px;}
+
+  /* Products (our apps). */
+  .app{display:flex;gap:12px;align-items:center;background:var(--white);border:1px solid var(--border);padding:10px 8px 10px 12px;margin-bottom:10px;}
+  .app .ic{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--navy);}
+  .app .ic svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+  .app h4{margin:0;font-size:14.5px;color:var(--navy);}
+  .app p{margin:2px 0 0;font-size:12.5px;color:var(--text-soft);line-height:1.4;}
+  .vrow{display:flex;align-items:center;gap:10px;background:var(--white);border-bottom:1px solid var(--border);padding:10px 8px;min-height:56px;cursor:pointer;}
+  .vrow .t{flex:1;min-width:0;}
+  .pagehead{max-width:1080px;margin:0 auto;padding:16px 16px 4px;}
+  .pagehead h1{font-size:24px;margin:0;}
+  .pagebody{max-width:1080px;margin:0 auto;padding:8px 12px 16px;}
+
+  /* The update bar. */
+  #updateBar{position:fixed;left:8px;right:8px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:75;background:var(--navy);color:var(--white);
+      padding:10px 12px;display:none;align-items:center;gap:10px;font-size:14px;box-shadow:0 4px 18px rgba(18,36,63,.3);}
+  #updateBar.show{display:flex;}
+  #updateBar button{background:var(--gold);color:var(--navy);border:0;font-weight:700;padding:10px 14px;min-height:44px;cursor:pointer;margin-left:auto;font-family:inherit;}
+  @media (min-width:768px){ #updateBar{left:auto;right:16px;bottom:16px;max-width:420px;} }
+  #orderToast{bottom:calc(80px + env(safe-area-inset-bottom));}
+  @media (min-width:768px){ #orderToast{bottom:22px;} }
 </style>
-<!-- Pinned (not @2) so a supabase-js release can't change the site's
-     behaviour underneath it; bump deliberately. -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<!-- Pinned and served from this site (not a CDN), so the app shell, sign-in
+     and the order PDF also work offline; bump deliberately. -->
+<script src="supabase-2.117.1.js"></script>
 </head>
 <body>
 
+<!-- One outline icon set (24-grid, stroke only): used everywhere through <use href="#i-…">. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M3 9h18M9 20v-6h6v6"/></symbol>
+  <symbol id="i-orders" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></symbol>
+  <symbol id="i-vendors" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 010 6M18 15c2 .5 3 2.5 3 5"/></symbol>
+  <symbol id="i-apps" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+  <symbol id="i-pic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-9 8"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h16M4 18h10"/></symbol>
+  <symbol id="i-add" viewBox="0 0 24 24"><path d="M3 4h2l2 10h10l2-7H6M12 8v4M10 10h4"/><circle cx="9" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5z"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.4z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></symbol>
+  <symbol id="i-install" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="1"/><path d="M12 7v7M9 11l3 3 3-3"/></symbol>
+  <symbol id="i-desktop" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12"/><path d="M8 20h8M12 16v4"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="1"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-invoice" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-9 6-14 15-14 0 9-5 15-14 15M5 19l7-7"/></symbol>
+  <symbol id="i-place" viewBox="0 0 24 24"><path d="M12 21s7-7.5 7-12a7 7 0 10-14 0c0 4.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+  <symbol id="i-feedback" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3z M8 9h8M8 12h5"/></symbol>
+</svg>
+
 <header>
   <div class="headerbar">
-    <a href="#/" class="brand">
-      <img src="data:image/png;base64,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" alt="iTred" class="brand-logo">
+    <button type="button" class="ib" id="navToggle" aria-label="Open the menu" aria-controls="drawer" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
+    <a href="/" class="brand" data-link aria-label="iTred Market Place, market">
+      <img src="itred-icon-192.png" alt="" class="brand-logo" width="30" height="30">
       <span class="mark">iTred Market Place</span>
     </a>
-    <button class="navtoggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
-    <nav class="mainnav" id="mainNav">
-      <a href="#/" data-route="/">Home</a>
-      <a href="#/market-space" data-route="/market-space">Market Space</a>
-      <a href="#/products" data-route="/products">Products</a>
-      <a href="#/rpn" data-route="/rpn">Become an RPN</a>
-      <a href="#/help" data-route="/help">Help</a>
-      <a href="#/contact" data-route="/contact">Contact</a>
-      <a href="#/orders" data-route="/orders" id="ordersNavLink">Orders<span class="nav-count" id="ordersNavCount"></span></a>
-      <a href="#/account" data-route="/account" id="accountNavLink">Sign in</a>
+    <nav class="toplinks" id="topLinks" aria-label="Main">
+      <a href="/" data-link data-route="/">Market</a>
+      <a href="/orders" data-link data-route="/orders">Your Orders<span class="nav-count" id="ordersNavCount"></span></a>
+      <a href="/vendors" data-link data-route="/vendors">Vendors</a>
+      <a href="/apps" data-link data-route="/apps">Products</a>
+      <a href="/about" data-link data-route="/about">About</a>
     </nav>
+    <a href="/account" class="ib" data-link id="accountNavLink" aria-label="Sign in"><svg><use href="#i-user"/></svg></a>
   </div>
 </header>
 
-<main>
+<div id="drawerScrim"></div>
+<nav id="drawer" aria-label="Menu" aria-hidden="true">
+  <div class="dhead"><img src="itred-icon-192.png" alt="" width="28" height="28">iTred Market Place
+    <button type="button" class="ib" id="drawerClose" aria-label="Close the menu" style="margin-left:auto"><svg><use href="#i-close"/></svg></button></div>
+  <a class="dl" href="/" data-link data-route="/"><svg><use href="#i-store"/></svg>Market</a>
+  <a class="dl" href="/orders" data-link data-route="/orders"><svg><use href="#i-orders"/></svg>Your Orders</a>
+  <a class="dl" href="/vendors" data-link data-route="/vendors"><svg><use href="#i-vendors"/></svg>Vendors</a>
+  <a class="dl" href="/apps" data-link data-route="/apps"><svg><use href="#i-apps"/></svg>Products (our apps)</a>
+  <a class="dl" href="/account" data-link data-route="/account"><svg><use href="#i-user"/></svg>Account</a>
+  <a class="dl" href="/about" data-link data-route="/about"><svg><use href="#i-info"/></svg>About &amp; Privacy</a>
+  <hr>
+  <div class="small">
+    <a href="/help" data-link>Help</a><a href="/contact" data-link>Contact</a><a href="/privacy" data-link>Privacy</a><a href="/terms" data-link>Terms</a><a href="/rpn" data-link>Become an RPN</a>
+    <button type="button" id="feedbackOpen">Send feedback</button>
+  </div>
+</nav>
 
-  <!-- HOME -->
+<main>
+  <!-- MARKET (the landing page) -->
   <div class="page" id="page-/">
+    <div class="searchbar">
+      <div class="inner">
+        <label class="searchbox"><svg aria-hidden="true"><use href="#i-search"/></svg>
+          <span class="sr-only">Search products, vendors, places</span>
+          <input type="search" id="marketSearch" placeholder="Search products, vendors, places" autocomplete="off" enterkeyhint="search"></label>
+        <button type="button" class="ib" id="viewPics" aria-label="Pictures" aria-pressed="true"><svg><use href="#i-pic"/></svg><span class="cap" aria-hidden="true">Pictures</span></button>
+        <button type="button" class="ib" id="viewText" aria-label="Text only (no pictures, saves data)" aria-pressed="false"><svg><use href="#i-text"/></svg><span class="cap" aria-hidden="true">Text only</span></button>
+      </div>
+    </div>
+    <div class="mwrap">
+      <div class="meta-line" id="marketMeta" role="status" aria-live="polite"></div>
+      <div id="marketList"></div>
+      <div id="marketEmpty" class="empty-state" style="display:none;margin-top:12px">
+        <h3>Loading the market…</h3>
+        <p></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- YOUR ORDERS -->
+  <!-- Drafts (one per vendor, kept in this browser) and sent orders (the account's). Filled in by renderOrders(). -->
+  <div class="page" id="page-/orders">
+    <div class="pagehead"><h1>Your Orders</h1></div>
+    <div class="pagebody"><div id="ordersRoot"></div></div>
+  </div>
+
+  <!-- VENDORS -->
+  <div class="page" id="page-/vendors">
+    <div class="pagehead"><h1>Vendors</h1><p class="hint" style="margin:4px 0 0;color:var(--text-soft);font-size:13.5px;">Shops with products on iTred now. Tap one to see its products.</p></div>
+    <div class="pagebody"><div id="vendorsRoot"></div></div>
+  </div>
+
+  <!-- PRODUCTS (our apps) -->
+  <div class="page" id="page-/apps">
+    <div class="pagehead"><h1>Our apps</h1></div>
+    <div class="pagebody"><div id="appsRoot"></div></div>
+  </div>
+
+  <!-- ACCOUNT -->
+  <!-- Customer sign-up / sign-in (Supabase Auth, email + password) and the
+       signed-in profile. Filled in by renderAccount() below. -->
+  <div class="page" id="page-/account">
+    <div class="pagehead"><h1>Your account</h1><p class="hint" style="margin:4px 0 0;color:var(--text-soft);font-size:13.5px;">Sign in to send orders to vendors and see their replies.</p></div>
+    <div class="pagebody"><div id="accountRoot"></div></div>
+  </div>
+
+  <!-- ABOUT (what used to be the home page) -->
+  <div class="page" id="page-/about">
     <section class="hero">
       <div class="wrap">
         <div class="section-kicker">iTred Market Place</div>
         <h1>Find your products, and your vendors, near you.</h1>
         <p class="lede">iTred connects buyers with real vendors trading in their area — and gives every vendor using seiGEN Commerce Lite a place to be seen, discovered, and messaged directly.</p>
         <div style="display:flex;gap:14px;flex-wrap:wrap;">
-          <a href="#/market-space" class="btn btn-gold">Browse Market Space</a>
-          <a href="#/rpn" class="btn btn-outline">Become an RPN Partner</a>
+          <a href="/" data-link class="btn btn-gold">Search the market</a>
+          <a href="/rpn" data-link class="btn btn-outline">Become an RPN Partner</a>
         </div>
         <div class="stat-row">
           <div class="stat"><div class="num">200</div><div class="label">Products a vendor can showcase</div></div>
@@ -558,7 +779,7 @@
         <div class="callout">
           <h3 style="margin-bottom:8px;">Already selling? Get seen.</h3>
           <p style="color:var(--text-soft);margin-bottom:16px;">Try seiGEN Commerce Lite free for 30 days. Once you're on it, listing with iTred is the fastest way to put your products in front of new buyers nearby.</p>
-          <a href="#/products" class="btn btn-navy">Get seiGEN Commerce Lite</a>
+          <a href="/apps" data-link class="btn btn-navy">Get seiGEN Commerce Lite</a>
         </div>
       </div>
     </section>
@@ -583,7 +804,7 @@
           </div>
         </div>
         <div style="margin-top:32px;">
-          <a href="#/rpn" class="btn btn-gold">Apply to become an RPN</a>
+          <a href="/rpn" data-link class="btn btn-gold">Apply to become an RPN</a>
         </div>
       </div>
     </section>
@@ -593,93 +814,7 @@
         <div class="callout">
           <h3 style="margin-bottom:8px;">Looking to buy?</h3>
           <p style="color:var(--text-soft);margin-bottom:16px;">iTred is where you find your products, and your vendors, near you. Search Market Space and message any vendor directly on WhatsApp.</p>
-          <a href="#/market-space" class="btn btn-navy">Browse Market Space</a>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- MARKET SPACE -->
-  <div class="page" id="page-/market-space">
-    <section style="padding-top:36px;padding-bottom:0;">
-      <div class="wrap">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <input type="text" id="marketSearch" placeholder="Search products, vendors, categories" style="flex:1;min-width:180px;padding:12px 14px;border:1px solid var(--border);background:var(--white);font-family:'Inter',sans-serif;font-size:14.5px;">
-          <button type="button" id="nearMeBtn" class="icon-btn" aria-label="Show vendors near me" title="Show vendors near me">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-7.5 7-12a7 7 0 10-14 0c0 4.5 7 12 7 12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
-          </button>
-          <div class="icon-toggle">
-            <button type="button" id="viewCardBtn" class="icon-btn active" aria-label="Grid view" title="Grid view">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" stroke="currentColor" stroke-width="2"/></svg>
-            </button>
-            <button type="button" id="viewListBtn" class="icon-btn" aria-label="List view" title="List view">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2"/><line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"/><line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2"/><circle cx="4" cy="6" r="1.4" fill="currentColor"/><circle cx="4" cy="12" r="1.4" fill="currentColor"/><circle cx="4" cy="18" r="1.4" fill="currentColor"/></svg>
-            </button>
-          </div>
-        </div>
-        <span id="nearMeStatus" class="hint" style="display:block;margin-top:8px;"></span>
-      </div>
-    </section>
-    <section style="padding-top:24px;">
-      <div class="wrap">
-        <div id="marketResults" class="grid-3"></div>
-        <div id="marketEmpty" class="empty-state">
-          <h3>Vendors are being onboarded</h3>
-          <p>We're reviewing the first batch of vendor marketing files. Listings will appear here as they're approved — check back soon, or apply below to help us onboard vendors in your area.</p>
-          <a href="#/rpn" class="btn btn-gold">Apply as an RPN</a>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- PRODUCTS -->
-  <div class="page" id="page-/products">
-    <section class="hero" style="padding-bottom:40px;">
-      <div class="wrap">
-        <div class="section-kicker">Digital Commerce Products</div>
-        <h1 style="font-size:36px;">Software built for how African vendors actually trade.</h1>
-        <p class="lede">Each product is built and maintained by seiGEN — offline-first, low-data, and made for the shop floor.</p>
-      </div>
-    </section>
-    <section style="padding-top:0;">
-      <div class="wrap">
-        <div class="grid-3" id="productsGrid">
-          <div class="card">
-            <span class="badge badge-live">Available now</span>
-            <h3 style="margin-top:12px;">seiGEN Commerce Lite</h3>
-            <p>A fully offline point-of-sale app for small shops — install straight from your browser, run multiple branches, track stock and staff, and list your products to iTred straight from it.</p>
-            <a href="https://desktoppos.seigendc.workers.dev/" target="_blank" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;" id="commerceLiteDownload">Download</a>
-          </div>
-          <div class="card">
-            <span class="badge badge-soon">Coming soon</span>
-            <h3 style="margin-top:12px;">seiGEN Commerce POS</h3>
-            <p>Multi-tenant, multi-branch point-of-sale for growing vendors — online-first with offline fallback, staff roles, and real-time reporting across branches.</p>
-            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
-          </div>
-          <div class="card">
-            <span class="badge badge-soon">Coming soon</span>
-            <h3 style="margin-top:12px;">seiGEN Ledger</h3>
-            <p>Stock, cutting-list costing and invoicing for workshops and material yards — track consumables and job costs in one offline app.</p>
-            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
-          </div>
-          <div class="card">
-            <span class="badge badge-soon">Coming soon</span>
-            <h3 style="margin-top:12px;">farmPLAN</h3>
-            <p>Farm management made simple — plan seasons, track inputs, and keep records for your farming operation.</p>
-            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
-          </div>
-          <div class="card">
-            <span class="badge badge-soon">Coming soon</span>
-            <h3 style="margin-top:12px;">Livestock Manager Lite</h3>
-            <p>A mobile-first companion to farmPLAN for managing goats and sheep — track herds, health, and breeding on the go.</p>
-            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
-          </div>
-          <div class="card">
-            <span class="badge badge-soon">Coming soon</span>
-            <h3 style="margin-top:12px;">PressCRAFT</h3>
-            <p>A book-authoring tool for writers and publishers — including eClass, a companion tool for building and sharing educational content.</p>
-            <a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>
-          </div>
+          <a href="/" data-link class="btn btn-navy">Search the market</a>
         </div>
       </div>
     </section>
@@ -806,7 +941,7 @@
       <div class="wrap">
         <div class="section-kicker">Help</div>
         <h1 style="font-size:34px;">Common questions, answered.</h1>
-        <p class="lede">Can't find what you need? <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">Message us</a> directly.</p>
+        <p class="lede">Can't find what you need? <a href="/contact" data-link style="color:var(--gold-dark);text-decoration:underline;">Message us</a> directly.</p>
       </div>
     </section>
 
@@ -815,15 +950,15 @@
         <h3 style="font-size:16px;color:var(--gold-dark);margin-bottom:14px;">Buying on iTred</h3>
         <details class="faq-item">
           <summary>How do I find vendors near me?</summary>
-          <p>Go to Market Space and tap "Show vendors near me" — it uses your device's location to show the closest listings first. You can also search by product, vendor, or category.</p>
+          <p>Type your town or city in the search box, with or without a product ("tyres harare"). Every word must match, in any order: a product, a vendor or a place.</p>
         </details>
         <details class="faq-item">
           <summary>How do I contact a vendor?</summary>
-          <p>Every product card has a "Contact on WhatsApp" button. It opens a chat directly with that vendor, with your interest already noted.</p>
+          <p>Tap a product to see it, then tap WhatsApp: it opens a chat with that vendor, with your interest already noted. Orders you send also reach the vendor's shop, and you can message them under the order in Your Orders.</p>
         </details>
         <details class="faq-item">
           <summary>Why do some listings disappear?</summary>
-          <p>Listings stay live for 7 days to keep stock information current. If a vendor's listing has expired, ask them (via their last WhatsApp chat) whether it's still available, or check back after they refresh it.</p>
+          <p>Each listing is up for a set time. When it ends it disappears until the shop lists it again. Ask the vendor on WhatsApp whether the item is still available, or check back later.</p>
         </details>
 
         <h3 style="font-size:16px;color:var(--gold-dark);margin:36px 0 14px 0;">For vendors</h3>
@@ -841,7 +976,7 @@
         </details>
         <details class="faq-item">
           <summary>Does it cost anything?</summary>
-          <p>seiGEN Commerce Lite is free to try for your first 30 days. After that, there's a fee for implementation — things like stocktake (if needed), app setup, and getting your shop running on it. <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">Contact us</a> for pricing.</p>
+          <p>seiGEN Commerce Lite is free to try for your first 30 days. After that, there's a fee for implementation — things like stocktake (if needed), app setup, and getting your shop running on it. <a href="/contact" data-link style="color:var(--gold-dark);text-decoration:underline;">Contact us</a> for pricing.</p>
         </details>
 
         <h3 style="font-size:16px;color:var(--gold-dark);margin:36px 0 14px 0;">Becoming an RPN</h3>
@@ -851,11 +986,11 @@
         </details>
         <details class="faq-item">
           <summary>Am I an RPN once I apply?</summary>
-          <p>Not yet. Every application is reviewed and verified by our team first. Once approved, you'll appear on the <a href="#/rpn" style="color:var(--gold-dark);text-decoration:underline;">Verified Partners list</a>.</p>
+          <p>Not yet. Every application is reviewed and verified by our team first. Once approved, you'll appear on the <a href="/rpn" data-link style="color:var(--gold-dark);text-decoration:underline;">Verified Partners list</a>.</p>
         </details>
         <details class="faq-item">
           <summary>How long does verification take?</summary>
-          <p>We review applications as they come in — if you haven't heard back and want an update, <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">message us</a>.</p>
+          <p>We review applications as they come in — if you haven't heard back and want an update, <a href="/contact" data-link style="color:var(--gold-dark);text-decoration:underline;">message us</a>.</p>
         </details>
       </div>
     </section>
@@ -900,42 +1035,6 @@
     </section>
   </div>
 
-  <!-- ORDERS -->
-  <!-- Purchase orders: one draft per vendor, built from Market Space and
-       kept in this browser until it's sent. Filled in by renderOrders(). -->
-  <div class="page" id="page-/orders">
-    <section class="hero" style="padding-bottom:40px;">
-      <div class="wrap">
-        <div class="section-kicker">Purchase orders</div>
-        <h1 style="font-size:36px;">Your orders</h1>
-        <p class="lede">Build an order from a vendor's listings, add anything else you'd like them to source, then send it to the vendor on WhatsApp. Each vendor gets its own order.</p>
-      </div>
-    </section>
-    <section style="padding-top:36px;">
-      <div class="wrap">
-        <div id="ordersRoot"></div>
-      </div>
-    </section>
-  </div>
-
-  <!-- ACCOUNT -->
-  <!-- Customer sign-up / sign-in (Supabase Auth, email + password) and the
-       signed-in profile. Filled in by renderAccount() below. -->
-  <div class="page" id="page-/account">
-    <section class="hero" style="padding-bottom:40px;">
-      <div class="wrap">
-        <div class="section-kicker">Customer account</div>
-        <h1 style="font-size:36px;">Your iTred account</h1>
-        <p class="lede">Sign in to keep your details in one place and send orders to vendors.</p>
-      </div>
-    </section>
-    <section style="padding-top:36px;">
-      <div class="wrap">
-        <div id="accountRoot"></div>
-      </div>
-    </section>
-  </div>
-
   <!-- PRIVACY -->
   <div class="page" id="page-/privacy">
     <section class="hero" style="padding-bottom:40px;">
@@ -956,7 +1055,7 @@
         <h3 style="font-size:18px;margin-top:28px;">How we use it</h3>
         <p>We use the information you provide to operate Market Space, evaluate RPN applications, respond to enquiries, and improve the products listed on this site. We do not sell personal information to third parties.</p>
         <h3 style="font-size:18px;margin-top:28px;">Contact</h3>
-        <p>Questions about this policy can be sent to us via the <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">Contact page</a> or WhatsApp.</p>
+        <p>Questions about this policy can be sent to us via the <a href="/contact" data-link style="color:var(--gold-dark);text-decoration:underline;">Contact page</a> or WhatsApp.</p>
       </div>
     </section>
   </div>
@@ -1013,250 +1112,363 @@
         <p>We may update these terms from time to time. Continued use of iTred after changes are posted means you accept the updated terms.</p>
 
         <h3 style="font-size:18px;margin-top:28px;">Contact</h3>
-        <p>Questions about these terms can be sent via the <a href="#/contact" style="color:var(--gold-dark);text-decoration:underline;">Contact page</a> or WhatsApp.</p>
+        <p>Questions about these terms can be sent via the <a href="/contact" data-link style="color:var(--gold-dark);text-decoration:underline;">Contact page</a> or WhatsApp.</p>
       </div>
     </section>
   </div>
-
 </main>
 
 <footer>
   <div class="wrap">
     <div>
-      <div class="brand" style="margin-bottom:10px;"><img src="data:image/png;base64,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" alt="iTred" class="brand-logo"><span class="mark" style="color:var(--white);">iTred Market Place</span></div>
+      <div class="brand" style="margin-bottom:10px;"><img src="itred-icon-192.png" alt="" class="brand-logo" width="30" height="30"><span class="mark" style="color:var(--white);">iTred Market Place</span></div>
       <div class="flinks">
-        <a href="#/">Home</a>
-        <a href="#/market-space">Market Space</a>
-        <a href="#/products">Products</a>
-        <a href="#/rpn">Become an RPN</a>
-        <a href="#/help">Help</a>
-        <a href="#/contact">Contact</a>
-        <a href="#/privacy">Privacy Policy</a>
-        <a href="#/terms">Terms of Business</a>
+        <a href="/" data-link>Market</a>
+        <a href="/orders" data-link>Your Orders</a>
+        <a href="/vendors" data-link>Vendors</a>
+        <a href="/apps" data-link>Products</a>
+        <a href="/about" data-link>About</a>
+        <a href="/rpn" data-link>Become an RPN</a>
+        <a href="/help" data-link>Help</a>
+        <a href="/contact" data-link>Contact</a>
+        <a href="/privacy" data-link>Privacy Policy</a>
+        <a href="/terms" data-link>Terms of Business</a>
       </div>
       <div class="fmeta">seiGEN · iTred Market Place · 49 Brechin Est, Commerce Valley, Beatrice, Zimbabwe · +263 78 948 7287</div>
     </div>
   </div>
 </footer>
 
+<!-- Phones: the main pages, always in reach (the menu has them all). Hidden while typing. -->
+<nav id="footbar" aria-label="Main pages">
+  <a href="/" class="ib" data-link data-route="/" aria-label="Market"><svg><use href="#i-store"/></svg><span class="cap" aria-hidden="true">Market</span></a>
+  <a href="/orders" class="ib" data-link data-route="/orders" aria-label="Your Orders"><svg><use href="#i-orders"/></svg><span class="cap" aria-hidden="true">Orders</span><span class="dot" id="ordersFootCount"></span></a>
+  <a href="/vendors" class="ib" data-link data-route="/vendors" aria-label="Vendors"><svg><use href="#i-vendors"/></svg><span class="cap" aria-hidden="true">Vendors</span></a>
+  <a href="/apps" class="ib" data-link data-route="/apps" aria-label="Our apps"><svg><use href="#i-apps"/></svg><span class="cap" aria-hidden="true">Apps</span></a>
+  <a href="/account" class="ib" data-link data-route="/account" aria-label="Account"><svg><use href="#i-user"/></svg><span class="cap" aria-hidden="true">Account</span></a>
+</nav>
+
+<div id="updateBar" role="status"><span id="updateText">A new version of iTred is ready.</span><button type="button" id="updateNow">Update now</button></div>
+
+<dialog class="sheet" id="feedbackSheet" aria-labelledby="feedbackTitle">
+  <form method="dialog" class="body" id="feedbackForm" style="padding-top:16px">
+    <h3 id="feedbackTitle">Tell us what you think</h3>
+    <p class="meta" style="margin:0 0 8px">Opens WhatsApp with your comment, to the iTred team.</p>
+    <textarea id="feedbackText" placeholder="A comment about the site…" maxlength="1000"></textarea>
+    <div class="acts" style="border:0;padding:6px 0 0">
+      <button type="button" class="ib" id="feedbackCancel" aria-label="Cancel"><svg><use href="#i-close"/></svg><span class="cap" aria-hidden="true">Cancel</span></button>
+      <button type="button" class="ib" id="feedbackSend" aria-label="Send feedback on WhatsApp"><svg><use href="#i-send"/></svg><span class="cap" aria-hidden="true">Send</span></button>
+    </div>
+  </form>
+</dialog>
+
 <script>
-  // ---- Backend config ----
+  // ---- Build and backend config ----
+  const ITRED_BUILD = 1;   // = the "// build: iN" line in sw.js (build.js checks)
   // Digital Commerce's Supabase project — the same one Commerce Lite's device
-  // check-in talks to (src/devicecheckin.js keeps the same URL + key the same
-  // way). The anon key is public by design: what it can read or write is set
-  // by the row-level security in
-  // supabase/migrations/20260924120000_itred_marketplace_schema.sql
-  // (published, unexpired listings for everyone; a customer's own profile
-  // only once signed in), not by keeping this key secret.
+  // check-in talks to. The anon key is public by design: what it can read or
+  // write is set by the row-level security in
+  // supabase/migrations/20260924120000_itred_marketplace_schema.sql and
+  // 20261105120000_itred_order_fulfilment.sql (published, unexpired listings
+  // for everyone; a customer's own profile, orders and messages only once
+  // signed in), not by keeping this key secret.
   const SUPABASE_URL = 'https://urbopdsubwawtybwrxjd.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyYm9wZHN1Yndhd3R5YndyeGpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMTYzNzEsImV4cCI6MjEwNTY5MjM3MX0.pCGkNETrB4ISse2ES_6goALKJz3g_22osjLfIgFG4k4';
   const backendConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20 && !!window.supabase;
-  // PKCE: the email-confirmation link comes back as ?code=… (query string),
-  // which the hash router below never sees, instead of #access_token=…,
-  // which it would mistake for a page name.
+  // PKCE: the email-confirmation link comes back as ?code=… (query string).
   const supabaseClient = backendConfigured
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true } })
     : null;
+  // The site's own WhatsApp (Contact, RPN applications, site feedback).
+  const ITRED_WHATSAPP = '263789487287';
 
-  // Sections that expect tables the schema doesn't have yet (verified
-  // partners, highlights, showcase, site products, RPN applications,
-  // feedback) stay static on purpose this phase: they check this instead
-  // of supabaseClient, so they never query a table that isn't there.
+  // Sections that expect tables the schema doesn't have (verified partners,
+  // highlights, showcase, RPN applications) stay static on purpose: they
+  // check this instead of supabaseClient, so they never query a table that isn't there.
   const placeholderBackend = null;
 
   function escapeHtml(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+  const icon = (id)=> `<svg aria-hidden="true"><use href="#i-${id}"/></svg>`;
+  // An outline icon button with its caption. attrs: extra HTML attributes.
+  function ib(iconId, caption, label, attrs){
+    return `<button type="button" class="ib" aria-label="${escapeHtml(label || caption)}" ${attrs || ''}>${icon(iconId)}<span class="cap" aria-hidden="true">${escapeHtml(caption)}</span></button>`;
+  }
+  // Device storage that may be blocked (private mode): never let it break the page.
+  function store(key, value){ try{ if(value === undefined) return localStorage.getItem(key); if(value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); return true; }catch(e){ return value === undefined ? null : false; } }
 
-  // ---- Public data loading ----
-  // Market Space reads the live schema: vendor_listings joined to vendors.
-  // Everything else keeps its existing empty/static state (see above).
+  // ---- The search rule shared with Commerce Lite (copied from src/utils.js by build.js) ----
+  // Whitespace-split, lower-cased, empty-entry-free token list — the one
+  // tokenization rule every any-order search in this app shares. Extracted
+  // out of matchesAnyOrder() below (Stocktake Multi-Token Search Engine
+  // task) so rankProductsBySearch() can reuse the exact same rule rather
+  // than a second, potentially-drifting copy of it.
+  function searchTokens(query){
+    return (query||"").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  }
 
+  // Shared "any-order" search match: every whitespace-separated token in
+  // the query must appear somewhere in the combined searchable text,
+  // regardless of what order they were typed in — so "small metal" and
+  // "metal small" match the same item. Originally lived only inside
+  // pos.js's searchProducts(); factored out here so every search box in
+  // the app (product search, and the five list-filter search boxes) shares
+  // exactly one implementation of this rule instead of each reimplementing it.
+  function matchesAnyOrder(query, searchableText){
+    const tokens = searchTokens(query);
+    if(!tokens.length) return true;
+    const hay = (searchableText||"").toLowerCase();
+    return tokens.every(t=> hay.includes(t));
+  }
+  // ---- Product search (POS fixes, docs/pos/pos-fixes-design.md §4) ----
+  // ONE matcher for every product search box (Sell, desktop Sales, Products,
+  // Stocktake and the product pickers): the query is split into terms and a
+  // product is shown only when EVERY term matches, in any order, ignoring
+  // case, across name, SKU (the barcode) and the hidden search keywords.
+  //   word ("pai")          the start of any word: Paint, not "aint"
+  //   number ("5")          a whole number: 5lt, 5 kg, 5kg; never 15lt / 50kg / 500ml
+  //   number+unit ("5lt")   that number with a unit starting with it: 5lt, 5 lt, 5ltr
+  //   code ("HLX-2015", "a4", 6+ digits)  the start of the SKU or of any word
+  // Product text is split at spaces and punctuation, and again where letters
+  // and digits meet ("duran5lt" -> duran, 5, lt); a number's unit is the
+  // letters right after it, joined or not ("5lt", "5 lt").
+  function productSearchParts(text){
+    const raw = String(text||"").toLowerCase().split(/\s+/).filter(Boolean);
+    const words = [], nums = [], codes = [];
+    for(const tok of raw){
+      codes.push(tok.replace(/[^a-z0-9]/g,""));
+      for(const piece of tok.split(/[^a-z0-9.]+/)){
+        const bits = piece.replace(/\.+$/,"").match(/\d+(?:\.\d+)?|[a-z]+/g) || [];
+        bits.forEach(b=>{ if(/^[a-z]/.test(b)) words.push(b); });
+        bits.forEach((b,i)=>{ if(/^\d/.test(b)) nums.push({ n:parseFloat(b), unit:/^[a-z]/.test(bits[i+1]||"")? bits[i+1] : "" }); });
+      }
+    }
+    // a number followed by a separate unit word ("5 kg"): link them
+    const flat = raw.flatMap(t=> t.match(/\d+(?:\.\d+)?|[a-z]+/g) || []);
+    flat.forEach((b,i)=>{ if(/^\d/.test(b) && /^[a-z]/.test(flat[i+1]||"")) nums.push({ n:parseFloat(b), unit:flat[i+1] }); });
+    return { words, nums, codes };
+  }
+  function productTermKind(term){
+    if(/^\d+(?:\.\d+)?$/.test(term)) return term.replace(/\D/g,"").length>=6? "code" : "num";
+    if(/^\d+(?:\.\d+)?[a-z]+$/.test(term)) return "numunit";
+    if(/^[a-z]+$/.test(term)) return "word";
+    return "code";
+  }
+  function productTermMatches(term, parts){
+    const kind = productTermKind(term);
+    if(kind==="word") return parts.words.some(w=> w.startsWith(term));
+    if(kind==="num"){ const n = parseFloat(term); return parts.nums.some(x=> x.n===n); }
+    if(kind==="numunit"){
+      const m = /^(\d+(?:\.\d+)?)([a-z]+)$/.exec(term), n = parseFloat(m[1]);
+      return parts.nums.some(x=> x.n===n && x.unit.startsWith(m[2]));
+    }
+    const c = term.replace(/[^a-z0-9]/g,"");
+    return !!c && parts.codes.some(x=> x.startsWith(c));
+  }
+  // Does this product match every term of the query? (An empty query matches.)
+  function productMatches(query, p){
+    const terms = searchTokens(query);
+    if(!terms.length) return true;
+    const parts = productSearchParts([p.name, p.sku, p.description, p.category].join(" "));
+    return terms.every(t=> productTermMatches(t, parts));
+  }
+  // The products matching the query, best first: name starts with the first
+  // term, then all terms found in name/SKU (ahead of keyword-only matches),
+  // then the order given (alphabetical by name everywhere it's called).
+  function productSearch(products, query){
+    const terms = searchTokens(query);
+    if(!terms.length) return products.slice();
+    const out = [];
+    products.forEach((p, idx)=>{
+      if(!productMatches(query, p)) return;
+      const main = productSearchParts([p.name, p.sku].join(" "));
+      const firstWord = (String(p.name||"").toLowerCase().match(/[a-z0-9]+/)||[""])[0];
+      out.push({ p, idx, starts: productTermKind(terms[0])==="word" && firstWord.startsWith(terms[0]) ? 0 : 1,
+                 primary: terms.every(t=> productTermMatches(t, main))? 0 : 1 });
+    });
+    out.sort((a,b)=> a.starts-b.starts || a.primary-b.primary || a.idx-b.idx);
+    return out.map(x=>x.p);
+  }
+
+  // ---- The same matcher for any record (Branches addendum §R2) ----
+  // textMatches(query, { text, phones, dates }): every term must match, in
+  // any order, by the product rules above (word = start of a word, number =
+  // a whole number, number+unit, code = start of a code or word) against
+  // `text` (a string or a list), or, for a term of 3+ digits ("0772",
+  // "+263 77"), digits anywhere in one of `phones` (any spelling), or a date
+  // in `dates` written as "14 oct", "14/10", "14/10/2026" or "2026-10-14".
+  const SEARCH_MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const SEARCH_MONTHS_LONG = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  function searchDateWords(ts){
+    const d = ts? new Date(ts) : null;
+    if(!d || isNaN(d)) return "";
+    const dd = d.getDate(), mm = d.getMonth()+1, y = d.getFullYear(), p2 = (n)=> String(n).padStart(2,"0");
+    return [dd, SEARCH_MONTHS[mm-1], SEARCH_MONTHS_LONG[mm-1], y, dd+"/"+mm, p2(dd)+"/"+p2(mm), p2(dd)+"/"+p2(mm)+"/"+y, dd+"/"+mm+"/"+y, y+"-"+p2(mm)+"-"+p2(dd)].join(" ");
+  }
+  function textMatches(query, f){
+    const terms = searchTokens(query);
+    if(!terms.length) return true;
+    f = f || {};
+    const text = [].concat(f.text==null? [] : f.text).concat((f.dates||[]).map(searchDateWords)).filter(x=> x!=null && x!=="").join(" ");
+    const parts = productSearchParts(text);
+    const phones = (f.phones||[]).map(p=> String(p||"").replace(/\D/g,"")).filter(Boolean);
+    return terms.every(t=>{
+      if(productTermMatches(t, parts)) return true;
+      if(!phones.length || !/^\+?[\d\s()-]+$/.test(t)) return false;
+      const d = t.replace(/\D/g,"");
+      return d.length>=3 && phones.some(p=> p.includes(d) || (d[0]==="0" && d.length>=4 && p.includes(d.slice(1))));
+    });
+  }
+
+  // ---- Routing: clean paths on the site, hash routes when opened as a file ----
+  // The host serves index.html for every path (single-page app), so /orders
+  // opens Your Orders directly. A file:// copy (the tests) and old links
+  // (#/market-space) use the hash.
+  const ROUTES = ['/', '/orders', '/vendors', '/apps', '/account', '/about', '/rpn', '/help', '/contact', '/privacy', '/terms'];
+  const ALIASES = { '/market-space': '/', '/products': '/apps', '/home': '/about' };
+  const PAGE_NAMES = { '/': 'Market', '/orders': 'Your Orders', '/vendors': 'Vendors', '/apps': 'Products', '/account': 'Account', '/about': 'About',
+    '/rpn': 'Become an RPN', '/help': 'Help', '/contact': 'Contact', '/privacy': 'Privacy Policy', '/terms': 'Terms of Business' };
+  const HASH_MODE = location.protocol === 'file:';
+  const titles = {};
+  ROUTES.forEach(r => { titles[r] = 'iTred Market Place – ' + PAGE_NAMES[r]; });
+  function normRoute(p){
+    p = String(p || '/').replace(/\/+$/, '') || '/';
+    p = ALIASES[p] || p;
+    return ROUTES.includes(p) ? p : '/';
+  }
+  function currentRoute(){
+    const h = location.hash.replace(/^#/, '');
+    if(HASH_MODE || h.startsWith('/')) return normRoute(h || '/');
+    return normRoute(location.pathname);
+  }
+  function go(route, opts){
+    route = normRoute(route);
+    if(HASH_MODE){ if(location.hash !== '#' + route) location.hash = '#' + route; else render(); return; }
+    const url = route + (opts && opts.search ? opts.search : '');
+    if(opts && opts.replace) history.replaceState(null, '', url); else if(location.pathname + location.search + location.hash !== url) history.pushState(null, '', url);
+    render();
+  }
+  // Old links: /#/market-space -> /, on load or followed while the page is open
+  function cleanOldHash(){ if(!HASH_MODE && location.hash.startsWith('#/')) history.replaceState(null, '', normRoute(location.hash.slice(1)) + location.search); }
+  cleanOldHash();
+  document.addEventListener('click', function(e){
+    const a = e.target.closest && e.target.closest('a[data-link], a[href^="#/"]');
+    if(!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const href = a.getAttribute('href') || '/';
+    e.preventDefault();
+    go(href.replace(/^#/, ''));
+  });
+  window.addEventListener('popstate', render);
+  window.addEventListener('hashchange', ()=>{ cleanOldHash(); render(); });
+
+  function render(){
+    const r = currentRoute();
+    document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + r));
+    document.querySelectorAll('[data-route]').forEach(a => {
+      const on = a.getAttribute('data-route') === r;
+      a.classList.toggle('active', on); a.classList.toggle('on', on);
+      if(on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    document.title = titles[r] || 'iTred Market Place';
+    closeDrawer();
+    const toast = document.getElementById('orderToast');
+    if(toast) toast.classList.remove('show'); // its "View order" belongs to the page it was shown on
+    window.scrollTo(0, 0);
+    if(r === '/') renderMarket();
+    if(r === '/about') { renderHighlights(); renderShowcase(); }
+    if(r === '/account') renderAccount();
+    if(r === '/orders'){ renderOrders(); loadSentOrders(); }
+    if(r === '/vendors') renderVendors();
+    if(r === '/apps') renderApps();
+  }
+  window.addEventListener('DOMContentLoaded', render);
+  window.addEventListener('DOMContentLoaded', loadListings);
+
+  // ---- The menu (drawer) ----
+  function openDrawer(){
+    document.body.classList.add('drawer-open');
+    document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+    document.getElementById('navToggle').setAttribute('aria-expanded', 'true');
+    const first = document.querySelector('#drawer a.dl'); if(first) first.focus();
+  }
+  function closeDrawer(){
+    if(!document.body.classList.contains('drawer-open')) return;
+    document.body.classList.remove('drawer-open');
+    document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+    document.getElementById('navToggle').setAttribute('aria-expanded', 'false');
+  }
+  document.getElementById('navToggle').addEventListener('click', openDrawer);
+  document.getElementById('drawerClose').addEventListener('click', ()=>{ closeDrawer(); document.getElementById('navToggle').focus(); });
+  document.getElementById('drawerScrim').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && document.body.classList.contains('drawer-open')){ closeDrawer(); document.getElementById('navToggle').focus(); }
+    if(e.key === 'Tab' && document.body.classList.contains('drawer-open')){   // keep focus inside the open menu
+      const f = [...document.querySelectorAll('#drawer a, #drawer button')];
+      if(!f.length) return;
+      if(e.shiftKey && document.activeElement === f[0]){ e.preventDefault(); f[f.length - 1].focus(); }
+      else if(!e.shiftKey && document.activeElement === f[f.length - 1]){ e.preventDefault(); f[0].focus(); }
+    }
+  });
+
+  // ---- The footer bar hides while typing (it must never cover the keyboard) ----
+  function typingNow(){
+    const el = document.activeElement;
+    const field = el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(el.type)) || el.isContentEditable);
+    const vv = window.visualViewport;
+    const squeezed = vv && (window.innerHeight - vv.height) > 150;
+    document.body.classList.toggle('typing', !!(field || squeezed));
+  }
+  document.addEventListener('focusin', typingNow);
+  document.addEventListener('focusout', ()=> setTimeout(typingNow, 50));
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', typingNow);
+
+  // ---- Listings ----
   // Mirrors the RLS policy anonymous visitors get ("published and
-  // expires_at > now"), so the page asks for exactly what it may see.
-  // vendor_id: an order is addressed to one vendor, so drafts are grouped by it.
-  const LISTING_SELECT = 'id, vendor_id, product_name, price, currency, category, stock_quantity, image_url, published_at, expires_at, vendors(business_name, whatsapp_number, city)';
+  // expires_at > now"). The list only ever loads thumb_url (100×100 WebP);
+  // image_url (the full picture) is never read.
+  const LISTING_SELECT = 'id, vendor_id, product_name, price, currency, category, stock_quantity, thumb_url, published_at, expires_at, vendors(business_name, whatsapp_number, city)';
+  let marketProducts = [];
   let listingsLoaded = false; // true once a listings fetch succeeded (drafts can then spot delisted items)
+  let listingsError = '';
   async function loadListings(){
-    if(!supabaseClient) return;
+    if(!supabaseClient){ listingsError = 'The market is unavailable right now.'; if(currentRoute() === '/') renderMarket(); return; }
     const { data, error } = await supabaseClient.from('vendor_listings')
       .select(LISTING_SELECT)
       .eq('status', 'published')
       .gt('expires_at', new Date().toISOString())
       .order('published_at', { ascending: false });
-    if(error || !data) return;
-    marketProducts = data.map(listingToProduct);
-    listingsLoaded = true;
-    if(currentRoute() === '/market-space') renderMarketSpace();
-    if(currentRoute() === '/orders') renderOrders();
+    if(error || !data){ listingsError = navigator.onLine === false ? 'You\'re offline. The market shows when you\'re back online.' : 'The market couldn\'t be loaded. Pull down or reopen to try again.'; }
+    else { listingsError = ''; marketProducts = data.map(listingToProduct); listingsLoaded = true; }
+    const r = currentRoute();
+    if(r === '/') renderMarket();
+    if(r === '/orders') renderOrders();
+    if(r === '/vendors') renderVendors();
   }
-  // vendor_listings + vendors -> the product shape the Market Space
-  // renderer already used. Not in the schema, so gone: moq, search keywords
-  // and coordinates (location is the vendor's city only).
+  window.addEventListener('online', ()=>{ if(!listingsLoaded) loadListings(); });
   function listingToProduct(row){
     const v = row.vendors || {};
-    const price = row.price == null ? '' : (row.currency ? row.currency + ' ' : '') + Number(row.price).toFixed(2);
     return {
       listingId: row.id, vendorId: row.vendor_id || '',
       unitPrice: row.price == null ? null : Number(row.price), currency: row.currency || '',
       name: row.product_name, vendor: v.business_name || '', vendorWhatsApp: v.whatsapp_number || '',
-      category: row.category || '', searchKeywords: '',
-      price, quantityAvailable: row.stock_quantity, moq: null,
+      category: row.category || '',
+      price: row.price == null ? '' : (row.currency ? row.currency + ' ' : '') + Number(row.price).toFixed(2),
+      quantityAvailable: row.stock_quantity,
       dateLastUpdated: row.published_at, expiresAt: row.expires_at,
-      image: /^https?:\/\//i.test(row.image_url || '') ? row.image_url : '',
-      location: { area: v.city || '', lat: null, lng: null }
+      thumb: /^https?:\/\//i.test(row.thumb_url || '') ? row.thumb_url : '',
+      city: v.city || ''
     };
   }
-
-  async function loadVerifiedPartners(){
-    if(!placeholderBackend) return;
-    const { data, error } = await supabaseClient.from('verified_partners').select('*');
-    if(error || !data) return;
-    verifiedRPNs = data.map(row => ({ name: row.name, city: row.city }));
-    renderVerifiedRPNs();
-  }
-
-  async function loadHighlights(){
-    if(!placeholderBackend) return;
-    const { data, error } = await supabaseClient.from('market_highlights').select('*').order('sort_order');
-    if(error || !data) return;
-    marketHighlights = data.map(row => ({ title: row.title, blurb: row.blurb, image: row.image_url }));
-    if(currentRoute() === '/') renderHighlights();
-  }
-
-  async function loadShowcase(){
-    if(!placeholderBackend) return;
-    const { data, error } = await supabaseClient.from('vendor_showcase').select('*').order('sort_order');
-    if(error || !data) return;
-    vendorShowcase = data.map(row => ({ vendorName: row.vendor_name, area: row.area, image: row.image_url }));
-    if(currentRoute() === '/') renderShowcase();
-  }
-
-  async function loadSiteProducts(){
-    if(!placeholderBackend) return;
-    const { data, error } = await supabaseClient.from('site_products').select('*').order('sort_order');
-    if(error || !data || data.length === 0) return; // keep the static fallback cards
-    const grid = document.getElementById('productsGrid');
-    if(!grid) return;
-    grid.innerHTML = data.map(p => `
-      <div class="card">
-        <span class="badge ${p.badge === 'available' ? 'badge-live' : 'badge-soon'}">${p.badge === 'available' ? 'Available now' : 'Coming soon'}</span>
-        <h3 style="margin-top:12px;">${p.name}</h3>
-        <p>${p.description}</p>
-        ${p.download_url
-          ? `<a href="${p.download_url}" target="_blank" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Download</a>`
-          : `<a href="#/contact" class="btn btn-outline" style="font-size:13.5px;padding:10px 18px;">Get notified</a>`}
-      </div>
-    `).join('');
-  }
-
-  async function submitRpnApplication(payload){
-    if(!placeholderBackend) return { ok: false, reason: 'not_configured' };
-    const { error } = await supabaseClient.from('rpn_applications').insert(payload);
-    return { ok: !error };
-  }
-
-  async function submitFeedback(page, comment){
-    if(!placeholderBackend) return;
-    await supabaseClient.from('feedback').insert({ page, comment });
-  }
-
-  function loadAllPublicData(){
-    loadListings(); loadVerifiedPartners(); loadHighlights(); loadShowcase(); loadSiteProducts();
-  }
-
-  const routes = ['/','/market-space','/products','/rpn','/help','/contact','/orders','/account','/privacy','/terms'];
-  const titles = {
-    '/':'iTred Market Place',
-    '/market-space':'Market Space — iTred',
-    '/products':'Products — iTred',
-    '/rpn':'RPN Application — iTred',
-    '/help':'Help — iTred',
-    '/contact':'Contact Us — iTred',
-    '/orders':'Your orders — iTred',
-    '/account':'Your account — iTred',
-    '/privacy':'Privacy Policy — iTred',
-    '/terms':'Terms of Business — iTred'
-  };
-
-  function currentRoute(){
-    const h = location.hash.replace('#','') || '/';
-    return routes.includes(h) ? h : '/';
-  }
-
-  function render(){
-    const r = currentRoute();
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-    const el = document.getElementById('page-'+r);
-    if(el) el.classList.add('active');
-    document.querySelectorAll('nav.mainnav a').forEach(a=>{
-      a.classList.toggle('active', a.getAttribute('data-route')===r);
-    });
-    document.title = titles[r] || 'iTred';
-    document.getElementById('mainNav').classList.remove('open');
-    const toast = document.getElementById('orderToast');
-    if(toast) toast.classList.remove('show'); // its "View order" belongs to the page it was shown on
-    window.scrollTo(0,0);
-    if(r === '/market-space') renderMarketSpace();
-    if(r === '/') { renderHighlights(); renderShowcase(); }
-    if(r === '/account') renderAccount();
-    if(r === '/orders'){ renderOrders(); loadSentOrders(); }
-  }
-
-  window.addEventListener('hashchange', render);
-  window.addEventListener('DOMContentLoaded', render);
-  window.addEventListener('DOMContentLoaded', loadAllPublicData);
-
-  // seiGEN Commerce Lite: phones get the mobile build, everything else gets the desktop/PWA build
-  (function(){
-    const isMobile = /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent) && !/iPad/i.test(navigator.userAgent);
-    const link = document.getElementById('commerceLiteDownload');
-    if(link) link.href = isMobile ? 'https://mobilepos.seigendc.workers.dev/' : 'https://desktoppos.seigendc.workers.dev/';
-  })();
-
-  document.getElementById('navToggle').addEventListener('click', ()=>{
-    document.getElementById('mainNav').classList.toggle('open');
-  });
-
-  // Market Space — search & render
-  // marketProducts will be populated from the backend once vendor listings are approved.
-  // Each product: {
-  //   name, vendor, vendorWhatsApp, category, searchKeywords (hidden, not displayed),
-  //   price, quantityAvailable, moq, dateLastUpdated (ISO date string), image,
-  //   location: { area, lat, lng }
-  // }
-  // A product is only searchable/visible for 7 days from dateLastUpdated — after that
-  // the vendor needs to re-upload it via a fresh listing.
-  let marketProducts = [];
-  let marketView = 'card'; // 'card' | 'list'
-  let buyerLocation = null; // { lat, lng } once the buyer shares their location
-
-  function distanceKm(a, b){
-    const R = 6371;
-    const dLat = (b.lat - a.lat) * Math.PI / 180;
-    const dLng = (b.lng - a.lng) * Math.PI / 180;
-    const lat1 = a.lat * Math.PI / 180, lat2 = b.lat * Math.PI / 180;
-    const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-  }
-
-  function isWithinVisibilityWindow(product){
-    // Live listings carry the schema's own expiry (published_at + 7 days,
-    // set by the database), so use it rather than re-deriving it here.
-    if(product.expiresAt) return new Date(product.expiresAt).getTime() > Date.now();
-    const updated = new Date(product.dateLastUpdated);
-    const ageMs = Date.now() - updated.getTime();
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    return ageMs <= sevenDaysMs;
-  }
-
-  function matchesQuery(product, query){
-    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    if(words.length === 0) return true;
-    const area = (product.location && product.location.area) ? product.location.area : '';
-    const haystack = [product.name, product.vendor, product.category, product.searchKeywords || '', area].join(' ').toLowerCase();
-    // word-order-agnostic: every typed word must appear somewhere in the product's searchable text
-    return words.every(w => haystack.includes(w));
+  function isLive(p){ return !p.expiresAt || new Date(p.expiresAt).getTime() > Date.now(); }
+  // Every term, in any order, on the product name, the vendor, the category and the city (Commerce Lite's rule).
+  function marketSearch(products, query){
+    const terms = searchTokens(query);
+    const hits = products.filter(p => textMatches(query, { text: [p.name, p.vendor, p.category, p.city] }));
+    if(!terms.length) return hits;
+    const first = terms[0];
+    return hits.map((p, i) => ({ p, i, s: (String(p.name || '').toLowerCase().match(/[a-z0-9]+/) || [''])[0].startsWith(first) ? 0 : 1 }))
+      .sort((a, b) => a.s - b.s || a.i - b.i).map(x => x.p);
   }
 
   // Vendors' numbers come from Commerce Lite's contact number, usually typed
@@ -1271,157 +1483,163 @@
     const msg = encodeURIComponent('Hi, I saw "' + product.name + '" on iTred Market Place and I\'m interested.');
     return 'https://wa.me/' + waDigits(product.vendorWhatsApp) + '?text=' + msg;
   }
-  // Live data is typed by shops, so everything below is escaped before it
-  // goes into the page.
-  function productThumb(p){
-    return p.image
-      ? `<img class="thumb" src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">`
-      : `<div class="thumb thumb-empty">No photo</div>`;
-  }
-  // Outline icons for the card buttons (stroke only, drawn in the button's text colour).
-  const ICON_WHATSAPP = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.4z"/><path d="M9.2 8.4c.2-.4.5-.5.8-.5h.4c.2 0 .4.1.5.4l.6 1.4c.1.2 0 .5-.1.6l-.5.6c.5 1 1.4 1.9 2.4 2.4l.6-.5c.2-.1.4-.2.6-.1l1.4.6c.3.1.4.3.4.5v.4c0 .3-.1.6-.5.8-.6.3-1.6.3-3-.4a8 8 0 0 1-3.2-3.2c-.7-1.4-.7-2.4-.4-3z"/></svg>';
-  const ICON_CART_PLUS = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.2 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L19.5 8H6.2"/><circle cx="9" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/><path d="M12.8 9.2v3.6M11 11h3.6"/></svg>';
-  function productWhatsAppButton(p){
-    return waDigits(p.vendorWhatsApp)
-      ? `<a href="${escapeHtml(whatsappLeadLink(p))}" target="_blank" rel="noopener" class="btn btn-gold">${ICON_WHATSAPP}Contact on WhatsApp</a>`
-      : '';
-  }
-  // The order goes to the vendor over WhatsApp, so a vendor without a
-  // number can't be ordered from — no button, same as the contact button.
+  // The order goes to the vendor over WhatsApp, so a vendor without a number can't be ordered from.
   function canOrderFrom(p){ return !!(p.listingId && p.vendorId && waDigits(p.vendorWhatsApp)); }
-  function productOrderButton(p){
+  function formatDate(iso){ return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+
+  // Pictures or Text only, remembered on this device.
+  const VIEW_KEY = 'itred.view';
+  let marketView = store(VIEW_KEY) === 'text' ? 'text' : 'pics';
+  function setView(v){
+    marketView = v; store(VIEW_KEY, v);
+    document.getElementById('viewPics').setAttribute('aria-pressed', String(v === 'pics'));
+    document.getElementById('viewText').setAttribute('aria-pressed', String(v === 'text'));
+    document.getElementById('viewPics').classList.toggle('on', v === 'pics');
+    document.getElementById('viewText').classList.toggle('on', v === 'text');
+    renderMarket();
+  }
+  document.getElementById('viewPics').addEventListener('click', ()=> setView('pics'));
+  document.getElementById('viewText').addEventListener('click', ()=> setView('text'));
+  document.getElementById('marketSearch').addEventListener('input', ()=> renderMarket());
+
+  const thumbHtml = (p)=> p.thumb
+    ? `<img class="th" src="${escapeHtml(p.thumb)}" alt="" width="56" height="56" loading="lazy" decoding="async">`
+    : `<div class="th-empty" aria-hidden="true">${icon('pic')}</div>`;
+  function addButtonHtml(p){
     if(!canOrderFrom(p)) return '';
-    const inDraft = draftHasListing(p.vendorId, p.listingId);
-    return inDraft
-      ? `<a href="#/orders" class="btn btn-added" data-in-order="${escapeHtml(p.listingId)}">&#10003; In your order</a>`
-      : `<button type="button" class="btn btn-navy" data-add-to-order="${escapeHtml(p.listingId)}">${ICON_CART_PLUS}Add to order</button>`;
+    return draftHasListing(p.vendorId, p.listingId)
+      ? `<a href="/orders" data-link class="ib on" aria-label="In your order with ${escapeHtml(p.vendor)}: view order" data-in-order="${escapeHtml(p.listingId)}">${icon('check')}<span class="cap" aria-hidden="true">In order</span></a>`
+      : ib('add', 'Add', 'Add ' + p.name + ' to your order', `data-add-to-order="${escapeHtml(p.listingId)}"`);
   }
-  function productActions(p){
-    const buttons = productWhatsAppButton(p) + productOrderButton(p);
-    return buttons ? `<div class="product-actions">${buttons}</div>` : '';
-  }
-
-  function formatDate(iso){
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'});
-  }
-
-  function renderMarketSpace(){
-    const resultsEl = document.getElementById('marketResults');
-    const emptyEl = document.getElementById('marketEmpty');
-    if(!resultsEl) return; // not on this page yet
+  function renderMarket(){
+    const list = document.getElementById('marketList'), meta = document.getElementById('marketMeta'), empty = document.getElementById('marketEmpty');
+    if(!list) return;
+    document.getElementById('viewPics').classList.toggle('on', marketView === 'pics');
+    document.getElementById('viewText').classList.toggle('on', marketView === 'text');
+    document.getElementById('viewPics').setAttribute('aria-pressed', String(marketView === 'pics'));
+    document.getElementById('viewText').setAttribute('aria-pressed', String(marketView === 'text'));
     const query = document.getElementById('marketSearch').value;
-    const visible = marketProducts.filter(isWithinVisibilityWindow);
-    let matches = visible.filter(p => matchesQuery(p, query));
-
-    if(buyerLocation){
-      matches = matches
-        .map(p => ({ ...p, _distanceKm: (p.location && p.location.lat != null) ? distanceKm(buyerLocation, p.location) : null }))
-        .sort((a,b) => {
-          if(a._distanceKm == null) return 1;
-          if(b._distanceKm == null) return -1;
-          return a._distanceKm - b._distanceKm;
-        });
+    const live = marketProducts.filter(isLive);
+    const hits = marketSearch(live, query);
+    const vendors = new Set(hits.map(p => p.vendorId)).size;
+    const showEmpty = (h, p)=>{ list.innerHTML = ''; empty.style.display = 'block'; empty.querySelector('h3').textContent = h; empty.querySelector('p').textContent = p; };
+    if(!listingsLoaded){
+      meta.textContent = '';
+      return listingsError ? showEmpty('Market unavailable', listingsError) : showEmpty('Loading the market…', '');
     }
-
-    resultsEl.className = marketView === 'card' ? 'grid-3' : '';
-
-    if(matches.length === 0){
-      resultsEl.innerHTML = '';
-      emptyEl.style.display = 'block';
-      if(marketProducts.length > 0 && visible.length === 0){
-        emptyEl.querySelector('h3').textContent = 'Listings have expired';
-        emptyEl.querySelector('p').textContent = 'Products stay listed for 7 days after upload. Ask the vendor to send a fresh update to relist.';
-      } else if(visible.length > 0){
-        emptyEl.querySelector('h3').textContent = 'No matches';
-        emptyEl.querySelector('p').textContent = 'Try a different word, or check the spelling of the product or vendor name.';
-      }
-      return;
-    }
-    emptyEl.style.display = 'none';
-
-    if(marketView === 'card'){
-      resultsEl.innerHTML = matches.map(p => `
-        <div class="product-card">
-          ${productThumb(p)}
-          <div class="pbody">
-            <h4>${escapeHtml(p.name)}</h4>
-            <div class="vendor">${escapeHtml(p.vendor)}</div>
-            <div class="product-meta">
-              ${p.location && p.location.area ? `<span>Location: ${escapeHtml(p.location.area)}${p._distanceKm != null ? ' &middot; ' + p._distanceKm.toFixed(1) + ' km away' : ''}</span>` : ''}
-              ${p.price ? `<span>Price: ${escapeHtml(p.price)}</span>` : ''}
-              ${p.quantityAvailable != null ? `<span>Available: ${escapeHtml(p.quantityAvailable)}</span>` : ''}
-              ${p.moq ? `<span>MOQ: ${escapeHtml(p.moq)}</span>` : ''}
-              <span>Updated: ${formatDate(p.dateLastUpdated)}</span>
-            </div>
-            ${productActions(p)}
-          </div>
-        </div>
-      `).join('');
-    } else {
-      resultsEl.innerHTML = matches.map(p => `
-        <div class="product-list-item">
-          ${productThumb(p)}
-          <div class="pbody">
-            <h4>${escapeHtml(p.name)}</h4>
-            <div class="vendor">${escapeHtml(p.vendor)}</div>
-            <div class="product-meta">
-              ${p.location && p.location.area ? `<span>Location: ${escapeHtml(p.location.area)}${p._distanceKm != null ? ' &middot; ' + p._distanceKm.toFixed(1) + ' km away' : ''}</span>` : ''}
-              ${p.price ? `<span>Price: ${escapeHtml(p.price)}</span>` : ''}
-              ${p.quantityAvailable != null ? `<span>Available: ${escapeHtml(p.quantityAvailable)}${p.moq ? ' &middot; MOQ: ' + escapeHtml(p.moq) : ''}</span>` : ''}
-              <span>Updated: ${formatDate(p.dateLastUpdated)}</span>
-            </div>
-          </div>
-          ${productActions(p)}
-        </div>
-      `).join('');
-    }
+    if(!live.length){ meta.textContent = ''; return showEmpty('No products listed right now', 'Shops list their products from seiGEN Commerce Lite. Check back soon.'); }
+    if(!hits.length){ meta.textContent = '0 products'; return showEmpty('No matches', 'Every word you type must match, in any order: a product, a vendor or a place. Check the spelling, or try fewer words.'); }
+    empty.style.display = 'none';
+    meta.textContent = hits.length + ' product' + (hits.length === 1 ? '' : 's') + ' from ' + vendors + ' vendor' + (vendors === 1 ? '' : 's') + (marketView === 'text' ? ' · text only, no pictures' : '');
+    list.innerHTML = hits.map(p => marketView === 'text'
+      ? `<div class="lrow text"><div class="t" data-detail="${escapeHtml(p.listingId)}" role="button" tabindex="0" aria-label="${escapeHtml(p.name)}: details">
+           <div class="n">${escapeHtml(p.name)}</div><div class="s">${escapeHtml(p.vendor)}${p.city ? ' · ' + escapeHtml(p.city) : ''} · <span class="p">${escapeHtml(p.price)}</span></div></div>${addButtonHtml(p)}</div>`
+      : `<div class="lrow">${thumbHtml(p)}<div class="t" data-detail="${escapeHtml(p.listingId)}" role="button" tabindex="0" aria-label="${escapeHtml(p.name)}: details">
+           <div class="n">${escapeHtml(p.name)}</div><div class="s">${escapeHtml(p.vendor)}${p.city ? ' · ' + escapeHtml(p.city) : ''}</div><div class="p">${escapeHtml(p.price)}</div></div>${addButtonHtml(p)}</div>`
+    ).join('');
   }
 
-  document.addEventListener('input', function(e){
-    if(e.target && e.target.id === 'marketSearch') renderMarketSpace();
-  });
-
-  document.addEventListener('click', function(e){
-    if(e.target && e.target.closest && e.target.closest('#nearMeBtn')){
-      const statusEl = document.getElementById('nearMeStatus');
-      // Listings only know the vendor's city — no coordinates — so there is
-      // nothing to measure distance to. Say so instead of asking for the
-      // buyer's location and then claiming to sort by it.
-      if(!marketProducts.some(p => p.location && p.location.lat != null && p.location.lng != null)){
-        statusEl.textContent = 'Nearest-first isn\'t available yet — vendors don\'t share map locations. Type your city or town in the search box to see vendors there.';
-        return;
-      }
-      if(!navigator.geolocation){
-        statusEl.textContent = 'Location isn\'t available on this device.';
-        return;
-      }
-      statusEl.textContent = 'Getting your location…';
-      navigator.geolocation.getCurrentPosition(
-        function(pos){
-          buyerLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          statusEl.textContent = 'Showing nearest vendors first.';
-          renderMarketSpace();
-        },
-        function(){
-          statusEl.textContent = 'Couldn\'t get your location — try typing your city in the search bar instead.';
-        }
-      );
+  // A listing's details (a tap on its row): the same 100×100 thumbnail, never the full picture.
+  let detailDialog = null;
+  function openDetail(listingId){
+    const p = liveListing(listingId);
+    if(!p) return;
+    if(!detailDialog){
+      detailDialog = document.createElement('dialog'); detailDialog.className = 'sheet'; detailDialog.id = 'detailSheet';
+      detailDialog.setAttribute('aria-labelledby', 'detailTitle');
+      document.body.appendChild(detailDialog);
+      detailDialog.addEventListener('click', e => { if(e.target === detailDialog || e.target.closest('[data-close]')) detailDialog.close(); if(e.target.closest('[data-add-to-order], [data-in-order]')) setTimeout(()=> detailDialog.close(), 0); });
     }
-  });
+    const pic = marketView === 'text' ? '' : (p.thumb ? `<img src="${escapeHtml(p.thumb)}" alt="" width="100" height="100">` : `<div class="th-empty" aria-hidden="true">${icon('pic')}</div>`);
+    detailDialog.innerHTML = `<div class="sh">${pic}<div style="min-width:0"><h3 id="detailTitle">${escapeHtml(p.name)}</h3>
+        <div class="meta">${escapeHtml(p.vendor)}${p.city ? ' · ' + escapeHtml(p.city) : ''}<br>${escapeHtml(p.price)}${p.quantityAvailable != null ? ' · ' + escapeHtml(p.quantityAvailable) + ' available' : ''}${p.category ? '<br>' + escapeHtml(p.category) : ''}<br>Listed ${escapeHtml(formatDate(p.dateLastUpdated))}</div></div></div>
+      <div class="acts">${ib('close', 'Close', 'Close', 'data-close')}
+        ${waDigits(p.vendorWhatsApp) ? `<a class="ib" href="${escapeHtml(whatsappLeadLink(p))}" target="_blank" rel="noopener" aria-label="Ask ${escapeHtml(p.vendor)} on WhatsApp">${icon('wa')}<span class="cap" aria-hidden="true">WhatsApp</span></a>` : ''}
+        ${addButtonHtml(p)}</div>`;
+    detailDialog.showModal();
+  }
+  document.addEventListener('click', e => { const d = e.target.closest && e.target.closest('[data-detail]'); if(d) openDetail(d.getAttribute('data-detail')); });
+  document.addEventListener('keydown', e => { if((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-detail]')){ e.preventDefault(); openDetail(e.target.getAttribute('data-detail')); } });
 
+  // ---- Vendors ----
+  function renderVendors(){
+    const root = document.getElementById('vendorsRoot');
+    if(!root) return;
+    if(!listingsLoaded){ root.innerHTML = `<p class="hint">${escapeHtml(listingsError || 'Loading…')}</p>`; return; }
+    const by = new Map();
+    marketProducts.filter(isLive).forEach(p => { const v = by.get(p.vendorId) || { name: p.vendor, city: p.city, n: 0 }; v.n++; by.set(p.vendorId, v); });
+    const vs = [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
+    root.innerHTML = vs.length ? vs.map(v => `<div class="vrow" role="button" tabindex="0" data-vendor-search="${escapeHtml(v.name)}" aria-label="${escapeHtml(v.name)}: show its products">
+        <div class="t"><div style="font-weight:700;color:var(--navy)">${escapeHtml(v.name)}</div><div class="hint" style="font-size:12.5px;color:var(--text-soft)">${v.city ? escapeHtml(v.city) + ' · ' : ''}${v.n} product${v.n === 1 ? '' : 's'}</div></div>
+        <span class="ib" aria-hidden="true">${icon('store')}<span class="cap">Products</span></span></div>`).join('')
+      : `<div class="empty-state"><h3>No vendors listed right now</h3><p>Check back soon.</p></div>`;
+  }
+  function showVendor(name){ document.getElementById('marketSearch').value = name; go('/'); }
+  document.addEventListener('click', e => { const v = e.target.closest && e.target.closest('[data-vendor-search]'); if(v) showVendor(v.getAttribute('data-vendor-search')); });
+  document.addEventListener('keydown', e => { if((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-vendor-search]')){ e.preventDefault(); showVendor(e.target.getAttribute('data-vendor-search')); } });
+
+  // ---- Products (our apps): apps.json, so a link changes without a rebuild ----
+  const APPS_FALLBACK = {
+  "note": "The Products (our apps) page reads this list at runtime, so a link or line can change without a rebuild: edit, deploy. icon: desktop | phone | store | invoice | leaf.",
+  "apps": [
+    { "name": "Desktop App – seiGEN Commerce Lite", "url": "https://desktoppos-preview.seigendc.workers.dev/", "icon": "desktop",
+      "line": "Point of sale for your shop PC: sell, track stock and run branches, even offline." },
+    { "name": "Mobile App – seiGEN Commerce Lite", "url": "https://mobilepos-preview.seigendc.workers.dev/", "icon": "phone",
+      "line": "Your till in your pocket: sell and check stock from your phone, online or offline." },
+    { "name": "iTred Market Place", "url": "https://itred-preview.seigendc.workers.dev/", "icon": "store",
+      "line": "Find products from local shops and send your order on WhatsApp." },
+    { "name": "Invoice Retail", "url": "https://iqwriter.seigendc.workers.dev/", "icon": "invoice",
+      "line": "Make quotations and invoices for your shop in minutes, then share them on WhatsApp." },
+    { "name": "Invoice Contractors", "url": "https://iqwriterv10.seigendc.workers.dev/", "icon": "invoice",
+      "line": "Quotations and invoices for builders and contractors: labour, materials and jobs." },
+    { "name": "farmPLAN", "url": "https://farmplan.seigendc.workers.dev/", "icon": "leaf",
+      "line": "Plan your farm and keep your records in one place." }
+  ]
+};
+  let appsList = null;
+  async function loadApps(){
+    try{ const r = await fetch('apps.json', { cache: 'no-cache' }); if(r.ok){ const j = await r.json(); if(j && Array.isArray(j.apps)) appsList = j.apps; } }catch(e){}
+    if(!appsList) appsList = APPS_FALLBACK.apps;
+    if(currentRoute() === '/apps') renderApps();
+  }
+  let installPrompt = null;   // this site's own install prompt, when the browser offers one
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; if(currentRoute() === '/apps') renderApps(); });
+  window.addEventListener('appinstalled', ()=>{ installPrompt = null; });
+  const isThisSite = (url)=>{ try{ return new URL(url).origin === location.origin; }catch(e){ return false; } };
+  function renderApps(){
+    const root = document.getElementById('appsRoot');
+    if(!root) return;
+    if(!appsList){ root.innerHTML = '<p class="hint">Loading…</p>'; loadApps(); return; }
+    root.innerHTML = appsList.map((a, i) => `<div class="app"><div class="ic">${icon(['desktop', 'phone', 'store', 'invoice', 'leaf'].includes(a.icon) ? a.icon : 'apps')}</div>
+        <div style="flex:1;min-width:0"><h4>${escapeHtml(a.name)}</h4><p>${escapeHtml(a.line || '')}</p></div>
+        <a class="ib" href="${escapeHtml(a.url)}" target="_blank" rel="noopener" aria-label="Open ${escapeHtml(a.name)}">${icon('open')}<span class="cap" aria-hidden="true">Open</span></a>
+        ${ib('install', 'Install', 'Install ' + a.name, `data-install="${i}"`)}</div>`).join('')
+      + `<p class="hint" style="font-size:12px;color:var(--text-soft);margin:6px 2px">Each app installs from its own page: open it, then add it to your home screen.</p>`;
+  }
+  let installDialog = null;
+  async function installApp(i){
+    const a = appsList && appsList[i];
+    if(!a) return;
+    if(isThisSite(a.url) && installPrompt){ installPrompt.prompt(); try{ await installPrompt.userChoice; }catch(e){} installPrompt = null; return; }
+    if(!installDialog){
+      installDialog = document.createElement('dialog'); installDialog.className = 'sheet'; installDialog.id = 'installSheet';
+      document.body.appendChild(installDialog);
+      installDialog.addEventListener('click', e => { if(e.target === installDialog || e.target.closest('[data-close]')) installDialog.close(); });
+    }
+    const here = isThisSite(a.url);
+    installDialog.innerHTML = `<div class="body" style="padding-top:16px"><h3>Install ${escapeHtml(a.name)}</h3>
+      <p class="meta">${here ? 'Add iTred to your home screen:' : 'Open the app, then add it to your home screen:'}</p>
+      <ul class="meta" style="padding-left:18px;margin:6px 0">
+        <li><b>Android (Chrome):</b> the ⋮ menu → <b>Install app</b> or <b>Add to Home screen</b>.</li>
+        <li><b>iPhone (Safari):</b> the Share button → <b>Add to Home Screen</b>.</li>
+        <li><b>PC (Chrome or Edge):</b> the install icon at the end of the address bar, or ⋮ → <b>Install</b>.</li></ul></div>
+      <div class="acts">${ib('close', 'Close', 'Close', 'data-close')}${here ? '' : `<a class="ib" href="${escapeHtml(a.url)}" target="_blank" rel="noopener" aria-label="Open ${escapeHtml(a.name)}">${icon('open')}<span class="cap" aria-hidden="true">Open</span></a>`}</div>`;
+    installDialog.showModal();
+  }
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-install]'); if(b) installApp(Number(b.getAttribute('data-install'))); });
+
+  // ---- RPN page, partners, About sections (unchanged) ----
   document.addEventListener('DOMContentLoaded', function(){
-    const cardBtn = document.getElementById('viewCardBtn');
-    const listBtn = document.getElementById('viewListBtn');
-    if(cardBtn && listBtn){
-      cardBtn.addEventListener('click', ()=>{
-        marketView = 'card'; cardBtn.classList.add('active'); listBtn.classList.remove('active'); renderMarketSpace();
-      });
-      listBtn.addEventListener('click', ()=>{
-        marketView = 'list'; listBtn.classList.add('active'); cardBtn.classList.remove('active'); renderMarketSpace();
-      });
-    }
-
     const applyTabBtn = document.getElementById('rpnTabApply');
     const verifiedTabBtn = document.getElementById('rpnTabVerified');
     const applyTab = document.getElementById('rpnApplyTab');
@@ -1484,6 +1702,13 @@
   });
 
   let applicantType = 'individual';
+
+  // The console's review queue has no table yet (placeholderBackend): the WhatsApp message is the application.
+  async function submitRpnApplication(payload){
+    if(!placeholderBackend) return { ok: false, reason: 'not_configured' };
+    const { error } = await supabaseClient.from('rpn_applications').insert(payload);
+    return { ok: !error };
+  }
 
   // Verified RPNs — populated from the backend once applicants are verified by the admin team.
   // Each entry: { name, applicantType, city, since }
@@ -1636,12 +1861,16 @@
   function refreshDraftViews(){
     updateOrdersNav();
     const r = currentRoute();
-    if(r === '/market-space') renderMarketSpace();
+    if(r === '/') renderMarket();
     if(r === '/orders') renderOrders();
   }
+  // The count on Your Orders: drafts not sent yet, plus vendor replies not read yet.
   function updateOrdersNav(){
+    const n = draftList().length + (typeof sentOrders !== 'undefined' && sentOrders ? sentOrders.reduce((s, o) => s + unreadReplies(o), 0) : 0);
     const el = document.getElementById('ordersNavCount');
-    if(el) el.textContent = draftList().length || '';
+    if(el) el.textContent = n || '';
+    const foot = document.getElementById('ordersFootCount');
+    if(foot) foot.textContent = n || '';
   }
 
   function addListingToDraft(listingId){
@@ -1649,10 +1878,10 @@
     if(!p || !canOrderFrom(p)) return;
     let d = draftOrders[p.vendorId];
     if(!d) d = draftOrders[p.vendorId] = { vendorId: p.vendorId, lines: [], updatedAt: 0, vendor: {} };
-    d.vendor = { name: p.vendor, city: (p.location && p.location.area) || '', whatsapp: p.vendorWhatsApp };
+    d.vendor = { name: p.vendor, city: p.city, whatsapp: p.vendorWhatsApp };
     const line = d.lines.find(l => l.listingId === listingId);
     if(line) line.qty = cleanQty(line.qty + 1) || line.qty;
-    else d.lines.push({ key: listingId, listingId, name: p.name, unitPrice: p.unitPrice, currency: p.currency, image: p.image, qty: 1 });
+    else d.lines.push({ key: listingId, listingId, name: p.name, unitPrice: p.unitPrice, currency: p.currency, image: p.thumb, qty: 1 });
     draftsChanged(p.vendorId);
     showOrderToast('Added to your order with ' + p.vendor + '.');
   }
@@ -1665,7 +1894,7 @@
       el.id = 'orderToast'; el.setAttribute('role', 'status');
       document.body.appendChild(el);
     }
-    el.innerHTML = `<span>${escapeHtml(text)}</span>` + (o && o.link === false ? '' : `<a href="#/orders">View order</a>`);
+    el.innerHTML = `<span>${escapeHtml(text)}</span>` + (o && o.link === false ? '' : `<a href="/orders" data-link>View order</a>`);
     el.classList.add('show');
     clearTimeout(orderToastTimer);
     orderToastTimer = setTimeout(()=> el.classList.remove('show'), 4000);
@@ -1728,15 +1957,15 @@
     const vid = escapeHtml(d.vendorId);
     let send;
     if(!authSession){
-      send = `<a href="#/account" class="btn btn-navy" data-po-signin>Sign in to send</a>
+      send = `<a href="/account" data-link class="btn btn-navy" data-po-signin>Sign in to send</a>
         <span class="hint">Your order is kept in this browser while you sign in.</span>`;
     } else {
       const sending = sendingVendor === d.vendorId;
       const blocked = hasDelisted ? 'Remove the items that are no longer listed, or keep them as custom requests, first.'
         : !waDigits(d.vendor.whatsapp) ? 'This vendor has no WhatsApp number, so the order can\'t be sent.'
         : !customerProfile ? 'Your account details are still loading.' : '';
-      send = `<button type="button" class="btn btn-gold" data-po-action="send" data-vendor="${vid}" ${blocked || sendingVendor ? 'disabled' : ''}>${sending ? 'Sending…' : 'Send to vendor on WhatsApp'}</button>
-        <span class="hint">${escapeHtml(blocked || 'Saves the order to your account, then gives you the Sales Order PDF to send to ' + (d.vendor.name || 'the vendor') + ' on WhatsApp.')}</span>`;
+      send = `<button type="button" class="btn btn-gold" data-po-action="send" data-vendor="${vid}" ${blocked || sendingVendor ? 'disabled' : ''}>${sending ? 'Sending…' : 'Send order'}</button>
+        <span class="hint">${escapeHtml(blocked || 'Saves the order to your account and sends it to ' + (d.vendor.name || 'the vendor') + '\'s shop. The vendor sees your name and phone number.')}</span>`;
     }
     const error = draftErrors[d.vendorId] ? `<div class="auth-msg error po-error" style="margin:16px 0 0 0;">${escapeHtml(draftErrors[d.vendorId])}</div>` : '';
     return `
@@ -1766,60 +1995,29 @@
       </div>`;
   }
 
-  function renderOrders(){
-    const root = document.getElementById('ordersRoot');
-    if(!root) return;
-    const drafts = draftList();
-    const warn = draftsSaveFailed
-      ? `<div class="auth-msg error" id="draftsNotSaved">This browser isn't letting iTred save your draft orders, so they'll be lost if you close or reload the page.</div>`
-      : '';
-    const draftsHtml = drafts.length ? `<h2 class="orders-subhead">Drafts</h2>${drafts.map(renderDraft).join('')}` : '';
-    // Sent orders live in Supabase, so only a signed-in customer has any.
-    // Orders with no lines are left out: that's a send whose lines were
-    // refused, which sendDraft() closes straight away.
-    let sentHtml = '';
-    const sent = (sentOrders || []).filter(o => o.purchase_order_items && o.purchase_order_items.length);
-    if(authSession){
-      if(sentOrdersError) sentHtml = `<h2 class="orders-subhead">Sent orders</h2>
-        <div class="auth-msg error" id="sentOrdersError">Your sent orders couldn't be loaded. (${escapeHtml(sentOrdersError)})
-          <button type="button" class="linkish" data-order-action="reload">Try again</button></div>`;
-      else if(!sentOrders) sentHtml = `<h2 class="orders-subhead">Sent orders</h2><p class="hint" id="sentOrdersLoading">Loading your sent orders…</p>`;
-      else if(sent.length) sentHtml = `<h2 class="orders-subhead" style="margin-top:40px;">Sent orders</h2>${sent.map(renderSentOrder).join('')}`;
-    }
-    const nothing = !drafts.length && !sentHtml;
-    const empty = nothing ? `<div class="empty-state" id="ordersEmpty">
-          <h3>No orders yet</h3>
-          <p>Browse Market Space and tap <b>Add to order</b> on a product. Each vendor you add from gets its own order.</p>
-          <a href="#/market-space" class="btn btn-gold">Browse Market Space</a>
-        </div>` : '';
-    const signInHint = authSession ? '' : `<p class="hint" id="sentSignInHint" style="margin-top:20px;">Orders you've sent are kept with your account — <a href="#/account" class="linkish" data-po-signin>sign in</a> to see them.</p>`;
-    root.innerHTML = warn + draftsHtml + sentHtml + empty + signInHint;
-    // Fetch the PDF tool ahead of the Send tap: a share sheet has to open
-    // soon after the tap, and a 400 KB download could use that time up.
-    if(authSession && (drafts.length || sent.length)) loadJsPdf().catch(()=>{});
-  }
-
-  // ---- Sending an order: Supabase, then the Sales Order PDF over WhatsApp ----
-  // The order is saved first, then the PDF is made from what the database
-  // stored (the prices come from the listing at that moment, not from the
-  // page), and handed to the customer's WhatsApp the way the shop app hands
-  // over its files (src/dn-browser.js shareDocFile): the phone's share
-  // sheet with the PDF attached where the browser can share files;
-  // otherwise the PDF is downloaded and a wa.me chat with the vendor is a
-  // tap away, to attach it there. A share that's cancelled or blocked
-  // leaves the order saved, and "Send PDF" on it tries again — so the order
-  // record never depends on the share succeeding.
-  // pdf_url stays empty: the schema sets it server-side only, and the PDF
-  // is re-made from the order whenever it's needed.
-  const JSPDF_URL = 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js'; // pinned, like supabase-js
-  const ORDER_ITEM_COLUMNS = 'id, vendor_listing_id, item_name, unit_price, currency, quantity_requested, quantity_fulfilled, is_custom_request, fulfillment_status, created_at';
-  const ORDER_SELECT = 'id, vendor_id, status, created_at, vendors(business_name, whatsapp_number, city), purchase_order_items(' + ORDER_ITEM_COLUMNS + ')';
-  let sentOrders = null;        // the customer's purchase_orders (with vendor + lines), once loaded
+  // ---- Your Orders: sent orders ----
+  // The order is saved first (Supabase), then the customer can download its
+  // PDF (made on this device, jsPDF served from this site) or share a short
+  // summary on WhatsApp. The vendor's tills set what was fulfilled (Orders
+  // Fulfillment in Commerce Lite, 20261105120000); the customer confirms or
+  // disputes each answered line, and each order has one message thread.
+  // The signed-in customer's sent orders are kept on this device
+  // (localStorage, per account) so Your Orders and the PDF work offline;
+  // signing out removes the copy.
+  const JSPDF_URL = 'jspdf-4.2.1.umd.min.js';
+  const ORDER_ITEM_COLUMNS = 'id, vendor_listing_id, item_name, unit_price, currency, quantity_requested, quantity_fulfilled, is_custom_request, fulfillment_status, vendor_note, vendor_updated_at, customer_confirmed_at, customer_dispute, created_at';
+  const ORDER_SELECT = 'id, vendor_id, status, created_at, completed_at, vendors(business_name, whatsapp_number, city), purchase_order_items(' + ORDER_ITEM_COLUMNS + '), itred_order_messages(id, author, body, created_at, customer_read_at)';
+  let sentOrders = null;        // the customer's purchase_orders (with vendor, lines, messages), once loaded
   let sentOrdersError = null;
   let sentOrdersLoading = false;
+  let sentOrdersFromCache = null; // ISO time of the device copy being shown (offline), else null
   let sendingVendor = null;     // vendorId of the draft being sent right now
   let draftErrors = {};         // vendorId -> why the last send failed
-  let sentNotes = {};           // orderId -> { kind, text } what happened on the last share
+  let sentNotes = {};           // orderId -> { kind, text } what happened on the last action
+  let openThreads = {};         // orderId -> true while its messages are open
+  const ORDERS_CACHE = (uid)=> 'itred.orders.v1.' + uid;
+  function cacheOrders(uid, orders){ store(ORDERS_CACHE(uid), JSON.stringify({ at: new Date().toISOString(), orders })); }
+  function cachedOrders(uid){ try{ const j = JSON.parse(store(ORDERS_CACHE(uid)) || 'null'); return j && Array.isArray(j.orders) ? j : null; }catch(e){ return null; } }
 
   let jsPdfPromise = null;
   function loadJsPdf(){
@@ -1838,20 +2036,52 @@
 
   async function loadSentOrders(){
     if(!authSession || sentOrdersLoading) return;
-    sentOrdersLoading = true;
     const uid = authSession.user.id;
+    if(!sentOrders){ const c = cachedOrders(uid); if(c){ sentOrders = c.orders; sentOrdersFromCache = c.at; if(currentRoute() === '/orders') renderOrders(); } }
+    sentOrdersLoading = true;
     const { data, error } = await supabaseClient.from('purchase_orders').select(ORDER_SELECT)
       .eq('customer_id', uid).order('created_at', { ascending: false });
     sentOrdersLoading = false;
     if(!authSession || authSession.user.id !== uid) return; // signed out / switched meanwhile
     if(error){ sentOrdersError = error.message || String(error); }
-    else { sentOrdersError = null; sentOrders = data || []; }
+    else { sentOrdersError = null; sentOrders = data || []; sentOrdersFromCache = null; cacheOrders(uid, sentOrders); }
+    updateOrdersNav();
     if(currentRoute() === '/orders') renderOrders();
   }
+  window.addEventListener('online', ()=>{ if(authSession) loadSentOrders(); });
 
-  // Lines in a fixed order — listed items, then requests, each by name — so
-  // the PDF reads the same every time it's made (lines added in one go share
-  // a created_at, so the database can't give their original order back).
+  function renderOrders(){
+    const root = document.getElementById('ordersRoot');
+    if(!root) return;
+    const drafts = draftList();
+    const warn = draftsSaveFailed
+      ? `<div class="auth-msg error" id="draftsNotSaved">This browser isn't letting iTred save your draft orders, so they'll be lost if you close or reload the page.</div>`
+      : '';
+    const draftsHtml = drafts.length ? `<h2 class="orders-subhead">Drafts</h2>${drafts.map(renderDraft).join('')}` : '';
+    // Orders with no lines are left out: that's a send whose lines were refused, which sendDraft() closes straight away.
+    let sentHtml = '';
+    const sent = (sentOrders || []).filter(o => o.purchase_order_items && o.purchase_order_items.length);
+    if(authSession){
+      const offline = sentOrdersFromCache ? `<p class="offline-note" id="ordersOffline">Showing the copy on this device from ${escapeHtml(formatDateTime(sentOrdersFromCache))}${sentOrdersError ? ' (couldn\'t reach iTred)' : ''}.</p>` : '';
+      if(sentOrdersError && !sentOrders) sentHtml = `<h2 class="orders-subhead">Sent orders</h2>
+        <div class="auth-msg error" id="sentOrdersError">Your sent orders couldn't be loaded. (${escapeHtml(sentOrdersError)})
+          <button type="button" class="linkish" data-order-action="reload">Try again</button></div>`;
+      else if(!sentOrders) sentHtml = `<h2 class="orders-subhead">Sent orders</h2><p class="hint" id="sentOrdersLoading">Loading your sent orders…</p>`;
+      else if(sent.length) sentHtml = `<h2 class="orders-subhead" style="margin-top:20px;">Sent orders</h2>${offline}${sent.map(renderSentOrder).join('')}`;
+    }
+    const nothing = !drafts.length && !sentHtml;
+    const empty = nothing ? `<div class="empty-state" id="ordersEmpty">
+          <h3>No orders yet</h3>
+          <p>Search the market and tap <b>Add</b> on a product. Each vendor you add from gets its own order.</p>
+          <a href="/" data-link class="btn btn-gold">Go to the market</a>
+        </div>` : '';
+    const signInHint = authSession ? '' : `<p class="hint" id="sentSignInHint" style="margin-top:20px;">Orders you've sent are kept with your account — <a href="/account" data-link class="linkish" data-po-signin>sign in</a> to see them.</p>`;
+    root.innerHTML = warn + draftsHtml + sentHtml + empty + signInHint;
+    // Fetch the PDF tool ahead of the tap.
+    if(authSession && sent.length) loadJsPdf().catch(()=>{});
+  }
+
+  // Lines in a fixed order — listed items, then requests, each by name.
   function orderLines(order){
     return (order.purchase_order_items || []).slice().sort((a, b) =>
       (a.is_custom_request - b.is_custom_request) || String(a.item_name).localeCompare(String(b.item_name), undefined, { sensitivity: 'base' }));
@@ -1875,20 +2105,38 @@
   }
   function customerName(){
     const p = customerProfile || {};
-    return p.full_name || (authSession && authSession.user.email) || 'A customer';
+    return p.full_name || 'A customer';
   }
-  function orderWhatsAppText(order){
-    const n = (order.purchase_order_items || []).length;
-    return 'Hello ' + orderVendor(order).name + ', this is ' + customerName() + '. Here is my Sales Order ' + orderRef(order)
-      + ' from iTred Market Place (' + n + ' item' + (n === 1 ? '' : 's') + '). Please let me know what you can supply.';
+  const LINE_STATUS = { fulfilled: 'Fulfilled', partially_fulfilled: 'Partly fulfilled', outstanding: 'Outstanding' };
+  const ORDER_STATUS_LABELS = { sent: 'Sent', partially_fulfilled: 'Partly fulfilled', fulfilled: 'Fulfilled', closed: 'Closed' };
+  function lineStatus(l){ return l.fulfillment_status || (Number(l.quantity_fulfilled) <= 0 ? 'outstanding' : Number(l.quantity_fulfilled) >= Number(l.quantity_requested) ? 'fulfilled' : 'partially_fulfilled'); }
+
+  // The WhatsApp summary: only what's on the order (no phone, email or address), short.
+  function orderShareText(order){
+    const v = orderVendor(order), lines = orderLines(order), t = orderTotals(order);
+    const head = ['iTred order ' + orderRef(order) + ' · ' + formatDate(order.created_at), 'Vendor: ' + v.name + ' · Customer: ' + customerName()];
+    const money = Object.entries(t.byCurrency).map(([c, n]) => formatMoney(c, n)).join(' + ');
+    const total = (money ? 'Total ' + money : 'Total: to quote') + (t.custom && money ? ' + ' + t.custom + ' to quote' : '') + ' · Status: ' + (ORDER_STATUS_LABELS[order.status] || order.status).toLowerCase() + (order.completed_at ? ', completed by the vendor' : '');
+    // At most 15 item lines, and only as many as fit in 1,500 characters with the "+ N more" and total lines kept.
+    let budget = 1500 - head.join('\n').length - total.length - 40;
+    const items = [];
+    for(const l of lines.slice(0, 15)){
+      const q = formatQty(Number(l.quantity_requested)), st = lineStatus(l), done = Number(l.quantity_fulfilled);
+      const status = st === 'partially_fulfilled' ? formatQty(done) + ' of ' + q : (LINE_STATUS[st] || st).toLowerCase();
+      let s = '• ' + l.item_name + ' × ' + q + ' — ' + (l.is_custom_request || l.unit_price == null ? 'to quote, not listed' : formatMoney(l.currency, Number(l.unit_price) * Number(l.quantity_requested))) + ' (' + status + ')';
+      if(s.length > 200) s = s.slice(0, 199) + '…';
+      if(s.length + 1 > budget) break;
+      budget -= s.length + 1; items.push(s);
+    }
+    const more = lines.length > items.length ? ['+ ' + (lines.length - items.length) + ' more items (see the PDF)'] : [];
+    return head.concat(items, more, [total]).join('\n');
   }
-  function orderChatLink(order){
-    return 'https://wa.me/' + waDigits(orderVendor(order).whatsapp) + '?text='
-      + encodeURIComponent(orderWhatsAppText(order) + ' I\'m attaching the PDF here.');
+  function orderShareLink(order){
+    const d = waDigits(orderVendor(order).whatsapp);
+    return 'https://wa.me/' + d + '?text=' + encodeURIComponent(orderShareText(order));
   }
 
-  // jsPDF's built-in fonts only cover Windows-1252; anything else (emoji,
-  // other scripts) would print as garbage, so it prints as "?" instead.
+  // jsPDF's built-in fonts only cover Windows-1252; anything else prints as "?".
   const PDF_EXTRA_CHARS = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
   function pdfText(s){
     return Array.from(String(s == null ? '' : s)).map(ch => {
@@ -1896,7 +2144,10 @@
       return (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || PDF_EXTRA_CHARS.includes(ch) ? ch : '?';
     }).join('');
   }
-
+  function pdfFileName(order){
+    const v = String(orderVendor(order).name).normalize('NFKD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'Vendor';
+    return 'iTred-Order-' + orderRef(order) + '-' + v + '.pdf';
+  }
   function buildSalesOrderPdf(JsPDF, order){
     const doc = new JsPDF({ unit: 'mm', format: 'a4', compress: false });
     const W = 210, M = 18, BOTTOM = 277;
@@ -1909,17 +2160,16 @@
     const rule = (yy, c, w)=>{ doc.setDrawColor((c || RULE)[0], (c || RULE)[1], (c || RULE)[2]); doc.setLineWidth(w || 0.2); doc.line(M, yy, W - M, yy); };
     const need = (h, redrawHeader)=>{ if(y + h > BOTTOM){ doc.addPage(); y = M; if(redrawHeader) redrawHeader(); } };
 
-    // Header
     font('bold', 10); color(GOLD); doc.text('iTred Market Place', M, y + 4);
-    font('bold', 22); color(NAVY); doc.text('SALES ORDER', M, y + 14);
+    font('bold', 22); color(NAVY); doc.text('ORDER', M, y + 14);
     font('normal', 10); color(SOFT);
-    doc.text('Order ref', W - M - 55, y + 4); doc.text('Date', W - M - 55, y + 10);
+    doc.text('Order ref', W - M - 55, y + 4); doc.text('Date', W - M - 55, y + 10); doc.text('Status', W - M - 55, y + 16);
     font('bold', 10); color(NAVY);
     doc.text(ref, W - M, y + 4, { align: 'right' });
     doc.text(pdfText(formatDateTime(order.created_at)), W - M, y + 10, { align: 'right' });
+    doc.text(pdfText((ORDER_STATUS_LABELS[order.status] || order.status) + (order.completed_at ? ', completed' : '')), W - M, y + 16, { align: 'right' });
     y += 22; rule(y, NAVY, 0.6); y += 8;
 
-    // Parties
     const colW = (W - 2 * M - 10) / 2;
     const party = (x, title, lines)=>{
       let yy = y;
@@ -1945,22 +2195,30 @@
       cols.forEach(([label, x, align])=> doc.text(label, x, y, align ? { align } : undefined));
       y += 2.5; rule(y); y += 5;
     };
-
-    if(listed.length){
-      const head = ()=> tableHead('LISTED ITEMS', [['Item', M], ['Qty', colQty, 'right'], ['Unit price', colUnit, 'right'], ['Amount', colAmt, 'right']]);
-      head();
-      listed.forEach(l=>{
-        const name = doc.splitTextToSize(pdfText(l.item_name), nameW);
-        const h = name.length * 4.8 + 3;
-        need(h, head);
-        font('normal', 10); color(NAVY);
-        doc.text(name, M, y);
-        doc.text(formatQty(Number(l.quantity_requested)), colQty, y, { align: 'right' });
+    const statusLine = (l)=>{
+      const st = lineStatus(l), q = Number(l.quantity_requested), f = Number(l.quantity_fulfilled);
+      return (st === 'partially_fulfilled' ? formatQty(f) + ' of ' + formatQty(q) + ' fulfilled' : LINE_STATUS[st] || st)
+        + (l.vendor_note ? ' - ' + l.vendor_note : '') + (l.customer_dispute ? ' - disputed: ' + l.customer_dispute : l.customer_confirmed_at ? ' - confirmed' : '');
+    };
+    const lineBlock = (l, priced)=>{
+      const name = doc.splitTextToSize(pdfText(l.item_name), nameW);
+      const st = doc.splitTextToSize(pdfText(statusLine(l)), nameW);
+      const h = name.length * 4.8 + st.length * 4.2 + 3;
+      need(h);
+      font('normal', 10); color(NAVY);
+      doc.text(name, M, y);
+      doc.text(formatQty(Number(l.quantity_requested)), colQty, y, { align: 'right' });
+      if(priced){
         color(SOFT); doc.text(pdfText(formatMoney(l.currency, l.unit_price)), colUnit, y, { align: 'right' });
         font('bold', 10); color(NAVY);
         doc.text(pdfText(formatMoney(l.currency, Number(l.unit_price) * Number(l.quantity_requested))), colAmt, y, { align: 'right' });
-        y += h - 3; rule(y); y += 5;
-      });
+      } else { font('italic', 9.5); color(SOFT); doc.text('To quote', colAmt, y, { align: 'right' }); }
+      font('normal', 8.5); color(SOFT); doc.text(st, M, y + name.length * 4.8);
+      y += h - 3; rule(y); y += 5;
+    };
+    if(listed.length){
+      tableHead('LISTED ITEMS', [['Item', M], ['Qty', colQty, 'right'], ['Unit price', colUnit, 'right'], ['Amount', colAmt, 'right']]);
+      listed.forEach(l => lineBlock(l, true));
       const t = orderTotals(order);
       Object.entries(t.byCurrency).forEach(([cur, n])=>{
         need(8);
@@ -1971,40 +2229,27 @@
       });
       y += 5;
     }
-
     if(custom.length){
       need(20);
-      const head = ()=> tableHead('PLEASE SOURCE AND QUOTE (NOT CURRENTLY LISTED)', [['Item', M], ['Qty', colQty, 'right'], ['Price', colAmt, 'right']]);
-      head();
-      custom.forEach(l=>{
-        const name = doc.splitTextToSize(pdfText(l.item_name), nameW);
-        const h = name.length * 4.8 + 3;
-        need(h, head);
-        font('normal', 10); color(NAVY);
-        doc.text(name, M, y);
-        doc.text(formatQty(Number(l.quantity_requested)), colQty, y, { align: 'right' });
-        font('italic', 9.5); color(SOFT); doc.text('To quote', colAmt, y, { align: 'right' });
-        y += h - 3; rule(y); y += 5;
-      });
+      tableHead('PLEASE SOURCE AND QUOTE (NOT CURRENTLY LISTED)', [['Item', M], ['Qty', colQty, 'right'], ['Price', colAmt, 'right']]);
+      custom.forEach(l => lineBlock(l, false));
       y += 3;
     }
-
     const note = 'Prices for listed items are as published on iTred Market Place when this order was placed. '
-      + 'Please reply to the customer on WhatsApp to confirm what you can supply, when, and your price for any items to quote.';
+      + 'The vendor updates what was fulfilled; the customer confirms each item or raises a problem in Your Orders.';
     const noteLines = doc.splitTextToSize(note, W - 2 * M);
     need(noteLines.length * 4.4 + 4);
     font('normal', 9); color(SOFT); doc.text(noteLines, M, y + 2);
-
     const pages = doc.getNumberOfPages();
     for(let i = 1; i <= pages; i++){
       doc.setPage(i);
       font('normal', 8); color(SOFT);
-      doc.text('iTred Market Place  ·  Sales Order ' + ref, M, 290);
+      doc.text('iTred Market Place  ·  Order ' + ref, M, 290);
       doc.text('Page ' + i + ' of ' + pages, W - M, 290, { align: 'right' });
     }
-    return { blob: doc.output('blob'), fileName: 'Sales-Order-' + ref + '.pdf' };
+    return { blob: doc.output('blob'), fileName: pdfFileName(order) };
   }
-
+  // A normal browser download: on most phones and PCs it lands in Downloads.
   function downloadBlob(blob, fileName){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2012,28 +2257,12 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=> URL.revokeObjectURL(url), 60000);
   }
-
-  // Share the order's PDF. Returns what happened, in words for the customer.
-  async function deliverOrder(order){
-    const vendor = orderVendor(order);
+  async function downloadOrderPdf(order){
     let pdf;
     try{ pdf = buildSalesOrderPdf(await loadJsPdf(), order); }
-    catch(e){ return { kind: 'error', text: 'The PDF couldn\'t be made (' + (e.message || e) + '). Check your connection and tap Send PDF again.' }; }
-    let file = null;
-    try{ file = new File([pdf.blob], pdf.fileName, { type: 'application/pdf' }); }catch(e){ /* no File constructor: download instead */ }
-    if(file && navigator.canShare && navigator.canShare({ files: [file] })){
-      try{
-        await navigator.share({ files: [file], title: 'Sales Order ' + orderRef(order), text: orderWhatsAppText(order) });
-        return { kind: 'ok', text: 'Shared. If you picked WhatsApp, check it went to ' + vendor.name + ' (' + vendor.whatsapp + ').' };
-      }catch(e){
-        if(e && e.name === 'AbortError') return { kind: 'info', text: 'Not sent yet — tap Send PDF when you\'re ready to share it with ' + vendor.name + '.' };
-        // NotAllowedError: the tap was too long ago (saving took a while).
-        // Anything else: fall through to the download below.
-        if(e && e.name === 'NotAllowedError') return { kind: 'info', text: 'Your order is saved. Tap Send PDF to share it with ' + vendor.name + ' on WhatsApp.' };
-      }
-    }
+    catch(e){ return { kind: 'error', text: 'The PDF couldn\'t be made (' + (e.message || e) + '). Try again.' }; }
     downloadBlob(pdf.blob, pdf.fileName);
-    return { kind: 'info', text: 'The PDF (' + pdf.fileName + ') has been downloaded. Tap Open WhatsApp chat, then attach it (📎 → Document) and send it to ' + vendor.name + '.' };
+    return { kind: 'ok', text: 'Downloaded ' + pdf.fileName + ' (usually in your Downloads folder).' };
   }
 
   async function sendDraft(vendorId){
@@ -2043,23 +2272,16 @@
     sendingVendor = vendorId;
     delete draftErrors[vendorId];
     renderOrders();
-    // The PDF tool first: if it can't load, nothing has been recorded yet.
-    try{ await loadJsPdf(); }
-    catch(e){ return fail('The Sales Order PDF tool couldn\'t load — check your connection and try again. Nothing was sent.'); }
     const po = await supabaseClient.from('purchase_orders')
       .insert({ customer_id: authSession.user.id, vendor_id: vendorId })
-      .select('id, vendor_id, status, created_at').single();
+      .select('id, vendor_id, status, created_at, completed_at').single();
     if(po.error) return fail('Your order couldn\'t be saved (' + (po.error.message || po.error) + '). Nothing was sent.');
-    // Only the columns a customer may write; the database fills in the
-    // listed items' names and prices from the live listing.
+    // Only the columns a customer may write; the database fills in the listed items' names and prices.
     const rows = d.lines.map(l => ({
       purchase_order_id: po.data.id, vendor_listing_id: l.custom ? null : l.listingId,
       item_name: l.name, quantity_requested: l.qty, is_custom_request: !!l.custom }));
     const items = await supabaseClient.from('purchase_order_items').insert(rows).select(ORDER_ITEM_COLUMNS);
     if(items.error){
-      // The lines go in as one statement, so none were saved. Close the
-      // empty order so it can't be added to later, and re-check listings:
-      // the usual cause is one having expired since the page loaded.
       await supabaseClient.from('purchase_orders').update({ status: 'closed' }).eq('id', po.data.id);
       await loadListings();
       return fail('Your order couldn\'t be sent: ' + (/not found|not published|row-level security/i.test(items.error.message || '')
@@ -2068,19 +2290,18 @@
     }
     const order = Object.assign({}, po.data, {
       vendors: { business_name: d.vendor.name, whatsapp_number: d.vendor.whatsapp, city: d.vendor.city },
-      purchase_order_items: items.data || [] });
+      purchase_order_items: items.data || [], itred_order_messages: [] });
     delete draftOrders[vendorId];
     saveDrafts();
     sentOrders = [order].concat(sentOrders || []);
+    cacheOrders(authSession.user.id, sentOrders);
     sendingVendor = null;
-    sentNotes[order.id] = { kind: 'info', text: 'Order saved. Preparing the PDF…' };
+    sentNotes[order.id] = { kind: 'ok', text: 'Sent to ' + d.vendor.name + '. Their shop sees it in Orders Fulfillment. Tap Share to send them the summary on WhatsApp too.' };
     updateOrdersNav();
-    renderOrders();
-    sentNotes[order.id] = await deliverOrder(order);
     renderOrders();
   }
 
-  const ORDER_STATUS_LABELS = { sent: 'Sent', partially_fulfilled: 'Partly fulfilled', fulfilled: 'Fulfilled', closed: 'Closed' };
+  function unreadReplies(order){ return (order.itred_order_messages || []).filter(m => m.author === 'vendor' && !m.customer_read_at).length; }
   function renderSentOrder(order){
     const vendor = orderVendor(order);
     const lines = orderLines(order);
@@ -2089,220 +2310,104 @@
     const note = sentNotes[order.id];
     const oid = escapeHtml(order.id);
     const status = ORDER_STATUS_LABELS[order.status] || order.status;
-    const chat = waDigits(vendor.whatsapp)
-      ? `<a href="${escapeHtml(orderChatLink(order))}" target="_blank" rel="noopener" class="btn btn-outline" data-order-chat>Open WhatsApp chat</a>` : '';
+    const unread = unreadReplies(order);
+    const lineHtml = (l)=>{
+      const st = lineStatus(l), q = Number(l.quantity_requested), f = Number(l.quantity_fulfilled);
+      const sub = [];
+      if(st === 'partially_fulfilled') sub.push(escapeHtml(formatQty(f)) + ' of ' + escapeHtml(formatQty(q)) + ' supplied');
+      else if(st === 'fulfilled' && l.vendor_updated_at) sub.push('All supplied');
+      if(l.vendor_note) sub.push('Vendor: ' + escapeHtml(l.vendor_note));
+      if(l.customer_dispute) sub.push('<b>You raised:</b> ' + escapeHtml(l.customer_dispute));
+      else if(l.customer_confirmed_at) sub.push('You confirmed');
+      const canRespond = l.vendor_updated_at && !l.customer_confirmed_at && order.status !== 'closed';
+      return `<div class="ol" data-line="${escapeHtml(l.id)}"><div class="l">${escapeHtml(l.item_name)} × ${escapeHtml(formatQty(q))}${l.is_custom_request ? ' <small style="display:inline">(not listed)</small>' : ''}
+          ${sub.length ? `<small>${sub.join(' · ')}</small>` : ''}</div>
+        <div class="r">${l.is_custom_request || l.unit_price == null ? 'To quote' : escapeHtml(formatMoney(l.currency, Number(l.unit_price) * q))}<br><span class="chip ${st}">${escapeHtml(LINE_STATUS[st] || st)}</span>
+          ${canRespond ? `<div class="resp">${ib('check', 'Confirm', 'Confirm you received ' + l.item_name + ' as the vendor says', `data-line-confirm="${escapeHtml(l.id)}" data-order="${oid}"`)}${ib('flag', 'Problem', 'Report a problem with ' + l.item_name, `data-line-dispute="${escapeHtml(l.id)}" data-order="${oid}"`)}</div>` : ''}</div></div>`;
+    };
+    const msgs = (order.itred_order_messages || []).slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    const thread = openThreads[order.id] ? `<div class="thread" id="thread-${oid}"><div class="sub" style="margin-bottom:4px">Messages with ${escapeHtml(vendor.name)} about this order</div>
+        ${msgs.length ? msgs.map(m => `<div class="msg ${m.author === 'vendor' ? 'vendor' : 'customer'}"><small>${m.author === 'vendor' ? escapeHtml(vendor.name) : 'You'} · ${escapeHtml(formatDateTime(m.created_at))}</small>${escapeHtml(m.body)}</div>`).join('') : '<p class="sub">No messages yet.</p>'}
+        <form data-msg-form="${oid}"><textarea maxlength="1000" placeholder="Write to the vendor about this order…" aria-label="Message to ${escapeHtml(vendor.name)}"></textarea>
+          ${ib('send', 'Send', 'Send the message', 'data-msg-send type="submit"').replace('type="button" ', '')}</form></div>` : '';
     return `
-      <div class="po-card po-sent" data-order="${oid}">
-        <div class="po-head">
-          <div>
-            <div class="section-kicker" style="margin-bottom:2px;">Sent ${escapeHtml(formatDateTime(order.created_at))}</div>
-            <h3>${escapeHtml(vendor.name)}</h3>
-            <div class="hint">${escapeHtml(orderRef(order))} &middot; ${lines.length} item${lines.length === 1 ? '' : 's'}${vendor.city ? ' &middot; ' + escapeHtml(vendor.city) : ''}</div>
-          </div>
-          <span class="badge ${order.status === 'sent' ? 'badge-soon' : 'badge-live'} po-status">${escapeHtml(status)}</span>
+      <div class="oc" data-order="${oid}">
+        <div class="oh"><div><h3>${escapeHtml(vendor.name)}</h3>
+            <div class="sub">${escapeHtml(orderRef(order))} · ${escapeHtml(formatDate(order.created_at))}${vendor.city ? ' · ' + escapeHtml(vendor.city) : ''}</div></div>
+          <span class="chip ${escapeHtml(order.status)}">${escapeHtml(status)}${order.completed_at ? ' · completed' : ''}</span></div>
+        ${lines.map(lineHtml).join('')}
+        <div class="ot"><b>${money.length ? 'Total ' + money.join(' + ') : 'To quote'}</b>${t.custom && money.length ? `<span class="sub">+ ${t.custom} to quote</span>` : ''}</div>
+        ${note ? `<div class="auth-msg ${note.kind === 'error' ? 'error' : note.kind === 'ok' ? 'ok' : ''} note" style="margin:8px 0 0 0;">${escapeHtml(note.text)}</div>` : ''}
+        <div class="acts">
+          ${ib('pdf', 'PDF', 'Download the order as a PDF', `data-order-action="pdf" data-order="${oid}"`)}
+          <a class="ib" href="${escapeHtml(orderShareLink(order))}" target="_blank" rel="noopener" data-order-share="${oid}" aria-label="Share the order on WhatsApp${waDigits(vendor.whatsapp) ? ' with ' + escapeHtml(vendor.name) : ''}">${icon('share')}<span class="cap" aria-hidden="true">Share</span></a>
+          <button type="button" class="ib" data-order-action="thread" data-order="${oid}" aria-label="Messages with ${escapeHtml(vendor.name)}${unread ? ' (' + unread + ' new)' : ''}" aria-expanded="${openThreads[order.id] ? 'true' : 'false'}">${icon('chat')}<span class="cap" aria-hidden="true">Message</span><span class="dot">${unread || ''}</span></button>
         </div>
-        <details class="po-sent-lines">
-          <summary>Items</summary>
-          ${lines.map(l => `<div class="po-sent-line"><span>${escapeHtml(l.item_name)} &times; ${escapeHtml(formatQty(Number(l.quantity_requested)))}${Number(l.quantity_fulfilled) > 0
-              ? `<span class="po-delivered">${escapeHtml(formatQty(Number(l.quantity_fulfilled)))} of ${escapeHtml(formatQty(Number(l.quantity_requested)))} delivered</span>` : ''}</span>
-            <span>${l.is_custom_request || l.unit_price == null ? '<span class="po-sub" style="display:inline;">To quote</span>'
-              : escapeHtml(formatMoney(l.currency, Number(l.unit_price) * Number(l.quantity_requested)))}</span></div>`).join('')}
-        </details>
-        ${note ? `<div class="auth-msg ${note.kind === 'error' ? 'error' : note.kind === 'ok' ? 'ok' : ''} po-note" style="margin:16px 0 0 0;">${escapeHtml(note.text)}</div>` : ''}
-        <div class="po-foot">
-          <div class="po-totals">
-            ${money.length ? `Listed items: <b>${money.join(' + ')}</b>` : ''}
-            ${t.custom ? `<div>${money.length ? 'plus ' : ''}${t.custom} item${t.custom === 1 ? '' : 's'} for the vendor to quote</div>` : ''}
-          </div>
-          <div class="po-send po-sent-actions">
-            <button type="button" class="btn btn-gold" data-order-action="share" data-order="${oid}">Send PDF</button>
-            ${chat}
-            ${fulfilmentEditable(order) ? `<button type="button" class="btn btn-outline" data-order-action="fulfil" data-order="${oid}">Record delivery</button>` : ''}
-          </div>
-        </div>
+        ${thread}
       </div>`;
   }
-
+  function findOrder(id){ return (sentOrders || []).find(o => o.id === id); }
   document.addEventListener('click', async function(e){
     const btn = e.target.closest && e.target.closest('[data-order-action]');
     if(!btn || btn.disabled) return;
     const action = btn.getAttribute('data-order-action');
     if(action === 'reload'){ sentOrdersError = null; sentOrders = null; renderOrders(); loadSentOrders(); return; }
-    const order = (sentOrders || []).find(o => o.id === btn.getAttribute('data-order'));
-    if(action === 'share' && order){
-      btn.disabled = true;
-      sentNotes[order.id] = await deliverOrder(order);
+    const order = findOrder(btn.getAttribute('data-order'));
+    if(!order) return;
+    if(action === 'pdf'){ btn.disabled = true; sentNotes[order.id] = await downloadOrderPdf(order); renderOrders(); }
+    if(action === 'thread'){
+      openThreads[order.id] = !openThreads[order.id];
       renderOrders();
-    }
-    if(action === 'fulfil' && order) openFulfilDialog(order);
-  });
-
-  // ---- Recording what was delivered ----
-  // The vendor answers on WhatsApp; the customer then enters, line by line,
-  // how much actually arrived. Only quantity_fulfilled is written (the one
-  // column the fulfilment migration grants); the order's status is worked
-  // out by the database trigger from the lines, so the page never sets it —
-  // it reloads the orders and shows whatever status came back.
-  // A closed order is finished: no button, and the dialog refuses it too.
-  function fulfilmentEditable(order){ return !!order && order.status !== 'closed'; }
-  let fulfilOrderId = null;
-  let fulfilSaving = false;
-  function fulfilDialog(){
-    let dlg = document.getElementById('fulfilDialog');
-    if(!dlg){
-      dlg = document.createElement('dialog');
-      dlg.id = 'fulfilDialog';
-      dlg.setAttribute('aria-labelledby', 'fulfilTitle');
-      document.body.appendChild(dlg);
-      dlg.addEventListener('cancel', e => { if(fulfilSaving) e.preventDefault(); }); // Esc mid-save
-      dlg.addEventListener('close', () => { fulfilOrderId = null; });
-      dlg.addEventListener('input', e => { if(e.target.classList.contains('fl-qty')) checkFulfilInput(e.target); });
-      dlg.addEventListener('submit', e => { e.preventDefault(); saveFulfilment(); });
-      dlg.addEventListener('click', e => {
-        if(e.target === dlg && !fulfilSaving) dlg.close();                       // backdrop
-        if(e.target.closest('[data-fulfil-cancel]') && !fulfilSaving) dlg.close();
-      });
-    }
-    return dlg;
-  }
-  function openFulfilDialog(order){
-    if(!fulfilmentEditable(order)) return;
-    const dlg = fulfilDialog();
-    fulfilOrderId = order.id;
-    renderFulfilDialog(order);
-    dlg.showModal();
-  }
-  // marks: lineId -> message shown under that line (a failed save);
-  // note: { kind, text } shown above the buttons.
-  function renderFulfilDialog(order, marks, note){
-    marks = marks || {};
-    const vendor = orderVendor(order);
-    fulfilDialog().innerHTML = `
-      <form novalidate>
-        <div class="fl-head">
-          <h3 id="fulfilTitle">Record delivery</h3>
-          <div class="hint">${escapeHtml(vendor.name)} &middot; ${escapeHtml(orderRef(order))}. Enter how much of each item you actually received.</div>
-        </div>
-        <div class="fl-body">
-          <div class="fl-cols" aria-hidden="true"><span>Item</span><span>Ordered</span><span>Received</span></div>
-          ${orderLines(order).map(l => {
-            const lid = escapeHtml(l.id), ordered = formatQty(Number(l.quantity_requested));
-            const got = formatQty(Number(l.quantity_fulfilled)), mark = marks[l.id];
-            return `<div class="fl-line${mark ? ' invalid failed' : ''}" data-line="${lid}">
-              <div class="fl-name">${escapeHtml(l.item_name)}${l.is_custom_request ? ' <span class="badge badge-soon">Custom request</span>' : ''}</div>
-              <div class="fl-ordered">${escapeHtml(ordered)}</div>
-              <input type="number" class="fl-qty" min="0" max="${escapeHtml(ordered)}" step="any" inputmode="decimal"
-                value="${escapeHtml(got)}" data-was="${escapeHtml(got)}" data-max="${escapeHtml(ordered)}"
-                aria-label="Received of ${escapeHtml(l.item_name)} (ordered ${escapeHtml(ordered)})"
-                aria-invalid="${mark ? 'true' : 'false'}" aria-describedby="flErr-${lid}">
-              <div class="fl-err" id="flErr-${lid}" role="alert">${mark ? escapeHtml(mark) : ''}</div>
-            </div>`;
-          }).join('')}
-        </div>
-        <div class="fl-foot">
-          <div class="auth-msg ${note && note.kind === 'error' ? 'error' : ''}" id="fulfilError"${note ? '' : ' hidden'}>${note ? escapeHtml(note.text) : ''}</div>
-          <div class="fl-actions">
-            <button type="button" class="btn btn-outline" data-fulfil-cancel>${note ? 'Close' : 'Cancel'}</button>
-            <button type="submit" class="btn btn-gold" id="fulfilSave">Save</button>
-          </div>
-        </div>
-      </form>`;
-  }
-  // null when the value is fine, otherwise what to tell the customer.
-  function fulfilProblem(input){
-    const raw = input.value.trim(), max = Number(input.getAttribute('data-max'));
-    if(raw === '') return 'Enter how many arrived (0 if none).';
-    const n = Number(raw);
-    if(!Number.isFinite(n)) return 'Enter a number.';
-    if(n < 0) return "Received can't be less than 0.";
-    if(n > max) return `Only ${formatQty(max)} ordered — received can't be more than that.`;
-    return null;
-  }
-  function checkFulfilInput(input){
-    const row = input.closest('.fl-line');
-    const problem = fulfilProblem(input);
-    row.classList.toggle('invalid', !!problem);
-    row.classList.remove('failed');
-    input.setAttribute('aria-invalid', problem ? 'true' : 'false');
-    row.querySelector('.fl-err').textContent = problem || '';
-    return !problem;
-  }
-  function fulfilFail(text){
-    const box = document.getElementById('fulfilError');
-    box.className = 'auth-msg error';
-    box.textContent = text; box.hidden = false;
-  }
-  function lineName(order, id){
-    const l = (order.purchase_order_items || []).find(x => x.id === id);
-    return l ? l.item_name : 'An item';
-  }
-  // Each changed line is its own UPDATE, in the order the dialog lists
-  // them, stopping at the first one that fails: there's no multi-row
-  // transaction over the REST API, and every line saved on its own is a
-  // true record (the trigger re-derives the status after each). Whatever
-  // happens, the orders are then re-read, so the dialog and the card show
-  // what the database holds, not what was typed.
-  async function saveFulfilment(){
-    const dlg = fulfilDialog();
-    const order = (sentOrders || []).find(o => o.id === fulfilOrderId);
-    if(!order || fulfilSaving) return;
-    if(!fulfilmentEditable(order)){ fulfilFail('This order is closed, so deliveries can no longer be recorded.'); return; }
-    document.getElementById('fulfilError').hidden = true;
-    const inputs = [...dlg.querySelectorAll('.fl-qty')];
-    const valid = inputs.map(checkFulfilInput).every(Boolean);
-    if(!valid){ dlg.querySelector('.fl-line.invalid .fl-qty').focus(); return; }
-    const changed = inputs.filter(i => Number(i.value) !== Number(i.getAttribute('data-was')))
-      .map(i => ({ id: i.closest('.fl-line').getAttribute('data-line'), qty: Number(i.value) }));
-    if(!changed.length){ dlg.close(); return; }
-
-    fulfilSaving = true;
-    dlg.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
-    document.getElementById('fulfilSave').textContent = 'Saving…';
-    let saved = 0, failure = null;
-    for(const c of changed){
-      const { data, error } = await supabaseClient.from('purchase_order_items')
-        .update({ quantity_fulfilled: c.qty }).eq('id', c.id).select('id');
-      if(error || !data || !data.length){
-        failure = { id: c.id, reason: error ? (error.message || String(error)) : 'not saved (the order may no longer be yours to change)' };
-        break;
+      if(openThreads[order.id] && unreadReplies(order) && navigator.onLine !== false){
+        const r = await supabaseClient.rpc('itred_messages_read', { p_order_id: order.id });
+        if(!r.error){ (order.itred_order_messages || []).forEach(m => { if(m.author === 'vendor' && !m.customer_read_at) m.customer_read_at = new Date().toISOString(); }); updateOrdersNav(); renderOrders(); }
       }
-      saved++;
+      const ta = document.querySelector('[data-msg-form="' + CSS.escape(order.id) + '"] textarea'); if(ta && openThreads[order.id]) ta.focus();
     }
-    await refreshSentOrders();
-    fulfilSaving = false;
-    const fresh = (sentOrders || []).find(o => o.id === order.id);
-    const status = fresh && (ORDER_STATUS_LABELS[fresh.status] || fresh.status);
-
-    if(!failure){
-      dlg.close();
-      showOrderToast(`Delivery recorded. Order is now: ${status || 'updated'}.`, { link: false });
-      return;
+  });
+  // Confirm / report a problem on a line the vendor has answered.
+  document.addEventListener('click', async function(e){
+    const c = e.target.closest && e.target.closest('[data-line-confirm], [data-line-dispute]');
+    if(!c || c.disabled) return;
+    const order = findOrder(c.getAttribute('data-order'));
+    if(!order) return;
+    const confirmIt = c.hasAttribute('data-line-confirm');
+    const itemId = c.getAttribute(confirmIt ? 'data-line-confirm' : 'data-line-dispute');
+    let reason = null;
+    if(!confirmIt){
+      reason = (window.prompt('What\'s wrong with this item? The vendor will see it.') || '').trim();
+      if(!reason) return;
     }
-    if(!dlg.open || fulfilOrderId !== order.id) return; // signed out meanwhile
-    if(!fresh){
-      renderFulfilDialog(order, { [failure.id]: "Couldn't be saved: " + failure.reason }, { kind: 'error',
-        text: `${saved} of ${changed.length} changes were saved, but the order couldn't be re-checked. Close this and reload the page to see what was recorded.` });
-      dlg.querySelectorAll('.fl-qty, #fulfilSave').forEach(el => { el.disabled = true; });
-      return;
-    }
-    const unsaved = changed.length - saved - 1;
-    const failedName = lineName(fresh, failure.id);
-    renderFulfilDialog(fresh, { [failure.id]: "Couldn't be saved: " + failure.reason }, { kind: 'error', text:
-      (saved ? `${saved} of ${changed.length} changes saved. ` : 'Nothing was saved. ')
-      + `${failedName} couldn't be saved`
-      + (unsaved === 1 ? ", so the change after it wasn't tried either" : unsaved ? `, so the ${unsaved} changes after it weren't tried either` : '')
-      + `. The quantities below are what's recorded now — the order is ${status}. Re-enter anything missing and save again.` });
-    if(!fulfilmentEditable(fresh)) dlg.querySelectorAll('.fl-qty, #fulfilSave').forEach(el => { el.disabled = true; });
-    const bad = dlg.querySelector('.fl-line.failed .fl-qty');
-    if(bad && !bad.disabled) bad.focus();
-  }
-  // Re-read the orders so each card (and the dialog) shows what the
-  // database holds, including the status the trigger set. Waits out a load
-  // already in flight, which may have started before the saves.
-  async function refreshSentOrders(){
-    while(sentOrdersLoading) await new Promise(r => setTimeout(r, 50));
+    c.disabled = true;
+    const { data, error } = await supabaseClient.rpc('itred_line_respond', { p_item_id: itemId, p_confirm: confirmIt, p_dispute: reason });
+    sentNotes[order.id] = error || (data && data.error)
+      ? { kind: 'error', text: 'Not saved: ' + ((data && data.message) || (error && error.message) || (navigator.onLine === false ? 'you\'re offline' : 'try again')) + '.' }
+      : { kind: 'ok', text: confirmIt ? 'Thanks: confirmed.' : 'Sent to the vendor.' };
     await loadSentOrders();
-  }
+    renderOrders();
+  });
+  // A message on an order (a client-made id, so a resend after a timeout is never doubled).
+  document.addEventListener('submit', async function(e){
+    const form = e.target.closest && e.target.closest('[data-msg-form]');
+    if(!form) return;
+    e.preventDefault();
+    const order = findOrder(form.getAttribute('data-msg-form'));
+    const ta = form.querySelector('textarea'), body = ta.value.trim();
+    if(!order || !body) return;
+    const id = (crypto.randomUUID && crypto.randomUUID()) || ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, ch => (ch ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> ch / 4).toString(16));
+    form.querySelectorAll('textarea, button').forEach(x => { x.disabled = true; });
+    const { error } = await supabaseClient.from('itred_order_messages').insert({ id, purchase_order_id: order.id, body });
+    if(error && !/duplicate|23505/.test(error.message + error.code)){
+      sentNotes[order.id] = { kind: 'error', text: 'Message not sent: ' + (navigator.onLine === false ? 'you\'re offline. It\'s still in the box.' : error.message) };
+      renderOrders();
+      const again = document.querySelector('[data-msg-form="' + CSS.escape(order.id) + '"] textarea'); if(again){ again.value = body; }
+      return;
+    }
+    order.itred_order_messages = (order.itred_order_messages || []).concat([{ id, author: 'customer', body, created_at: new Date().toISOString() }]);
+    delete sentNotes[order.id];
+    cacheOrders(authSession.user.id, sentOrders);
+    renderOrders();
+  });
 
   function findDraftLine(vendorId, key){
     const d = draftOrders[vendorId];
@@ -2390,12 +2495,14 @@
   // Where Supabase's emails send the customer back to. A reset link carries
   // ?reset=1 so startAccounts() can tell it from a sign-up confirmation;
   // both come back as ?code=… (PKCE) on #/account.
+  // On the site: the root address (the one Supabase knows), then the page moves to /account.
   function accountRedirectUrl(purpose){
-    return location.href.split('#')[0].split('?')[0] + (purpose === 'reset' ? '?reset=1' : '') + '#/account';
+    if(HASH_MODE) return location.href.split('#')[0].split('?')[0] + (purpose === 'reset' ? '?reset=1' : '') + '#/account';
+    return location.origin + '/' + (purpose === 'reset' ? '?reset=1' : '');
   }
   function updateAccountNav(){
     const link = document.getElementById('accountNavLink');
-    if(link) link.textContent = authSession ? 'My account' : 'Sign in';
+    if(link) link.setAttribute('aria-label', authSession ? 'Your account' : 'Sign in');
   }
   function setAccountNotice(kind, text){ accountNotice = text ? { kind, text } : null; }
 
@@ -2650,6 +2757,7 @@
   }
   function signOut(){
     return withBusy('signOutBtn', async ()=>{
+      if(authSession) store(ORDERS_CACHE(authSession.user.id), null);   // this account's orders leave the device
       await supabaseClient.auth.signOut();
       setAccountNotice('info', 'You\'re signed out.');
     });
@@ -2667,11 +2775,10 @@
     if(sameCustomer) return;
     // A different customer (or none): the last one's sent orders go.
     sentOrders = null; sentOrdersError = null; sentNotes = {}; draftErrors = {};
-    const fulfilOpen = document.getElementById('fulfilDialog');
-    if(fulfilOpen && fulfilOpen.open) fulfilOpen.close(); // another account's orders
+    openThreads = {}; sentOrdersFromCache = null;
     await loadCustomerProfile();
     // Came to sign in from a draft order's "Sign in to send": go back to it.
-    if(authSession && returnToOrders){ returnToOrders = false; location.hash = '#/orders'; return; }
+    if(authSession && returnToOrders){ returnToOrders = false; go('/orders'); return; }
     if(currentRoute() === '/orders'){ renderOrders(); loadSentOrders(); } // the send area depends on being signed in
     if(!(opts && opts.skipRender) && currentRoute() === '/account') renderAccount();
   }
@@ -2700,7 +2807,7 @@
       }
       else if(session) setAccountNotice('ok', 'Your email is confirmed and you\'re signed in.');
       else setAccountNotice('info', 'Your email is confirmed. Sign in below to continue.');
-      history.replaceState(null, '', location.pathname + '#/account');
+      if(HASH_MODE) history.replaceState(null, '', location.pathname + '#/account'); else history.replaceState(null, '', '/account');
     }
     // Drawn once: render() both switches to #/account and draws it.
     await onSessionChanged(session, { skipRender: fromEmail });
@@ -2776,37 +2883,50 @@
     const text = encodeURIComponent(lines.join('\n'));
     this.href = 'https://wa.me/263789487287?text=' + text;
   });
-</script>
 
-<div id="feedbackWidget">
-  <button id="feedbackToggle" aria-label="Leave feedback">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v12H7l-3 3V4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-  </button>
-  <div id="feedbackPanel">
-    <h4>Tell us what you think</h4>
-    <textarea id="feedbackText" placeholder="Share a comment about the site…"></textarea>
-    <a href="#" id="feedbackSend" target="_blank" rel="noopener" class="btn btn-gold" style="width:100%;justify-content:center;">Send feedback</a>
-  </div>
-</div>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function(){
-    const toggle = document.getElementById('feedbackToggle');
-    const panel = document.getElementById('feedbackPanel');
-    const sendBtn = document.getElementById('feedbackSend');
-    toggle.addEventListener('click', ()=> panel.classList.toggle('open'));
-    sendBtn.addEventListener('click', function(e){
-      const text = document.getElementById('feedbackText').value.trim();
-      if(!text){ e.preventDefault(); return; }
-      const page = titles[currentRoute()] || 'iTred';
-      const lines = ['Site feedback — iTred Market Place', 'Page: ' + page, 'Comment: ' + text];
-      this.href = 'https://wa.me/263789487287?text=' + encodeURIComponent(lines.join('\n'));
-      submitFeedback(page, text);
-      document.getElementById('feedbackText').value = '';
-      panel.classList.remove('open');
-    });
+  // ---- Site feedback (to the iTred team on WhatsApp) ----
+  const feedbackSheet = document.getElementById('feedbackSheet');
+  document.getElementById('feedbackOpen').addEventListener('click', ()=>{ closeDrawer(); feedbackSheet.showModal(); document.getElementById('feedbackText').focus(); });
+  document.getElementById('feedbackCancel').addEventListener('click', ()=> feedbackSheet.close());
+  document.getElementById('feedbackSend').addEventListener('click', ()=>{
+    const text = document.getElementById('feedbackText').value.trim();
+    if(!text){ document.getElementById('feedbackText').focus(); return; }
+    const page = titles[currentRoute()] || 'iTred';
+    const lines = ['Site feedback — iTred Market Place', 'Page: ' + page, 'Comment: ' + text];
+    window.open('https://wa.me/' + ITRED_WHATSAPP + '?text=' + encodeURIComponent(lines.join('\n')), '_blank', 'noopener');
+    document.getElementById('feedbackText').value = '';
+    feedbackSheet.close();
   });
-</script>
 
+  // ---- Installable app: service worker, offline shell, the update bar ----
+  // The same approach as Commerce Lite v23: check for a new build on start,
+  // when the internet comes back and when the app comes back to the screen;
+  // a new build waits until "Update now" (then the page reloads once).
+  (function(){
+    if(HASH_MODE || !('serviceWorker' in navigator)) return;
+    const bar = document.getElementById('updateBar');
+    let reg = null, reloading = false, hadController = !!navigator.serviceWorker.controller;
+    const showIfWaiting = ()=>{ if(reg && reg.waiting && navigator.serviceWorker.controller) bar.classList.add('show'); };
+    const check = ()=>{ if(reg) reg.update().then(showIfWaiting).catch(()=>{}); };
+    navigator.serviceWorker.register('sw.js').then(r => {
+      reg = r;
+      showIfWaiting();
+      r.addEventListener('updatefound', ()=>{
+        const w = r.installing;
+        if(w) w.addEventListener('statechange', ()=>{ if(w.state === 'installed') showIfWaiting(); });
+      });
+    }).catch(()=>{});
+    navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+      if(!hadController){ hadController = true; return; }   // the first install: nothing to reload
+      if(reloading) return; reloading = true; location.reload();
+    });
+    document.getElementById('updateNow').addEventListener('click', ()=>{
+      if(reg && reg.waiting){ document.getElementById('updateText').textContent = 'Updating…'; reg.waiting.postMessage('SKIP_WAITING'); }
+      else { check(); document.getElementById('updateText').textContent = 'No update found yet.'; }
+    });
+    window.addEventListener('online', check);
+    document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'visible') check(); });
+  })();
+</script>
 </body>
 </html>
