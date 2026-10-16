@@ -239,7 +239,8 @@ async function credentials(install){ return (await sq("select install_id, shop_s
     await refreshBranches(C);
     const txt = (await C.page.textContent("#moreBody")).replace(/\s+/g, " ");
     assert.match(txt, /All other branches/); assert.match(txt, /Harare/); assert.doesNotMatch(txt, /Murehwa \(this\)/);
-    assert.match(txt, /Bib ?14/); assert.doesNotMatch(txt, /T1: |value at cost|\$/);
+    // step 2 (20261106120000): each till's count at a remote too; still no value or cost
+    assert.match(txt, /Bib ?14 ?T1: 10 · T2: 4/); assert.doesNotMatch(txt, /value at cost|\$/);
     await shot(C.page, "phone-390-other-branches.png");
     await C.page.setViewportSize({ width:1280, height:800 });
     await shot(C.page, "desktop-1280-other-branches-remote.png");
@@ -247,7 +248,7 @@ async function credentials(install){ return (await sq("select install_id, shop_s
     await C.page.click("#bsTabDisp");
     await waitFor(async()=> /DN-T1-0001/.test(await C.page.textContent("#moreBody")), "the dispatch", 30000);
     const d = (await C.page.textContent("#moreBody")).replace(/\s+/g, " ");
-    assert.match(d, /Harare → Murehwa/); assert.match(d, /1 line · 5 units/); assert.doesNotMatch(d, /cost|\$|3\.00|0\.80/i);
+    assert.match(d, /Harare → Murehwa/); assert.match(d, /1 line · 5 units/); assert.match(d, /Transport USD 3\.00/, "the transport (step 2)"); assert.doesNotMatch(d, /cost|\$|0\.80/i);
     await shot(C.page, "phone-390-other-branches-dispatches.png");
     assert.deepStrictEqual(C.pageErrors, []); assert.deepStrictEqual(E.pageErrors, []);
   });

@@ -34,7 +34,7 @@ const uuidOf = (h) => h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 1
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261106120000_branch_views.sql']) });   // the shape just before it (both are on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());

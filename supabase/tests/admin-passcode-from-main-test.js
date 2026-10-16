@@ -35,7 +35,7 @@ const seedOf = (passcode, rounds = 150000) => {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261023180000_update_app_first_message.sql', '20261024120000_branch_stock.sql', '20261025120000_min_app_build.sql', '20261105120000_itred_order_fulfilment.sql']) });   // the shape just before it (it and the later ones are on live now)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261023180000_update_app_first_message.sql', '20261024120000_branch_stock.sql', '20261025120000_min_app_build.sql', '20261105120000_itred_order_fulfilment.sql', '20261106120000_branch_views.sql']) });   // the shape just before it (it and the later ones are on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || crypto.randomBytes(16).toString('hex'));

@@ -195,24 +195,27 @@ const hex = ()=> require("crypto").randomBytes(16).toString("hex");
     assert.match(el.querySelector(".bs-copies").textContent, /Harare: T1 and T2 look like copies of the same stock list.*may count those products twice/s);
   });
 
-  await t("a remote: More → Other branches, quantities only: no till counts, no value, no cost anywhere", async ()=>{
+  // Branches step 2 (20261106120000, §R5): a remote now gets each till's own count too; still no value, no cost.
+  await t("a remote: More → Other branches, quantities only: each till's count, no value, no cost anywhere", async ()=>{
     const r = await M1.api.bsPull();
     assert.ok(r.ok, JSON.stringify(r));
     assert.ok(M1.api.bsTabAvailable());
     same(M1.api.bsOtherBranches().map((b)=> b.name), ["Harare"]);
     const h = M1.api.bsOtherBranches()[0];
     assert.strictEqual(M1.api.bsRowFor(h, { cat_uid:CAT.bib }).qty, 14);
-    assert.strictEqual(M1.api.bsRowFor(h, { cat_uid:CAT.bib }).t, null, "no till figures");
-    assert.strictEqual(h.tills, null);
+    same(M1.api.bsRowFor(h, { cat_uid:CAT.bib }).t, { T1:10, T2:4 }, "each till's count (since 20261106120000)");
+    assert.strictEqual(h.tills.length, 2);
     const el = M1.dom.window.document.createElement("div");
     M1.api.setSetting("bs_pulled_ts", new Date().toISOString());
     M1.api.renderBranchStock(el);
     const txt = el.textContent.replace(/\s+/g, " ");
     assert.match(txt, /All other branches/); assert.match(txt, /Harare/); assert.doesNotMatch(txt, /Murehwa \(this\)/);
-    assert.doesNotMatch(txt, /value at cost|T1: |\$/); assert.match(txt, /costs are kept on the main branch/);
+    assert.match(txt, /T1: 10 · T2: 4/);
+    assert.doesNotMatch(txt, /value at cost|\$/); assert.match(txt, /costs are kept on the main branch/);
   });
 
-  await t("a remote's dispatch list: Harare's dispatch to Murehwa, with no unit or delivery cost", async ()=>{
+  // Step 2 (§R2): the transport amount travels (the receiving branch pays it, decision 1d); never a unit cost.
+  await t("a remote's dispatch list: Harare's dispatch to Murehwa, with the transport but no unit cost", async ()=>{
     const p = H1.api.one("SELECT * FROM products WHERE sku='BIB1'");
     H1.api.dnCommitDispatch({ branch:"Harare", toBranch:"Murehwa", now:new Date(), lines:[{ product:p, qty:2 }],
       srv:{ toBranchId: M1.api.getSetting("branch_uuid",""), delivery:{ cost:4.56, currency:"USD" } } });
@@ -220,7 +223,8 @@ const hex = ()=> require("crypto").randomBytes(16).toString("hex");
     const r = await M1.api.bsPullDispatches();
     assert.ok(r.ok && r.count === 1, JSON.stringify(r));
     const raw = M1.api.getSetting("bs_dispatches","");
-    assert.doesNotMatch(raw, /cost|charge|4\.56|2\.5/i, raw);
+    assert.doesNotMatch(raw, /unit_cost|landed|charge|2\.5/i, raw);
+    assert.strictEqual(M1.api.bsDispatches()[0].delivery_cost, 4.56, "the transport amount");
     const d = M1.api.bsDispatches()[0];
     assert.strictEqual(d.from_branch, "Harare"); assert.strictEqual(d.lines[0].qty, 2); assert.strictEqual(d.status, "sent");
     const el = M1.dom.window.document.createElement("div");
