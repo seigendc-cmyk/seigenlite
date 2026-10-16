@@ -53,6 +53,9 @@
     if(route==="lockreports") return renderLockReports();
     if(route==="start") return renderStart();
     const desktop = isDesktopBuild();
+    // Roles (v28): a menu without its right is hidden, and its screen can't be opened
+    if(typeof navAllowed==="function" && route!=="more" && !navAllowed(route)) route = firstAllowedRoute();
+    const navItems = NAV_ITEMS.filter(n=> typeof navAllowed!=="function" || navAllowed(n.id));
     $app.innerHTML = `
       <div class="topbar">
         ${desktop? `<button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">☰</button>` : ""}
@@ -62,10 +65,10 @@
           <div class="branch">${escapeHtml(getSetting("branch_name",""))} · <span id="userChip" style="text-decoration:underline;cursor:pointer">${escapeHtml(sessionUser||"set name")}</span></div>
         </div>
         <button class="logout-btn" id="logoutBtn" aria-label="Log out" title="Log out">${ICON_LOGOUT}</button>
-        <button class="cart-btn" id="cartBtn">🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
+        <button class="cart-btn" id="cartBtn" ${navItems.some(n=>n.id==="pos")? "" : "hidden"}>🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
       </div>
       <main id="main"></main>
-      ${desktop? "" : `<div class="navbar">${NAV_ITEMS.map(n=>navBtn(n.id,n.icon,n.label)).join("")}</div>`}
+      ${desktop? "" : `<div class="navbar">${navItems.map(n=>navBtn(n.id,n.icon,n.label)).join("")}</div>`}
       <div class="overlay ${drawerOpen?'show':''}" id="overlay"></div>
       <div class="drawer ${drawerOpen?'show':''}" id="drawer"></div>
       <div class="overlay ${reqDrawerOpen?'show':''}" id="reqOverlay"></div>
@@ -75,7 +78,7 @@
       <div class="drawer nav-drawer ${navDrawerOpen?'show':''}" id="navDrawer">
         <div class="drawer-head"><h3 style="margin:0">Menu</h3><button class="close-x" id="closeNavDrawer">✕</button></div>
         <div class="drawer-body">
-          ${NAV_ITEMS.map(n=>`<button class="nav-drawer-item ${route===n.id?'active':''}" data-route="${n.id}"><span class="ic">${n.icon}</span>${escapeHtml(n.label)}</button>`).join("")}
+          ${navItems.map(n=>`<button class="nav-drawer-item ${route===n.id?'active':''}" data-route="${n.id}"><span class="ic">${n.icon}</span>${escapeHtml(n.label)}</button>`).join("")}
         </div>
       </div>` : ""}
     `;
@@ -355,12 +358,13 @@
     { id:"settings", label:"Settings" },
   ];
   function moreTabsAvailable(){
-    return MORE_TABS.filter(t=> !(t.remoteHidden && isRemote()) && !(t.needs && !t.needs()))
+    return MORE_TABS.filter(t=> !(t.remoteHidden && isRemote()) && !(t.needs && !t.needs()) && (typeof moreTabAllowed!=="function" || moreTabAllowed(t.id)))
       .map(t=> t.remoteLabel && isRemote()? Object.assign({}, t, { label:t.remoteLabel }) : t.dynLabel? Object.assign({}, t, { label:itredMoreLabel(t.id) }) : t);
   }
   function renderMore(main){
     const tabs = moreTabsAvailable();
     const active = tabs.find(t=>t.id===moreTab) || tabs[0];
+    moreTab = active.id;   // a tab this person may not open (roles, v28) falls back to the first one
     main.innerHTML = `
       <h2>More</h2>
       <div class="moretab-wrap">

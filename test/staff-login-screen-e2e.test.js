@@ -158,7 +158,7 @@ function addStaffWithPin(app, name, pin, role){
     app.exec(`setSetting("single_operator_mode","0");`);
     const rudo = addStaffWithPin(app, "Rudo", "1234");
     app.exec(`renderWhoAmI();`);
-    app.document.getElementById("whoSelect").value = String(rudo.id);
+    app.document.getElementById("whoSelect").value = "l:" + rudo.id;   // v28: "l:<id>" this till's staff, "s:<id>" seiGEN's
     app.document.getElementById("whoSelectContinue").onclick();
     assert.ok(app.document.getElementById("whoPin"), "moved to the PIN step");
     assert.ok(/Enter your PIN/.test(app.document.getElementById("app").textContent));
@@ -179,7 +179,7 @@ function addStaffWithPin(app, name, pin, role){
     app.exec(`setSetting("single_operator_mode","0");`);
     const rudo = addStaffWithPin(app, "Rudo", "1234");
     app.exec(`renderWhoAmI();`);
-    app.document.getElementById("whoSelect").value = String(rudo.id);
+    app.document.getElementById("whoSelect").value = "l:" + rudo.id;   // v28: "l:<id>" this till's staff, "s:<id>" seiGEN's
     app.document.getElementById("whoSelectContinue").onclick();
     const pinInput = app.document.getElementById("whoPin");
     pinInput.value = "0000"; pinInput.oninput();
@@ -196,7 +196,7 @@ function addStaffWithPin(app, name, pin, role){
     app.exec(`setSetting("single_operator_mode","0");`);
     const rudo = addStaffWithPin(app, "Rudo", "1234");
     app.exec(`renderWhoAmI();`);
-    app.document.getElementById("whoSelect").value = String(rudo.id);
+    app.document.getElementById("whoSelect").value = "l:" + rudo.id;   // v28: "l:<id>" this till's staff, "s:<id>" seiGEN's
     app.document.getElementById("whoSelectContinue").onclick();
     for(let i=0;i<5;i++){
       const pinInput = app.document.getElementById("whoPin");

@@ -24,6 +24,12 @@
   // fresh one until an owner opts in, behaves exactly as before.
   function singleOperatorMode(){ return getSetting("single_operator_mode","1")==="1"; }
   function activeStaffWithPin(branch){ return all("SELECT * FROM staff WHERE branch=? AND active=1 AND pin_hash<>'' ORDER BY name",[branch]); }
+  // Who can sign in here: the business's staff from seiGEN once this till has them (roles.js, v28),
+  // else this till's own list as before. -> [{ key, name }] ("s:<id>" seiGEN, "l:<id>" this till's).
+  function signinChoices(){
+    if(typeof rolesSynced==="function" && rolesSynced()) return shopStaffHere().map(s=>({ key:"s:"+s.id, name:s.name }));
+    return activeStaffWithPin(currentBranch()).map(s=>({ key:"l:"+s.id, name:s.name }));
+  }
   // Queryable current operator (Part 6) — null in Single operator mode, where
   // there's no staff record behind the typed name, only sessionUser.
   function currentStaff(){ return sessionStaffId? one("SELECT * FROM staff WHERE id=?",[sessionStaffId]) : null; }
@@ -208,6 +214,7 @@
     if(cart.length>0){ alert(LOGOUT_CART_MESSAGE); return false; }
     logAudit("Logout", "", sessionUser||"");               // written while sessionUser still names who left
     sessionUser = ""; sessionStaffId = null;
+    if(typeof staffSignOut==="function") staffSignOut();   // roles (v28): seiGEN's token ends too
     accessStep=1; accessSelectedStaffId=null; accessPinDigits=""; accessError="";
     settingsUnlocked = false;
     drawerOpen = false;
@@ -225,7 +232,7 @@
     if(singleOperatorMode()) return renderSingleOperatorAccess();
     // Safety net: never strand the shop with no way in (e.g. the toggle was
     // flipped on via an imported/merged settings row with no PINs set up yet).
-    if(activeStaffWithPin(currentBranch()).length===0) return renderSingleOperatorAccess();
+    if(signinChoices().length===0) return renderSingleOperatorAccess();
     accessStep=1; accessSelectedStaffId=null; accessPinDigits="";
     renderStaffAccess();
   }
@@ -245,6 +252,7 @@
       const name = input.value.trim();
       if(!name) return alert("Enter your name to continue");
       sessionUser = name; sessionStaffId = null;
+      if(typeof staffSignOut==="function") staffSignOut();
       setSetting("last_user", name); persist();
       route="pos"; render();
     };
@@ -253,17 +261,17 @@
   }
   function renderStaffAccess(){
     route="whoami";
-    const staffList = activeStaffWithPin(currentBranch());
+    const staffList = signinChoices();
     if(accessStep===1){
       $app.innerHTML = `<div class="center-screen"><div class="setup-card center">
         <h2>Who's working today?</h2>
         <p class="muted">Pick your name, then enter your PIN.</p>
-        <select class="field" id="whoSelect">${staffList.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("")}</select>
+        <select class="field" id="whoSelect">${staffList.map(s=>`<option value="${escapeHtml(s.key)}">${escapeHtml(s.name)}</option>`).join("")}</select>
         <button class="btn btn-primary" id="whoSelectContinue" style="margin-top:14px">Continue</button>
         ${sessionUser? `<button class="btn btn-outline" id="whoCancel" style="margin-top:8px">Cancel</button>` : ""}
       </div></div>`;
       document.getElementById("whoSelectContinue").onclick=()=>{
-        accessSelectedStaffId = +document.getElementById("whoSelect").value;
+        accessSelectedStaffId = document.getElementById("whoSelect").value;
         accessStep=2; accessPinDigits=""; accessError="";
         renderStaffAccess();
       };
@@ -271,7 +279,8 @@
       if(cancel) cancel.onclick=()=>{ route="pos"; render(); };
       return;
     }
-    const staffRow = one("SELECT * FROM staff WHERE id=?",[accessSelectedStaffId]);
+    const pick = staffList.find(s=>s.key===String(accessSelectedStaffId));
+    const staffRow = pick? { name:pick.name } : null;
     $app.innerHTML = `<div class="center-screen"><div class="setup-card center">
       <h2>${escapeHtml(staffRow? staffRow.name : "")}</h2>
       <p class="muted">Enter your PIN</p>
@@ -288,13 +297,16 @@
     pinInput.oninput = ()=>{ accessPinDigits = pinInput.value.replace(/\D/g,"").slice(0,PIN_MAX_LEN); pinInput.value = accessPinDigits; };
     document.getElementById("whoBack").onclick=()=>{ accessStep=1; accessPinDigits=""; accessError=""; renderStaffAccess(); };
     document.getElementById("whoPinContinue").onclick=()=>{
-      const res = attemptPinLogin(accessSelectedStaffId, accessPinDigits);
+      const key = String(accessSelectedStaffId||"");
+      if(typeof staffSignOut==="function") staffSignOut();   // the person before, if any
+      const shop = key.startsWith("s:");
+      const res = shop? attemptShopSignin(key.slice(2), accessPinDigits) : attemptPinLogin(+key.slice(2), accessPinDigits);
       if(!res.ok){ accessError = res.message; accessPinDigits=""; renderStaffAccess(); return; }
-      sessionUser = res.staff.name; sessionStaffId = res.staff.id;
-      setSetting("last_user", res.staff.name); setSetting("last_staff_id", String(res.staff.id));
+      sessionUser = res.staff.name; sessionStaffId = shop? null : res.staff.id;
+      setSetting("last_user", res.staff.name); setSetting("last_staff_id", shop? key : String(res.staff.id));
       persist();
       accessStep=1; accessSelectedStaffId=null; accessPinDigits=""; accessError="";
-      route="pos"; render();
+      route = typeof firstAllowedRoute==="function" && !navAllowed("pos")? firstAllowedRoute() : "pos"; render();
     };
     const cancel = document.getElementById("whoCancel");
     if(cancel) cancel.onclick=()=>{ route="pos"; render(); };

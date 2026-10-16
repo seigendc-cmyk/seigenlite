@@ -180,6 +180,8 @@
       if(typeof sgAfterCheckin==="function") sgAfterCheckin();
       // the business's customer list (customers.js): send this till's new customers, pull the rest.
       if(typeof custAfterCheckin==="function") custAfterCheckin();
+      // the business's roles and staff (roles.js, v28): this till's old staff list once, then everyone's.
+      if(typeof staffAfterCheckin==="function") staffAfterCheckin();
       // stock by branch (branch-stock.js): the branch list, this till's stock figures, every branch's.
       if(typeof bsAfterCheckin==="function") bsAfterCheckin().catch(()=>{});
       // iTred orders (itred-orders.js): send this till's fulfilment changes and replies, pull the business's orders.

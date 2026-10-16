@@ -251,7 +251,7 @@
     let admin = o.admin || null;
     if(!admin){
       if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
-      admin = findAdmin(o.passcode);
+      admin = findApprover(o.passcode, "void_return");   // roles (v28): or the signed-in holder's own PIN
       if(!admin) throw new Error("Incorrect Admin passcode. Nothing was saved.");
     }
     const now = o.now || new Date(), ts = now.toISOString();
@@ -323,7 +323,7 @@
     const plan = planCreditNote(saleId, picks, "exchange", o);
     returnRequireSignedIn();
     if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
-    const admin = findAdmin(o.passcode);
+    const admin = findApprover(o.passcode, "void_return");
     if(!admin) throw new Error("Incorrect Admin passcode. Nothing was saved.");
     const block = shiftBlockReason(o.now);
     if(block) throw new Error(block);

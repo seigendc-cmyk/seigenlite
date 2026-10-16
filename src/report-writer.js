@@ -287,10 +287,34 @@
     return { headers:["Date","Branch","Item","Qty","Reason","Note","By / Admin","Value"], rows,
       footer:`${d.rows.length} adjustment${d.rows.length===1?"":"s"} · net ${units>0?"+":""}${units} units · values at main's cost by product code${d.unvalued? " ("+d.unvalued+" without a main cost, left blank)" : ""}` };
   }
-  function reportWriterConfigs(){ return REPORT_CONFIGS.filter(c=> !((c.remoteHidden || c.mainOnly) && isRemote()) && !(c.needs && !c.needs())); }
+  // Roles (v28, addendum §R4): what each report shows. cost: needs View costs; sales: needs "Sales and
+  // money reports"; stock: every role with Report Writer (Stores: stock reports only). RW_REMOTE: the
+  // kind seiGEN serves for another branch (needs "View other branches' reports").
+  const RW_KIND = { margin:"cost", purchases:"cost", nopricecost:"cost", adjustments:"cost", movements:"cost",
+    inventory:"stock", stock:"stock", lowstock:"stock", aging:"stock", transfers:"stock", branchstock:"stock", itemledger:"stock", requests:"stock" };
+  const RW_REMOTE = { inventory:"inventory", transfers:"dispatches", stock:"supplier_grvs" };
+  function rwKindAllowed(c){
+    if(typeof can!=="function") return true;
+    const k = RW_KIND[c.id] || "sales";
+    return k==="stock" || (k==="cost"? can("costs") : can("sales_reports"));
+  }
+  function reportWriterConfigs(){ return REPORT_CONFIGS.filter(c=> !((c.remoteHidden || c.mainOnly) && isRemote()) && !(c.needs && !c.needs()) && rwKindAllowed(c)); }
+  // Someone is signed in with a PIN: the branch is theirs, plus (with the right) seiGEN's other branches.
+  function rwRightsMode(){ return typeof currentRights==="function" && currentRights()!==null; }
+  function rwOtherBranches(){
+    if(!(typeof canStrict==="function" && canStrict("other_branches")) || !(typeof bsRegistered==="function" && bsRegistered())) return [];
+    const me = getSetting("branch_uuid",""), list = (typeof staffBranches==="function" && staffBranches().length)? staffBranches() : bsBranches();
+    return list.filter(b=> b.id && b.id!==me);
+  }
   // A remote branch (v27, addendum §R4, the view everyone may see): its own branch only; main: as before.
   function rwBranchSelectHtml(selected){
     if(selected.allBranches) return `<select class="field" id="rwBranchSel" disabled><option value="">All branches (from seiGEN)</option></select>`;
+    if(rwRightsMode()){
+      const others = RW_REMOTE[selected.id]? rwOtherBranches() : [];
+      if(!others.some(b=> "srv:"+b.id===rwBranch)) rwBranch = currentBranch();
+      return `<select class="field" id="rwBranchSel"><option value="${escapeHtml(currentBranch())}" ${rwBranch===currentBranch()? "selected" : ""}>${escapeHtml(currentBranch())} (this branch)</option>${others.map(b=>`<option value="srv:${escapeHtml(b.id)}" ${rwBranch==="srv:"+b.id? "selected" : ""}>${escapeHtml(b.name)} (from seiGEN)</option>`).join("")}</select>
+        ${!others.length && canStrict("other_branches") && !RW_REMOTE[selected.id]? `<p class="muted rw-other-note" style="font-size:12px;margin:4px 0 0">Other branches: Inventory, Stock Received and Stock Dispatched come from seiGEN. Their sales come with a later update.</p>` : ""}`;
+    }
     if(isRemote()){ rwBranch = currentBranch(); return `<select class="field" id="rwBranchSel"><option value="${escapeHtml(currentBranch())}" selected>${escapeHtml(currentBranch())} (this branch)</option></select>`; }
     return branchSelectHtml("rwBranchSel", rwBranch);
   }
@@ -374,7 +398,8 @@
     const configs = reportWriterConfigs();
     const selected = configs.find(c=>c.id===rwType);
     if(!selected) return;
-    if(isRemote()) rwBranch = currentBranch();   // a remote: its own branch only
+    const srv = String(rwBranch).startsWith("srv:") && RW_REMOTE[selected.id] && rwOtherBranches().some(x=> "srv:"+x.id===rwBranch)? rwBranch.slice(4) : null;
+    if(!srv && (isRemote() || rwRightsMode())) rwBranch = currentBranch();   // a remote, or a signed-in person: their own branch (others through seiGEN)
     const b = selected.allBranches? null : (rwBranch || null);
     let fromTs, toTs;
     if(selected.hasDate){
@@ -394,8 +419,41 @@
     const rsEl = document.getElementById("rwReasonSel"); if(rsEl){ opts.reason = rsEl.value; rwReason = opts.reason; }
     opts.filters = {};
     document.querySelectorAll("[data-rw-filter]").forEach(el=>{ opts.filters[el.dataset.rwFilter] = el.value; rwFilters[selected.id+"."+el.dataset.rwFilter] = el.value; });
+    if(srv) return rwRunRemote(selected, srv, fromTs, toTs);
     const data = selected.fetch(b, fromTs, toTs, granularity, status, opts);
     window._rwLastData = { title:selected.label, subtitle:`${b||(selected.allBranches? "All branches (from seiGEN)" : "All branches")}${selected.hasDate? ` · ${rwFrom} to ${rwTo}`:""}`, headers:data.headers, rows:data.rows, footer:data.footer };
+    rwShowData(data);
+  }
+  // Another branch's report from seiGEN (roles, v28): seiGEN checks the signed-in person's right.
+  async function rwRunRemote(selected, branchId, fromTs, toTs){
+    const target = document.getElementById("rwResults");
+    target.innerHTML = `<p class="muted">Loading from seiGEN…</p>`;
+    const r = await staffBranchReport(RW_REMOTE[selected.id], branchId, fromTs, toTs);
+    if(!r.ok){ target.innerHTML = `<p class="muted rw-remote-msg">${escapeHtml(r.message)}</p>`; return r; }
+    const data = rwRemoteTable(RW_REMOTE[selected.id], r.data);
+    window._rwLastData = { title:selected.label, subtitle:r.data.branch+" (from seiGEN)"+(selected.hasDate? " · "+rwFrom+" to "+rwTo : ""), headers:data.headers, rows:data.rows, footer:data.footer };
+    rwShowData(data);
+    return r;
+  }
+  function rwRemoteTable(kind, d){
+    const money = (v)=> v==null? "" : currency+Number(v).toFixed(2), costs = !!d.costs;
+    if(kind==="inventory"){
+      const value = d.rows.reduce((s,x)=> s+(Number(x.value)||0), 0);
+      return { headers:["Item","Qty"].concat(costs? ["Cost","Value"] : []),
+        rows:d.rows.map(x=>[skuNameCell(x.code,x.name), String(x.qty)].concat(costs? [money(x.cost), money(x.value)] : [])),
+        footer:d.rows.length+" product"+(d.rows.length===1?"":"s")+(costs? " · value at cost "+money(value) : " · quantities only") };
+    }
+    if(kind==="dispatches") return { headers:["Date","DN","Direction","Branch","Status","Items"].concat(costs? ["Value at cost"] : []),
+      rows:d.rows.map(x=>[escapeHtml(new Date(x.sent_at).toLocaleString()), escapeHtml(x.dn_display), x.direction==="out"? "Sent to" : "Received from", escapeHtml(x.other_branch||""),
+        escapeHtml(typeof dsStatusText==="function"? dsStatusText(x.status) : x.status), escapeHtml(x.lines.map(l=>l.name+" "+l.qty).join(", "))]
+        .concat(costs? [money(x.lines.reduce((s,l)=> s+(Number(l.unit_cost)||0)*l.qty, 0))] : [])),
+      footer:d.rows.length+" dispatch"+(d.rows.length===1?"":"es") };
+    const rows = [];
+    d.rows.forEach(g=> g.lines.forEach(l=> rows.push([escapeHtml(new Date(g.posted_at).toLocaleString()), escapeHtml(g.grv_display), escapeHtml(g.supplier||""),
+      escapeHtml(g.invoice_no||""), skuNameCell(l.code,l.name), String(l.qty)].concat(costs? [money(l.unit_cost), money(l.landed_cost)] : []))));
+    return { headers:["Date","GRV","Supplier","Invoice","Item","Qty"].concat(costs? ["Unit cost","Landed"] : []), rows, footer:d.rows.length+" supplier GRV"+(d.rows.length===1?"":"s") };
+  }
+  function rwShowData(data){
     const target = document.getElementById("rwResults");
     target.innerHTML = `
       ${data.chartData? renderBarChartSvg(data.chartData) : ""}

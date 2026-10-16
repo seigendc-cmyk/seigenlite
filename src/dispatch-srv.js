@@ -42,7 +42,7 @@
   }
   const dsMyTerminal = ()=> getSetting("terminal_id","");
   const dsMyBranchUuid = ()=> getSetting("branch_uuid","");
-  const dsShowCosts = ()=> !isRemote();
+  const dsShowCosts = ()=> !isRemote() && (typeof can!=="function" || can("costs"));   // roles (v28): and only with View costs
 
   // ---- the business's branches (for destinations) ----
   function dsBranches(){ try{ return JSON.parse(getSetting("ds_branches","[]"))||[]; }catch(e){ return []; } }
@@ -299,10 +299,10 @@
   }
 
   // ---- the sender's actions (the dispatching till only) ----
-  function dsNeedAdmin(passcode){
+  function dsNeedAdmin(passcode, right){
     requireSignedIn();
     if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
-    const admin = findAdmin(passcode);
+    const admin = right? findApprover(passcode, right) : findAdmin(passcode);   // roles (v28): a write-off by the holder's own PIN too
     if(!admin) throw new Error("Incorrect Admin passcode.");
     return admin;
   }
@@ -338,7 +338,7 @@
   }
   // Write off a shortage or damaged unit: ADJ number saved first, then the server, then the stock.
   async function dsWriteOff(issueId, reason, passcode){
-    const admin = dsNeedAdmin(passcode); dsOnline();
+    const admin = dsNeedAdmin(passcode, "approve_writeoffs"); dsOnline();
     if(String(reason||"").trim().length<3) throw new Error("Give a reason (at least 3 characters).");
     let pend = dsPendingOne(issueId);
     if(!pend){

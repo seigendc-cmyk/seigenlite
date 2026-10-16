@@ -16,6 +16,7 @@ const migrationFiles = () => fs.readdirSync(MIG).filter((f) => /^\d{14}_\w+\.sql
 // Files in the repo that are NOT applied on live (and so not recorded in
 // supabase_migrations.schema_migrations there).
 const NOT_ON_LIVE_FILES = [
+  '20261107120000_shop_roles.sql',   // Branches step 3 (Roles): waiting for the owner's "apply"
 ];
 
 // Supabase's own objects that the schema depends on (never part of a migration).

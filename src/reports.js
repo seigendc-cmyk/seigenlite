@@ -10,7 +10,7 @@ ${readOnly? "" : `
 
       ${typeof returnsCardHtml==="function"? returnsCardHtml() : ""}
 
-      <div class="card">
+      <div class="card" ${typeof can==="function" && !can("m.requests")? 'style="display:none"' : ""}>
         <h3>Log Request</h3>
         <p class="muted">Note stock a customer asked for that you didn't have.</p>
         <button class="btn btn-primary" id="reportsLogRequestBtn">+ Log Request</button>
@@ -115,7 +115,7 @@ ${readOnly? "" : `
       </div>
     `;
     if(!readOnly){
-      renderEOD(document.getElementById("eodSection"));
+      if(typeof can!=="function" || can("m.eod")) renderEOD(document.getElementById("eodSection"));   // roles (v28): End of Day by right
       if(typeof wireReturnsCard==="function") wireReturnsCard();
       document.getElementById("reportsLogRequestBtn").onclick=()=>openRequestsDrawer();
     }
@@ -128,7 +128,7 @@ ${readOnly? "" : `
       const cards = main.querySelectorAll("[data-report-name]");
       let anyVisible = false;
       cards.forEach(c=>{
-        const match = matchesAnyOrder(reportsQuery, c.dataset.reportName);
+        const match = (typeof reportCardAllowed!=="function" || reportCardAllowed(c.dataset.reportName)) && matchesAnyOrder(reportsQuery, c.dataset.reportName);   // roles (v28)
         c.style.display = match? "" : "none";
         if(match) anyVisible = true;
       });

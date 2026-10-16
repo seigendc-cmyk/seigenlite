@@ -19,6 +19,7 @@
   // true: may create/edit customers and see ID + address; false: may not;
   // null: nobody is signed in with a PIN, so the Admin passcode decides.
   function canCreateCustomers(){
+    if(typeof staffSession==="function" && staffSession()) return canStrict("create_customers");   // roles (v28): the person's role decides
     const s = typeof currentStaff==="function"? currentStaff() : null;
     if(!s) return null;
     return s.role==="Admin" || Number(s.can_create_customers)===1;

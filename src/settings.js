@@ -95,7 +95,7 @@
         <input class="field" id="sSecret" value="${escapeHtml(getSetting("secret_phrase",""))}">
         <button class="btn btn-outline" id="saveSecret" style="margin-top:10px">Save phrase</button>
       </div>
-      ${terminalSectionHtml()}
+      ${typeof can!=="function" || can("m.terminals")? terminalSectionHtml() : ""}
       ${printerSectionHtml()}
       ${barcodeReaderSectionHtml()}
       ${cashDrawerSectionHtml()}
@@ -111,8 +111,8 @@
         <input class="field" id="sFreqAmount" type="number" min="0" step="0.01" value="${escapeHtml(getSetting("freq_voucher_amount","0"))}">
         <button class="btn btn-primary" id="saveFreqSettings" style="margin-top:12px">Save</button>
       </div>`}
-      ${isRemote()? "" : staffSectionHtml()}
-      ${isRemote()? "" : branchRegisterCardHtml()}
+      ${settingsStaffCardHtml()}
+      ${isRemote() || !(typeof can!=="function" || can("m.terminals"))? "" : branchRegisterCardHtml()}
       ${backupMergeSectionHtml()}
       ${cloudSyncSectionHtml()}
       ${diagnosticsSectionHtml()}
@@ -169,17 +169,34 @@
         ? "Secret phrase saved. This device is registered with Digital Commerce."
         : "Secret phrase saved, but this device isn't registered with Digital Commerce yet. " + dcCheckinProblemText(r));
     };
-    wireTerminalSection();
+    if(typeof can!=="function" || can("m.terminals")) wireTerminalSection();
     wirePrinterSection();
     wireBarcodeReaderSection();
     wireCashDrawerSection();
     wireRpnSection();
     wireCurrenciesSection();
-    if(!isRemote()) wireStaffSection();
-    if(!isRemote()) wireBranchRegisterCard();
+    wireSettingsStaffCard(main);
+    if(!isRemote() && (typeof can!=="function" || can("m.terminals"))) wireBranchRegisterCard();
     wireBackupMergeSection();
     wireCloudSyncSection();
     wireDiagnosticsSection();
+  }
+  // Settings → Staff & Roles. A till with the business's staff from seiGEN (roles.js, v28): the
+  // shared people and roles, at any branch, for a holder of Staff (anyone once Settings is open,
+  // in single operator mode). Otherwise this till's own list, on a main branch, as before.
+  function settingsStaffMode(){
+    if(typeof rolesSynced==="function" && rolesSynced()) return can("m.staff")? "shop" : "";
+    return isRemote()? "" : "local";
+  }
+  function settingsStaffCardHtml(){ const m = settingsStaffMode(); return m==="shop"? shopStaffSectionHtml() : m==="local"? staffSectionHtml() : ""; }
+  function wireSettingsStaffCard(main){
+    const m = settingsStaffMode();
+    if(m==="local") return wireStaffSection();
+    const card = m==="shop"? main.querySelector("#shopStaffCard") : null;
+    if(card) wireShopStaffSection(card, ()=>{
+      const box = document.createElement("div"); box.innerHTML = shopStaffSectionHtml();
+      card.replaceWith(box.firstElementChild); wireSettingsStaffCard(main);
+    });
   }
   // Settings -> Diagnostics: read-only. Every product of this branch should
   // hold exactly the sum of its stock movements (Phase 2 ledger).

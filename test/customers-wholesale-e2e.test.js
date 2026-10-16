@@ -61,7 +61,7 @@ function makeDomApp(desktop){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function renderRequestsDrawer(){}
   `;
-  const files = ["db.js","utils.js","pos.js","customers.js","credit.js","printing.js","drawer.js","currencies.js","staff.js","eod.js","devicecheckin.js","router.js","report-writer.js","reports.js"];
+  const files = ["db.js","utils.js","pos.js","customers.js","credit.js","printing.js","drawer.js","currencies.js","staff.js","roles.js","eod.js","devicecheckin.js","router.js","report-writer.js","reports.js"];
   if(desktop) files.push("desktop/sales-desktop.js");
   vm.runInContext(prelude + files.map(src).join("\n"), ctx, { filename: "app-sources" });
   vm.runInContext(`persist = async function(){}; db.run(SCHEMA); migrate(db);`, ctx);

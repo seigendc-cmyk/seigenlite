@@ -1127,3 +1127,15 @@ Read-only look at live today (counts only): `cl_customers` 3 rows, all with `cre
 - **Migration 1 is named `20261106120000_branch_views`** (not `20261026120000`): it must run after the applied `20261105120000_itred_order_fulfilment`, so it takes the next free date. The later rows of §R11 move after it in the same order.
 - **App build v27** (v26 went to iTred-B): §R12 step 2 as listed, plus the cart rules of Q4 / Q5.
 - Not in this step, as planned: costs by person, other branches' sales (B4), adjustments and stocktakes on seiGEN (B5), the DN card's returns and payer (B2).
+
+## R16. Step 3, Roles (owner's "go", 2026-10-16)
+
+- **Migration `20261107120000_shop_roles`** (§R11 row 2, renamed to follow `20261106120000`). **App build v28.**
+- Built as §R8, with these choices made while building (for the owner's review):
+  - **Rights are named** `m.*` (one per menu) and `costs`, `edit_prices`, `create_customers`, `review_requisitions`, `other_branches`, `approve_writeoffs`, `void_return`, `credit_over_limit`, plus **`sales_reports`** ("Sales and money reports"). That one makes the table's "Stores: stock reports only" real; Cashier, Manager, Admin and Owner have it.
+  - **The server's own PIN check is bcrypt** (pgcrypto, as `cl_rpn_pins`); the PBKDF2 check value is what the tills use offline. The till sends both, made from the same PIN.
+  - **Old PINs** (each till's salted SHA-256) stay usable **only on the till they came from**. They are never sent to another till, because a 4–6 digit PIN behind a single SHA-256 is easy to recover. The first online sign-in there sets the PIN again as bcrypt + PBKDF2 for every till of the branch. So "both keep working" holds until that person signs in once online, as Q-rule 4 says.
+  - **Only tills registered before the migration** may send an old staff list (`cl_shop_meta.legacy_cutoff`). That way a changed app on a new till can't plant an "Admin".
+  - **The very first staff manager** of a business is added on a main-branch till with that till's Admin passcode, while nobody holds Staff. After that, every change needs a signed-in holder of Staff, checked by seiGEN.
+  - **Other branches in Report Writer** (with the right): Inventory, Stock Received (supplier GRVs) and Stock Dispatched, from seiGEN; costs only with View costs. Sales reports for other branches stay for B4.
+  - **Approvals**: the Admin passcode as before, or the signed-in person's own PIN when their role holds the matching right.

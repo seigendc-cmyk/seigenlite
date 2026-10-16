@@ -89,11 +89,11 @@
       <input class="field" id="pDescription" placeholder="e.g. sunflower oil cooking bottled" value="${existing?escapeHtml(existing.description||""):""}">
       <p class="muted" style="margin-top:4px">Not shown anywhere — just extra words to help this item turn up in search.</p>
       <div class="row">
-        <div><label>Price (${currency})</label><input class="field" id="pPrice" type="number" step="0.01" value="${existing?existing.price:""}"></div>
-        <div><label>Cost (${currency})</label><input class="field" id="pCost" type="number" step="0.01" value="${existing?(existing.cost||0):""}"></div>
+        <div><label>Price (${currency})</label><input class="field" id="pPrice" type="number" step="0.01" value="${existing?existing.price:""}" ${existing && typeof can==="function" && !can("edit_prices")? "readonly title=\"Changing prices needs the Edit prices right\"" : ""}></div>
+        <div ${typeof can==="function" && !can("costs")? 'style="display:none"' : ""}><label>Cost (${currency})</label><input class="field" id="pCost" type="number" step="0.01" value="${existing?(existing.cost||0):""}"></div>
       </div>
       <label>Wholesale price (${currency}, optional)</label>
-      <input class="field" id="pWholesale" type="number" step="0.01" min="0" placeholder="Empty: wholesale customers pay the price above" value="${existing && existing.wholesale_price!=null? existing.wholesale_price : ""}">
+      <input class="field" id="pWholesale" type="number" step="0.01" min="0" ${existing && typeof can==="function" && !can("edit_prices")? "readonly" : ""} placeholder="Empty: wholesale customers pay the price above" value="${existing && existing.wholesale_price!=null? existing.wholesale_price : ""}">
       <p class="muted" style="margin-top:4px">Used for every line when the cart's customer is a Wholesale customer.</p>
       <label>Stock qty</label>
       <input class="field" id="pStock" type="number" value="${existing?existing.stock:""}" ${isEdit?"disabled":""}>
@@ -181,7 +181,8 @@
     const priceEdit = remotePriceEditable();
     // Which actions the ⋮ menu offers: a remote never gets edit / add stock, and only
     // gets change-price in branch_edits mode.
-    const rowActions = remote? (priceEdit? ["price","adjust"] : ["adjust"]) : ["edit","restock","adjust"];
+    const rowActions = (remote? (priceEdit? ["price","adjust"] : ["adjust"]) : ["edit","restock","adjust"])
+      .filter(a=> typeof can!=="function" || (a==="price"? can("edit_prices") : a==="adjust"? can("m.adjust") : true));   // roles (v28)
     if(products.length===0) return `<p class="muted" style="padding:10px 4px">No products match.</p>`;
     const bsCol = typeof bsShowOtherColumn==="function" && bsShowOtherColumn();   // Branches B1 (+ addendum §R5: every branch): the other branches' stock
     const bsThis = bsCol && typeof bsShowThisBranchColumn==="function" && bsShowThisBranchColumn();   // ... and this branch's tills together
@@ -255,15 +256,15 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         ${remote? "" : `<button class="btn btn-sm btn-outline" id="openAddProduct" title="Add Product">${ICON_ADD}</button>`}
         <button class="btn btn-sm btn-outline dots-btn" id="openExcelMenu" title="Excel: import, template, export">⋮</button>
-        <button class="btn btn-sm btn-outline" id="openDispatch" title="Dispatch Stock">${ICON_DISPATCH}</button>
-        <button class="btn btn-sm btn-outline" id="openDispatchHistory" title="Dispatch history">📋</button>
+        ${can("m.dispatch")? `<button class="btn btn-sm btn-outline" id="openDispatch" title="Dispatch Stock">${ICON_DISPATCH}</button>
+        <button class="btn btn-sm btn-outline" id="openDispatchHistory" title="Dispatch history">📋</button>` : ""}
         ${remote && !registered? `<button class="btn btn-sm btn-outline" id="openGetCatalogue" title="Get catalogue from main">📥 Get catalogue</button>` : ""}
         ${registered? `<button class="btn btn-sm btn-outline" id="productsSyncNow" title="Sync products with your main branch">🔄 Sync now</button>` : ""}
         ${registered && !remote? `<button class="btn btn-sm btn-outline" id="productsShowInactive">${productsShowInactive? "Hide deactivated" : "Show deactivated"}</button>` : ""}
-        <button class="btn btn-sm btn-outline" id="openReceive" title="Receive stock">${ICON_RECEIVE}</button>
-        <button class="btn btn-sm btn-outline" id="openReceipts" title="Receipts history">🧾</button>
-        ${typeof dsEnabled==="function" && dsEnabled()? `<button class="btn btn-sm btn-outline" id="openSeigenDispatches" title="Dispatches through seiGEN: incoming, sent, differences, in transit">🚚 seiGEN${dsBadgeCount()? " ("+dsBadgeCount()+")" : ""}</button>` : ""}
-        <button class="btn btn-sm btn-outline" id="openAdjustments" title="Adjustments history">${ICON_ADJUST} Adjustments</button>
+        ${can("m.receive")? `<button class="btn btn-sm btn-outline" id="openReceive" title="Receive stock">${ICON_RECEIVE}</button>
+        <button class="btn btn-sm btn-outline" id="openReceipts" title="Receipts history">🧾</button>` : ""}
+        ${typeof dsEnabled==="function" && dsEnabled() && can("m.incoming")? `<button class="btn btn-sm btn-outline" id="openSeigenDispatches" title="Dispatches through seiGEN: incoming, sent, differences, in transit">🚚 seiGEN${dsBadgeCount()? " ("+dsBadgeCount()+")" : ""}</button>` : ""}
+        ${can("m.adjust")? `<button class="btn btn-sm btn-outline" id="openAdjustments" title="Adjustments history">${ICON_ADJUST} Adjustments</button>` : ""}
         ${pendingTransfers>0? `<button class="btn btn-sm btn-outline" id="openLegacyReceive" title="Older transfers from before Delivery Notes">Legacy pending (${pendingTransfers})</button>` : ""}
       </div>
       <div class="row" style="margin-bottom:10px">
@@ -290,8 +291,9 @@
       const ids = Array.from(main.querySelectorAll(".catCheck:checked")).map(cb=>+cb.dataset.cat);
       openMarketingWith(ids);
     };
-    document.getElementById("openDispatch").onclick=()=>openDispatchScreen();
-    document.getElementById("openDispatchHistory").onclick=()=>openDispatchHistory();
+    const on = (id, fn)=>{ const el = document.getElementById(id); if(el) el.onclick = fn; };   // roles (v28): a button may be hidden
+    on("openDispatch", ()=>openDispatchScreen());
+    on("openDispatchHistory", ()=>openDispatchHistory());
     const getCat = document.getElementById("openGetCatalogue");
     if(getCat) getCat.onclick=()=>openCatalogueImportScreen();
     const syncBtn = document.getElementById("productsSyncNow");
@@ -304,11 +306,11 @@
     };
     const inact = document.getElementById("productsShowInactive");
     if(inact) inact.onclick=()=>{ productsShowInactive = !productsShowInactive; render(); };
-    document.getElementById("openReceive").onclick=()=>openReceiveScreen();
-    document.getElementById("openReceipts").onclick=()=>openReceiptsHistory();
+    on("openReceive", ()=>openReceiveScreen());
+    on("openReceipts", ()=>openReceiptsHistory());
     const sgd = document.getElementById("openSeigenDispatches");
     if(sgd) sgd.onclick=()=>openSeigenDispatches();
-    document.getElementById("openAdjustments").onclick=()=>openAdjustmentsHistory();
+    on("openAdjustments", ()=>openAdjustmentsHistory());
     const legacy = document.getElementById("openLegacyReceive");
     if(legacy) legacy.onclick=()=>receiveStockModal();
     document.getElementById("openExcelMenu").onclick=(e)=>{

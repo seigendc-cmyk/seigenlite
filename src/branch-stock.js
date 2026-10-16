@@ -34,7 +34,7 @@
   const bsKeyOf = (p)=> p.cat_uid? String(p.cat_uid) : (p.uid? "local:"+p.uid : "");
   const bsSig = (r)=> [r.qty, r.name, r.code, r.low, r.cat_uid||""].join("|");
   const bsMyBranchUuid = ()=> getSetting("branch_uuid","");
-  const bsCostsVisible = ()=> !isRemote();
+  const bsCostsVisible = ()=> !isRemote() && (typeof can!=="function" || can("costs"));   // roles (v28): and only with View costs
 
   // ---- sending this till's figures ----
   function bsLocalRows(){

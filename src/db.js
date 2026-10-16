@@ -323,6 +323,19 @@
       uid TEXT PRIMARY KEY, kind TEXT NOT NULL, order_id TEXT NOT NULL, item_id TEXT, payload_json TEXT NOT NULL,
       created_ts TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', error TEXT DEFAULT ''
     );
+    -- Roles and staff (roles.js, v28): the business's roles and people as pulled
+    -- from seiGEN (replaced at each pull). PIN check values only for the people
+    -- allowed at this branch (here=1); legacy: this till's own old PIN hashes.
+    -- fail_count / locked_until: this till's own lockout. Local only.
+    CREATE TABLE IF NOT EXISTS shop_roles(
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, builtin TEXT DEFAULT '', rights TEXT NOT NULL DEFAULT '[]', seq INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS shop_staff(
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, role_id TEXT, home_branch TEXT DEFAULT '', home_branch_name TEXT DEFAULT '', branches TEXT DEFAULT '[]',
+      active INTEGER DEFAULT 1, here INTEGER DEFAULT 0, pin_salt TEXT DEFAULT '', pin_check TEXT DEFAULT '', pin_rounds INTEGER DEFAULT 0,
+      legacy TEXT DEFAULT '[]', pins_from_tills INTEGER DEFAULT 0, has_pin INTEGER DEFAULT 0, seq INTEGER DEFAULT 0,
+      fail_count INTEGER DEFAULT 0, locked_until TEXT DEFAULT ''
+    );
     CREATE TABLE IF NOT EXISTS print_queue(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT DEFAULT '',

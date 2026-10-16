@@ -118,6 +118,15 @@
       + (c.history&&c.history.length? `<h3>History</h3>`+c.history.map(h=>`<div>${escapeHtml(bvHistoryText(h))}</div>`).join("") : "");
     printReport("Delivery Note "+c.dn_display, (c.from_branch||"")+" → "+(c.to_branch||""), BV_LINE_HEADS, bvDnLineRows(c), `<div style="margin-top:8px">${head}</div>${extra}`);
   }
+  // The DN's costs (View costs): each line's unit cost and value, and the inter-branch charge.
+  function bvCostsHtml(card, c){
+    const by = new Map((c.lines||[]).map(l=>[l.line_no, Number(l.unit_cost)]));
+    const rows = (card.lines||[]).map(l=>{ const u = by.get(l.line_no); return [escapeHtml(l.name), u>0? currency+u.toFixed(2) : "—", u>0? currency+(u*l.qty).toFixed(2) : "—"]; });
+    const total = (card.lines||[]).reduce((s,l)=> s+(by.get(l.line_no)||0)*l.qty, 0);
+    return `<div class="bv-costs"><h4 style="margin:12px 0 6px">Costs</h4>
+      <table class="simple"><tr><th>Item</th><th>Unit cost</th><th>Value</th></tr>${rows.map(r=>`<tr>${r.map(x=>`<td>${x}</td>`).join("")}</tr>`).join("")}</table>
+      <div class="pmeta">Value sent at cost ${escapeHtml(currency+total.toFixed(2))}${c.charge? " · inter-branch charge "+escapeHtml((c.charge.currency? c.charge.currency+" " : "")+Number(c.charge.amount).toFixed(2)) : ""} (View costs)</div></div>`;
+  }
   // id: the dispatch's seiGEN id. Opens at once with what this till holds, then the full card from seiGEN.
   function openDnCard(id){
     const local = bvLocalDn(id);
@@ -138,7 +147,11 @@
     if(local) show(local, "Loading the full card from seiGEN…");
     bvFetchDnCard(id).then(r=>{
       if(!wrap.isConnected && typeof wrap.isConnected!=="undefined") return;
-      if(r.ok) show(r.card, "");
+      if(r.ok){
+        show(r.card, "");
+        // Roles (v28, Q7): unit costs for a signed-in person with View costs, from seiGEN for this view only
+        if(typeof staffDispatchCosts==="function") staffDispatchCosts(id).then(c=>{ if(c && c.lines && wrap.isConnected!==false) body.insertAdjacentHTML("beforeend", bvCostsHtml(r.card, c)); }).catch(()=>{});
+      }
       else if(local) show(local, r.message+" Showing what this till holds: the differences and the history need seiGEN.");
       else body.innerHTML = `<p class="muted">${escapeHtml(r.message)}</p>`;
     }, (e)=>{ if(!local) body.innerHTML = `<p class="muted">${escapeHtml(e.message||String(e))}</p>`; });

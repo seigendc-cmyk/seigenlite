@@ -69,7 +69,7 @@
         ". This checks this till's credit sales only. An Admin passcode lets the sale continue." };
   }
   function approveCreditLimit(info, passcode){
-    const admin = findAdmin(passcode);
+    const admin = findApprover(passcode, "credit_over_limit");   // roles (v28): or the signed-in holder's own PIN
     if(!admin) throw new Error("Incorrect Admin passcode. The sale wasn't finished.");
     creditLimitApproval = { customerId:info.customer.id, after:info.after, admin:admin.name };
     logAudit("Credit limit override", info.customer.name, "Owes "+currency+info.after.toFixed(2)+" on this till, limit "+currency+info.limit.toFixed(2)+" · approved by "+admin.name);
@@ -87,7 +87,7 @@
       text: "This customer was added at "+other+". Their credit balance here covers this till only (until the update that shares sales). An Admin passcode lets the credit sale continue." };
   }
   function approveCrossBranchCredit(info, passcode){
-    const admin = findAdmin(passcode);
+    const admin = findApprover(passcode, "credit_over_limit");   // roles (v28): or the signed-in holder's own PIN
     if(!admin) throw new Error("Incorrect Admin passcode. The sale wasn't finished.");
     crossBranchCreditApproval = { customerId:info.customer.id, amount:info.amount, admin:admin.name };
     logAudit("Credit to another branch's customer", info.customer.name, "Added at "+info.branch+" · approved by "+admin.name);

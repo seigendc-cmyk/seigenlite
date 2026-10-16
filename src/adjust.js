@@ -105,7 +105,7 @@
   function commitAdjustment(o){
     requireSignedIn();
     if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
-    const admin = findAdmin(o.passcode);
+    const admin = findApprover(o.passcode, "approve_writeoffs");   // roles (v28): or the signed-in holder's own PIN
     if(!admin) throw new Error("Incorrect Admin passcode.");
     const branch = currentBranch(), branchId = getBranchId();
     const now = o.now || new Date(), ts = now.toISOString();

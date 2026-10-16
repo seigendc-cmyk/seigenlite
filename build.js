@@ -152,6 +152,7 @@ const SCRIPT_ORDER = [
   "marketing.js",
   "passcode-check.js",
   "staff.js",
+  "roles.js",
   "scanner.js",
   "drawer.js",
   "settings.js",
