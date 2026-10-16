@@ -35,7 +35,7 @@
     // a whole phone number typed with spaces ("077 123 4567") still finds them
     const qDigits = /^[+\d\s()-]+$/.test(q)? q.replace(/\D/g,"") : "", qNorm = qDigits? normPhone(q) : "";
     const out = rows.filter(c=>{
-      if(textMatches(q, { text:[c.name], phones:[c.phone, c.phone_norm] })) return true;
+      if(textMatches(q, { text:[c.name, c.src_branch_name], phones:[c.phone, c.phone_norm] })) return true;   // + the branch that added them (v27)
       const digits = String(c.phone||"").replace(/\D/g,"");
       return qDigits.length>=3 && (digits.includes(qDigits) || (c.phone_norm||"").includes(qDigits.replace(/^0/,"")) || (!!qNorm && c.phone_norm===qNorm));
     });
@@ -64,8 +64,8 @@
     const add = perm===false
       ? `<button type="button" class="cust-opt cust-add" disabled title="Ask an admin to add customers">+ Add new customer <span class="muted">· Ask an admin to add customers</span></button>`
       : `<button type="button" class="cust-opt cust-add" data-cust-add="1">+ Add new customer${query.trim()? ` "${escapeHtml(query.trim())}"` : ""}</button>`;
-    return rows.map(c=>`<button type="button" class="cust-opt" data-cust-pick="${c.id}"><b>${escapeHtml(c.name)}</b>
-        <span class="muted">${escapeHtml(c.phone||"no phone")} · ${escapeHtml(customerTypeLabel(c))}</span></button>`).join("") + add;
+    return rows.map(c=>{ const other = custOtherBranch(c); return `<button type="button" class="cust-opt" data-cust-pick="${c.id}"><b>${escapeHtml(c.name)}</b>
+        <span class="muted">${escapeHtml(c.phone||"no phone")} · ${escapeHtml(customerTypeLabel(c))}${other? ` · <span class="cust-src">added at ${escapeHtml(other)}</span>` : ""}</span></button>`; }).join("") + add;
   }
   // container: the drawer or the desktop cart; onChange: re-render the cart.
   function wireCustomerCombo(container, onChange){
@@ -77,13 +77,20 @@
       window._custNameVal = ""; notice(t);
       onChange();
     };
+    // Branch views (owner 2026-10-14, Q4): another branch's customer asks first, once per customer on
+    // this till (a credit sale asks every time, with the Admin passcode: pos.js crossBranchCreditCheck).
+    const pickChecked = (c)=>{
+      if(!c || !custCrossBranchAskNeeded(c)) return pick(c);
+      if(list) list.style.display = "none";
+      openCrossBranchCustomerModal(c, ()=>{ custCrossBranchAcknowledge(c); pick(c); });
+    };
     if(clear) clear.onclick = ()=> pick(null);
     if(!inp || !list) return;
     const show = ()=>{ list.innerHTML = custListHtml(inp.value); list.style.display = "block"; wireList(); };
     const wireList = ()=>{
       list.querySelectorAll("[data-cust-pick]").forEach(b=>{
         b.onmousedown = (e)=> e.preventDefault();   // keep focus until the click lands
-        b.onclick = ()=>{ const c = one("SELECT * FROM customers WHERE id=?",[+b.dataset.custPick]); if(c) pick(c); };
+        b.onclick = ()=>{ const c = one("SELECT * FROM customers WHERE id=?",[+b.dataset.custPick]); if(c) pickChecked(c); };
       });
       const add = list.querySelector("[data-cust-add]");
       if(add){ add.onmousedown = (e)=> e.preventDefault(); add.onclick = ()=>{ list.style.display = "none"; openCustomerModal(null, { prefill: inp.value, onSaved: (c)=> pick(c) }); }; }
@@ -95,6 +102,53 @@
       if(e.key==="Escape"){ list.style.display = "none"; return; }
       if(e.key==="Enter"){ const first = list.querySelector("[data-cust-pick]"); if(first){ e.preventDefault(); first.click(); } }
     };
+  }
+
+  // ---- another branch's customer (Branches step 2, v27; owner 2026-10-14, Q4 / Q5) ----
+  // The branch that added them, when it isn't this one ("" for this branch's, or not known yet).
+  function custOtherBranch(c){
+    if(!c || !c.src_branch) return "";
+    const me = getSetting("branch_uuid","");
+    return me && c.src_branch!==me? (c.src_branch_name || "another branch") : "";
+  }
+  // Cash: the notice once per customer on this till.
+  function custCrossBranchAcked(){ try{ return JSON.parse(getSetting("cust_xbranch_ok","[]"))||[]; }catch(e){ return []; } }
+  function custCrossBranchAskNeeded(c){ return !!custOtherBranch(c) && !custCrossBranchAcked().includes(c.uid||("id:"+c.id)); }
+  function custCrossBranchAcknowledge(c){
+    const k = c.uid||("id:"+c.id), list = custCrossBranchAcked();
+    if(!list.includes(k)){ list.push(k); setSetting("cust_xbranch_ok", JSON.stringify(list.slice(-2000))); persist(); }
+  }
+  function custCrossBranchText(c){ return "This customer was added at "+custOtherBranch(c)+"."; }
+  function openCrossBranchCustomerModal(c, onContinue){
+    const wrap = openModal("Customer from another branch", `
+      <p id="xbText" style="font-weight:600">${escapeHtml(custCrossBranchText(c))} Continue?</p>
+      <p class="muted">${escapeHtml(c.name)}${c.phone? " · "+escapeHtml(c.phone) : ""}</p>
+      <div class="row" style="margin-top:10px">
+        <button class="btn btn-outline" id="xbCancel">Cancel</button>
+        <button class="btn btn-primary" id="xbGo">Continue</button>
+      </div>`);
+    wrap.querySelector("#xbCancel").onclick = ()=> wrap.remove();
+    wrap.querySelector("#xbGo").onclick = ()=>{ wrap.remove(); onContinue(); };
+    return wrap;
+  }
+  // Credit (Q5, until B4 shares sales): every time, with the Admin passcode.
+  function openCrossBranchCreditModal(info, retry){
+    const wrap = openModal("Credit for another branch's customer", `
+      <p id="xcText" style="font-weight:600">${escapeHtml(info.text)}</p>
+      <label for="xcPass">Admin passcode</label>
+      <input class="field" id="xcPass" type="password" autocomplete="off">
+      <div id="xcMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn btn-outline" id="xcCancel">Don't sell</button>
+        <button class="btn btn-primary" id="xcGo">Continue the sale</button>
+      </div>`);
+    wrap.querySelector("#xcCancel").onclick = ()=> wrap.remove();
+    wrap.querySelector("#xcGo").onclick = ()=>{
+      try{ approveCrossBranchCredit(info, wrap.querySelector("#xcPass").value); }
+      catch(e){ wrap.querySelector("#xcMsg").textContent = e.message; return; }
+      wrap.remove(); retry();
+    };
+    return wrap;
   }
 
   // ---- add / edit ----
@@ -261,6 +315,11 @@
            srv_status='sent', srv_error='', updated_ts=? WHERE id=?`,
       [s.uid, s.name, s.phone||"", s.phone_norm||normPhone(s.phone), s.customer_type||"retail", s.credit_limit==null? null : Number(s.credit_limit),
        s.address||"", s.national_id||"", s.updated_at||new Date().toISOString(), localId]);
+    custSetSource(localId, s);
+  }
+  // The branch that added them (seiGEN from 20261106120000; an older server doesn't say, and nothing changes).
+  function custSetSource(localId, s){
+    if(s && ("source_branch_id" in s)) run("UPDATE customers SET src_branch=?, src_branch_name=? WHERE id=?",[s.source_branch_id||"", s.source_branch||"", localId]);
   }
   let _custSending = null;
   function custSendPending(){
@@ -274,7 +333,7 @@
       for(const c of rows){
         const r = await terminalRpc("cl_device_customer_save", Object.assign(terminalAuth(), { p_customer: custRowPayload(c) }));
         if(!r.ok && (r.reason==="offline" || r.reason==="network")) break;
-        if(r.ok && r.data && r.data.ok){ run("UPDATE customers SET srv_status='sent', srv_error='' WHERE id=?",[c.id]); sent++; continue; }
+        if(r.ok && r.data && r.data.ok){ run("UPDATE customers SET srv_status='sent', srv_error='' WHERE id=?",[c.id]); custSetSource(c.id, r.data.customer); sent++; continue; }
         if(r.code==="DUPLICATE_PHONE" && r.data && r.data.existing){
           const ex = r.data.existing;
           const already = one("SELECT id FROM customers WHERE uid=? AND id<>?",[ex.uid, c.id]);
@@ -302,9 +361,9 @@
           const samePhone = one("SELECT * FROM customers WHERE phone_norm=? AND srv_status IN ('queued','')",[s.phone_norm]);
           if(samePhone && samePhone.srv_status==="queued") custAdopt(samePhone.id, s);
           else {
-            run(`INSERT INTO customers(uid,name,phone,phone_norm,branch,customer_type,credit_limit,address,national_id,srv_status,updated_ts)
-                 VALUES(?,?,?,?,?,?,?,?,?,'sent',?)`, [s.uid, s.name, s.phone||"", s.phone_norm||"", currentBranch(), s.customer_type||"retail",
-                 s.credit_limit==null? null : Number(s.credit_limit), s.address||"", s.national_id||"", s.updated_at||""]);
+            run(`INSERT INTO customers(uid,name,phone,phone_norm,branch,customer_type,credit_limit,address,national_id,srv_status,updated_ts,src_branch,src_branch_name)
+                 VALUES(?,?,?,?,?,?,?,?,?,'sent',?,?,?)`, [s.uid, s.name, s.phone||"", s.phone_norm||"", currentBranch(), s.customer_type||"retail",
+                 s.credit_limit==null? null : Number(s.credit_limit), s.address||"", s.national_id||"", s.updated_at||"", s.source_branch_id||"", s.source_branch||""]);
             if(samePhone) run("UPDATE customers SET srv_status='clash', srv_error=? WHERE id=?",[s.uid+"|"+s.name, samePhone.id]);
           }
         }

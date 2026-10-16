@@ -351,7 +351,7 @@
     { id:"itredorders", label:"Orders Fulfillment", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },      // iTred orders (itred-orders.js)
     { id:"itredfeedback", label:"Marketplace Feedback", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },
     { id:"purchasing", label:"Purchasing", remoteHidden:true },
-    { id:"reportwriter", label:"Report Writer", remoteHidden:true },
+    { id:"reportwriter", label:"Report Writer" },   // every branch (v27, Branches addendum §R4): a remote sees its own branch + every branch's stock
     { id:"settings", label:"Settings" },
   ];
   function moreTabsAvailable(){
@@ -389,7 +389,7 @@
     else if(moreTab==="requests") renderStockRequests(body);
     else if(moreTab==="itredorders" || moreTab==="itredfeedback"){ if(typeof itredAvailable==="function" && itredAvailable()) renderItredMoreTab(moreTab, body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="purchasing"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderPurchasing(body); }
-    else if(moreTab==="reportwriter"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderReportWriter(body); }
+    else if(moreTab==="reportwriter") renderReportWriter(body);
     else if(moreTab==="settings") renderSettings(body);
   }
 

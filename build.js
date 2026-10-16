@@ -146,6 +146,7 @@ const SCRIPT_ORDER = [
   "trial.js",
   "dispatch-srv.js",
   "branch-stock.js",
+  "branch-views.js",
   "itred-orders.js",
   "supplier-grv.js",
   "marketing.js",

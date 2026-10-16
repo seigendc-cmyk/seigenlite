@@ -31,7 +31,7 @@
   function setCartCustomer(c){
     const before = cartPriceLevel();
     cartCustomer = c? Object.assign({}, c) : null;
-    appliedVoucher = null;
+    appliedVoucher = null; crossBranchCreditApproval = null;
     const after = cartPriceLevel();
     if(before===after) return "";
     let capped = false;
@@ -74,6 +74,24 @@
     creditLimitApproval = { customerId:info.customer.id, after:info.after, admin:admin.name };
     logAudit("Credit limit override", info.customer.name, "Owes "+currency+info.after.toFixed(2)+" on this till, limit "+currency+info.limit.toFixed(2)+" · approved by "+admin.name);
     return creditLimitApproval;
+  }
+  // ---- credit to another branch's customer (Branches step 2, owner 2026-10-14, Q5): every
+  // credit sale, a warning and the Admin passcode, until B4 shares sales between tills ----
+  let crossBranchCreditApproval = null;   // { customerId, amount, admin } for the sale being finished
+  function crossBranchCreditCheck(customer, creditAmount){
+    if(!customer || !(creditAmount>0) || typeof custOtherBranch!=="function") return null;
+    const other = custOtherBranch(customer);
+    if(!other) return null;
+    if(crossBranchCreditApproval && crossBranchCreditApproval.customerId===customer.id && crossBranchCreditApproval.amount===creditAmount) return null;
+    return { customer, branch:other, amount:creditAmount,
+      text: "This customer was added at "+other+". Their credit balance here covers this till only (until the update that shares sales). An Admin passcode lets the credit sale continue." };
+  }
+  function approveCrossBranchCredit(info, passcode){
+    const admin = findAdmin(passcode);
+    if(!admin) throw new Error("Incorrect Admin passcode. The sale wasn't finished.");
+    crossBranchCreditApproval = { customerId:info.customer.id, amount:info.amount, admin:admin.name };
+    logAudit("Credit to another branch's customer", info.customer.name, "Added at "+info.branch+" · approved by "+admin.name);
+    return crossBranchCreditApproval;
   }
   // The orange note on Sell and Products (activation-v2-design.md §9): shown
   // only when it's true.
@@ -620,6 +638,12 @@
     }
     if(lines.some(l=>l.method==="Credit") && !customer){ alert("Pick the customer, or add them, for a credit sale."); return; }
     const creditAmount = roundMoney(lines.filter(l=>l.method==="Credit").reduce((s,l)=>s+l.amount,0));
+    const crossBranch = crossBranchCreditCheck(customer, creditAmount);
+    if(crossBranch){
+      if(typeof openCrossBranchCreditModal==="function" && typeof document.createElement==="function") openCrossBranchCreditModal(crossBranch, ()=>completeSale(method, payments, stockPlan));
+      else alert(crossBranch.text);
+      return;
+    }
     const overLimit = creditLimitCheck(customer, creditAmount);
     if(overLimit){
       if(typeof openCreditLimitModal==="function" && typeof document.createElement==="function") openCreditLimitModal(overLimit, ()=>completeSale(method, payments, stockPlan));
@@ -734,7 +758,7 @@
     window._lastReceipt = {saleId,receiptNo,ts,subtotal,discount,markup:0,voucherAmount,total,method:saleMethod,payments:lines.slice(),items:receiptItems,docRef,priceLevel:cartPriceLevel()};
     window._lastCreditNote = exchangeCn;   // only right after an exchange
     printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef, receiptNo);
-    cart = []; drawerOpen=false; appliedVoucher=null; cartCustomer=null; creditLimitApproval=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
+    cart = []; drawerOpen=false; appliedVoucher=null; cartCustomer=null; creditLimitApproval=null; crossBranchCreditApproval=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
     render();
   }
 

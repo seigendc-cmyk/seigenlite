@@ -536,7 +536,13 @@
       // Admin passcode from main (v21): a check value set on a main-branch till (passcode-check.js), never the passcode
       "ALTER TABLE staff ADD COLUMN passcode_salt TEXT DEFAULT ''",
       "ALTER TABLE staff ADD COLUMN passcode_check TEXT DEFAULT ''",
-      "ALTER TABLE staff ADD COLUMN passcode_rounds INTEGER DEFAULT 0"
+      "ALTER TABLE staff ADD COLUMN passcode_rounds INTEGER DEFAULT 0",
+      // Branch views (v27, 20261106120000): the branch that added a customer or a supplier, from seiGEN
+      // (its id and name). Not the customers' own "branch", which other code reads as this till's.
+      "ALTER TABLE customers ADD COLUMN src_branch TEXT DEFAULT ''",
+      "ALTER TABLE customers ADD COLUMN src_branch_name TEXT DEFAULT ''",
+      "ALTER TABLE suppliers ADD COLUMN src_branch TEXT DEFAULT ''",
+      "ALTER TABLE suppliers ADD COLUMN src_branch_name TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}

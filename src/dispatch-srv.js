@@ -538,16 +538,16 @@
       let html = head();
       if(cur==="in"){
         const w = dsIncomingWaiting(), done = dsCached("in").filter(d=>d.status!=="sent").slice(0,20);
-        html += w.length? w.map(d=>`<div class="card" style="padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b>${escapeHtml(d.dn_display)}</b><span class="muted">${escapeHtml(new Date(d.sent_at).toLocaleString())}</span></div>
+        html += w.length? w.map(d=>`<div class="card" style="padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b class="bv-dn" data-bvdn="${escapeHtml(d.id)}">${escapeHtml(d.dn_display)}</b><span class="muted">${escapeHtml(new Date(d.sent_at).toLocaleString())}</span></div>
             <div class="pmeta">From ${escapeHtml(d.from_branch)} · ${d.lines.length} line${d.lines.length===1?"":"s"} · ${d.lines.reduce((s,l)=>s+l.qty,0)} units${d.sent_by? " · by "+escapeHtml(d.sent_by) : ""}</div>
             <button class="btn btn-sm btn-primary" data-dsrecv="${d.id}" style="margin-top:6px">Count and receive</button></div>`).join("")
           : `<p class="muted">Nothing waiting for this branch.</p>`;
-        if(done.length) html += `<h4 style="margin:12px 0 6px">Recent</h4>`+done.map(d=>`<div class="pmeta" style="margin-bottom:4px">${escapeHtml(d.dn_display)} from ${escapeHtml(d.from_branch)} · ${escapeHtml(dsStatusText(d.status))}${d.grv_display? " · "+escapeHtml(d.grv_display)+(d.grv_till? " on "+escapeHtml(d.grv_till) : "") : ""}</div>`).join("");
+        if(done.length) html += `<h4 style="margin:12px 0 6px">Recent</h4>`+done.map(d=>`<div class="pmeta" style="margin-bottom:4px"><span class="bv-dn" data-bvdn="${escapeHtml(d.id)}" style="text-decoration:underline">${escapeHtml(d.dn_display)}</span> from ${escapeHtml(d.from_branch)} · ${escapeHtml(dsStatusText(d.status))}${d.grv_display? " · "+escapeHtml(d.grv_display)+(d.grv_till? " on "+escapeHtml(d.grv_till) : "") : ""}</div>`).join("");
       } else if(cur==="out"){
         const rows = dsCached("out");
         html += rows.length? rows.map(d=>{
           const mine = d.from_terminal_id===dsMyTerminal();
-          return `<div class="card" style="padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b>${escapeHtml(d.dn_display)}</b><span style="font-size:12px;font-weight:700">${escapeHtml(dsStatusText(d.status))}</span></div>
+          return `<div class="card" style="padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b class="bv-dn" data-bvdn="${escapeHtml(d.id)}">${escapeHtml(d.dn_display)}</b><span style="font-size:12px;font-weight:700">${escapeHtml(dsStatusText(d.status))}</span></div>
             <div class="pmeta">To ${escapeHtml(d.to_branch)} · ${escapeHtml(new Date(d.sent_at).toLocaleString())} · till ${escapeHtml(d.from_till)}</div>
             ${d.grv_display? `<div class="pmeta">${escapeHtml(d.grv_display)} by ${escapeHtml(d.grv_by||"")}</div>` : ""}
             ${d.status==="cancelled"? `<div class="pmeta">Cancelled: ${escapeHtml(d.cancel_reason||"")}</div>` : ""}
@@ -576,6 +576,7 @@
       }
       body.innerHTML = html;
       body.querySelectorAll("[data-dstab]").forEach(b=>b.onclick=()=>{ cur = b.dataset.dstab; msg = ""; render_(); });
+      if(typeof bvOnOpen==="function") body.querySelectorAll("[data-bvdn]").forEach(el=> bvOnOpen(el, ()=> openDnCard(el.dataset.bvdn)));   // v27: the DN card
       body.querySelector("#dsRefresh").onclick=async ()=>{ msg = "Checking…"; render_(); const r = await dsPull(); msg = r.ok? "Up to date." : (r.offline? "You're offline." : "Couldn't check: "+(r.message||"")); render_(); };
       body.querySelectorAll("[data-dsrecv]").forEach(b=>b.onclick=()=>dsReceiveForm(wrap, body, b.dataset.dsrecv, ()=>{ cur = "in"; render_(); render(); }));
       body.querySelectorAll("[data-dscancel]").forEach(b=>b.onclick=()=>dsAskAdmin(body, "Cancel this dispatch? The stock comes back to this branch.", true, async (pass, reason)=>{ await dsCancel(b.dataset.dscancel, reason, pass); msg = "Cancelled. The stock is back."; }, render_));

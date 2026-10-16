@@ -109,14 +109,21 @@
     wireCreditCardHandlers(document.getElementById("creditListArea"));
   }
 
-  // Directory (under More): every customer, for marketing WhatsApp messages only.
+  // Directory (under More): every customer, for marketing WhatsApp messages only; and (v27, Branches
+  // addendum §R6) the business's suppliers, read-only here. Each shows the branch that added it.
+  function directorySourceHtml(o){
+    if(!o.src_branch_name) return "";
+    const mine = o.src_branch && o.src_branch===getSetting("branch_uuid","");
+    return `<div class="muted dir-src" style="font-size:12px">added at ${escapeHtml(o.src_branch_name)}${mine? " (this branch)" : ""}</div>`;
+  }
   function directoryListHtml(customers, query){
     if(customers.length===0) return `<p class="muted">No customers yet. Add them here, or with "+ Add new customer" in the cart.</p>`;
-    const filtered = customers.filter(c=> textMatches(query, { text:[c.name], phones:[c.phone, c.phone_norm] }));   // the shared matcher (Branches addendum §R2)
+    const filtered = customers.filter(c=> textMatches(query, { text:[c.name, c.src_branch_name], phones:[c.phone, c.phone_norm] }));   // the shared matcher (Branches addendum §R2), + the source branch
     if(filtered.length===0) return `<p class="muted">No customers match "${escapeHtml(query)}".</p>`;
     return filtered.map(c=>`
       <div class="card" style="display:flex;justify-content:space-between;align-items:center">
         <div>${escapeHtml(c.name)} <span class="pill ${c.customer_type==="wholesale"? "warn" : ""}">${escapeHtml(customerTypeLabel(c))}</span>
+          ${directorySourceHtml(c)}
           ${customerPrivateVisible() && (c.credit_limit!=null || c.address || c.national_id)? `<div class="muted" style="font-size:12px">${c.credit_limit!=null? "Limit "+currency+Number(c.credit_limit).toFixed(2) : ""}${c.address? " · "+escapeHtml(c.address) : ""}${c.national_id? " · ID "+escapeHtml(c.national_id) : ""}</div>` : ""}</div>
         <div style="display:flex;align-items:center;gap:8px">
           ${c.phone? `<button class="wa-link" data-dwa="${c.id}">📲 ${escapeHtml(c.phone)}</button>` : `<div class="muted">No phone</div>`}
@@ -136,15 +143,54 @@
       b.onclick=()=>{ const c = one("SELECT * FROM customers WHERE id=?",[+b.dataset.editcust]); editCustomerModal(c); };
     });
   }
+  function directorySuppliersHtml(suppliers, query){
+    if(suppliers.length===0) return `<p class="muted">No suppliers yet. They're added on the main branch, in Purchasing.</p>`;
+    const filtered = suppliers.filter(s=> textMatches(query, { text:[s.name, s.notes, s.src_branch_name], phones:[s.phone] }));
+    if(filtered.length===0) return `<p class="muted">No suppliers match "${escapeHtml(query)}".</p>`;
+    return filtered.map(s=>`
+      <div class="card dir-supplier" style="display:flex;justify-content:space-between;align-items:center">
+        <div>${escapeHtml(s.name)}${s.active===0? ` <span class="pill">Inactive</span>` : ""}
+          ${s.notes? `<div class="muted" style="font-size:12px">${escapeHtml(s.notes)}</div>` : ""}${directorySourceHtml(s)}</div>
+        ${s.phone? `<button class="wa-link" data-swa="${escapeHtml(s.uid)}">📲 ${escapeHtml(s.phone)}</button>` : `<div class="muted">No phone</div>`}
+      </div>`).join("");
+  }
+  function directorySuppliers(){ return all("SELECT * FROM suppliers ORDER BY COALESCE(active,1) DESC, lower(name)"); }
+  const directoryTab = ()=> getSetting("dir_tab","customers")==="suppliers"? "suppliers" : "customers";
   function renderDirectoryListOnly(customers){
     const target = document.getElementById("directoryListArea");
     if(!target) return;
+    if(directoryTab()==="suppliers"){
+      target.innerHTML = directorySuppliersHtml(directorySuppliers(), directoryQuery);
+      target.querySelectorAll("[data-swa]").forEach(b=> b.onclick=()=>{ const s = one("SELECT * FROM suppliers WHERE uid=?",[b.dataset.swa]); if(s) shareWhatsApp("", s.phone); });
+      return;
+    }
     target.innerHTML = directoryListHtml(customers, directoryQuery);
     wireDirectoryCardHandlers(target);
   }
   function renderDirectory(main){
     const customers = all("SELECT * FROM customers ORDER BY name");
-    main.innerHTML = `
+    const tab = directoryTab();
+    const tabs = `<div class="dir-tabs" style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn btn-sm ${tab==="customers"? "btn-primary" : "btn-outline"}" id="dirTabCust" style="width:auto">Customers</button>
+        <button class="btn btn-sm ${tab==="suppliers"? "btn-primary" : "btn-outline"}" id="dirTabSup" style="width:auto">Suppliers</button></div>`;
+    const wireTabs = ()=>{
+      main.querySelector("#dirTabCust").onclick=()=>{ setSetting("dir_tab","customers"); renderDirectory(main); };
+      main.querySelector("#dirTabSup").onclick=()=>{ setSetting("dir_tab","suppliers"); renderDirectory(main); };
+    };
+    if(tab==="suppliers"){
+      main.innerHTML = `${tabs}
+      <p class="muted" style="margin-top:-4px">The business's suppliers, read-only here. ${isRemote()? "The main branch adds and changes them." : "Add and change them in More → Purchasing."}</p>
+      <div class="search-wrap">
+        <span class="ic">🔎</span>
+        <input class="field" id="directorySearch" placeholder="Search name, phone or branch…" value="${escapeHtml(directoryQuery)}">
+      </div>
+      <div id="directoryListArea"></div>`;
+      wireTabs();
+      renderDirectoryListOnly(customers);
+      document.getElementById("directorySearch").oninput=(e)=>{ directoryQuery = e.target.value; renderDirectoryListOnly(customers); };
+      return;
+    }
+    main.innerHTML = `${tabs}
 ${customerClashesHtml()}
       <div class="row" style="margin-bottom:12px">
         <button class="btn btn-primary" id="openNewCustomer" ${canCreateCustomers()===false? "disabled title=\"Ask an admin to add customers\"" : ""}>+ New Customer</button>
@@ -153,10 +199,11 @@ ${customerClashesHtml()}
       ${canCreateCustomers()===false? `<p class="muted" style="margin-top:-6px">Ask an admin to add customers.</p>` : ""}
       <div class="search-wrap">
         <span class="ic">🔎</span>
-        <input class="field" id="directorySearch" placeholder="Search by name or phone…" value="${escapeHtml(directoryQuery)}">
+        <input class="field" id="directorySearch" placeholder="Search name, phone or branch…" value="${escapeHtml(directoryQuery)}">
       </div>
       <div id="directoryListArea">${directoryListHtml(customers, directoryQuery)}</div>
     `;
+    wireTabs();
     document.getElementById("openNewCustomer").onclick=()=>newCustomerModal();
     document.getElementById("openFullCustExport").onclick=()=>openFullCustomerExport();
     wireCustomerClashes(main);

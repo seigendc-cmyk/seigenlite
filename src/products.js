@@ -191,7 +191,7 @@
         ${products.map(p=>`
           <tr>
             <td><input type="checkbox" class="catCheck" data-cat="${p.id}"></td>
-            <td>${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}${escapeHtml(p.name)}${p.active===0? ` <span class="pill">Deactivated</span>` : ""}</td>
+            <td class="bv-name" data-bvledger="${p.id}">${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}${escapeHtml(p.name)}${p.active===0? ` <span class="pill">Deactivated</span>` : ""}</td>
             <td>${escapeHtml(p.shelf||"—")}</td>
             <td>${currency}${p.price.toFixed(2)}</td>
             <td>${(typeof stockLineText==="function" && stockLineText(p))? `<span class="ss-stock">${escapeHtml(stockLineText(p))}</span>` : p.stock<0? `<span class="pill neg">${p.stock} below zero</span>` : p.stock+(p.stock<=p.low_threshold?` <span class="pill low">low</span>`:"")}</td>
@@ -216,6 +216,7 @@
   }
   function wireProductRowButtons(scope, remote){
     if(typeof wireBsCells==="function") wireBsCells(scope);   // Branches B1: the Other branches column (every branch since the addendum, §R5)
+    if(typeof wireItemLedgerOpeners==="function") wireItemLedgerOpeners(scope, (id)=> one("SELECT * FROM products WHERE id=?",[+id]));   // v27: the name opens the item ledger
     scope.querySelectorAll("[data-rowmenu]").forEach(b=>{
       b.onclick=()=>{
         const pid = +b.dataset.rowmenu;
@@ -344,7 +345,7 @@
         const parts = p.parts.map(x=> `<span class="plist-part">${escapeHtml(x.name)} ${escapeHtml(String(x.qty))}</span>`).join(" · ");
         const files = p.files.map(f=> `<div class="pmeta plist-file" style="color:#b54708">${escapeHtml(f.name)} ${escapeHtml(String(f.qty))} (${escapeHtml(bsFileCopyText(f))})</div>`).join("");
         return `<tr class="${p.stock!=null && p.stock<=0? "stock-out" : ""}">
-          <td>${skuNameCellScreen(p.sku,p.name)}</td>
+          <td class="bv-name" data-bvledger="${i}">${skuNameCellScreen(p.sku,p.name)}</td>
           <td>${escapeHtml(p.shelf||"—")}</td>
           <td class="pmeta">${parts || "—"}${files}</td>
           <td>${p.price==null? "—" : currency+Number(p.price).toFixed(2)}</td>
@@ -359,10 +360,10 @@
     return note + fc + (results.length===0? `<p class="muted" style="padding:10px 4px">No products match.</p>` : `
     <table class="simple">
       <tr><th>Item</th><th>Shelf</th><th>Branch</th><th>Price</th><th>Stock</th></tr>
-      ${results.map(p=>{
+      ${results.map((p, i)=>{
         const cls = p.stock<=0? "stock-out" : (p.stock<=p.low_threshold? "stock-low" : "");
         return `<tr class="${cls}">
-          <td>${skuNameCellScreen(p.sku,p.name)}</td>
+          <td class="bv-name" data-bvledger="${i}">${skuNameCellScreen(p.sku,p.name)}</td>
           <td>${escapeHtml(p.shelf||"—")}</td>
           <td>${escapeHtml(p.branch)}</td>
           <td>${p.price==null? "—" : currency+p.price.toFixed(2)}</td>
@@ -375,7 +376,7 @@
     _plistView = typeof bsProductListView==="function"? bsProductListView(plistBranch, plistQuery) : null;
     if(_plistView && _plistView.mode==="all") return _plistView.rows;
     if(_plistView) return _plistView.rows.map(r=>({ sku:r.sku, name:r.name, shelf:r.shelf, branch:r.parts[0]? r.parts[0].name : plistBranch,
-      price:r.price, stock:r.stock==null? 0 : r.stock, low_threshold:0 }));
+      price:r.price, stock:r.stock==null? 0 : r.stock, low_threshold:0, probe:r.probe }));
     return searchProducts(plistQuery, plistBranch);
   }
   // Branches: this one, every branch on seiGEN, then names known only from a file merge.
@@ -401,6 +402,10 @@
   }
   function wirePlistRows(scope, results){
     scope.querySelectorAll("[data-plrow]").forEach(b=> b.onclick=()=>{ const r = results[+b.dataset.plrow]; if(r) openBsProductModal(r.probe, r.files); });
+    // v27: the name opens the item ledger (this device's own rows: only this branch's products have one here)
+    if(typeof wireItemLedgerOpeners==="function") wireItemLedgerOpeners(scope, (i)=>{ const r = results[+i]; if(!r) return null;
+      if(r.probe) return r.probe;
+      return r.id!=null && sameBranchName(r.branch, currentBranch())? r : { cat_uid:r.cat_uid||null, sku:r.sku, name:r.name }; });
   }
   function renderProductList(main){
     const results = plistResults();

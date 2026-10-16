@@ -5,9 +5,10 @@
   // Each registered till sends its OWN stock levels to seiGEN (absolute
   // figures: the next push simply overwrites, so nothing ever counts twice)
   // and reads every branch's figures back. A branch's stock is the SUM of its
-  // active tills (owner, 2026-10-13: option 1); main-branch tills also see
-  // each till's own figure and a warning when two tills look like copies of
-  // the same stock list. Remote tills see quantities only. No cost ever
+  // active tills (owner, 2026-10-13: option 1); every till sees each till's
+  // own figure (main only before 20261106120000), main a warning when two
+  // tills look like copies of the same stock list. Remote tills see
+  // quantities only. No cost ever
   // travels: main values other branches' stock with its own costs.
   //
   // Only reads this till's products: nothing here changes a till's own
@@ -144,7 +145,7 @@
     return { ok:true, count:(r.data.dispatches||[]).length };
   }
   // What the Dispatches search box matches (Branches addendum §R2): DN, branches, till, dates,
-  // status, people, refs, transport (once seiGEN sends it: 20261026120000) and the lines' products.
+  // status, people, refs, transport (seiGEN sends them from 20261106120000) and the lines' products.
   function bsDispatchSearchFields(d){
     const st = typeof dsStatusText==="function"? dsStatusText(d.status) : (d.status||"");
     const words = [d.dn_display, d.from_branch, d.to_branch, d.from_till, st, d.status==="sent"? "in transit" : "",
@@ -235,7 +236,7 @@
   // Branches addendum §R1: one branch's figure for one product -> { qty, t, live } | null (the branch doesn't have it).
   // Another branch: seiGEN's figure (the sum of its tills). THIS branch: this till's live count
   // (a sale here shows at once) plus the other tills' figures on seiGEN; a till that sees no
-  // per-till figures (not main, until 20261026120000) uses seiGEN's branch figure when the
+  // per-till figures (a remote, before 20261106120000) uses seiGEN's branch figure when the
   // branch has other tills. A shared-stock branch: seiGEN's figure.
   // p: this till's product row (has id + branch), or a probe { cat_uid, sku, name }.
   function bsBranchQty(b, p){
@@ -403,7 +404,7 @@
 
   function renderBranchStock(main){
     const isMain = !isRemote();
-    let tab = getSetting("bs_tab","stock"), branchSel = getSetting("bs_branch",""), query = "", dquery = "", msg = "";
+    let tab = getSetting("bs_tab","stock"), branchSel = getSetting("bs_branch",""), query = "", dquery = "", msg = "", gridItems = [];
     function stockHtml(){
       const mineId = bsMyBranchUuid();
       const list = isMain? bsBranches() : bsOtherBranches();
@@ -414,23 +415,24 @@
       const sorted = bsGroupProducts(shown, []).groups.sort((a,b)=> String(a.name).localeCompare(String(b.name)));
       // the shared matcher (Branches addendum §R2): every term, any order
       const items = productSearch(sorted.map(g=>({ name:g.name, sku:g.code, description:"", g })), query).map(x=>[x.g.key, x.g]);
+      gridItems = items.map(([,v])=> v);   // a name opens its item ledger (v27)
       // this branch: this till's live count + the other tills (bsBranchQty)
       const qtyOf = (b, v)=>{ const pr = { cat_uid:v.cat_uid, sku:v.code, name:v.name }, r = bsRowFor(b, pr), q = bsBranchQty(b, pr); return q? { qty:q.qty, t:q.t, low:r? r.low : 0 } : null; };
       const heads = shown.map(b=>{ const u = bsUpdatedText(b.updated_at); return `<th class="bs-col">${escapeHtml(b.name)}${b.id===mineId? " (this)" : ""}<div class="pmeta" style="font-weight:400;${u.old? "color:#b54708" : ""}">${escapeHtml(u.text)}</div></th>`; }).join("");
       const warn = isMain? shown.map(b=>bsCopies(b).map(c=>`<div class="box bs-copies" style="margin-bottom:8px;border-color:#b54708;background:#fffaeb;color:#b54708;font-size:12.5px"><b>${escapeHtml(b.name)}: ${escapeHtml(c.a)} and ${escapeHtml(c.b)} look like copies of the same stock list</b> (${c.same} of ${c.of} products show the same figure). The branch total may count those products twice. Count the stock (Stocktake) on one of them.</div>`).join("")).join("") : "";
       const value = isMain && bsCostsVisible()? `<div class="muted bs-value" style="margin-top:8px;font-size:12.5px">${shown.map(b=>{ const v = bsValueAtCost(b); return escapeHtml(b.name)+": value at cost "+escapeHtml(currency+v.value.toFixed(2))+(v.unmatched? " ("+v.unmatched+" product"+(v.unmatched===1?"":"s")+" without a cost here)" : ""); }).join("<br>")}</div>` : "";
-      const tillsLine = (b)=> isMain && b.tills && b.tills.length>1? `<div class="muted bs-tilltimes" style="font-size:12.5px">${escapeHtml(b.name)}: ${b.tills.filter(t=>t.active).map(t=>escapeHtml(t.till_code)+" "+escapeHtml(bsUpdatedText(t.pushed_at).text)).join(" · ")}</div>` : "";
+      const tillsLine = (b)=> b.tills && b.tills.length>1? `<div class="muted bs-tilltimes" style="font-size:12.5px">${escapeHtml(b.name)}: ${b.tills.filter(t=>t.active).map(t=>escapeHtml(t.till_code)+" "+escapeHtml(bsUpdatedText(t.pushed_at).text)).join(" · ")}</div>` : "";
       return `${warn}
         <div style="overflow-x:auto"><table class="simple bs-grid"><tr><th>Item</th>${heads}</tr>
-        ${items.length? items.map(([,v])=>`<tr><td>${v.code? `<div class="psku">${escapeHtml(v.code)}</div>` : ""}${escapeHtml(v.name)}</td>${shown.map(b=>{
+        ${items.length? items.map(([,v], i)=>`<tr><td class="bv-name" data-bvledger="${i}">${v.code? `<div class="psku">${escapeHtml(v.code)}</div>` : ""}${escapeHtml(v.name)}</td>${shown.map(b=>{
             const r = qtyOf(b, v);
-            const t = isMain && r && r.t && Object.keys(r.t).length>1? `<div class="pmeta bs-tills">${Object.keys(r.t).sort().map(k=>escapeHtml(k)+": "+escapeHtml(String(r.t[k]))).join(" · ")}</div>` : "";
+            const t = r && r.t && Object.keys(r.t).length>1?   /* every branch since 20261106120000 (§R5) */ `<div class="pmeta bs-tills">${Object.keys(r.t).sort().map(k=>escapeHtml(k)+": "+escapeHtml(String(r.t[k]))).join(" · ")}</div>` : "";
             const low = r && r.qty<=(r.low||0);
             return `<td class="bs-col${low? " stock-low" : ""}">${r? escapeHtml(String(r.qty)) : "—"}${t}</td>`; }).join("")}</tr>`).join("")
           : `<tr><td colspan="${shown.length+1}" class="muted">No products match.</td></tr>`}
         </table></div>
         ${shown.map(tillsLine).join("")}${value}
-        <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills' own figures${isMain? "; under it, each till's own count" : ""}. Quantities only${isMain? "" : ": costs are kept on the main branch"}.</p>`;
+        <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills' own figures; under it, each till's own count. Quantities only${isMain? "" : ": costs are kept on the main branch"}.</p>`;
     }
     function dispatchesHtml(){
       const all_ = bsDispatches();
@@ -440,11 +442,19 @@
       return rows.map(d=>{
         const units = (d.lines||[]).reduce((s,l)=>s+(Number(l.qty)||0),0);
         const diffs = (d.lines||[]).filter(l=>l.short||l.damaged||l.extra).map(l=>escapeHtml(l.name)+": "+[l.short? "short "+l.short : "", l.damaged? "damaged "+l.damaged : "", l.extra? "extra "+l.extra : ""].filter(Boolean).join(", ")).join(" · ");
-        return `<div class="card bs-dispatch" style="padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(d.dn_display)}</b><span style="font-size:12px;font-weight:700">${escapeHtml(typeof dsStatusText==="function"? dsStatusText(d.status) : d.status)}</span></div>
+        return `<div class="card bs-dispatch" data-bvdn="${escapeHtml(d.id)}" style="padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(d.dn_display)}</b><span style="font-size:12px;font-weight:700">${escapeHtml(typeof dsStatusText==="function"? dsStatusText(d.status) : d.status)}</span></div>
           <div class="pmeta">${escapeHtml(d.from_branch)} → ${escapeHtml(d.to_branch)} · ${escapeHtml(new Date(d.sent_at).toLocaleString())}</div>
           <div class="pmeta">${(d.lines||[]).length} line${(d.lines||[]).length===1?"":"s"} · ${units} unit${units===1?"":"s"}${d.grv_display? " · "+escapeHtml(d.grv_display) : ""}${d.open_issues? " · "+d.open_issues+" open difference"+(d.open_issues===1?"":"s") : ""}</div>
-          ${diffs? `<div class="pmeta" style="color:#b42318">${diffs}</div>` : ""}</div>`;
+          ${diffs? `<div class="pmeta" style="color:#b42318">${diffs}</div>` : ""}
+          ${d.internal_ref || Number(d.delivery_cost)>0? `<div class="pmeta">${[d.internal_ref? "Ref. "+escapeHtml(d.internal_ref) : "", Number(d.delivery_cost)>0? "Transport "+escapeHtml((d.delivery_currency? d.delivery_currency+" " : "")+Number(d.delivery_cost).toFixed(2))+(d.carrier? " · "+escapeHtml(d.carrier) : "") : ""].filter(Boolean).join(" · ")}</div>` : ""}</div>`;
       }).join("");
+    }
+    // v27: a double-click (Windows program) or a tap (phone) opens a DN's full card; a product's name, its item ledger.
+    function wireBody(){
+      const body = main.querySelector("#bsBody");
+      if(!body || typeof bvOnOpen!=="function") return;
+      body.querySelectorAll("[data-bvdn]").forEach(el=> bvOnOpen(el, ()=> openDnCard(el.dataset.bvdn)));
+      wireItemLedgerOpeners(body, (i)=>{ const v = gridItems[+i]; return v? { cat_uid:v.cat_uid, sku:v.code, name:v.name } : null; });
     }
     function draw(){
       const list = isMain? bsBranches() : bsOtherBranches();
@@ -467,9 +477,10 @@
       const sel = main.querySelector("#bsBranchSel");
       if(sel) sel.onchange=()=>{ branchSel = sel.value; setSetting("bs_branch", branchSel); draw(); };
       const s = main.querySelector("#bsSearch");
-      if(s) s.oninput=()=>{ query = s.value; main.querySelector("#bsBody").innerHTML = stockHtml(); };
+      if(s) s.oninput=()=>{ query = s.value; main.querySelector("#bsBody").innerHTML = stockHtml(); wireBody(); };
       const ds = main.querySelector("#bsDispSearch");
-      if(ds) ds.oninput=()=>{ dquery = ds.value; main.querySelector("#bsBody").innerHTML = dispatchesHtml(); };
+      if(ds) ds.oninput=()=>{ dquery = ds.value; main.querySelector("#bsBody").innerHTML = dispatchesHtml(); wireBody(); };
+      wireBody();
     }
     async function refresh(){
       msg = "Loading…"; draw();

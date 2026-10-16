@@ -207,6 +207,8 @@
       run(`INSERT INTO suppliers(uid,name,phone,notes,active,srv,updated_ts) VALUES(?,?,?,?,?,1,?)
            ON CONFLICT(uid) DO UPDATE SET name=excluded.name, phone=excluded.phone, notes=excluded.notes, active=excluded.active, srv=1, updated_ts=excluded.updated_ts`,
         [uid, s.name, s.phone||"", s.notes||"", s.active?1:0, s.updated_at||""]);
+      // the branch that added it (seiGEN from 20261106120000; Directory → Suppliers)
+      if("source_branch_id" in s) run("UPDATE suppliers SET src_branch=?, src_branch_name=? WHERE uid=?",[s.source_branch_id||"", s.source_branch||"", uid]);
     });
     if(typeof dsBumpCounter==="function") dsBumpCounter("GRV", r.data.max_grv_no);
     (r.data.my_grvs||[]).forEach(g=>{ try{ sgReconcileOne(g); }catch(e){ dsAddProblem("sgrv:"+dsHex(g.id), g.grv_display+": "+(e.message||e)); } });

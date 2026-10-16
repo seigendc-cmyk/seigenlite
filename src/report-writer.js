@@ -265,6 +265,11 @@
         { key:"condition", label:"Condition", options:[["","All"],["restock","Back to stock"],["writeoff","Written off"]] }]; },
       fetch(b,fromTs,toTs,gran,status,opts){ return returnsReportTable(b, fromTs, toTs, (opts&&opts.filters)||{}); }
     },
+    // Branches step 2 (v27, addendum §R4): every branch's stock from seiGEN, quantities only: the view
+    // every till may see (a remote too). Not this device's tables, so the Branch choice doesn't apply.
+    { id:"branchstock", label:"Stock by branch (quantities)", hasDate:false, allBranches:true, needs:()=> typeof bsTabAvailable==="function" && bsTabAvailable(),
+      fetch(){ return bvBranchStockReport(); }
+    },
     { id:"itemledger", label:"Item Ledger", hasDate:true,
       filters(b){ return [{ key:"product", label:"Product", options:itemLedgerProductOptions(b) }]; },
       fetch(b,fromTs,toTs,gran,status,opts){ return itemLedgerTable(b, fromTs, toTs, (opts&&opts.filters)||{}); }
@@ -282,7 +287,13 @@
     return { headers:["Date","Branch","Item","Qty","Reason","Note","By / Admin","Value"], rows,
       footer:`${d.rows.length} adjustment${d.rows.length===1?"":"s"} · net ${units>0?"+":""}${units} units · values at main's cost by product code${d.unvalued? " ("+d.unvalued+" without a main cost, left blank)" : ""}` };
   }
-  function reportWriterConfigs(){ return REPORT_CONFIGS.filter(c=> !((c.remoteHidden || c.mainOnly) && isRemote())); }
+  function reportWriterConfigs(){ return REPORT_CONFIGS.filter(c=> !((c.remoteHidden || c.mainOnly) && isRemote()) && !(c.needs && !c.needs())); }
+  // A remote branch (v27, addendum §R4, the view everyone may see): its own branch only; main: as before.
+  function rwBranchSelectHtml(selected){
+    if(selected.allBranches) return `<select class="field" id="rwBranchSel" disabled><option value="">All branches (from seiGEN)</option></select>`;
+    if(isRemote()){ rwBranch = currentBranch(); return `<select class="field" id="rwBranchSel"><option value="${escapeHtml(currentBranch())}" selected>${escapeHtml(currentBranch())} (this branch)</option></select>`; }
+    return branchSelectHtml("rwBranchSel", rwBranch);
+  }
   function renderReportWriter(main){
     const configs = reportWriterConfigs();
     let selected = configs.find(c=>c.id===rwType) || configs[0];
@@ -294,7 +305,7 @@
       <select class="field" id="rwTypeSel">
         ${configs.map(c=>`<option value="${c.id}" ${c.id===rwType?"selected":""}>${c.label}</option>`).join("")}
       </select>
-      <label>Branch</label>${branchSelectHtml("rwBranchSel", rwBranch)}
+      <label>Branch</label>${rwBranchSelectHtml(selected)}
       ${selected.hasDate? `<div class="row"><div><label>From</label><input class="field" id="rwFrom" type="date" value="${rwFrom||today}"></div><div><label>To</label><input class="field" id="rwTo" type="date" value="${rwTo||today}"></div></div>` : ""}
       ${selected.hasView? `<label>View</label>
         <select class="field" id="rwViewSel"><option value="dn" ${rwView!=="adjustments"?"selected":""}>Delivery Notes</option><option value="adjustments" ${rwView==="adjustments"?"selected":""}>Stock adjustments</option></select>` : ""}
@@ -363,7 +374,8 @@
     const configs = reportWriterConfigs();
     const selected = configs.find(c=>c.id===rwType);
     if(!selected) return;
-    const b = rwBranch || null;
+    if(isRemote()) rwBranch = currentBranch();   // a remote: its own branch only
+    const b = selected.allBranches? null : (rwBranch || null);
     let fromTs, toTs;
     if(selected.hasDate){
       rwFrom = document.getElementById("rwFrom").value;
@@ -383,7 +395,7 @@
     opts.filters = {};
     document.querySelectorAll("[data-rw-filter]").forEach(el=>{ opts.filters[el.dataset.rwFilter] = el.value; rwFilters[selected.id+"."+el.dataset.rwFilter] = el.value; });
     const data = selected.fetch(b, fromTs, toTs, granularity, status, opts);
-    window._rwLastData = { title:selected.label, subtitle:`${b||"All branches"}${selected.hasDate? ` · ${rwFrom} to ${rwTo}`:""}`, headers:data.headers, rows:data.rows, footer:data.footer };
+    window._rwLastData = { title:selected.label, subtitle:`${b||(selected.allBranches? "All branches (from seiGEN)" : "All branches")}${selected.hasDate? ` · ${rwFrom} to ${rwTo}`:""}`, headers:data.headers, rows:data.rows, footer:data.footer };
     const target = document.getElementById("rwResults");
     target.innerHTML = `
       ${data.chartData? renderBarChartSvg(data.chartData) : ""}

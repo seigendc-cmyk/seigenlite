@@ -1121,3 +1121,9 @@ Read-only look at live today (counts only): `cl_customers` 3 rows, all with `cre
 | Q8 | File-merge-only branches are **not counted** in "All branches"; listed as **"File copy from <date>"** |
 
 **Go for step 1 (v25)**: bug A, the shared search on every screen listed, stock figures at every branch, stocktake for this branch only. App only; previews only; stop and report before step 2.
+
+## R15. Step 2 (owner's "go", 2026-10-16)
+
+- **Migration 1 is named `20261106120000_branch_views`** (not `20261026120000`): it must run after the applied `20261105120000_itred_order_fulfilment`, so it takes the next free date. The later rows of §R11 move after it in the same order.
+- **App build v27** (v26 went to iTred-B): §R12 step 2 as listed, plus the cart rules of Q4 / Q5.
+- Not in this step, as planned: costs by person, other branches' sales (B4), adjustments and stocktakes on seiGEN (B5), the DN card's returns and payer (B2).
