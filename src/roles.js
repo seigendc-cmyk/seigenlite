@@ -143,9 +143,9 @@
     logAudit("Sign in", "", st.name);
     persist();
     staffEnsureToken().catch(()=>{});
-    return { ok:true, staff:st };
+    return { ok:true, staff:st, legacy:m.legacy };   // legacy: an old PIN from this till's list -> openSetOwnPinModal (v29)
   }
-  // The token, when online (seiGEN checks the PIN too). An old PIN is set again for every till.
+  // The token, when online (seiGEN checks the PIN too).
   let _tokenTry = null;
   function staffToken(){ return _staffSession && _staffSession.token && _staffSession.tokenExp > Date.now()? _staffSession.token : null; }
   function staffEnsureToken(){
@@ -157,13 +157,7 @@
       if(_staffSession!==s) return null;
       if(!r.ok){ s.tokenProblem = (r.data && r.data.message) || r.message || r.reason; return null; }
       s.token = r.data.token; s.tokenExp = Date.now() + 11.5*3600*1000; s.tokenProblem = "";
-      if(r.data.legacy){   // this till's old PIN: set it again, so every till of the branch knows it
-        const c = adminCheckMake(s.pin);
-        const p = await terminalRpc("cl_device_staff_set_pin", Object.assign(terminalAuth(), { p_staff_token:s.token, p_staff_id:s.id, p_pin:s.pin,
-          p_pin_salt:c.salt, p_pin_check:c.check, p_pin_rounds:c.rounds }), { timeoutMs:20000 });
-        if(p.ok && p.data && p.data.staff) staffApplyOne(p.data.staff);
-        s.legacy = false;
-      }
+      // an old PIN (this till's list) is not set again here: the person chooses a seiGEN PIN (openSetOwnPinModal, v29)
       return s.token;
     })().finally(()=>{ _tokenTry = null; });
     return _tokenTry;
@@ -171,7 +165,128 @@
   function staffSignOut(){
     const s = _staffSession;
     _staffSession = null;
+    if(_staffIdleTimer){ clearInterval(_staffIdleTimer); _staffIdleTimer = null; }
     if(s && s.token) terminalRpc("cl_device_staff_signout", Object.assign(terminalAuth(), { p_staff_token:s.token })).catch(()=>{});
+  }
+
+  // ---- the signed-in person's own seiGEN PIN (v29) ----
+  // A PIN moved from a till's old list works on that till only. On signing in with it the person
+  // chooses a seiGEN PIN, which then works on every till of their branches (offline too).
+  async function staffSetOwnPin(pin){
+    const s = _staffSession;
+    if(!s) throw new Error("Sign in first.");
+    const p = String(pin==null? "" : pin).trim();
+    const bad = pinProblem(p); if(bad) throw new Error(bad);
+    if(!isOnline()) throw new Error("You're offline. Connect to set your seiGEN PIN.");
+    const token = await staffEnsureToken();
+    if(!token) throw new Error(s.tokenProblem || "seiGEN couldn't check your sign-in. Try again.");
+    const c = adminCheckMake(p);
+    const r = await terminalRpc("cl_device_staff_set_pin", Object.assign(terminalAuth(), { p_staff_token:token, p_staff_id:s.id, p_pin:p,
+      p_pin_salt:c.salt, p_pin_check:c.check, p_pin_rounds:c.rounds }), { timeoutMs:20000 });
+    if(!r.ok) throw new Error((r.data && r.data.message) || r.message || "Couldn't reach seiGEN.");
+    if(r.data && r.data.staff) staffApplyOne(r.data.staff);
+    s.pin = p; s.legacy = false;
+    logAudit("Set own PIN", "", s.name);
+    await persist();
+    return true;
+  }
+  // Required right after signing in with an old PIN: no ✕; "Later" only when seiGEN can't be reached.
+  function openSetOwnPinModal(onDone){
+    const s = _staffSession;
+    if(!s || !s.legacy) return null;
+    const wrap = openModal("Set your seiGEN PIN", `
+      <p style="margin-top:0">${escapeHtml(s.name)}, your PIN came from this till's old staff list, so it works on this till only. Choose a PIN for seiGEN: it then works on every till of your branch.</p>
+      <label for="opPin">New PIN (4 to 6 digits)</label><input class="field" id="opPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password">
+      <label for="opPin2">The same PIN again</label><input class="field" id="opPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password">
+      <div id="opMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px">${isOnline()? "" : "You're offline. Connect to set your seiGEN PIN."}</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn-outline" id="opLater" ${isOnline()? `style="display:none"` : ""}>Later (this till only)</button>
+        <button class="btn btn-primary" id="opSave">Set PIN</button></div>`);
+    const x = wrap.querySelector("[data-modal-close]"); if(x) x.remove();
+    wrap.addEventListener("click", (e)=>{ if(e.target===wrap) e.stopImmediatePropagation(); }, true);   // not closed by a tap beside it
+    const done = ()=>{ wrap.remove(); if(onDone) onDone(); };
+    wrap.querySelector("#opLater").onclick = done;
+    wrap.querySelector("#opSave").onclick = async ()=>{
+      const btn = wrap.querySelector("#opSave"), msg = wrap.querySelector("#opMsg");
+      const a = wrap.querySelector("#opPin").value.trim(), b = wrap.querySelector("#opPin2").value.trim();
+      msg.textContent = "";
+      if(a!==b){ msg.textContent = "The two PINs aren't the same."; return; }
+      btn.disabled = true;
+      try{ await staffSetOwnPin(a); }
+      catch(e){
+        msg.textContent = e.message||String(e); btn.disabled = false;
+        if(!isOnline() || !staffToken()) wrap.querySelector("#opLater").style.display = "";   // seiGEN can't be reached: carry on with the old PIN here
+        return;
+      }
+      done();
+    };
+    return wrap;
+  }
+
+  // ---- "Sign in to manage staff" while single operator mode stays on (v29) ----
+  // Ends on Log out, on Done, or after 5 minutes without a tap or a key.
+  const STAFF_MANAGE_IDLE_MS = 5*60*1000;
+  let _staffIdleTimer = null;
+  function staffManaging(){ return !!(_staffSession && _staffSession.manage); }
+  // People who may sign in here and hold the Staff right.
+  function staffManagersHere(){
+    return shopStaffHere().filter(s=>{ const r = shopRole(s.role_id); return r && (r.builtin==="owner" || r.rights.includes("m.staff")); });
+  }
+  function staffManageTouch(){ if(staffManaging()) _staffSession.lastActive = Date.now(); }
+  // redraw: the card's own (Done); otherwise the screen is drawn again when Settings is showing (idle)
+  function staffEndManage(why, redraw){
+    const s = _staffSession;
+    if(!s || !s.manage) return false;
+    staffSignOut();
+    logAudit("Staff management ended", "", s.name+(why==="idle"? " (5 minutes idle)" : ""));
+    persist();
+    document.querySelectorAll(".modalOverlay").forEach(m=>{ if(m.querySelector("#ssSave, #rlSave, #opSave")) m.remove(); });   // an open staff editor goes too
+    if(redraw) redraw();
+    else if(typeof render==="function" && typeof route!=="undefined" && route==="more") try{ render(); }catch(e){}
+    return true;
+  }
+  // -> true when it ended the session (called every 30 s; the tests call it with a time)
+  function staffIdleCheck(now){
+    if(!staffManaging()) return false;
+    if((now==null? Date.now() : now) - (_staffSession.lastActive||0) < STAFF_MANAGE_IDLE_MS) return false;
+    return staffEndManage("idle");
+  }
+  if(typeof document!=="undefined" && document.addEventListener){
+    document.addEventListener("pointerdown", staffManageTouch, true);
+    document.addEventListener("keydown", staffManageTouch, true);
+  }
+  function staffManageSignin(id, pin){
+    if(_staffSession) staffSignOut();
+    const r = attemptShopSignin(id, pin);
+    if(!r.ok) return r;
+    if(!staffManagersHere().some(s=> s.id===id)){ staffSignOut(); return { ok:false, message:"That person doesn't have the Staff right." }; }
+    _staffSession.manage = true; _staffSession.lastActive = Date.now();
+    _staffIdleTimer = setInterval(()=> staffIdleCheck(), 30000);
+    return r;
+  }
+  function openStaffManagerSignin(redraw){
+    const list = staffManagersHere();
+    const wrap = openModal("Sign in to manage staff", `
+      <p class="muted" style="margin-top:0;font-size:12.5px">Single operator mode stays on. You're signed out again on Done, on Log out, or after 5 minutes without use.</p>
+      <label for="smWho">Who</label><select class="field" id="smWho">${list.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join("")}</select>
+      <label for="smPin">PIN</label><input class="field" id="smPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+      <div id="smMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
+      <button class="btn btn-primary" id="smGo" style="margin-top:12px">Sign in</button>`);
+    wrap.querySelector("#smGo").onclick = ()=>{
+      const r = staffManageSignin(wrap.querySelector("#smWho").value, wrap.querySelector("#smPin").value);
+      if(!r.ok){ wrap.querySelector("#smMsg").textContent = r.message; wrap.querySelector("#smPin").value = ""; return; }
+      wrap.remove(); redraw();
+      if(r.legacy) openSetOwnPinModal(redraw);
+      staffPull().then((p)=>{ if(p.ok && staffManaging() && !document.querySelector("#opSave, #ssSave, #rlSave")) redraw(); }).catch(()=>{});   // the latest people and branches (a branch that joined since)
+    };
+    return wrap;
+  }
+  // Where nobody who manages staff can sign in on this till (a remote; another till of main).
+  function staffManageGuidance(){
+    const br = getSetting("branch_name","") || "this branch";
+    return isRemote()
+      ? `Nobody who manages staff can sign in on this till. Add or edit people for ${br} on the main branch (Settings → Staff & Roles). They arrive here at the next check-in, or tap Refresh.`
+      : `Nobody who manages staff can sign in on this till. Sign in to manage staff on the till where they have their PIN, and add or edit people for ${br} there. They arrive here at the next check-in, or tap Refresh.`;
   }
 
   // ---- sync ----
@@ -281,7 +396,11 @@
       <label style="display:flex;gap:8px;align-items:flex-start;margin-top:0"><input type="checkbox" id="sSingleOperator" ${single? "checked" : ""} style="width:auto;margin-top:3px"><span>Single operator mode — skip staff sign-in, just type a name (today's behaviour)</span></label>
       <p class="muted" style="font-size:12px">Turn this off so everyone signs in with their own PIN. Menus then follow each person's role. Reports of other branches and costs at a remote need a signed-in person with the right.</p>
       <p class="muted" style="font-size:12px;margin:6px 0">Kept on seiGEN for every branch${pulled? " · updated "+escapeHtml(new Date(pulled).toLocaleString()) : ""}. <button type="button" class="btn btn-sm btn-ghost" id="staffRefresh">🔄 Refresh</button></p>
-      ${edit? (who? `<p class="muted" style="font-size:12px">Signed in: ${escapeHtml(who)}</p>` : `<p class="box" style="font-size:12.5px">Nobody can manage staff yet. Add the first person here with this till's Admin passcode (an Admin or Owner).</p>`)
+      ${edit? (who? `<p class="muted" style="font-size:12px">Signed in: ${escapeHtml(who)}${staffManaging()? ` · signed out after 5 minutes without use <button type="button" class="btn btn-sm btn-outline" id="staffMgrDone" style="width:auto">Done</button>` : ""}</p>`
+                   : `<p class="box" style="font-size:12.5px">Nobody can manage staff yet. Add the first person here with this till's Admin passcode (an Admin or Owner).</p>`)
+            : !staffManagersHere().length? `<p class="box" id="staffGuidance" style="font-size:12.5px">${escapeHtml(staffManageGuidance())}</p>`
+            : single? `<p class="box" style="font-size:12.5px">To add or change people, PINs and roles, sign in as someone with the Staff right. Single operator mode stays on.</p>
+                       <button type="button" class="btn btn-primary btn-sm" id="staffMgrSignin" style="width:auto;margin-bottom:6px">Sign in to manage staff</button>`
             : `<p class="box" style="font-size:12.5px">Sign in as someone with the Staff right to add or change people and roles.</p>`}
       <div class="staff-tabs" style="display:flex;gap:8px;margin:8px 0">
         <button class="btn btn-sm ${_staffTab==="people"? "btn-primary" : "btn-outline"}" id="staffTabPeople" style="width:auto">People (${people.length})</button>
@@ -313,10 +432,12 @@
     const so = $s("#sSingleOperator");
     if(so) so.onchange = ()=>{
       const wantOn = so.checked;
-      if(!wantOn && !shopStaffHere().length && !activeStaffWithPin(currentBranch()).length){ alert("Add at least one active person with a PIN at this branch before turning this off."); so.checked = true; return; }
+      if(!wantOn && !shopStaffHere().length && !activeStaffWithPin(currentBranch()).length){ alert("Add at least one active person with a PIN at this branch before turning this off.\n\n"+staffManageGuidance()); so.checked = true; return; }
       if(!wantOn && !confirm("Everyone will need to pick their name and enter a PIN to use this device. Continue?")){ so.checked = true; return; }
       setSetting("single_operator_mode", wantOn? "1" : "0"); persist(); redraw();
     };
+    const mgr = $s("#staffMgrSignin"); if(mgr) mgr.onclick = ()=> openStaffManagerSignin(redraw);
+    const mgrDone = $s("#staffMgrDone"); if(mgrDone) mgrDone.onclick = ()=> staffEndManage("done", redraw);
     const add = $s("#addShopStaff"); if(add) add.onclick = ()=> openShopStaffModal(null, redraw);
     container.querySelectorAll("[data-edit-shopstaff]").forEach(b=> b.onclick = ()=> openShopStaffModal(shopStaff(b.dataset.editShopstaff), redraw));
     const addR = $s("#addRole"); if(addR) addR.onclick = ()=> openRoleModal(null, redraw);

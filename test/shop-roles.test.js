@@ -150,9 +150,11 @@ const COST = /\b3\.21\b|\bCost\b|Value at cost|value at cost/;
     H1.ctx.navigator.onLine = true; H2.ctx.navigator.onLine = true;
   });
 
-  await t("online, Boss's old PIN is checked by seiGEN and set again: it now works on T2 too (T2's old one stops)", async ()=>{
+  await t("online, seiGEN checks Boss's old PIN; he sets his seiGEN PIN (v29): it now works on T2 too (T2's old one stops)", async ()=>{
     const tok = await H1.api.staffEnsureToken();
     assert.ok(tok && tok.length === 64, "a token");
+    assert.strictEqual(H1.api.staffSession().legacy, true, "still the old PIN: nothing is set again by itself (v29)");
+    assert.ok(await H1.api.staffSetOwnPin("1111"));
     await H2.api.staffPull();
     const onH2 = H2.api.signinChoices().find((c)=> c.name === "Boss").key.slice(2);
     assert.strictEqual(H2.api.attemptShopSignin(onH2, "2222").ok, false);

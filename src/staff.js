@@ -307,6 +307,7 @@
       persist();
       accessStep=1; accessSelectedStaffId=null; accessPinDigits=""; accessError="";
       route = typeof firstAllowedRoute==="function" && !navAllowed("pos")? firstAllowedRoute() : "pos"; render();
+      if(shop && res.legacy && typeof openSetOwnPinModal==="function") openSetOwnPinModal(()=> render());   // v29: an old PIN from this till's list: choose a seiGEN PIN now
     };
     const cancel = document.getElementById("whoCancel");
     if(cancel) cancel.onclick=()=>{ route="pos"; render(); };
