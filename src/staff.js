@@ -296,11 +296,21 @@
     pinInput.focus();
     pinInput.oninput = ()=>{ accessPinDigits = pinInput.value.replace(/\D/g,"").slice(0,PIN_MAX_LEN); pinInput.value = accessPinDigits; };
     document.getElementById("whoBack").onclick=()=>{ accessStep=1; accessPinDigits=""; accessError=""; renderStaffAccess(); };
-    document.getElementById("whoPinContinue").onclick=()=>{
+    const unlockBtn = document.getElementById("whoPinContinue");
+    unlockBtn.onclick=async ()=>{
+      if(unlockBtn.disabled) return;                          // v30: no double submit
       const key = String(accessSelectedStaffId||"");
       if(typeof staffSignOut==="function") staffSignOut();   // the person before, if any
       const shop = key.startsWith("s:");
-      const res = shop? attemptShopSignin(key.slice(2), accessPinDigits) : attemptPinLogin(+key.slice(2), accessPinDigits);
+      let res;
+      if(shop && typeof attemptShopSigninAsync==="function"){
+        // v30: "Checking…" while the PIN is checked off the UI thread
+        unlockBtn.disabled = true; unlockBtn.textContent = "Checking…";
+        ["whoBack","whoCancel"].forEach(id=>{ const b = document.getElementById(id); if(b) b.disabled = true; });
+        try{ res = await attemptShopSigninAsync(key.slice(2), accessPinDigits); }
+        catch(e){ res = { ok:false, message:"Couldn't check the PIN. Try again." }; }
+        if(route!=="whoami" || !unlockBtn.isConnected){ if(res.ok && typeof staffSignOut==="function") staffSignOut(); return; }   // the screen was left meanwhile
+      } else res = shop? attemptShopSignin(key.slice(2), accessPinDigits) : attemptPinLogin(+key.slice(2), accessPinDigits);
       if(!res.ok){ accessError = res.message; accessPinDigits=""; renderStaffAccess(); return; }
       sessionUser = res.staff.name; sessionStaffId = shop? null : res.staff.id;
       setSetting("last_user", res.staff.name); setSetting("last_staff_id", shop? key : String(res.staff.id));
@@ -419,6 +429,19 @@
     for(const r of all("SELECT * FROM staff WHERE role='Admin' AND active=1 AND COALESCE(passcode_check,'')<>'' ORDER BY id")){
       const k = r.id+"|"+r.passcode_check+"|"+code;
       if(_adminMatchCache.get(k) || adminCheckMatches(code, r.passcode_salt, r.passcode_check, r.passcode_rounds)){ _adminMatchCache.set(k, true); return r; }
+    }
+    return null;
+  }
+  // The same, with the check values compared off the UI thread (v30: Settings unlock and other screens that can wait).
+  async function findAdminAsync(passcode){
+    const code = String(passcode==null?"":passcode);
+    if(!code.trim()) return null;
+    const plain = one("SELECT * FROM staff WHERE role='Admin' AND passcode=? AND passcode<>'' AND active=1",[code]);
+    if(plain) return plain;
+    if(typeof adminCheckMatchesAsync!=="function") return findAdmin(code);
+    for(const r of all("SELECT * FROM staff WHERE role='Admin' AND active=1 AND COALESCE(passcode_check,'')<>'' ORDER BY id")){
+      const k = r.id+"|"+r.passcode_check+"|"+code;
+      if(_adminMatchCache.get(k) || await adminCheckMatchesAsync(code, r.passcode_salt, r.passcode_check, r.passcode_rounds)){ _adminMatchCache.set(k, true); return r; }
     }
     return null;
   }

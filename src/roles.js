@@ -117,8 +117,16 @@
     for(const e of staffJson(st.legacy, [])) if(e && e.salt && hashPinSync(p, e.salt)===e.hash) return { legacy:true };
     return null;
   }
-  // Sign-in on this till (offline too): 5 wrong PINs -> 5 minutes, as before. -> { ok, staff } | { ok:false, message }
-  function attemptShopSignin(id, pin){
+  // v30: the same check off the UI thread (Web Crypto; passcode-check.js's code as the fallback).
+  async function staffPinMatchesAsync(st, pin){
+    const p = String(pin==null? "" : pin).trim();
+    if(!/^\d{4,6}$/.test(p)) return null;
+    if(st.pin_check && await adminCheckMatchesAsync(p, st.pin_salt, st.pin_check, st.pin_rounds)) return { legacy:false };
+    for(const e of staffJson(st.legacy, [])) if(e && e.salt && hashPinSync(p, e.salt)===e.hash) return { legacy:true };
+    return null;
+  }
+  // The checks before the PIN itself: -> { st } | { ok:false, message }
+  function shopSigninBefore(id, pin){
     const st = one("SELECT * FROM shop_staff WHERE id=? AND active=1 AND here=1",[id]);
     if(!st) return { ok:false, message:"That person can't sign in at this branch." };
     if(st.locked_until && new Date(st.locked_until) > new Date()){
@@ -127,7 +135,31 @@
     }
     const bad = pinProblem(pin);
     if(bad) return { ok:false, message:bad };
-    const m = staffPinMatches(st, pin);
+    return { st };
+  }
+  // Sign-in on this till (offline too): 5 wrong PINs -> 5 minutes, as before. -> { ok, staff } | { ok:false, message }
+  function attemptShopSignin(id, pin){
+    const b = shopSigninBefore(id, pin);
+    if(!b.st) return b;
+    return shopSigninAfter(b.st, pin, staffPinMatches(b.st, pin));
+  }
+  // The sign-in screens (v30): the PIN is checked off the UI thread; one check at a time.
+  let _shopSigninBusy = null;
+  function attemptShopSigninAsync(id, pin){
+    if(_shopSigninBusy) return _shopSigninBusy;
+    _shopSigninBusy = (async ()=>{
+      const b = shopSigninBefore(id, pin);
+      if(!b.st) return b;
+      const m = await staffPinMatchesAsync(b.st, pin);
+      // read again after the wait: a wrong try counted meanwhile (another screen) still counts, a lock still holds
+      const again = shopSigninBefore(id, pin);
+      if(!again.st) return again;
+      return shopSigninAfter(again.st, pin, m);
+    })().finally(()=>{ _shopSigninBusy = null; });
+    return _shopSigninBusy;
+  }
+  function shopSigninAfter(st, pin, m){
+    const id = st.id;
     if(!m){
       const fails = (Number(st.fail_count)||0)+1;
       if(fails>=PIN_MAX_ATTEMPTS){
@@ -180,7 +212,7 @@
     if(!isOnline()) throw new Error("You're offline. Connect to set your seiGEN PIN.");
     const token = await staffEnsureToken();
     if(!token) throw new Error(s.tokenProblem || "seiGEN couldn't check your sign-in. Try again.");
-    const c = adminCheckMake(p);
+    const c = await adminCheckMakeAsync(p);
     const r = await terminalRpc("cl_device_staff_set_pin", Object.assign(terminalAuth(), { p_staff_token:token, p_staff_id:s.id, p_pin:p,
       p_pin_salt:c.salt, p_pin_check:c.check, p_pin_rounds:c.rounds }), { timeoutMs:20000 });
     if(!r.ok) throw new Error((r.data && r.data.message) || r.message || "Couldn't reach seiGEN.");
@@ -257,10 +289,18 @@
   }
   function staffManageSignin(id, pin){
     if(_staffSession) staffSignOut();
-    const r = attemptShopSignin(id, pin);
+    return staffManageAfter(id, attemptShopSignin(id, pin));
+  }
+  // The modal (v30): the PIN checked off the UI thread.
+  async function staffManageSigninAsync(id, pin){
+    if(_staffSession) staffSignOut();
+    return staffManageAfter(id, await attemptShopSigninAsync(id, pin));
+  }
+  function staffManageAfter(id, r){
     if(!r.ok) return r;
     if(!staffManagersHere().some(s=> s.id===id)){ staffSignOut(); return { ok:false, message:"That person doesn't have the Staff right." }; }
     _staffSession.manage = true; _staffSession.lastActive = Date.now();
+    if(_staffIdleTimer) clearInterval(_staffIdleTimer);
     _staffIdleTimer = setInterval(()=> staffIdleCheck(), 30000);
     return r;
   }
@@ -272,8 +312,14 @@
       <label for="smPin">PIN</label><input class="field" id="smPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
       <div id="smMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
       <button class="btn btn-primary" id="smGo" style="margin-top:12px">Sign in</button>`);
-    wrap.querySelector("#smGo").onclick = ()=>{
-      const r = staffManageSignin(wrap.querySelector("#smWho").value, wrap.querySelector("#smPin").value);
+    const go = wrap.querySelector("#smGo");
+    go.onclick = async ()=>{
+      if(go.disabled) return;
+      go.disabled = true; go.textContent = "Checking…"; wrap.querySelector("#smMsg").textContent = "";
+      let r;
+      try{ r = await staffManageSigninAsync(wrap.querySelector("#smWho").value, wrap.querySelector("#smPin").value); }
+      catch(e){ r = { ok:false, message:"Couldn't check the PIN. Try again." }; }
+      go.disabled = false; go.textContent = "Sign in";
       if(!r.ok){ wrap.querySelector("#smMsg").textContent = r.message; wrap.querySelector("#smPin").value = ""; return; }
       wrap.remove(); redraw();
       if(r.legacy) openSetOwnPinModal(redraw);
@@ -351,7 +397,7 @@
     let token = await staffEnsureToken();
     if(!token){
       if(!staffBootstrapOpen()) throw new Error("Sign in (online) as someone with the Staff right to change staff and roles.");
-      if(!findAdmin(adminPasscode)) throw new Error("Enter this till's Admin passcode to add the first person who manages staff.");
+      if(!(await findAdminAsync(adminPasscode))) throw new Error("Enter this till's Admin passcode to add the first person who manages staff.");
     }
     const r = await terminalRpc(fn, Object.assign(terminalAuth(), { p_staff_token:token }, payload), { timeoutMs:20000 });
     if(!r.ok) throw new Error((r.data && r.data.message) || r.message || "Couldn't reach seiGEN.");
@@ -364,7 +410,7 @@
     const pin = String(o.pin||"").trim();
     if(pin){
       const bad = pinProblem(pin); if(bad) throw new Error(bad);
-      const c = adminCheckMake(pin);
+      const c = await adminCheckMakeAsync(pin);
       Object.assign(p, { pin, pin_salt:c.salt, pin_check:c.check, pin_rounds:c.rounds });
     } else if(!o.id) throw new Error(pinProblem(""));
     if(!String(o.name||"").trim()) throw new Error("Enter the person's name.");

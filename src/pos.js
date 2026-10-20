@@ -12,7 +12,7 @@
   // (docs/multi-terminal/phase3a-design.md, "Phase 3b decisions").
   // What may be sold of a product now: its stock, or on a shared-stock till
   // (Phase 3b, shared-stock.js) branch stock online / this till's allowance offline.
-  function sellable(p){ return typeof sellableNow==="function"? sellableNow(p) : p.stock; }
+  function sellable(p, st){ return typeof sellableNow==="function"? sellableNow(p, st) : p.stock; }
 
   // ---- the cart's customer and price level (POS fixes, docs/pos/pos-fixes-design.md §2-3) ----
   // The customer picked in the cart (customers.js combo), or null for a walk-in.
@@ -830,9 +830,17 @@
       shareWhatsApp(receiptText(`${escapeHtml(getSetting("shop_name",""))} — Receipt ${receiptLabel(r.saleId, r.receiptNo)}`, itemLines, totalLines));
     };
   }
+  // v30 (owner 2026-10-20): the Sell list shows the first 200 products (of the search's matches, or of all),
+  // then "Show more" adds 200 each tap. A new search starts again at 200. Barcode and search are unchanged.
+  const POS_LIST_STEP = 200;
+  let posListLimit = POS_LIST_STEP, posListLimitFor = null;
   function productListHtml(results){
-    return results.length===0? `<p class="muted" style="padding:10px 4px">No products match. Add products in the Products tab.</p>` :
-      results.map(p=>`
+    if(results.length===0) return `<p class="muted" style="padding:10px 4px">No products match. Add products in the Products tab.</p>`;
+    if(posListLimitFor!==searchQuery){ posListLimitFor = searchQuery; posListLimit = POS_LIST_STEP; }
+    const shown = results.length>posListLimit? results.slice(0, posListLimit) : results;
+    const ss = typeof ssListState==="function"? ssListState() : null;   // v30: the shared-stock settings once per list
+    return shown.map(p=>{ const line = typeof stockLineText==="function"? stockLineText(p, ss) : null, canSell = sellable(p, ss)>0;
+      return `
         <div class="product-row">
           <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
             ${typeof catPicHtml==="function"? catPicHtml(p, 'class="prod-thumb"', `<div class="prod-thumb-placeholder">${ICON_STOREFRONT}</div>`)
@@ -840,14 +848,19 @@
             <div style="min-width:0" data-bsline="${p.id}">
               ${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}
               <div class="pname">${escapeHtml(p.name)}</div>
-              <div class="pmeta">${currency}${p.price.toFixed(2)} · ${(typeof stockLineText==="function" && stockLineText(p))? `<span class="ss-stock">${escapeHtml(stockLineText(p))}</span>` : p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
+              <div class="pmeta">${currency}${p.price.toFixed(2)} · ${line? `<span class="ss-stock">${escapeHtml(line)}</span>` : p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
               ${typeof bsSellLineHtml==="function"? bsSellLineHtml(p) : ""}
             </div>
           </div>
-          <button class="add-chip" data-add="${p.id}" ${sellable(p)<=0?"disabled":""}>${sellable(p)<=0?"Out":"Add"}</button>
-        </div>`).join("");
+          <button class="add-chip" data-add="${p.id}" ${canSell?"":"disabled"}>${canSell?"Add":"Out"}</button>
+        </div>`; }).join("")
+      + (shown.length<results.length? `<div class="pos-more muted" id="posMoreRow" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 4px">
+          <span id="posMoreText">Showing ${shown.length} of ${results.length} — search, or Show more</span>
+          <button class="btn btn-sm btn-outline" id="posShowMore" style="width:auto;flex:none">Show more</button></div>` : "");
   }
   function wireProductAdds(scope){
+    const more = scope.querySelector("#posShowMore");
+    if(more) more.onclick = ()=>{ posListLimit += POS_LIST_STEP; renderPOSListOnly(); };
     scope.querySelectorAll("[data-add]").forEach(b=>{
       b.onclick=()=>{ const p = one("SELECT * FROM products WHERE id=?",[+b.dataset.add]); addToCart(p); };
     });

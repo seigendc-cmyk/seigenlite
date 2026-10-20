@@ -1,3 +1,8 @@
+  // javascript-obfuscator:disable
+  // (v30 freeze fix) This whole file is left out of the obfuscation of dist-pwa/dist-tauri,
+  // like the vendored tweetnacl: control-flow flattening made the hash ~40x slower
+  // (a 2-minute frozen sign-in on a phone). It is a public algorithm; nothing secret is in it.
+  // docs/perf/login-branch-switch-diagnosis.md
   // ---------------- Admin passcode check values (Admin passcode from the main branch) ----------------
   // A joined device's Admin passcode is set on a main-branch till; only a
   // check value travels through seiGEN, never the passcode:
@@ -6,6 +11,8 @@
   // (findAdmin, staff.js) stays as it is, and it works the same in the phone
   // app, the desktop app and the file app (no WebCrypto needed). It takes
   // about a second on a phone: it runs only when an Admin passcode is typed.
+  // The sign-in and Settings unlock screens use the async versions at the end
+  // (v30): Web Crypto, off the UI thread, the same bytes; this code as fallback.
   // Design: docs/multi-terminal/admin-passcode-on-join-design.md
   const ADMIN_CHECK_ROUNDS = 150000;
   const ADMIN_SEED_PASSCODE_MIN = 6;                  // owner 2026-10-13: 6 characters for passcodes set this way
@@ -110,3 +117,41 @@
     if(n < 1000 || n > 2000000) return false;
     return pbkdf2Sha256Hex(pcUtf8(p), pcHexToBytes(salt), n) === check;
   }
+
+  // ---- async (v30): Web Crypto off the UI thread, this file's code as the fallback ----
+  // Same inputs, same rounds, same 32 bytes (test/passcode-async.test.js). pcForceFallback: tests only.
+  let pcForceFallback = false;
+  function pcTestForceFallback(on){ pcForceFallback = !!on; }
+  function pcSubtle(){ return !pcForceFallback && typeof crypto!=="undefined" && crypto && crypto.subtle && typeof crypto.subtle.deriveBits==="function"? crypto.subtle : null; }
+  // Let the screen paint ("Checking…") before a synchronous fallback hash. rAF doesn't fire in a hidden tab: a timeout too.
+  function pcYieldToPaint(){
+    return new Promise((res)=>{
+      let done = false; const go = ()=>{ if(!done){ done = true; setTimeout(res, 0); } };
+      if(typeof requestAnimationFrame==="function") requestAnimationFrame(go);
+      setTimeout(go, 50);
+    });
+  }
+  async function pbkdf2Sha256HexAsync(passwordBytes, saltBytes, rounds){
+    const s = pcSubtle();
+    if(s){
+      try{
+        const key = await s.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveBits"]);
+        const bits = await s.deriveBits({ name:"PBKDF2", hash:"SHA-256", salt:saltBytes, iterations:rounds }, key, 256);
+        return Array.from(new Uint8Array(bits), (x)=> x.toString(16).padStart(2,"0")).join("");
+      }catch(e){ /* the fallback below */ }
+    }
+    await pcYieldToPaint();
+    return pbkdf2Sha256Hex(passwordBytes, saltBytes, rounds);
+  }
+  async function adminCheckMakeAsync(passcode, saltHex){
+    const salt = saltHex || pcRandomHex(16);
+    return { salt, check: await pbkdf2Sha256HexAsync(pcUtf8(String(passcode).trim()), pcHexToBytes(salt), ADMIN_CHECK_ROUNDS), rounds: ADMIN_CHECK_ROUNDS };
+  }
+  async function adminCheckMatchesAsync(passcode, salt, check, rounds){
+    const p = String(passcode==null?"":passcode).trim();
+    if(!p || !/^[0-9a-f]{32}$/.test(String(salt||"")) || !/^[0-9a-f]{64}$/.test(String(check||""))) return false;
+    const n = Number(rounds)||ADMIN_CHECK_ROUNDS;
+    if(n < 1000 || n > 2000000) return false;
+    return (await pbkdf2Sha256HexAsync(pcUtf8(p), pcHexToBytes(salt), n)) === check;
+  }
+  // javascript-obfuscator:enable

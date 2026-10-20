@@ -1,0 +1,8 @@
+{"build":"v30-plain","size":"small","rate":1,"search_total_ms":46,"search_slowest_key_ms":10,"search_first_key_ms":10,"sale_commit_ms":[82,53,54,79,59],"sale_commit_median_ms":59}
+{"build":"v30-obfuscated","size":"small","rate":1,"search_total_ms":50,"search_slowest_key_ms":9,"search_first_key_ms":9,"sale_commit_ms":[103,63,65,70,68],"sale_commit_median_ms":68}
+{"build":"v30-plain","size":"small","rate":6,"search_total_ms":469,"search_slowest_key_ms":110,"search_first_key_ms":110,"sale_commit_ms":[564,468,508,415,601],"sale_commit_median_ms":508}
+{"build":"v30-obfuscated","size":"small","rate":6,"search_total_ms":480,"search_slowest_key_ms":99,"search_first_key_ms":90,"sale_commit_ms":[509,531,452,447,451],"sale_commit_median_ms":452}
+{"build":"v30-plain","size":"large","rate":1,"search_total_ms":1189,"search_slowest_key_ms":190,"search_first_key_ms":190,"sale_commit_ms":[278,280,242,226,266],"sale_commit_median_ms":266}
+{"build":"v30-obfuscated","size":"large","rate":1,"search_total_ms":1430,"search_slowest_key_ms":263,"search_first_key_ms":219,"sale_commit_ms":[233,274,250,299,265],"sale_commit_median_ms":265}
+{"build":"v30-plain","size":"large","rate":6,"search_total_ms":10313,"search_slowest_key_ms":1697,"search_first_key_ms":1440,"sale_commit_ms":[1540,1874,1930,1986,1959],"sale_commit_median_ms":1930}
+{"build":"v30-obfuscated","size":"large","rate":6,"search_total_ms":10855,"search_slowest_key_ms":1738,"search_first_key_ms":1441,"sale_commit_ms":[1961,2056,2113,2041,2074],"sale_commit_median_ms":2056}

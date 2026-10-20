@@ -41,19 +41,22 @@
   }
   function allowanceValid(){ return ssNowMs() < allowanceValidUntil(); }
   function stockReachable(){ return isOnline() && getSetting("stock_reach","")!=="fail"; }
+  // The settings these read, looked up once for a whole list (v30: the Sell list asked them
+  // ~4 times per product, a SQL query each). Pass it to sellableNow/stockLineText; same answers.
+  function ssListState(){ return sharedStockTill()? { till:true, allow:allowanceValid(), reach:stockReachable() } : { till:false }; }
   // What the till may sell of a product right now.
-  function sellableNow(p){
+  function sellableNow(p, st){
     if(!p) return 0;
-    if(!sharedStockTill() || !p.cat_uid) return p.stock;
-    const own = allowanceValid()? Math.max(0, p.stock) : 0;
-    return stockReachable()? Math.max(0, p.stock) + Math.max(0, p.branch_avail||0) : own;
+    if(!(st? st.till : sharedStockTill()) || !p.cat_uid) return p.stock;
+    const own = (st? st.allow : allowanceValid())? Math.max(0, p.stock) : 0;
+    return (st? st.reach : stockReachable())? Math.max(0, p.stock) + Math.max(0, p.branch_avail||0) : own;
   }
   // "12 in branch · 3 on this till" (online) / "3 on this till (offline)".
-  function stockLineText(p){
-    if(!sharedStockTill() || !p.cat_uid) return null;
+  function stockLineText(p, st){
+    if(!(st? st.till : sharedStockTill()) || !p.cat_uid) return null;
     const pend = p.stock_pending_in>0? " · +"+p.stock_pending_in+" pending" : "";
-    if(stockReachable()) return (p.branch_total||0)+" in branch · "+Math.max(0,p.stock)+" on this till"+pend;
-    return allowanceValid()? Math.max(0,p.stock)+" on this till (offline)"+pend : "Offline · allowance expired"+pend;
+    if(st? st.reach : stockReachable()) return (p.branch_total||0)+" in branch · "+Math.max(0,p.stock)+" on this till"+pend;
+    return (st? st.allow : allowanceValid())? Math.max(0,p.stock)+" on this till (offline)"+pend : "Offline · allowance expired"+pend;
   }
   function ssUid(){ return typeof catNewOp==="function"? catNewOp() : Array.from(crypto.getRandomValues(new Uint8Array(16)), x=>x.toString(16).padStart(2,"0")).join(""); }
   function ssRpc(name, extra, opts){ return terminalRpc(name, Object.assign(terminalAuth(), extra||{}), opts); }

@@ -75,7 +75,7 @@ function makeApp(settings, opts){
     const IDB_NAME="x",IDB_STORE="x",IDB_KEY="x"; let route="", cart=[];
     let sessionStaffId=null, accessStep=1, accessSelectedStaffId=null, accessPinDigits="", accessError="";
     let moreTab="help", settingsUnlocked=false, drawerOpen=false, appliedVoucher=null;
-    let stocktakeReportId=null, stocktakeQuery="", plistQuery="", plistBranch="", creditQuery="", directoryQuery="";
+    let stocktakeReportId=null, stocktakeQuery="", plistQuery="", plistBranch="", creditQuery="", directoryQuery="", searchQuery="";
     function render(){} async function persist(){ persistCount++; }
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
@@ -151,6 +151,8 @@ function makeApp(settings, opts){
         staffPull, staffUploadLegacy, attemptShopSignin, staffSession, staffToken, staffEnsureToken, staffSignOut, saveShopStaff, saveShopRole, staffBranchReport, staffDispatchCosts,
         shopStaffSectionHtml, wireShopStaffSection, openRoleModal, openShopStaffModal, signinChoices, rwRunRemote, rwOtherBranches, ROLE_DEFAULTS, ROLE_MENU_RIGHTS, ROLE_ACTION_RIGHTS, staffSectionHtml, saveStaffMember,
         setSessionUser:(n)=>{ sessionUser=n; }, canCreateCustomers, getSessionUser:()=>sessionUser,
+        attemptShopSigninAsync, staffManageSigninAsync, findAdminAsync, adminCheckMakeAsync, adminCheckMatchesAsync, pcTestForceFallback,
+        branchTypeLockedRemote, BRANCH_TYPE_LOCKED_TEXT, ssListState, sellableNow, stockLineText, POS_LIST_STEP,
         staffSetOwnPin, openSetOwnPinModal, staffManagersHere, staffManageSignin, staffIdleCheck, staffEndManage, staffManaging, staffManageGuidance, openStaffManagerSignin, STAFF_MANAGE_IDLE_MS, singleOperatorMode,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.

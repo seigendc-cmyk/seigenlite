@@ -134,7 +134,7 @@ async function waitFor(cond, what){
       const main = doc(J).getElementById("app");
       J.api.renderSettings(main);
       $(J, "settingsPasscode").value = "mbare-77";
-      $(J, "unlockSettings").onclick();
+      await $(J, "unlockSettings").onclick();   // v30: async
       assert.strictEqual(J.api.getSettingsUnlocked(), true);
     } finally { J.ctx.navigator.onLine = true; }
   });

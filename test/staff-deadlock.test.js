@@ -106,9 +106,9 @@ async function until(cond, what){ for(let i = 0; i < 250; i++){ if(await cond())
     const m = modal(J1);
     assert.match(m.querySelector("h3").textContent, /Sign in to manage staff/);
     assert.deepStrictEqual([...m.querySelectorAll("#smWho option")].map((o)=> o.textContent), ["Grace"]);
-    m.querySelector("#smPin").value = "1111"; m.querySelector("#smGo").click();
+    m.querySelector("#smPin").value = "1111"; await m.querySelector("#smGo").onclick();   // v30: the PIN is checked off the UI thread
     assert.match(m.querySelector("#smMsg").textContent, /Incorrect PIN/);
-    m.querySelector("#smPin").value = "2580"; m.querySelector("#smGo").click();
+    m.querySelector("#smPin").value = "2580"; await m.querySelector("#smGo").onclick();
     const pinModal = modal(J1);
     assert.match(pinModal.querySelector("h3").textContent, /Set your seiGEN PIN/);
     assert.ok(!pinModal.querySelector("[data-modal-close]"), "no ✕: it can't be skipped while online");
@@ -195,7 +195,7 @@ async function until(cond, what){ for(let i = 0; i < 250; i++){ if(await cond())
     doc(R1).getElementById("whoSelectContinue").onclick();
     const pin = doc(R1).getElementById("whoPin");
     pin.value = "7531"; pin.oninput();
-    doc(R1).getElementById("whoPinContinue").onclick();
+    await doc(R1).getElementById("whoPinContinue").onclick();   // v30: async
     assert.strictEqual(R1.api.getSessionUser(), "Rumbidzai");
     assert.strictEqual(vm.runInContext("route", R1.ctx), "pos");
     assert.ok(!modal(R1), "a seiGEN PIN: no PIN to set");

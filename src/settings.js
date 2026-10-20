@@ -25,10 +25,16 @@
         ${backupMergeSectionHtml()}
       `;
       const unlock = document.getElementById("unlockSettings");
-      if(unlock) unlock.onclick=()=>{
+      if(unlock) unlock.onclick=async ()=>{
+        if(unlock.disabled) return;                                       // v30: no double submit
         const code = document.getElementById("settingsPasscode").value;
-        if(findAdmin(code)){ settingsUnlocked=true; render(); }          // also an Admin passcode set by main (v21)
-        else alert("Incorrect passcode.");
+        unlock.disabled = true; unlock.textContent = "Checking…";        // v30: checked off the UI thread
+        let admin = null;
+        try{ admin = await findAdminAsync(code); }catch(e){ admin = null; }   // also an Admin passcode set by main (v21)
+        if(!unlock.isConnected) return;                                   // the screen was left meanwhile
+        if(admin){ settingsUnlocked=true; render(); return; }
+        unlock.disabled = false; unlock.textContent = "Unlock";
+        alert("Incorrect passcode.");
       };
       // v21: a joined device's Admin passcode comes with its next check-in
       const check = document.getElementById("adminFromMainCheck");
@@ -58,9 +64,10 @@
         ${branchNameLocked()? `<p class="muted" style="font-size:12px;margin-top:4px">🔒 The branch name is locked after setup, because Delivery Notes, catalogues and the branch register all carry it.</p>` : ""}
         <label>Branch type</label>
         <select class="field" id="sBranchType">
-          <option value="main" ${!isRemote()?"selected":""}>Main Branch</option>
+          <option value="main" ${!isRemote()?"selected":""} ${isRemote() && branchTypeLockedRemote()? "disabled" : ""}>Main Branch</option>
           <option value="remote" ${isRemote()?"selected":""}>Remote Branch</option>
         </select>
+        ${isRemote() && branchTypeLockedRemote()? `<p class="muted" id="branchTypeLocked" style="font-size:12px;margin-top:4px">🔒 ${escapeHtml(BRANCH_TYPE_LOCKED_TEXT)}</p>` : ""}
         <p class="muted">Remote branches can sell, but can't add or edit items, change stock quantities directly, or see item costs.</p>
         <label>Contact number</label><input class="field" id="sContact" value="${escapeHtml(getSetting("contact_phone",""))}">
         <label>Management WhatsApp number</label><input class="field" id="sMgmt" inputmode="tel" value="${escapeHtml(getSetting("management_whatsapp",""))}" placeholder="e.g. 0771234567">
@@ -119,24 +126,41 @@
     `;
     document.getElementById("printTestLine").onclick=()=>printTestLine();
     document.getElementById("saveSettings").onclick=()=>{
-      setSetting("shop_name", document.getElementById("sName").value.trim());
-      setSetting("branch_name", branchNameToSave(document.getElementById("sBranch").value));
-      setSetting("awaiting_days", String(awaitingDaysFrom(document.getElementById("sAwait").value)));
-      { // switching cancel/reissue on or off needs an Admin
-        const want = document.getElementById("sCancelOn").checked;
+      const v = (id)=> document.getElementById(id).value;
+      const wantType = v("sBranchType");
+      // v30 (owner 2026-10-20): a till registered with seiGEN as a remote doesn't make itself Main here
+      if(isRemote() && wantType==="main" && branchTypeLockedRemote()){ alert(BRANCH_TYPE_LOCKED_TEXT+"\n\nNothing was changed."); render(); return; }
+      // switching cancel/reissue on or off needs an Admin (asked before anything is written)
+      let cancelTo = null;
+      { const want = document.getElementById("sCancelOn").checked;
         if(want!==cancelEnabled()){
           if(!hasAdminPasscode()) alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
           else if(!findAdmin(prompt("Admin passcode to "+(want? "switch on" : "switch off")+" cancel and reissue:")||"")) alert("Incorrect Admin passcode. Cancel and reissue was not changed.");
-          else { setSetting("cancel_enabled", want? "1" : ""); logAudit("Cancel and reissue", "", want? "switched on" : "switched off"); }
+          else cancelTo = want;
         }
       }
-      setSetting("branch_type", document.getElementById("sBranchType").value);
-      setSetting("contact_phone", document.getElementById("sContact").value.trim());
-      setSetting("management_whatsapp", document.getElementById("sMgmt").value.trim());
-      currency = document.getElementById("sCurrency").value.trim()||"$";
-      setSetting("currency", currency);
-      setSetting("seed_money", parseFloat(document.getElementById("sSeedMoney").value)||0);
-      setSetting("paper_width", document.getElementById("sPaper").value);
+      const newCurrency = v("sCurrency").trim()||"$";
+      // v30: every setting of this card in one transaction: all of them, or none (the branch type included)
+      try{
+        run("BEGIN");
+        setSetting("shop_name", v("sName").trim());
+        setSetting("branch_name", branchNameToSave(v("sBranch")));
+        setSetting("awaiting_days", String(awaitingDaysFrom(v("sAwait"))));
+        if(cancelTo!==null){ setSetting("cancel_enabled", cancelTo? "1" : ""); logAudit("Cancel and reissue", "", cancelTo? "switched on" : "switched off"); }
+        if(wantType!==(isRemote()? "remote" : "main")) logAudit("Branch type", "", wantType==="main"? "Remote → Main" : "Main → Remote");
+        setSetting("branch_type", wantType);
+        setSetting("contact_phone", v("sContact").trim());
+        setSetting("management_whatsapp", v("sMgmt").trim());
+        setSetting("currency", newCurrency);
+        setSetting("seed_money", parseFloat(v("sSeedMoney"))||0);
+        setSetting("paper_width", v("sPaper"));
+        run("COMMIT");
+      }catch(e){
+        try{ run("ROLLBACK"); }catch(e2){}
+        alert("Settings couldn't be saved. Nothing was changed.\n\n"+(e && e.message || e));
+        render(); return;
+      }
+      currency = newCurrency;
       persist(); render();
     };
     wireBusinessDayCard();
@@ -181,6 +205,10 @@
     wireCloudSyncSection();
     wireDiagnosticsSection();
   }
+  // v30 (owner 2026-10-20): a till registered with seiGEN as a remote (its branch isn't the business's
+  // main on seiGEN) may not switch itself to Main here. Unregistered (offline-only) tills: as before.
+  const BRANCH_TYPE_LOCKED_TEXT = "Branch type is set for the whole business. Ask the Owner, or seiGEN support.";
+  function branchTypeLockedRemote(){ return typeof isTerminalRegistered==="function" && isTerminalRegistered() && getSetting("terminal_is_main","")!=="1"; }
   // Settings → Staff & Roles. A till with the business's staff from seiGEN (roles.js, v28): the
   // shared people and roles, at any branch, for a holder of Staff (anyone once Settings is open,
   // in single operator mode). Otherwise this till's own list, on a main branch, as before.
