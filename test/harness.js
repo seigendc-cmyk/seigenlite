@@ -153,7 +153,7 @@ function makeApp(settings, opts){
         setSessionUser:(n)=>{ sessionUser=n; }, canCreateCustomers, getSessionUser:()=>sessionUser,
         attemptShopSigninAsync, staffManageSigninAsync, findAdminAsync, adminCheckMakeAsync, adminCheckMatchesAsync, pcTestForceFallback,
         branchTypeLockedRemote, BRANCH_TYPE_LOCKED_TEXT, ssListState, sellableNow, stockLineText, POS_LIST_STEP,
-        staffSetOwnPin, openSetOwnPinModal, staffManagersHere, staffManageSignin, staffIdleCheck, staffEndManage, staffManaging, staffManageGuidance, openStaffManagerSignin, STAFF_MANAGE_IDLE_MS, singleOperatorMode,
+        staffSetOwnPin, openSetOwnPinModal, staffManagersHere, staffManageSignin, staffIdleCheck, staffEndManage, staffManaging, staffManageGuidance, staffEverywhereRule, openStaffManagerSignin, STAFF_MANAGE_IDLE_MS, singleOperatorMode,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.
   // Tests must never reach it, so every app instance instead reads the old

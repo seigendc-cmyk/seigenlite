@@ -11,6 +11,11 @@
 //   * the remote: the single-mode alert says where to add people -> Refresh ->
 //     single mode off -> Log out -> the PIN screen shows Rumbi -> sign in -> a
 //     Cashier's menus
+//   * from seiGEN 20261108120000 (v31): the remote Refreshes -> Boss (Admin, home
+//     main) can now sign in there with his seiGEN PIN -> adds a Cashier (Tafara) at
+//     the remote itself
+// SWAP=1: the other way round (main on the phone build / mobilepos-preview, the
+// remote on the desktop build / desktoppos-preview).
 // SHOT_DIR=<dir> saves the screenshots (390 and 1280 px).
 "use strict";
 const assert = require("assert");
@@ -26,6 +31,8 @@ catch(e){ console.log("Playwright is not installed — skipping."); console.log(
 
 const ROOT = path.join(__dirname, "..");
 const PREVIEW = process.env.PREVIEW === "1";
+const SWAP = process.env.SWAP === "1";
+const MAIN = SWAP? "phone" : "desktop", REMOTE = SWAP? "desktop" : "phone";
 const BUILDS = { phone: path.join(ROOT, "dist", "index.html"), desktop: path.join(ROOT, "dist-tauri", "index.html") };
 const URLS = { phone: "https://mobilepos-preview.seigendc.workers.dev/", desktop: "https://desktoppos-preview.seigendc.workers.dev/" };
 if(!PREVIEW) for(const b of Object.values(BUILDS)) if(!fs.existsSync(b)){ console.log("Missing "+b+" — run: node build.js && node build.js --tauri"); process.exit(1); }
@@ -121,8 +128,8 @@ const gone = (d, sel)=> d.page.waitForSelector(sel, { state:"detached", timeout:
   const browser = await chromium.launch();
   let A, C;
 
-  await t("main (desktop): an old-style Admin with a PIN; it registers and its v28 check-in moves the Admin to seiGEN; the remote (phone) joins", async ()=>{
-    A = await device(browser, "desktop");
+  await t(`main (${MAIN}): an old-style Admin with a PIN; it registers and its v28 check-in moves the Admin to seiGEN; the remote (${REMOTE}) joins`, async ()=>{
+    A = await device(browser, MAIN);
     const p = A.page;
     await p.fill("#setShop", "Zuva Hardware"); await p.fill("#setBranch", "Mbare"); await p.fill("#setSecret", "Gold Leaf 42");
     await p.click("#setupNext"); await p.fill("#setOwnerPhone", "0771234567"); await p.click("#setupNext2"); await p.click("#setupNext3"); await p.click("#setupFinish");
@@ -139,7 +146,7 @@ const gone = (d, sel)=> d.page.waitForSelector(sel, { state:"detached", timeout:
     const m = (await sq("select install_id, shop_secret_phrase, device_key from cl_vendors limit 1"))[0], s = v21AdminSeed("admin123");
     const code = (await serverCall("cl_branch_issue_join_code", { p_install_id:m.install_id, p_secret_phrase:m.shop_secret_phrase, p_device_key:m.device_key,
       p_admin_salt:s.salt, p_admin_check:s.check, p_admin_rounds:s.rounds, p_new_branch_name:"Chitungwiza" })).json.code;
-    C = await device(browser, "phone");
+    C = await device(browser, REMOTE);
     await C.page.click("#setJoinBtn"); await C.page.waitForSelector("#setJoinCode");
     await C.page.fill("#setSecret", "Gold Leaf 42"); await C.page.fill("#setJoinCode", code); await C.page.fill("#setTillLabel", "Front");
     await C.page.click("#setupJoin");
@@ -194,30 +201,51 @@ const gone = (d, sel)=> d.page.waitForSelector(sel, { state:"detached", timeout:
     assert.deepStrictEqual(A.pageErrors, []);
   });
 
-  await t("the remote: the alert says where to add people; Refresh -> single mode off -> the PIN screen shows Rumbidzai -> a Cashier's menus", async ()=>{
+  await t("the remote: the alert says where to add people; Refresh -> Boss (Admin, home main) signs in here and adds Tafara -> single mode off -> the PIN screen -> Rumbidzai, a Cashier's menus", async ()=>{
     const p = C.page;
     await openStaffCard(C);
-    assert.match(await cardText(C), /Add or edit people for Chitungwiza on the main branch/);
+    assert.match(await cardText(C), /can sign in here once they have a seiGEN PIN.*Or add or edit people for Chitungwiza on the main branch/);
     await shots(C, "5-remote-guidance");
     await p.uncheck("#sSingleOperator").catch(()=>{});
     await waitFor(async()=> C.dialogs.length > 0, "the alert");
-    assert.match(C.dialogs[0], /Add at least one active person with a PIN at this branch before turning this off\.\s+Nobody who manages staff can sign in on this till\. Add or edit people for Chitungwiza on the main branch/);
+    assert.match(C.dialogs[0], /Add at least one active person with a PIN at this branch before turning this off\.\s+Nobody who manages staff can sign in on this till yet\. An Owner, an Admin or anyone with the Staff right can sign in here once they have a seiGEN PIN.*Or add or edit people for Chitungwiza on the main branch/);
     assert.ok(await p.isChecked("#sSingleOperator"), "still on");
     await p.click("#staffRefresh");
     await waitFor(async()=> /Rumbidzai Cashier · Chitungwiza/.test(await cardText(C)), "Rumbidzai arrives", 30000);
     assert.match(await cardText(C), /Roles \(6\)/);
+    // v31 + seiGEN 20261108120000: Boss (Admin, home Mbare) has a seiGEN PIN, so he can manage staff here too
+    await p.waitForSelector("#staffMgrSignin");
+    await p.click("#staffMgrSignin"); await p.waitForSelector("#smPin");
+    await p.selectOption("#smWho", { label:"Boss" }); await p.fill("#smPin", "4826"); await p.click("#smGo");
+    await p.waitForSelector("#addShopStaff");
+    assert.ok(!(await p.$("#opPin")), "no set-PIN step: it is already a seiGEN PIN");
+    await p.click("#addShopStaff"); await p.waitForSelector("#ssName");
+    await p.fill("#ssName", "Tafara"); await p.selectOption("#ssRole", { label:"Cashier" }); await p.selectOption("#ssHome", { label:"Chitungwiza" });
+    await p.fill("#ssPin", "2580");
+    await shots(C, "5b-remote-manager-adds-person");
+    await p.click("#ssSave"); await gone(C, "#ssName");
+    await waitFor(async()=> /Tafara Cashier · Chitungwiza/.test(await cardText(C)), "Tafara in the list");
+    await p.click("#staffMgrDone");
+    await p.waitForSelector("#staffMgrSignin");
+    assert.ok(await p.isChecked("#sSingleOperator"), "single mode still on");
     await p.uncheck("#sSingleOperator");
     await waitFor(async()=> !(await p.isChecked("#sSingleOperator")), "single mode off");
     await p.click("#logoutBtn");
     await p.waitForSelector("#startSignIn"); await p.click("#startSignIn");
     await p.waitForSelector("#whoSelect");
-    assert.deepStrictEqual(await p.$$eval("#whoSelect option", (o)=> o.map((x)=> x.textContent)), ["Rumbidzai"]);
+    assert.deepStrictEqual(await p.$$eval("#whoSelect option", (o)=> o.map((x)=> x.textContent)), ["Boss", "Rumbidzai", "Tafara"]);
     await shots(C, "6-remote-pin-screen");
+    await p.selectOption("#whoSelect", { label:"Rumbidzai" });
     await p.click("#whoSelectContinue");
     await p.fill("#whoPin", "7531"); await p.click("#whoPinContinue");
     await p.waitForSelector("#logoutBtn", { timeout:30000 });
     await waitFor(async()=> (await p.textContent("#userChip")).trim()==="Rumbidzai", "signed in");
-    assert.deepStrictEqual(await p.$$eval(".navbar [data-route]", (b)=> b.map((x)=> x.dataset.route)), ["pos", "credit", "reports", "more"]);
+    const routes = C.desktop? (await p.click("#hamburgerBtn"), await p.$$eval("#navDrawer [data-route]", (b)=> b.map((x)=> x.dataset.route)))
+                            : await p.$$eval(".navbar [data-route]", (b)=> b.map((x)=> x.dataset.route));
+    if(C.desktop) await p.keyboard.press("Escape");
+    for(const r of ["pos", "credit", "reports", "more"]) assert.ok(routes.includes(r), r+" in "+routes);
+    for(const r of ["products", "marketing"]) assert.ok(!routes.includes(r), "a Cashier has no "+r+": "+routes);
+    if(!C.desktop) assert.deepStrictEqual(routes, ["pos", "credit", "reports", "more"]);
     await shots(C, "7-remote-cashier-signed-in");
     assert.deepStrictEqual(C.pageErrors, []);
   });

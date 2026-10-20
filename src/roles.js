@@ -226,8 +226,10 @@
   function openSetOwnPinModal(onDone){
     const s = _staffSession;
     if(!s || !s.legacy) return null;
+    const st = shopStaff(s.id), where = staffEverywhereRule() && staffRoleEverywhere(st && shopRole(st.role_id))
+      ? "every till of the business, at every branch" : "every till of the branches where you work";
     const wrap = openModal("Set your seiGEN PIN", `
-      <p style="margin-top:0">${escapeHtml(s.name)}, your PIN came from this till's old staff list, so it works on this till only. Choose a PIN for seiGEN: it then works on every till of your branch.</p>
+      <p style="margin-top:0">${escapeHtml(s.name)}, your PIN came from this till's old staff list, so it works on this till only. Choose a PIN for seiGEN: it then works on ${where}.</p>
       <label for="opPin">New PIN (4 to 6 digits)</label><input class="field" id="opPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password">
       <label for="opPin2">The same PIN again</label><input class="field" id="opPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password">
       <div id="opMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px">${isOnline()? "" : "You're offline. Connect to set your seiGEN PIN."}</div>
@@ -328,8 +330,15 @@
     return wrap;
   }
   // Where nobody who manages staff can sign in on this till (a remote; another till of main).
+  // seiGEN's rule (20261108120000): Owner, Admin and anyone with the Staff right sign in at every branch;
+  // everyone else at their home branch and "also works at". Before that seiGEN update: the branches only.
+  function staffEverywhereRule(){ return getSetting("staff_everywhere_rule","")==="1"; }
+  function staffRoleEverywhere(role){ return !!role && (role.builtin==="owner" || role.builtin==="admin" || role.rights.includes("m.staff")); }
   function staffManageGuidance(){
     const br = getSetting("branch_name","") || "this branch";
+    if(staffEverywhereRule()) return `Nobody who manages staff can sign in on this till yet. An Owner, an Admin or anyone with the Staff right can sign in here once they have a seiGEN PIN: they sign in once on the till where their PIN works now and set one, then tap Refresh here. `
+      + (isRemote()? `Or add or edit people for ${br} on the main branch (Settings → Staff & Roles). They arrive here at the next check-in, or tap Refresh.`
+                   : `Or add or edit people for ${br} on another till. They arrive here at the next check-in, or tap Refresh.`);
     return isRemote()
       ? `Nobody who manages staff can sign in on this till. Add or edit people for ${br} on the main branch (Settings → Staff & Roles). They arrive here at the next check-in, or tap Refresh.`
       : `Nobody who manages staff can sign in on this till. Sign in to manage staff on the till where they have their PIN, and add or edit people for ${br} there. They arrive here at the next check-in, or tap Refresh.`;
@@ -364,6 +373,8 @@
       setSetting("shop_has_owner", d.has_owner? "1" : "");
       setSetting("shop_bootstrap", d.bootstrap? "1" : "");
       setSetting("shop_upload", d.upload||"");
+      // seiGEN 20261108120000 on: Owner, Admin and Staff holders may sign in at every branch (v31 words its guidance by it)
+      setSetting("staff_everywhere_rule", (d.staff||[]).some(s=> s && "everywhere" in s)? "1" : "");
       setSetting("staff_pulled_ts", new Date().toISOString());
       // switched off, or no longer at this branch: the session ends (they can't use this till's menus any more)
       if(_staffSession){ const st = shopStaff(_staffSession.id); if(!st || !st.active || !st.here) staffEndSession("Your access at this branch has changed. Sign in again."); }
