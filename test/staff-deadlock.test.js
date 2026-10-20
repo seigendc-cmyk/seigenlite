@@ -269,6 +269,37 @@ async function until(cond, what){ for(let i = 0; i < 250; i++){ if(await cond())
     J2.api.staffSignOut(); J2.ctx.navigator.onLine = true;
   });
 
+  await t("v30 + seiGEN 20261108120000: Grace (Admin, home Mbare) signs in at the remote with her seiGEN PIN and adds its people there", async ()=>{
+    assert.ok((await R1.api.staffPull()).ok);
+    assert.ok(!R1.api.staffManagersHere().some((s)=> s.name === "Grace"), "before the update: Mbare's Admin isn't allowed at Chitungwiza");
+    assert.strictEqual(R1.api.staffEverywhereRule(), false);
+    assert.match(R1.api.staffManageGuidance(), /^Nobody who manages staff can sign in on this till\. Add or edit people for Chitungwiza on the main branch/);
+    const path = require("path"), { READ } = require("../supabase/tests/rebuild-helpers");
+    await serial(()=> pg.exec(READ(path.join(__dirname, "..", "supabase", "migrations", "20261108120000_shop_managers_everywhere.sql"))));
+    assert.ok((await R1.api.staffPull()).ok);
+    assert.strictEqual(R1.api.staffEverywhereRule(), true);
+    assert.match(R1.api.staffManageGuidance(), /^Nobody who manages staff can sign in on this till yet\. An Owner, an Admin or anyone with the Staff right can sign in here once they have a seiGEN PIN/);
+    const g = R1.api.staffManagersHere().find((s)=> s.name === "Grace");
+    assert.ok(g, "Grace may sign in at Chitungwiza now");
+    let c = staffCard(R1);
+    assert.ok(!c.$("#staffGuidance"), "no 'nobody can manage staff here' any more");   // (single mode is off here: managers sign in at the PIN screen)
+    assert.ok(R1.api.signinChoices().some((x)=> x.name === "Grace"), "Grace is on the remote's PIN screen");
+    c.remove();
+    R1.ctx.navigator.onLine = false;
+    assert.ok(R1.api.staffManageSignin(g.id, "4826").ok, "offline too (seiGEN's check value reached this till)");
+    R1.api.staffSignOut(); R1.ctx.navigator.onLine = true;
+    const r = R1.api.staffManageSignin(g.id, "4826");
+    assert.ok(r.ok && !r.legacy);
+    assert.ok(await R1.api.staffEnsureToken(), "seiGEN gives a token at the remote");
+    const role = R1.api.shopRoles().find((x)=> x.builtin === "cashier").id;
+    const s = await R1.api.saveShopStaff({ name:"Tafara", role_id:role, home_branch_id:R1.api.getSetting("branch_uuid",""), other_branches:[], pin:"2580" });
+    assert.ok(s && s.id, "added at the remote itself");
+    R1.api.staffSignOut();
+    assert.ok(R1.api.shopStaffHere().some((x)=> x.name === "Tafara"));
+    assert.ok((await J1.api.staffPull()).ok);
+    assert.ok(!J1.api.shopStaffHere().some((x)=> x.name === "Tafara"), "a Cashier stays at their branch: not on Mbare's tills");
+  });
+
   console.log("\n" + passed + " passed, " + failed + " failed");
   process.exit(failed ? 1 : 0);
 })().catch((e)=>{ console.error(e); process.exit(1); });
