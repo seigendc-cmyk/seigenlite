@@ -174,7 +174,7 @@ async function addPerson(d, o){
 
 (async()=>{
   pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f)=> f !== "20261107120000_shop_roles.sql") });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261108120000_shop_managers_everywhere.sql"]) });
   const browser = await chromium.launch();
   let A, C, mainInstall, harare;
   const issue = async (o)=>{
