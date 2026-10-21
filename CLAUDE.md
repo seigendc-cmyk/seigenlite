@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+Owner decisions and roadmap: docs/decisions/post-build-29-decisions.md — read it before any task; it overrides older design docs unless the task prompt says otherwise.
+
 ## Reports
 - At the end of every task, and whenever you stop to wait for me (Stage A designs, "waiting for apply", "waiting for post", blockers), save your full report to C:\seigen-commerce-lite-refactor\reports\latest-report.md (overwrite), plus a dated copy reports\YYYY-MM-DD-HHMM-<short-task-name>.md.
 - Use the same folder for Console work (don't create a second reports folder in D:\SCL Console).
