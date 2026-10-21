@@ -8,18 +8,18 @@
 | v30 | Fix for the sign-in and branch-switch freeze | done, `2c67145` |
 | v31 | Staff managers on every till | applied, `4a8b439` |
 | v32 | Office seat by invite (migration `20261109120000_office_seats`) | applied, on the previews, `d92a690`; test fix `0b2d67b` |
+| v33 | Roles fetch after register/join, visible Refresh, limited old-staff upload, Owner default, first-Owner log, internal-transfer error fix | in progress |
 | next | Purge of test data | prompt ready |
 
 ## Roadmap (in order)
 1. **Purge of the test data:** keep only Sysadmin.
 2. **Batch 6A:** content protection in all apps, plus the Contact directory managed from the Console (items 9 and 10).
-3. **Batch 2 (v33), selling and credit:**
+3. **Batch 2 (v34), selling and credit:**
    - items 1–4;
    - the receipt upgrade (business name, logo, address and phones; customer and operator; payment method and reference; credit before and after; a receipt message set in Settings; "powered by seiGEN Commerce" in small faint text);
    - credit-limit checks;
    - Sell speed for big shops (the product list held in memory, search waits for a pause in typing);
    - the remaining ~25 Admin passcode checks moved off the screen thread;
-   - **the v33 fix:** clear the old red error when Confirm is pressed again on the internal-transfer receive screen (`src/transfers.js`), plus its test;
    - Batch 2 reports (below).
 4. **B4:** sales sync (every sale, return, credit payment, payout, EOD cash; the cost at the time of sale; currency and exchange rate; payment method).
 5. **Working Capital / Cash Flow WC-1** (items 17–25), then WC-2, WC-3, WC-4.
@@ -117,3 +117,4 @@ Each report follows the rights above and supports any-order search, PDF, Excel a
 - Rebuild the bundles before tests, commits and deploys; the freshness check enforces this.
 - No secrets or personal data in commits or reports. The repo is public.
 - One Claude Code session at a time. Stop a runaway process by its PID.
+- **No silent logic changes (21 Oct 2026):** never change, remove, bypass or weaken existing logic (business rules, calculations, validations, rights and server checks, sign-in, sync and offline, licensing and billing, receipts, defaults, screen flows, features) without telling the owner first (what, where, today vs. proposed, why, impact, alternatives) and getting an explicit "approved". Tests may get timing or setup fixes, but expected business outcomes change only with approval. Every report has a "Logic changes" section, or "None".

@@ -22,6 +22,7 @@
     startSyncWorker(); // Supabase Foundation: silent background outbox — see sync.js. No-op until a project is configured in Settings.
     startCatalogueSync(); // Phase 3a: main's catalogue to every registered till, in the background — see catalogue-sync.js. Never blocks boot or a sale.
     startDeviceCheckin(); // Digital Commerce device check-in: silent, best-effort phone-home — see devicecheckin.js. Never blocks boot.
+    if(typeof staffEnsureRoles==="function") staffEnsureRoles(); // v33: a registered till with no roles fetches them now (roles.js). Never blocks boot.
     if(typeof startBranchStock==="function") startBranchStock(); // Branches B1: this till's stock figures to seiGEN every 5 minutes when they changed, see branch-stock.js. Never blocks boot.
     businessDateToday(); // Shift/EOD control: establish the anti-rollback high-water-mark as early as possible each session — see eod.js.
     await establishTrustedTime(); // License anti-rollback: same "as early as possible each session" habit, extended to full-timestamp precision — see eod.js. Awaited so activationStatus() below always sees this session's checked/corroborated time, never a stale one.

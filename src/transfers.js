@@ -349,6 +349,7 @@
       if(go.disabled) return;
       const counts = {}; wrap.querySelectorAll("[data-it-got]").forEach(i=>{ counts[Number(i.dataset.itGot)] = Math.floor(Number(i.value)); });
       go.disabled = true; go.textContent = "Confirming…";
+      wrap.querySelector("#itRecvMsg").textContent = "";   // v33: the last refusal goes while it tries again
       try{ await itReceive(id, counts); wrap.remove(); if(done) done(); }
       catch(e){ go.disabled = false; go.textContent = "Confirm"; wrap.querySelector("#itRecvMsg").textContent = e.message||String(e); }
     };

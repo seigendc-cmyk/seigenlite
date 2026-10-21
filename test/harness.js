@@ -157,6 +157,7 @@ function makeApp(settings, opts){
         isSeat, seatWaiting, seatCheckOf, seatDevice, seatInviteLink, seatShareText, takeSeatCodeFromUrl, seatStoredCode, seatCanJoinHere, renderSeatEntry, renderSeatInstall, renderSeatJoin,
         renderSeatWaiting, seatJoin, seatSetPin, seatCheckStatus, seatInviteCreate, seatRevoke, openSeatInviteModal, openSeatApproveModal, seatSectionHtml, wireSeatSection, seatAdminSession,
         businessBillHtml, refreshBusinessBill, currentRights, navAllowed, moreTabAllowed, terminalAuth, staffEnsureToken, itAvailable, itTargets, itRefreshDevices, itSend, itReceive, itPull, itCache, itResolve, itCancel, renderTransfers,
+        openTransferReceiveModal, settingsStaffMode, settingsStaffCardHtml, wireSettingsStaffCard, settingsStaffCardRefresh, staffWaitingCardHtml, staffEnsureRoles, staffAfterLink, terminalAfterLink,
         reserveDocNumber, terminalSectionHtml, wireTerminalSection, renderWhoAmI, renderStart,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.

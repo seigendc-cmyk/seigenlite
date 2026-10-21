@@ -362,7 +362,8 @@
   }
   let _staffPulling = null;
   function staffPull(){
-    if(!staffSyncOn() || !isOnline()) return Promise.resolve({ ok:false, offline:!isOnline() });
+    if(!staffSyncOn() || !isOnline()) return Promise.resolve({ ok:false, offline:!isOnline(),
+      message: !isOnline()? "offline" : staffSyncOn()? "" : isTerminalRegistered()? "This till is switched off for the business. Ask the main branch." : "This till isn't registered on seiGEN." });
     if(_staffPulling) return _staffPulling;
     _staffPulling = (async ()=>{
       let r = await terminalRpc("cl_device_staff_pull", terminalAuth(), { timeoutMs:20000 });
@@ -386,9 +387,32 @@
       if(_staffSession){ const st = shopStaff(_staffSession.id); if(!st || !st.active || !st.here) staffEndSession("Your access at this branch has changed. Sign in again."); }
       await persist();
       return { ok:true, roles:(d.roles||[]).length, staff:(d.staff||[]).length };
-    })().finally(()=>{ _staffPulling = null; });
+    })().then(staffNotePull).finally(()=>{ _staffPulling = null; });
     return _staffPulling;
   }
+  // v33: why this till still has no roles, for Settings → Staff & Roles (kept until a pull brings them).
+  async function staffNotePull(r){
+    const why = !r.ok? (r.message==="network"? "seiGEN didn't answer (no connection or too slow)." : r.message==="offline"? "This till was offline." : (r.message || "seiGEN refused."))
+      : !r.roles? "seiGEN has no roles for this business yet. The main branch's till sets them up at its next check-in."
+      : "";
+    if(why!==getSetting("staff_pull_error","")){
+      setSetting("staff_pull_error", why); setSetting("staff_pull_error_ts", why? new Date().toISOString() : "");
+      await persist();
+    }
+    return r;
+  }
+  // v33 safety net: a registered till with no roles fetches them at start and when Settings opens, at most once a minute.
+  const STAFF_ENSURE_MS = 60000;
+  let _staffEnsureTs = 0;
+  function staffEnsureRoles(){
+    if(!staffSyncOn() || rolesSynced() || !isOnline()) return Promise.resolve(null);
+    if(Date.now() - _staffEnsureTs < STAFF_ENSURE_MS) return Promise.resolve(null);
+    _staffEnsureTs = Date.now();
+    return staffPull().catch(()=>null);
+  }
+  // v33: right after "Register this branch" or joining: the roles and staff only. Not a whole check-in: on a
+  // till that is still the business's only one, that would switch off its stock figures for 6 hours (branch-stock.js).
+  function staffAfterLink(){ return staffPull().catch(()=>null); }
   // This till's old staff list, once. Only people with a sign-in PIN.
   async function staffUploadLegacy(){
     const rows = all("SELECT * FROM staff WHERE branch=? AND COALESCE(pin_hash,'')<>''",[currentBranch()]);
@@ -397,7 +421,7 @@
     if(r.ok){ setSetting("staff_uploaded", new Date().toISOString()); logAudit("Staff moved to seiGEN", "", (r.data.added||0)+" added, "+(r.data.merged||0)+" matched"); return true; }
     return false;
   }
-  function staffAfterCheckin(){ return staffPull().then(()=> staffEnsureToken()).catch(()=>{}); }
+  function staffAfterCheckin(){ return staffPull().then(()=>{ if(typeof settingsStaffCardRefresh==="function") settingsStaffCardRefresh(); return staffEnsureToken(); }).catch(()=>{}); }
   if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", ()=>{ staffEnsureToken().catch(()=>{}); });
   function staffEndSession(msg){
     staffSignOut();
@@ -442,6 +466,31 @@
     return d;
   }
 
+  // ---- Settings → Staff & Roles on a till registered with seiGEN that has no roles yet (v33) ----
+  // Never the old local list there: people added in it would never reach seiGEN.
+  function staffWaitingCardHtml(){
+    const why = getSetting("staff_pull_error",""), ts = getSetting("staff_pull_error_ts","");
+    return `<div class="card" id="staffWaitCard">
+      <h3>Staff & Roles</h3>
+      <p class="box" id="staffWaitNote" role="status" style="font-size:12.5px;margin-top:0">Roles not loaded from seiGEN yet — tap Refresh.</p>
+      <button type="button" class="btn btn-primary btn-sm" id="staffWaitRefresh" style="width:auto">🔄 Refresh</button>
+      <p id="staffWaitWhy" role="alert" style="color:var(--danger);font-weight:600;font-size:12.5px;margin:8px 0 0">${why? "Last try"+(ts? " ("+escapeHtml(new Date(ts).toLocaleString())+")" : "")+": "+escapeHtml(why) : ""}</p>
+      <p class="muted" style="font-size:12px;margin-bottom:0">People and roles are added here once the roles have arrived. Until then, sign-in on this till works as before.</p>
+    </div>`;
+  }
+  function wireStaffWaitingCard(card, redraw){
+    const b = card.querySelector("#staffWaitRefresh"), why = card.querySelector("#staffWaitWhy");
+    b.onclick = async ()=>{
+      if(b.disabled) return;
+      if(!isOnline()){ why.textContent = "You're offline. Connect to the internet, then tap Refresh."; return; }
+      b.disabled = true; b.textContent = "Loading…"; why.textContent = "";
+      const r = await staffPull();
+      if(rolesSynced()) return redraw();
+      b.disabled = false; b.textContent = "🔄 Refresh";
+      why.textContent = "Couldn't load: " + (getSetting("staff_pull_error","") || r.message || "unknown reason");
+    };
+  }
+
   // ---- Settings → Staff & Roles (when this till has seiGEN's staff) ----
   let _staffTab = "people";
   function rightsSummary(rights){
@@ -460,7 +509,7 @@
       <p class="muted" style="font-size:12px">Turn this off so everyone signs in with their own PIN. Menus then follow each person's role. Reports of other branches and costs at a remote need a signed-in person with the right.</p>
       <p class="muted" style="font-size:12px;margin:6px 0">Kept on seiGEN for every branch${pulled? " · updated "+escapeHtml(new Date(pulled).toLocaleString()) : ""}. <button type="button" class="btn btn-sm btn-ghost" id="staffRefresh">🔄 Refresh</button></p>
       ${edit? (who? `<p class="muted" style="font-size:12px">Signed in: ${escapeHtml(who)}${staffManaging()? ` · signed out after 5 minutes without use <button type="button" class="btn btn-sm btn-outline" id="staffMgrDone" style="width:auto">Done</button>` : ""}</p>`
-                   : `<p class="box" style="font-size:12.5px">Nobody can manage staff yet. Add the first person here with this till's Admin passcode (an Admin or Owner).</p>`)
+                   : `<p class="box" style="font-size:12.5px">Nobody can manage staff yet. ${people.length? "Add the first person here with this till's Admin passcode (an Admin or Owner)." : "Add the first person here with this till's Admin passcode: the business's Owner, who then adds everyone else."}</p>`)
             : !staffManagersHere().length? `<p class="box" id="staffGuidance" style="font-size:12.5px">${escapeHtml(staffManageGuidance())}</p>`
             : single? `<p class="box" style="font-size:12.5px">To add or change people, PINs and roles, sign in as someone with the Staff right. Single operator mode stays on.</p>
                        <button type="button" class="btn btn-primary btn-sm" id="staffMgrSignin" style="width:auto;margin-bottom:6px">Sign in to manage staff</button>`
@@ -510,12 +559,19 @@
     const roles = shopRoles(), brs = staffBranches();
     const myBranch = getSetting("branch_uuid","") || (brs[0]||{}).id || "";
     const home = existing? existing.home_branch : myBranch, others = existing? staffJson(existing.branches, []) : [];
-    const ownerOk = canStrict("owner") || staffBootstrapOpen();
+    // v33 (owner 2026-10-21; seiGEN 20261110120000): while the business has no Owner, the first one is made on a
+    // main-branch till only (not a remote, not an Office seat), by anyone; with the Admin passcode only while the
+    // business has nobody on seiGEN. After that only an Owner gives the Owner role. The first person defaults to Owner.
+    const firstPerson = !existing && !shopStaffAll().length;
+    const mainTill = !isRemote() && !(typeof isSeat==="function" && isSeat());
+    const ownerOk = (canStrict("owner") || (staffBootstrapOpen() && firstPerson)) && (getSetting("shop_has_owner","")==="1" || mainTill);
     const boot = !_staffSession && staffBootstrapOpen();
+    const pick = (r)=> existing? existing.role_id===r.id : r.builtin===(firstPerson && ownerOk? "owner" : "cashier");
     const wrap = openModal(existing? "Edit person" : "Add person", `
       <label style="margin-top:0" for="ssName">Name</label><input class="field" id="ssName" maxlength="60" value="${escapeHtml(existing? existing.name : "")}">
       <label for="ssRole">Role</label>
-      <select class="field" id="ssRole">${roles.map(r=>`<option value="${escapeHtml(r.id)}" ${(existing? existing.role_id===r.id : r.builtin==="cashier")? "selected" : ""} ${r.builtin==="owner" && !ownerOk? "disabled" : ""}>${escapeHtml(r.name)}</option>`).join("")}</select>
+      <select class="field" id="ssRole">${roles.map(r=>`<option value="${escapeHtml(r.id)}" ${pick(r)? "selected" : ""} ${r.builtin==="owner" && !ownerOk? "disabled" : ""}>${escapeHtml(r.name)}</option>`).join("")}</select>
+      ${firstPerson && ownerOk? `<p class="muted" id="ssFirstOwner" style="font-size:12px;margin-top:-4px">The first person is the business's Owner: they then add everyone else.</p>` : ""}
       <label for="ssHome">Home branch</label>
       <select class="field" id="ssHome">${brs.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===home? "selected" : ""}>${escapeHtml(b.name)}</option>`).join("")}</select>
       ${brs.length>1? `<label>Also works at</label><div class="ss-others">${brs.map(b=>`<label style="display:flex;gap:8px;align-items:center;margin:4px 0;font-weight:500"><input type="checkbox" data-ss-branch="${escapeHtml(b.id)}" ${others.includes(b.id)? "checked" : ""} style="width:auto;margin:0"> ${escapeHtml(b.name)}</label>`).join("")}</div>` : ""}

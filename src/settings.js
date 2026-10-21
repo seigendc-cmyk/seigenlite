@@ -214,20 +214,41 @@
   function branchTypeLockedRemote(){ return typeof isTerminalRegistered==="function" && isTerminalRegistered() && getSetting("terminal_is_main","")!=="1"; }
   // Settings → Staff & Roles. A till with the business's staff from seiGEN (roles.js, v28): the
   // shared people and roles, at any branch, for a holder of Staff (anyone once Settings is open,
-  // in single operator mode). Otherwise this till's own list, on a main branch, as before.
+  // in single operator mode). v33: a till registered with seiGEN that has no roles yet says so, with
+  // Refresh (never the old list: people added there would never reach seiGEN). Otherwise (not on
+  // seiGEN) this till's own list, on a main branch, as before.
   function settingsStaffMode(){
     if(typeof rolesSynced==="function" && rolesSynced()) return can("m.staff")? "shop" : "";
+    if(typeof isTerminalRegistered==="function" && isTerminalRegistered()) return "wait";
     return isRemote()? "" : "local";
   }
-  function settingsStaffCardHtml(){ const m = settingsStaffMode(); return m==="shop"? shopStaffSectionHtml() : m==="local"? staffSectionHtml() : ""; }
+  function settingsStaffCardHtml(){ const m = settingsStaffMode(); return m==="shop"? shopStaffSectionHtml() : m==="wait"? staffWaitingCardHtml() : m==="local"? staffSectionHtml() : ""; }
   function wireSettingsStaffCard(main){
     const m = settingsStaffMode();
     if(m==="local") return wireStaffSection();
-    const card = m==="shop"? main.querySelector("#shopStaffCard") : null;
-    if(card) wireShopStaffSection(card, ()=>{
-      const box = document.createElement("div"); box.innerHTML = shopStaffSectionHtml();
-      card.replaceWith(box.firstElementChild); wireSettingsStaffCard(main);
+    const card = m==="shop"? main.querySelector("#shopStaffCard") : m==="wait"? main.querySelector("#staffWaitCard") : null;
+    if(!card) return;
+    const redraw = ()=>{
+      if(!card.isConnected) return;
+      const box = document.createElement("div"); box.innerHTML = settingsStaffCardHtml();
+      if(box.firstElementChild) card.replaceWith(box.firstElementChild); else card.remove();
+      wireSettingsStaffCard(main);
+    };
+    card._staffRedraw = redraw;
+    if(m==="shop") return wireShopStaffSection(card, redraw);
+    wireStaffWaitingCard(card, redraw);
+    // the safety net (at most once a minute): the roles may arrive while Settings is open
+    staffEnsureRoles().then(r=>{
+      if(!r || !card.isConnected) return;
+      if(rolesSynced()) return redraw();
+      const why = card.querySelector("#staffWaitWhy"), b = card.querySelector("#staffWaitRefresh");
+      if(why && b && !b.disabled) why.textContent = "Couldn't load: " + (getSetting("staff_pull_error","") || r.message || "unknown reason");
     });
+  }
+  // v33: the roles arrived while Settings shows "Roles not loaded": that card only is drawn again (never the whole page).
+  function settingsStaffCardRefresh(){
+    const card = typeof document!=="undefined" && document.getElementById? document.getElementById("staffWaitCard") : null;
+    if(card && card._staffRedraw && typeof rolesSynced==="function" && rolesSynced()) card._staffRedraw();
   }
   // Settings -> Diagnostics: read-only. Every product of this branch should
   // hold exactly the sum of its stock movements (Phase 2 ledger).

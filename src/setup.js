@@ -144,6 +144,7 @@
         setupData.join_code = "";
         refreshLicenceLock();
         await persist();
+        if(typeof terminalAfterLink==="function") terminalAfterLink();   // v33: the roles and staff now, not at the next start
         renderTrialStarting({ quiet:true });
       };
     } else if(setupStep===1){

@@ -124,6 +124,12 @@
       p_terminal_id: terminalId, p_admin_salt: seed.salt, p_admin_check: seed.check, p_admin_rounds: seed.rounds,
     }));
   }
+  // v33: right after registering or joining, the roles and staff (and the rest of a check-in) without waiting
+  // for the next start; Settings redraws its staff card when they arrive (nothing else is redrawn).
+  function terminalAfterLink(){
+    if(typeof staffAfterLink!=="function") return Promise.resolve();
+    return staffAfterLink().then(()=>{ if(typeof settingsStaffCardRefresh==="function") settingsStaffCardRefresh(); }).catch(()=>{});
+  }
   function fetchBusinessBranches(){ return terminalRpc("cl_branch_list", terminalAuth()); }
   // Billing-B: seiGEN merged this till's business into another (staff fixing a
   // business registered twice). A check-in reports the new business; the
@@ -253,7 +259,7 @@
     if(reg) reg.onclick = async ()=>{
       reg.disabled = true; reg.textContent = "Registering…"; setTermStatus("");
       const r = await registerMainBranch(null);
-      if(r.ok){ logAudit("Branch registered", "", "Till "+r.data.till_code+" of "+r.data.branch_name); await persist(); render(); return; }
+      if(r.ok){ logAudit("Branch registered", "", "Till "+r.data.till_code+" of "+r.data.branch_name); await persist(); render(); terminalAfterLink(); return; }
       noteTerminalRefusal(r);
       if(r.code==="TERMINAL_INACTIVE"){ await persist(); render(); return; }
       reg.disabled = false; reg.textContent = "Register this branch";
@@ -267,7 +273,7 @@
       join.disabled = true; join.textContent = "Joining…"; setTermStatus("");
       const own = getSetting("branch_name","") || currentBranch();
       const r = await joinBusiness({ phrase, code, expectedBranchName: own, devicePhrase: getSetting("secret_phrase",""), legacyBranchId: getBranchId() });
-      if(r.ok){ logAudit("Joined business", "", "Till "+r.data.till_code+" of "+r.data.branch_name); if(typeof storeAdminSeed==="function") storeAdminSeed(r.data.admin_seed, "join"); await persist(); render(); return; }
+      if(r.ok){ logAudit("Joined business", "", "Till "+r.data.till_code+" of "+r.data.branch_name); if(typeof storeAdminSeed==="function") storeAdminSeed(r.data.admin_seed, "join"); await persist(); render(); terminalAfterLink(); return; }
       noteTerminalRefusal(r);
       if(r.code==="TERMINAL_INACTIVE"){ await persist(); render(); return; }
       join.disabled = false; join.textContent = "Join your business";
