@@ -459,7 +459,8 @@
         <div class="setup-card center">
           <h2>Activation needed</h2>
           ${clockAnomalyNoticeHtml()}
-          <p class="muted" id="lockReason">${escapeHtml(lockReasonText(st))} Selling is paused until this device has a licence. Your data is safe.</p>
+          <p class="muted" id="lockReason">${escapeHtml(lockReasonText(st))} ${typeof isSeat==="function" && isSeat()? "This Office seat is paused until it has a licence." : "Selling is paused until this device has a licence."} Your data is safe.</p>
+          <div data-business-bill>${typeof businessBillHtml==="function"? businessBillHtml() : ""}</div>
           ${activationFormHtml()}
           ${getSetting("trial_had","")? "" : `<div class="hr"></div>
           <p class="muted" style="margin:0 0 6px">This device never had the free trial.</p>
@@ -471,6 +472,7 @@
       </div>
     `;
     wireActivationForm((r)=> renderActivationDone(r));
+    if(typeof refreshBusinessBill==="function") refreshBusinessBill().catch(()=>{});   // v32
     const lt = document.getElementById("lockTrial");
     if(lt) lt.onclick = ()=>{
       const wrap = openModal("Start your free trial", `
@@ -555,6 +557,7 @@
       <h3 style="margin-top:0">Licence</h3>
       <p id="licenceLine" style="font-weight:600">${escapeHtml(line)}</p>
       <p id="licencePlanLine" class="muted" style="margin:0 0 8px">${escapeHtml(licencePlanText(st))}</p>
+      <div data-business-bill style="margin:0 0 8px">${typeof businessBillHtml==="function"? businessBillHtml() : ""}</div>
       <p class="muted" style="margin:0 0 8px">Device code: <b>${escapeHtml(licenceDeviceCode())}</b></p>
       <p id="rpnOnboardedLine" class="muted" style="margin:0 0 8px">${escapeHtml(typeof rpnOnboardedByText==="function"? rpnOnboardedByText() : "")}</p>
       ${st.status==="pretrial"? `<button class="btn btn-primary" id="licenceTrial" style="margin-bottom:8px">Start your free trial</button>` : ""}
@@ -565,7 +568,7 @@
   // the till's role and price from cl_licence_terms (this device only),
   // remembered for when it's offline. Nothing here is editable.
   const LICENCE_PLAN_NAMES = { 1:"Business", 2:"Lite" };
-  const LICENCE_ROLE_TEXT = { main:"main till", branch:"first till of a branch", till:"extra till" };
+  const LICENCE_ROLE_TEXT = { main:"main till", branch:"first till of a branch", till:"extra till", seat:"Office seat" };   // seat: v32
   function licenceTermsCached(){ try{ return JSON.parse(getSetting("licence_terms","")||"null"); }catch(e){ return null; } }
   function licencePlanText(st){
     const lic = st && st.source==="licence" ? st.licence : null;
@@ -592,6 +595,7 @@
   function wireLicenceStatusCard(){
     const st = licenceState();
     if(st.source==="licence") refreshLicenceTerms();
+    if(typeof refreshBusinessBill==="function") refreshBusinessBill().catch(()=>{});   // v32: every device of the business, seats included
     // "Onboarded by" (rpn.js): the RPN the server has for this shop
     if(typeof refreshRpnStatus==="function") refreshRpnStatus(false).then(()=>{
       const el = document.getElementById("rpnOnboardedLine");

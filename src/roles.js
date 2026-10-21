@@ -61,7 +61,13 @@
   // { id, name, pin (memory only), token, tokenExp, legacy } or null.
   let _staffSession = null;
   function staffSession(){ return _staffSession; }
+  // v32 Office seats: nothing without someone signed in, and never selling, payments or EOD
   function currentRights(){
+    const r = currentRightsAll();
+    if(typeof isSeat==="function" && isSeat()) return r===null? new Set() : new Set([...r].filter(x=> !SEAT_DENY.includes(x)));
+    return r;
+  }
+  function currentRightsAll(){
     if(_staffSession){
       const st = shopStaff(_staffSession.id), r = st? shopRole(st.role_id) : null;
       if(!r) return new Set();
@@ -86,7 +92,7 @@
   // Menus (router.js): the nav bar and More.
   const NAV_RIGHT = { pos:"m.sell", products:"m.products", credit:"m.credit", reports:"m.reports", marketing:"m.marketing" };
   const MORE_RIGHT = { directory:"m.directory", productlist:"m.productlist", branches:"m.productlist", stocktake:"m.stocktake", requests:"m.requests",
-    purchasing:"m.purchasing", reportwriter:"m.reportwriter", settings:"m.settings", itredorders:"m.sell", itredfeedback:"m.sell" };
+    purchasing:"m.purchasing", reportwriter:"m.reportwriter", settings:"m.settings", itredorders:"m.sell", itredfeedback:"m.sell" };   // transfers: its own check (router.js)
   function navAllowed(id){ return !NAV_RIGHT[id] || can(NAV_RIGHT[id]); }
   function moreTabAllowed(id){ return !MORE_RIGHT[id] || can(MORE_RIGHT[id]); }
   // The first screen this person may open (Sell when they have it).
@@ -450,7 +456,7 @@
     const who = _staffSession? _staffSession.name+(staffToken()? "" : " (not checked by seiGEN yet)") : "";
     return `<div class="card" id="shopStaffCard">
       <h3>Staff & Roles</h3>
-      <label style="display:flex;gap:8px;align-items:flex-start;margin-top:0"><input type="checkbox" id="sSingleOperator" ${single? "checked" : ""} style="width:auto;margin-top:3px"><span>Single operator mode — skip staff sign-in, just type a name (today's behaviour)</span></label>
+      ${typeof isSeat==="function" && isSeat()? `<p class="muted" id="seatNoSingle" style="margin-top:0">This is an Office seat: everyone signs in with their own PIN. Single operator mode is never used here.</p>` : ""}<label${typeof isSeat==="function" && isSeat()? " hidden" : ""} style="display:flex;gap:8px;align-items:flex-start;margin-top:0"><input type="checkbox" id="sSingleOperator" ${single? "checked" : ""} style="width:auto;margin-top:3px"><span>Single operator mode — skip staff sign-in, just type a name (today's behaviour)</span></label>
       <p class="muted" style="font-size:12px">Turn this off so everyone signs in with their own PIN. Menus then follow each person's role. Reports of other branches and costs at a remote need a signed-in person with the right.</p>
       <p class="muted" style="font-size:12px;margin:6px 0">Kept on seiGEN for every branch${pulled? " · updated "+escapeHtml(new Date(pulled).toLocaleString()) : ""}. <button type="button" class="btn btn-sm btn-ghost" id="staffRefresh">🔄 Refresh</button></p>
       ${edit? (who? `<p class="muted" style="font-size:12px">Signed in: ${escapeHtml(who)}${staffManaging()? ` · signed out after 5 minutes without use <button type="button" class="btn btn-sm btn-outline" id="staffMgrDone" style="width:auto">Done</button>` : ""}</p>`

@@ -19,6 +19,7 @@
 //     removed (src-tauri/sw-off.js), so a new installer's build shows at once,
 //     data kept; About and the red bar say a new installer comes from seiGEN
 "use strict";
+require("./dist-fresh");   // stop here if a bundle is older than its source (node tools/build-all.js)
 const assert = require("assert");
 const fs = require("fs"), os = require("os"), path = require("path"), http = require("http");
 const { activateForTest, writeSettings } = require("./test-activation");

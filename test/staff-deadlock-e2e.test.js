@@ -18,6 +18,7 @@
 // remote on the desktop build / desktoppos-preview).
 // SHOT_DIR=<dir> saves the screenshots (390 and 1280 px).
 "use strict";
+require("./dist-fresh");   // stop here if a bundle is older than its source (node tools/build-all.js)
 const assert = require("assert");
 const fs = require("fs");
 const os = require("os");

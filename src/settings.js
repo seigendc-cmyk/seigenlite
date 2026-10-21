@@ -97,15 +97,16 @@
       </div>` : ""}
       ${rpnSectionHtml()}
       ${currenciesSectionHtml()}
+      ${typeof isSeat==="function" && isSeat()? "" : `
       <div class="card">
         <h3>Activation secret phrase</h3>
         <input class="field" id="sSecret" value="${escapeHtml(getSetting("secret_phrase",""))}">
         <button class="btn btn-outline" id="saveSecret" style="margin-top:10px">Save phrase</button>
-      </div>
+      </div>`}
       ${typeof can!=="function" || can("m.terminals")? terminalSectionHtml() : ""}
       ${printerSectionHtml()}
       ${barcodeReaderSectionHtml()}
-      ${cashDrawerSectionHtml()}
+      ${typeof isSeat==="function" && isSeat()? "" : cashDrawerSectionHtml()}
       ${isRemote()? "" : `
       <div class="card">
         <h3>Frequent Customer Vouchers</h3>
@@ -129,6 +130,7 @@
       const v = (id)=> document.getElementById(id).value;
       const wantType = v("sBranchType");
       // v30 (owner 2026-10-20): a till registered with seiGEN as a remote doesn't make itself Main here
+      if(typeof isSeat==="function" && isSeat() && wantType!=="main"){ alert("An Office seat is part of the main branch.\n\nNothing was changed."); render(); return; }   // v32
       if(isRemote() && wantType==="main" && branchTypeLockedRemote()){ alert(BRANCH_TYPE_LOCKED_TEXT+"\n\nNothing was changed."); render(); return; }
       // switching cancel/reissue on or off needs an Admin (asked before anything is written)
       let cancelTo = null;
@@ -181,7 +183,8 @@
       setSetting("freq_voucher_amount", parseFloat(document.getElementById("sFreqAmount").value)||0);
       persist(); alert("Voucher settings saved.");
     };
-    document.getElementById("saveSecret").onclick=async (e)=>{
+    const saveSecretBtn = document.getElementById("saveSecret");   // not on an Office seat (v32: its phrase is its own, never shown)
+    if(saveSecretBtn) saveSecretBtn.onclick=async (e)=>{
       const btn = e.currentTarget;
       setSetting("secret_phrase", document.getElementById("sSecret").value.trim());
       await persist();
@@ -196,7 +199,7 @@
     if(typeof can!=="function" || can("m.terminals")) wireTerminalSection();
     wirePrinterSection();
     wireBarcodeReaderSection();
-    wireCashDrawerSection();
+    if(!(typeof isSeat==="function" && isSeat())) wireCashDrawerSection();
     wireRpnSection();
     wireCurrenciesSection();
     wireSettingsStaffCard(main);

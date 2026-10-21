@@ -15,6 +15,7 @@
 //     "Goes through seiGEN"
 //   * a name only this device knows (Bulawayo) stays "(file only)", with the reason
 "use strict";
+require("./dist-fresh");   // stop here if a bundle is older than its source (node tools/build-all.js)
 const assert = require("assert");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { activateForTest, writeSettings } = require("./test-activation");

@@ -46,12 +46,15 @@
   // ================== RENDER ==================
   function render(){
     if(route==="setup") return renderSetup();
+    if(typeof seatWaiting==="function" && seatWaiting()) return renderSeatWaiting();   // v32: nothing else until the Office seat is approved
+    if(route==="seatinstall") return renderSeatInstall();
     // Activation (activation.js): a locked device only ever shows the lock
     // screen or read-only Reports, whatever route a button asks for.
     if(typeof licenceLocked==="function" && licenceLocked() && route!=="lockreports") route = "lock";
     if(route==="lock") return renderLock();
     if(route==="lockreports") return renderLockReports();
     if(route==="start") return renderStart();
+    if(typeof isSeat==="function" && isSeat() && !(typeof staffSession==="function" && staffSession())) return renderStart();   // v32: an Office seat shows nothing without someone signed in
     const desktop = isDesktopBuild();
     // Roles (v28): a menu without its right is hidden, and its screen can't be opened
     if(typeof navAllowed==="function" && route!=="more" && !navAllowed(route)) route = firstAllowedRoute();
@@ -65,7 +68,7 @@
           <div class="branch">${escapeHtml(getSetting("branch_name",""))} · <span id="userChip" style="text-decoration:underline;cursor:pointer">${escapeHtml(sessionUser||"set name")}</span></div>
         </div>
         <button class="logout-btn" id="logoutBtn" aria-label="Log out" title="Log out">${ICON_LOGOUT}</button>
-        <button class="cart-btn" id="cartBtn" ${navItems.some(n=>n.id==="pos")? "" : "hidden"}>🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
+        <button class="cart-btn" id="cartBtn" ${navItems.some(n=>n.id==="pos")? "" : `hidden style="display:none"`}>🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
       </div>
       <main id="main"></main>
       ${desktop? "" : `<div class="navbar">${navItems.map(n=>navBtn(n.id,n.icon,n.label)).join("")}</div>`}
@@ -349,6 +352,7 @@
     { id:"directory", label:"Directory" },
     { id:"productlist", label:"Product List" },
     { id:"branches", label:"Stock by branch", remoteLabel:"Other branches", needs:()=> typeof bsTabAvailable==="function" && bsTabAvailable() },   // Branches B1
+    { id:"transfers", label:"Transfers (store room)", needs:()=> typeof itAvailable==="function" && itAvailable() && (typeof can!=="function" || can("m.dispatch") || can("m.receive")) },   // v32 Office seats (transfers.js)
     { id:"stocktake", label:"Stocktake" },   // every branch counts its own stock (Branches addendum §R7)
     { id:"requests", label:"Requests" },
     { id:"itredorders", label:"Orders Fulfillment", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },      // iTred orders (itred-orders.js)
@@ -390,6 +394,7 @@
     else if(moreTab==="productlist") renderProductList(body);
     else if(moreTab==="branches"){ if(typeof bsTabAvailable==="function" && bsTabAvailable()) renderBranchStock(body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="stocktake") renderStocktake(body);
+    else if(moreTab==="transfers") renderTransfers(body);
     else if(moreTab==="requests") renderStockRequests(body);
     else if(moreTab==="itredorders" || moreTab==="itredfeedback"){ if(typeof itredAvailable==="function" && itredAvailable()) renderItredMoreTab(moreTab, body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="purchasing"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderPurchasing(body); }

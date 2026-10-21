@@ -12,6 +12,7 @@
 //   * Diagnostics: the branch stock balance check
 // SHOT_DIR=<dir> saves screenshots (phone width and 1280px).
 "use strict";
+require("./dist-fresh");   // stop here if a bundle is older than its source (node tools/build-all.js)
 const assert = require("assert");
 const fs = require("fs");
 const os = require("os");

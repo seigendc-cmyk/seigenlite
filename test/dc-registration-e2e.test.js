@@ -9,6 +9,7 @@
 //   * Marketing shows whether the device is registered, says what to do
 //     when it isn't, and won't prepare a file until it is
 "use strict";
+require("./dist-fresh");   // stop here if a bundle is older than its source (node tools/build-all.js)
 const assert = require("assert");
 const fs = require("fs");
 const os = require("os");

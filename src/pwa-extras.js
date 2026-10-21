@@ -62,14 +62,33 @@
     syncInstallButton();
   }
 
+  // v32 Office seats: the install page's own button (src/seat.js renderSeatInstall). The page
+  // always shows the code too, so joining never depends on the browser offering the install.
+  function syncSeatInstallButton() {
+    const b = document.getElementById("seatInstallBtn");
+    if (!b) return;
+    b.hidden = !(deferredInstallPrompt && !isStandalone());
+    b.onclick = async () => {
+      if (!deferredInstallPrompt) return;
+      const promptEvent = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      syncSeatInstallButton();
+      syncInstallButton();
+      try { promptEvent.prompt(); await promptEvent.userChoice; } catch (e) { /* dismissed */ }
+    };
+  }
+  window.sclSeatInstallMount = syncSeatInstallButton;
+
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault(); // suppress the browser's own heuristic-timed banner; we show our own button instead
     deferredInstallPrompt = e;
     ensureInstallButtonMounted();
+    syncSeatInstallButton();
   });
   window.addEventListener("appinstalled", () => {
     deferredInstallPrompt = null;
     syncInstallButton();
+    syncSeatInstallButton();
   });
 
   // Re-check after every click in the app — cheap (a couple of

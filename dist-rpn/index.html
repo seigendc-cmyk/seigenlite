@@ -32,6 +32,17 @@
     --warn-bg:#FEF9E6;
     --radius:10px;
     --modal-radius:4px;
+    /* POS fixes: ONE stacking scale for everything that floats. Page menus
+       and pop-up menus stay UNDER the header; drawers, toasts and modals are
+       full layers above it. --header-h is measured by router.js render(). */
+    --z-content-menu:10;
+    --z-popover:15;
+    --z-header:20;
+    --z-overlay:40;
+    --z-drawer:50;
+    --z-toast:60;
+    --z-modal:70;
+    --header-h:63px;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
@@ -50,18 +61,32 @@
     border-bottom:1px solid var(--border);
     padding:10px 14px;
     display:flex;align-items:center;gap:10px;
-    position:sticky;top:0;z-index:20;
+    position:sticky;top:0;z-index:var(--z-header);
   }
   .topbar .brand-mark{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:none;background:var(--orange-light);}
   .topbar .brand-mark.placeholder{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--orange);border:1px solid var(--border);}
-  .topbar .names{flex:1;min-width:0;}
+  .topbar .names{flex:0 1 auto;min-width:0;}   /* sized to its text so Log out sits right beside the user name */
   .topbar .shop{font-weight:700;font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .topbar .branch{font-size:12px;color:var(--ink-soft);}
   .topbar .cart-btn{
     position:relative;background:var(--orange);color:#fff;border:none;
     width:42px;height:42px;border-radius:50%;font-size:19px;
     display:flex;align-items:center;justify-content:center;flex:none;
+    margin-left:auto;   /* pushed to the right edge, as before */
   }
+  /* Log out (staff.js logoutSession): outline icon button beside the user name */
+  .topbar .logout-btn{
+    width:40px;height:40px;border-radius:50%;flex:none;padding:0;
+    background:none;border:1px solid var(--border);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .topbar .logout-btn:hover,.topbar .logout-btn:focus-visible{background:var(--orange-light);color:var(--orange-dark);border-color:var(--orange);}
+  /* Start screen (staff.js renderStart): the brand globe, square so it never distorts */
+  .start-globe{display:block;width:180px;height:180px;object-fit:contain;margin:0 auto 14px;}
+  @media (min-width:900px){ .start-globe{width:240px;height:240px;} }
+  /* fallback when the globe image isn't beside index.html: the storefront mark, as in the old icon */
+  .start-mark{width:88px;height:88px;border-radius:22px;background:var(--orange-light);color:var(--orange);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .cart-badge{
     position:absolute;top:-4px;right:-4px;background:var(--ink);color:#fff;
     font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;
@@ -69,8 +94,9 @@
   }
   .dots-btn{padding:6px 12px;font-size:20px;line-height:1;font-weight:700;letter-spacing:1px;}
   .popmenu{
-    position:fixed;z-index:200;background:var(--paper);border:1px solid var(--border);
+    position:fixed;z-index:var(--z-popover);background:var(--paper);border:1px solid var(--border);
     border-radius:10px;box-shadow:0 6px 22px rgba(36,28,21,.22);min-width:170px;padding:4px;
+    max-height:calc(100dvh - var(--header-h) - 16px);overflow-y:auto;
   }
   .popmenu button{
     display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;
@@ -102,7 +128,7 @@
   .navbar{
     background:var(--paper);border-radius:16px;
     box-shadow:0 -2px 14px rgba(36,28,21,.14);
-    display:flex;position:sticky;bottom:8px;z-index:20;
+    display:flex;position:sticky;bottom:8px;z-index:var(--z-header);
   }
   .navbar button{
     flex:1;background:none;border:none;padding:9px 2px 8px;
@@ -149,7 +175,9 @@
   .hr{border:none;border-top:1px solid var(--border);margin:14px 0;}
   .pill{display:inline-block;background:var(--orange-light);color:var(--orange-dark);font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:20px;}
   .pill.low{background:var(--danger-bg);color:var(--danger);}
+  .pill.neg{background:#b42318;color:#fff;}
   .pill.ok{background:var(--success-bg);color:var(--success);}
+  .pill.warn{background:var(--warn-bg);color:var(--warn);}
   .center{text-align:center;}
   .banner-img{width:100%;max-height:120px;object-fit:cover;border-radius:var(--radius);margin-bottom:12px;border:1px solid var(--border);}
 
@@ -169,17 +197,39 @@
   .add-chip{background:var(--orange);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;flex:none;}
   .add-chip:disabled{background:var(--border);color:var(--ink-soft);}
 
-  .overlay{position:fixed;inset:0;background:rgba(36,28,21,.42);z-index:40;display:none;}
+  .overlay{position:fixed;inset:0;background:rgba(36,28,21,.42);z-index:var(--z-overlay);display:none;}
   .overlay.show{display:block;}
   .drawer{
-    position:fixed;right:0;top:0;bottom:0;width:92%;max-width:400px;background:var(--paper);
-    z-index:50;transform:translateX(100%);transition:transform .22s ease;
+    position:fixed;right:0;top:0;bottom:0;height:100dvh;width:92%;max-width:400px;background:var(--paper);
+    z-index:var(--z-drawer);transform:translateX(100%);transition:transform .22s ease;
     display:flex;flex-direction:column;box-shadow:-4px 0 18px rgba(0,0,0,.15);
   }
   .drawer.show{transform:translateX(0);}
-  .drawer-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
-  .drawer-body{flex:1;overflow-y:auto;padding:10px 14px;}
-  .drawer-foot{padding:14px;border-top:1px solid var(--border);max-height:60vh;overflow-y:auto;}
+  .drawer-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex:none;}
+  .drawer-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:10px 14px;}
+  .drawer-foot{padding:14px;border-top:1px solid var(--border);flex:none;}
+  /* POS fixes: the Pay bar is pinned (never scrolls away); only a very short
+     screen lets it scroll as a last resort. */
+  .pay-bar{background:var(--paper);box-shadow:0 -4px 12px rgba(36,28,21,.06);padding-bottom:calc(14px + env(safe-area-inset-bottom));max-height:80dvh;overflow-y:auto;}
+  .pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+  .pay-grid .btn{margin:0;}
+  html.noscroll,html.noscroll body{overflow:hidden;}
+  .sale-details{margin:10px 0 4px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);}
+  .sale-details-toggle{width:100%;display:flex;align-items:center;gap:8px;background:none;border:none;padding:10px 12px;text-align:left;font-size:13.5px;font-weight:700;color:var(--ink);}
+  .sale-details-toggle .muted{flex:1;min-width:0;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sale-details-toggle .chev{flex:none;color:var(--ink-soft);}
+  #saleDetailsBody{padding:0 12px 12px;}
+  .cust-combo{position:relative;margin-bottom:8px;}
+  .cust-combo-label{display:block;font-size:12px;color:var(--ink-soft);margin:0 0 4px;}
+  .cust-list{display:none;position:absolute;left:0;right:0;bottom:100%;margin-bottom:4px;max-height:min(260px,45dvh);overflow-y:auto;background:var(--paper);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 -6px 18px rgba(36,28,21,.14);z-index:2;}
+  .cust-opt{display:block;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:9px 12px;font-size:13.5px;color:var(--ink);}
+  .cust-opt .muted{display:block;font-size:12px;}
+  .cust-opt:hover,.cust-opt:focus-visible{background:var(--orange-light);}
+  .cust-opt.cust-add{color:var(--orange-dark);font-weight:700;}
+  .cust-opt.cust-add:disabled{color:var(--ink-soft);font-weight:600;cursor:not-allowed;background:var(--surface);}
+  .cust-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--border);border-radius:var(--radius);padding:6px 6px 6px 12px;background:var(--orange-light);font-size:13.5px;}
+  .cust-notice{font-size:12px;color:var(--orange-dark);font-weight:600;min-height:0;}
+  .cust-notice:empty{display:none;}
   .cart-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);}
   .cart-item .ci-name{flex:1;font-size:13.5px;font-weight:600;}
   .cart-item .ci-price{font-size:12px;color:var(--ink-soft);}
@@ -195,6 +245,15 @@
   .step-dots{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
   .step-dots span{width:7px;height:7px;border-radius:50%;background:var(--border);}
   .step-dots span.on{background:var(--orange);}
+  /* v32 Office seats (seat.js, transfers.js) */
+  .seat-code-box{text-align:center;margin:12px 0;}
+  .seat-code{font-size:26px;font-weight:800;letter-spacing:3px;text-align:center;background:var(--orange-light);color:var(--orange-dark);padding:12px;border-radius:var(--radius);margin:6px 0 8px;font-family:ui-monospace,Consolas,monospace;word-break:break-all;}
+  .seat-check{font-size:34px;font-weight:800;letter-spacing:4px;text-align:center;border:2px dashed var(--orange);color:var(--orange-dark);padding:10px;border-radius:var(--radius);margin:6px auto 8px;max-width:220px;font-family:ui-monospace,Consolas,monospace;}
+  .seat-warn{background:var(--danger-bg);color:var(--danger);border-radius:var(--radius);padding:10px 12px;font-size:13.5px;margin:10px 0;}
+  .seat-steps{padding-left:20px;margin:10px 0;font-size:14px;line-height:1.5;}
+  .seat-steps li{margin:4px 0;}
+  .seat-pending{border:1px solid var(--orange);border-radius:var(--radius);padding:10px;margin:0 0 8px;background:var(--orange-light);}
+  .business-bill{border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;}
   .device-code{font-size:22px;font-weight:800;letter-spacing:2px;text-align:center;background:var(--orange-light);color:var(--orange-dark);padding:14px;border-radius:var(--radius);margin:14px 0;}
 
   table.simple{width:100%;border-collapse:collapse;font-size:13.5px;}
@@ -211,14 +270,14 @@
   .lang-tag{display:inline-block;font-size:11px;font-weight:700;color:var(--orange-dark);background:var(--orange-light);padding:2px 8px;border-radius:20px;margin-bottom:6px;}
 
   /* popup modal cards */
-  .modalOverlay{position:fixed;inset:0;background:rgba(36,28,21,.5);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .modalOverlay{position:fixed;inset:0;background:rgba(36,28,21,.5);z-index:var(--z-modal);display:flex;align-items:center;justify-content:center;padding:16px;}
   .modal-card{background:var(--paper);border-radius:var(--modal-radius);width:min(148mm,92vw);max-width:148mm;max-height:min(210mm,90vh);overflow-y:auto;box-shadow:0 10px 28px rgba(0,0,0,.25);}
   .modal-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
   .modal-body{padding:14px;}
 
-  /* sync reminder toast (sync.js) — slides in over the left of the header */
+  /* sync reminder toast (sync.js) — slides in just below the header (POS fixes: never over it) */
   .sync-toast{
-    position:fixed;top:14px;left:10px;z-index:60;max-width:min(280px,calc(100vw - 80px));
+    position:fixed;top:calc(var(--header-h) + 8px);left:10px;z-index:var(--z-toast);max-width:min(280px,calc(100vw - 80px));
     display:flex;align-items:center;gap:7px;padding:7px 11px;
     background:var(--ink);color:#fff;border-radius:8px;font-size:12px;line-height:1.3;
     box-shadow:0 4px 12px rgba(0,0,0,.2);
@@ -235,7 +294,7 @@
   .kebab-wrap{position:relative;flex:none;}
   .kebab-btn{background:none;border:none;color:var(--ink-soft);padding:2px 6px;border-radius:6px;}
   .kebab-btn:hover{background:var(--orange-light);}
-  .kebab-menu{display:none;position:absolute;right:0;top:26px;background:var(--paper);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:30;min-width:150px;overflow:hidden;}
+  .kebab-menu{display:none;position:absolute;right:0;top:26px;background:var(--paper);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:var(--z-content-menu);min-width:150px;overflow:hidden;}
   .kebab-menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;color:var(--ink);border-bottom:1px solid var(--border);}
   .kebab-menu button:last-child{border-bottom:none;}
   .kebab-menu button:hover{background:var(--orange-light);}
@@ -250,6 +309,18 @@
   .kebab-menu.moretab-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);min-width:0;max-height:60vh;overflow-y:auto;}
   .rep-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
   .icon-btn{flex:none;width:auto;padding:10px 13px;}
+
+  /* Phase 3c returns: the step strip and the credit note slip (on screen, PDF and print) */
+  .rt-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .rt-steps span{flex:1 1 auto;text-align:center;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:700;
+    background:var(--bg,#f4f4f4);color:var(--ink-soft);border:1px solid var(--border);white-space:nowrap;}
+  .rt-steps span.on{background:var(--orange-light);color:var(--orange);border-color:var(--orange);}
+  .cn-slip .line{display:flex;justify-content:space-between;gap:10px;}
+  .cn-slip .line > :last-child{white-space:nowrap;}
+  .cn-slip h3{text-align:center;margin:2px 0;}
+  .cn-slip hr{border:none;border-top:1px dashed #999;margin:6px 0;}
+  .modal-body .cn-slip{font-family:monospace;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:#fff;}
+  #printArea .cn-slip.report-print{max-width:120mm;margin:0 auto;font-size:14px;}
 
   #printArea{display:none;}
   @media print{
@@ -1230,7 +1301,7 @@ const SEARCH_WORDS = {"_about":"Everyday wording for the Field Guide's search. P
   // index of the manual, in any order, and answers by quoting the manual:
   // nothing here writes an answer, it only picks which passage to quote.
   //
-  // Not the core app's cart search (utils.js searchTokens/rankProductsBySearch):
+  // Not the core app's cart search (utils.js searchTokens/productSearch):
   // that is a plain lower-case substring match with no filler words, plurals,
   // typos or synonyms, and reusing it would have meant changing core code.
   // This keeps its two rules (words in any order; rank by how many words

@@ -12,6 +12,7 @@
 //   * a link is sent once, not again on every check-in
 //   * "Revenue Partner Network" everywhere in the app's own words
 "use strict";
+require("./dist-fresh");   // stop here if a bundle is older than its source (node tools/build-all.js)
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");

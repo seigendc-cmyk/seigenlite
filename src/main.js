@@ -26,11 +26,14 @@
     businessDateToday(); // Shift/EOD control: establish the anti-rollback high-water-mark as early as possible each session — see eod.js.
     await establishTrustedTime(); // License anti-rollback: same "as early as possible each session" habit, extended to full-timestamp precision — see eod.js. Awaited so activationStatus() below always sees this session's checked/corroborated time, never a stale one.
     const linkLicence = takeLicenceFromUrl(); // activation.js: an activation link (#lic=…), checked offline
+    const seatCode = typeof takeSeatCodeFromUrl==="function"? takeSeatCodeFromUrl() : "";   // v32: an Office seat invite link (#seat=...)
     const status = activationStatus();
     if(status==="no_setup"){
+      if(seatCode || (typeof seatStoredCode==="function" && seatStoredCode() && seatCanJoinHere())){ renderSeatEntry(seatCode); return; }   // the install page, or the join screen in the installed app
       if(linkLicence){ route="setup"; renderLinkNoSetup(linkLicence); return; }   // never start setup from a link
       route="setup"; renderSetup(); return;
     }
+    if(typeof seatWaiting==="function" && seatWaiting()){ renderSeatWaiting(); return; }   // v32: an Office seat waits for approval (no data, no licence yet)
     refreshLicenceLock();
     startLicenceWatch(); // re-checks every hour and when the app returns to the foreground
     if(linkLicence){ renderLinkResult(await applyLicence(linkLicence, "link")); return; }

@@ -25,6 +25,7 @@
 // (#posResultsArea), the same pattern every other list-search screen in
 // this app already used.
 "use strict";
+require("./dist-fresh");   // stop here if a bundle is older than its source (node tools/build-all.js)
 const assert = require("assert");
 const path = require("path");
 const { stubDigitalCommerce, TEST_PHRASE } = require("./dc-fake");

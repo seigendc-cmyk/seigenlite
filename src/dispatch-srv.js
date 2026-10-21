@@ -301,7 +301,7 @@
   // ---- the sender's actions (the dispatching till only) ----
   function dsNeedAdmin(passcode, right){
     requireSignedIn();
-    if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
+    if(!hasAdminPasscode() && !(right && typeof isSeat==="function" && isSeat())) throw new Error(NO_ADMIN_PASSCODE_MSG);   // v32: an Office seat approves with the holder's own PIN
     const admin = right? findApprover(passcode, right) : findAdmin(passcode);   // roles (v28): a write-off by the holder's own PIN too
     if(!admin) throw new Error("Incorrect Admin passcode.");
     return admin;

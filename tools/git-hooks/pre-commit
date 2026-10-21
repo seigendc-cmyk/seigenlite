@@ -1,0 +1,15 @@
+#!/bin/sh
+# Owner's standing rule (2026-10-20): rebuild every bundle from the current
+# source before every commit (node tools/build-all.js), and commit the rebuilt
+# bundles with it. Refuses the commit when a bundle is older than its source,
+# or when a rebuilt bundle isn't staged.
+# Installed by: git config core.hooksPath tools/git-hooks
+node tools/check-dist-fresh.js || { echo "Commit refused: rebuild with node tools/build-all.js, then stage dist*/."; exit 1; }
+unstaged=$(git diff --name-only -- dist dist-pwa dist-tauri dist-market)
+if [ -n "$unstaged" ]; then
+  echo "Commit refused: these rebuilt bundle files aren't staged:"
+  echo "$unstaged" | sed 's/^/  /'
+  echo "Stage them: git add dist dist-pwa dist-tauri dist-market"
+  exit 1
+fi
+exit 0

@@ -23,6 +23,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const { checkDistFresh } = require("../check-dist-fresh");
 
 const ROOT = path.join(__dirname, "..", "..");
 const TARGETS = {
@@ -84,6 +85,14 @@ function main(argv) {
     return 2;
   }
   const src = path.join(ROOT, t.build);
+  // Owner's standing rule (2026-10-20): the bundles are rebuilt from the current source (node tools/build-all.js)
+  // and committed before a deploy. Not rebuilt here, so the deployed files are the committed ones.
+  const stale = t.itred ? [] : checkDistFresh();
+  if (stale.length) {
+    console.error("REFUSED: a bundle is older than its source: " + stale.join("; ") + ". Nothing was deployed.");
+    console.error("Rebuild with: node tools/build-all.js, run the tests, commit, then deploy.");
+    return 1;
+  }
   const problems = t.itred ? checkItredFolder(src, t.worker) : checkFolder(src);
   if (problems.length) {
     console.error("REFUSED: " + t.build + "/ is not deployable: " + problems.join("; ") + ". Nothing was deployed.");

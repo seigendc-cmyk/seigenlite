@@ -45,6 +45,8 @@
             <p class="muted" style="margin-top:8px">A remote branch needs a join code from your main branch (it shares the business's free trial).</p>
             <button type="button" class="btn btn-outline" id="setJoinBtn" style="margin-top:8px">Join an existing branch</button>
             <p class="muted" style="margin-top:4px">Adding another till to a business that's already set up? Join it with a code from your main branch.</p>
+            <button type="button" class="btn btn-outline" id="setSeatBtn" style="margin-top:8px">Join as an Office seat</button>
+            <p class="muted" style="margin-top:4px">Invited as the bookkeeper, the stores clerk or the owner? Use the code from your invite (no secret phrase needed).</p>
             <button class="btn btn-primary" id="setupNext" style="margin-top:16px">Continue</button>
           ` : setupStep===2? `
             <h2>Contact & branding</h2>
@@ -155,6 +157,7 @@
       // Billing-B: a remote branch joins the business with a join code (no code-less remote set-up any more)
       document.getElementById("setRemoteBtn").onclick=()=>{ keepStep1(); setupData.branch_type="join"; setupData.join_kind="remote"; renderSetup(); };
       document.getElementById("setJoinBtn").onclick=()=>{ keepStep1(); setupData.branch_type="join"; setupData.join_kind="till"; renderSetup(); };
+      document.getElementById("setSeatBtn").onclick=()=>{ keepStep1(); renderSeatEntry(""); };   // v32 Office seats (seat.js)
       document.getElementById("setupNext").onclick=()=>{
         keepStep1();
         if(!setupData.shop_name) return alert("Enter your shop name");

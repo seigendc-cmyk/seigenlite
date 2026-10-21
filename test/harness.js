@@ -80,7 +80,7 @@ function makeApp(settings, opts){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","roles.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js","branch-stock.js","branch-views.js","credit.js","itred-orders.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","roles.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","seat.js","transfers.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js","branch-stock.js","branch-views.js","credit.js","itred-orders.js"];
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -154,6 +154,10 @@ function makeApp(settings, opts){
         attemptShopSigninAsync, staffManageSigninAsync, findAdminAsync, adminCheckMakeAsync, adminCheckMatchesAsync, pcTestForceFallback,
         branchTypeLockedRemote, BRANCH_TYPE_LOCKED_TEXT, ssListState, sellableNow, stockLineText, POS_LIST_STEP,
         staffSetOwnPin, openSetOwnPinModal, staffManagersHere, staffManageSignin, staffIdleCheck, staffEndManage, staffManaging, staffManageGuidance, staffEverywhereRule, openStaffManagerSignin, STAFF_MANAGE_IDLE_MS, singleOperatorMode,
+        isSeat, seatWaiting, seatCheckOf, seatDevice, seatInviteLink, seatShareText, takeSeatCodeFromUrl, seatStoredCode, seatCanJoinHere, renderSeatEntry, renderSeatInstall, renderSeatJoin,
+        renderSeatWaiting, seatJoin, seatSetPin, seatCheckStatus, seatInviteCreate, seatRevoke, openSeatInviteModal, openSeatApproveModal, seatSectionHtml, wireSeatSection, seatAdminSession,
+        businessBillHtml, refreshBusinessBill, currentRights, navAllowed, moreTabAllowed, terminalAuth, staffEnsureToken, itAvailable, itTargets, itRefreshDevices, itSend, itReceive, itPull, itCache, itResolve, itCancel, renderTransfers,
+        reserveDocNumber, terminalSectionHtml, wireTerminalSection, renderWhoAmI, renderStart,
         marketFileName, marketBuildDoc, marketValidImage, marketChecksum, MARKET_WHATSAPP };`;
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.
   // Tests must never reach it, so every app instance instead reads the old

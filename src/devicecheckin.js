@@ -176,6 +176,8 @@
       if(typeof marketAfterCheckin==="function") marketAfterCheckin();
       // seiGEN dispatches (dispatch-srv.js): send waiting dispatches, pull Incoming and the differences.
       if(typeof dsAfterCheckin==="function") dsAfterCheckin();
+      // internal transfers (transfers.js, v32): the main branch's devices, then the transfers when it has an Office seat.
+      if(typeof itAfterCheckin==="function") itAfterCheckin();
       // suppliers and supplier GRVs (supplier-grv.js): send waiting ones, pull the list.
       if(typeof sgAfterCheckin==="function") sgAfterCheckin();
       // the business's customer list (customers.js): send this till's new customers, pull the rest.

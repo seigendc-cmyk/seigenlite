@@ -243,6 +243,15 @@
   .step-dots{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
   .step-dots span{width:7px;height:7px;border-radius:50%;background:var(--border);}
   .step-dots span.on{background:var(--orange);}
+  /* v32 Office seats (seat.js, transfers.js) */
+  .seat-code-box{text-align:center;margin:12px 0;}
+  .seat-code{font-size:26px;font-weight:800;letter-spacing:3px;text-align:center;background:var(--orange-light);color:var(--orange-dark);padding:12px;border-radius:var(--radius);margin:6px 0 8px;font-family:ui-monospace,Consolas,monospace;word-break:break-all;}
+  .seat-check{font-size:34px;font-weight:800;letter-spacing:4px;text-align:center;border:2px dashed var(--orange);color:var(--orange-dark);padding:10px;border-radius:var(--radius);margin:6px auto 8px;max-width:220px;font-family:ui-monospace,Consolas,monospace;}
+  .seat-warn{background:var(--danger-bg);color:var(--danger);border-radius:var(--radius);padding:10px 12px;font-size:13.5px;margin:10px 0;}
+  .seat-steps{padding-left:20px;margin:10px 0;font-size:14px;line-height:1.5;}
+  .seat-steps li{margin:4px 0;}
+  .seat-pending{border:1px solid var(--orange);border-radius:var(--radius);padding:10px;margin:0 0 8px;background:var(--orange-light);}
+  .business-bill{border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;}
   .device-code{font-size:22px;font-weight:800;letter-spacing:2px;text-align:center;background:var(--orange-light);color:var(--orange-dark);padding:14px;border-radius:var(--radius);margin:14px 0;}
 
   table.simple{width:100%;border-collapse:collapse;font-size:13.5px;}
@@ -354,7 +363,7 @@
 <script>
 !function(i){"use strict";var v=function(r){var t,n=new Float64Array(16);if(r)for(t=0;t<r.length;t++)n[t]=r[t];return n},h=function(){throw new Error("no PRNG")},o=new Uint8Array(16),n=new Uint8Array(32);n[0]=9;var s=v(),u=v([1]),p=v([56129,1]),c=v([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),y=v([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),e=v([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),a=v([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),l=v([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function f(r,t,n,e){r[t]=n>>24&255,r[t+1]=n>>16&255,r[t+2]=n>>8&255,r[t+3]=255&n,r[t+4]=e>>24&255,r[t+5]=e>>16&255,r[t+6]=e>>8&255,r[t+7]=255&e}function w(r,t,n,e,o){var i,h=0;for(i=0;i<o;i++)h|=r[t+i]^n[e+i];return(1&h-1>>>8)-1}function b(r,t,n,e){return w(r,t,n,e,16)}function g(r,t,n,e){return w(r,t,n,e,32)}function A(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=i,d=h,E=a,x=f,M=s,m=u,B=c,S=y,k=l,K=w,Y=v,L=p,T=b,z=g,R=A,P=_,N=0;N<20;N+=2)U^=(o=(T^=(o=(k^=(o=(M^=(o=U+T|0)<<7|o>>>25)+U|0)<<9|o>>>23)+M|0)<<13|o>>>19)+k|0)<<18|o>>>14,m^=(o=(d^=(o=(z^=(o=(K^=(o=m+d|0)<<7|o>>>25)+m|0)<<9|o>>>23)+K|0)<<13|o>>>19)+z|0)<<18|o>>>14,Y^=(o=(B^=(o=(E^=(o=(R^=(o=Y+B|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+R|0)<<13|o>>>19)+E|0)<<18|o>>>14,P^=(o=(L^=(o=(S^=(o=(x^=(o=P+L|0)<<7|o>>>25)+P|0)<<9|o>>>23)+x|0)<<13|o>>>19)+S|0)<<18|o>>>14,U^=(o=(x^=(o=(E^=(o=(d^=(o=U+x|0)<<7|o>>>25)+U|0)<<9|o>>>23)+d|0)<<13|o>>>19)+E|0)<<18|o>>>14,m^=(o=(M^=(o=(S^=(o=(B^=(o=m+M|0)<<7|o>>>25)+m|0)<<9|o>>>23)+B|0)<<13|o>>>19)+S|0)<<18|o>>>14,Y^=(o=(K^=(o=(k^=(o=(L^=(o=Y+K|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+L|0)<<13|o>>>19)+k|0)<<18|o>>>14,P^=(o=(R^=(o=(z^=(o=(T^=(o=P+R|0)<<7|o>>>25)+P|0)<<9|o>>>23)+T|0)<<13|o>>>19)+z|0)<<18|o>>>14;U=U+i|0,d=d+h|0,E=E+a|0,x=x+f|0,M=M+s|0,m=m+u|0,B=B+c|0,S=S+y|0,k=k+l|0,K=K+w|0,Y=Y+v|0,L=L+p|0,T=T+b|0,z=z+g|0,R=R+A|0,P=P+_|0,r[0]=U>>>0&255,r[1]=U>>>8&255,r[2]=U>>>16&255,r[3]=U>>>24&255,r[4]=d>>>0&255,r[5]=d>>>8&255,r[6]=d>>>16&255,r[7]=d>>>24&255,r[8]=E>>>0&255,r[9]=E>>>8&255,r[10]=E>>>16&255,r[11]=E>>>24&255,r[12]=x>>>0&255,r[13]=x>>>8&255,r[14]=x>>>16&255,r[15]=x>>>24&255,r[16]=M>>>0&255,r[17]=M>>>8&255,r[18]=M>>>16&255,r[19]=M>>>24&255,r[20]=m>>>0&255,r[21]=m>>>8&255,r[22]=m>>>16&255,r[23]=m>>>24&255,r[24]=B>>>0&255,r[25]=B>>>8&255,r[26]=B>>>16&255,r[27]=B>>>24&255,r[28]=S>>>0&255,r[29]=S>>>8&255,r[30]=S>>>16&255,r[31]=S>>>24&255,r[32]=k>>>0&255,r[33]=k>>>8&255,r[34]=k>>>16&255,r[35]=k>>>24&255,r[36]=K>>>0&255,r[37]=K>>>8&255,r[38]=K>>>16&255,r[39]=K>>>24&255,r[40]=Y>>>0&255,r[41]=Y>>>8&255,r[42]=Y>>>16&255,r[43]=Y>>>24&255,r[44]=L>>>0&255,r[45]=L>>>8&255,r[46]=L>>>16&255,r[47]=L>>>24&255,r[48]=T>>>0&255,r[49]=T>>>8&255,r[50]=T>>>16&255,r[51]=T>>>24&255,r[52]=z>>>0&255,r[53]=z>>>8&255,r[54]=z>>>16&255,r[55]=z>>>24&255,r[56]=R>>>0&255,r[57]=R>>>8&255,r[58]=R>>>16&255,r[59]=R>>>24&255,r[60]=P>>>0&255,r[61]=P>>>8&255,r[62]=P>>>16&255,r[63]=P>>>24&255}(r,t,n,e)}function _(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=0;U<20;U+=2)i^=(o=(b^=(o=(l^=(o=(s^=(o=i+b|0)<<7|o>>>25)+i|0)<<9|o>>>23)+s|0)<<13|o>>>19)+l|0)<<18|o>>>14,u^=(o=(h^=(o=(g^=(o=(w^=(o=u+h|0)<<7|o>>>25)+u|0)<<9|o>>>23)+w|0)<<13|o>>>19)+g|0)<<18|o>>>14,v^=(o=(c^=(o=(a^=(o=(A^=(o=v+c|0)<<7|o>>>25)+v|0)<<9|o>>>23)+A|0)<<13|o>>>19)+a|0)<<18|o>>>14,_^=(o=(p^=(o=(y^=(o=(f^=(o=_+p|0)<<7|o>>>25)+_|0)<<9|o>>>23)+f|0)<<13|o>>>19)+y|0)<<18|o>>>14,i^=(o=(f^=(o=(a^=(o=(h^=(o=i+f|0)<<7|o>>>25)+i|0)<<9|o>>>23)+h|0)<<13|o>>>19)+a|0)<<18|o>>>14,u^=(o=(s^=(o=(y^=(o=(c^=(o=u+s|0)<<7|o>>>25)+u|0)<<9|o>>>23)+c|0)<<13|o>>>19)+y|0)<<18|o>>>14,v^=(o=(w^=(o=(l^=(o=(p^=(o=v+w|0)<<7|o>>>25)+v|0)<<9|o>>>23)+p|0)<<13|o>>>19)+l|0)<<18|o>>>14,_^=(o=(A^=(o=(g^=(o=(b^=(o=_+A|0)<<7|o>>>25)+_|0)<<9|o>>>23)+b|0)<<13|o>>>19)+g|0)<<18|o>>>14;r[0]=i>>>0&255,r[1]=i>>>8&255,r[2]=i>>>16&255,r[3]=i>>>24&255,r[4]=u>>>0&255,r[5]=u>>>8&255,r[6]=u>>>16&255,r[7]=u>>>24&255,r[8]=v>>>0&255,r[9]=v>>>8&255,r[10]=v>>>16&255,r[11]=v>>>24&255,r[12]=_>>>0&255,r[13]=_>>>8&255,r[14]=_>>>16&255,r[15]=_>>>24&255,r[16]=c>>>0&255,r[17]=c>>>8&255,r[18]=c>>>16&255,r[19]=c>>>24&255,r[20]=y>>>0&255,r[21]=y>>>8&255,r[22]=y>>>16&255,r[23]=y>>>24&255,r[24]=l>>>0&255,r[25]=l>>>8&255,r[26]=l>>>16&255,r[27]=l>>>24&255,r[28]=w>>>0&255,r[29]=w>>>8&255,r[30]=w>>>16&255,r[31]=w>>>24&255}(r,t,n,e)}var U=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function d(r,t,n,e,o,i,h){var a,f,s=new Uint8Array(16),u=new Uint8Array(64);for(f=0;f<16;f++)s[f]=0;for(f=0;f<8;f++)s[f]=i[f];for(;64<=o;){for(A(u,s,h,U),f=0;f<64;f++)r[t+f]=n[e+f]^u[f];for(a=1,f=8;f<16;f++)a=a+(255&s[f])|0,s[f]=255&a,a>>>=8;o-=64,t+=64,e+=64}if(0<o)for(A(u,s,h,U),f=0;f<o;f++)r[t+f]=n[e+f]^u[f];return 0}function E(r,t,n,e,o){var i,h,a=new Uint8Array(16),f=new Uint8Array(64);for(h=0;h<16;h++)a[h]=0;for(h=0;h<8;h++)a[h]=e[h];for(;64<=n;){for(A(f,a,o,U),h=0;h<64;h++)r[t+h]=f[h];for(i=1,h=8;h<16;h++)i=i+(255&a[h])|0,a[h]=255&i,i>>>=8;n-=64,t+=64}if(0<n)for(A(f,a,o,U),h=0;h<n;h++)r[t+h]=f[h];return 0}function x(r,t,n,e,o){var i=new Uint8Array(32);_(i,e,o,U);for(var h=new Uint8Array(8),a=0;a<8;a++)h[a]=e[a+16];return E(r,t,n,h,i)}function M(r,t,n,e,o,i,h){var a=new Uint8Array(32);_(a,i,h,U);for(var f=new Uint8Array(8),s=0;s<8;s++)f[s]=i[s+16];return d(r,t,n,e,o,f,a)}var m=function(r){var t,n,e,o,i,h,a,f;this.buffer=new Uint8Array(16),this.r=new Uint16Array(10),this.h=new Uint16Array(10),this.pad=new Uint16Array(8),this.leftover=0,t=255&r[this.fin=0]|(255&r[1])<<8,this.r[0]=8191&t,n=255&r[2]|(255&r[3])<<8,this.r[1]=8191&(t>>>13|n<<3),e=255&r[4]|(255&r[5])<<8,this.r[2]=7939&(n>>>10|e<<6),o=255&r[6]|(255&r[7])<<8,this.r[3]=8191&(e>>>7|o<<9),i=255&r[8]|(255&r[9])<<8,this.r[4]=255&(o>>>4|i<<12),this.r[5]=i>>>1&8190,h=255&r[10]|(255&r[11])<<8,this.r[6]=8191&(i>>>14|h<<2),a=255&r[12]|(255&r[13])<<8,this.r[7]=8065&(h>>>11|a<<5),f=255&r[14]|(255&r[15])<<8,this.r[8]=8191&(a>>>8|f<<8),this.r[9]=f>>>5&127,this.pad[0]=255&r[16]|(255&r[17])<<8,this.pad[1]=255&r[18]|(255&r[19])<<8,this.pad[2]=255&r[20]|(255&r[21])<<8,this.pad[3]=255&r[22]|(255&r[23])<<8,this.pad[4]=255&r[24]|(255&r[25])<<8,this.pad[5]=255&r[26]|(255&r[27])<<8,this.pad[6]=255&r[28]|(255&r[29])<<8,this.pad[7]=255&r[30]|(255&r[31])<<8};function B(r,t,n,e,o,i){var h=new m(i);return h.update(n,e,o),h.finish(r,t),0}function S(r,t,n,e,o,i){var h=new Uint8Array(16);return B(h,0,n,e,o,i),b(r,t,h,0)}function k(r,t,n,e,o){var i;if(n<32)return-1;for(M(r,0,t,0,n,e,o),B(r,16,r,32,n-32,r),i=0;i<16;i++)r[i]=0;return 0}function K(r,t,n,e,o){var i,h=new Uint8Array(32);if(n<32)return-1;if(x(h,0,32,e,o),0!==S(t,16,t,32,n-32,h))return-1;for(M(r,0,t,0,n,e,o),i=0;i<32;i++)r[i]=0;return 0}function Y(r,t){var n;for(n=0;n<16;n++)r[n]=0|t[n]}function L(r){var t,n,e=1;for(t=0;t<16;t++)n=r[t]+e+65535,e=Math.floor(n/65536),r[t]=n-65536*e;r[0]+=e-1+37*(e-1)}function T(r,t,n){for(var e,o=~(n-1),i=0;i<16;i++)e=o&(r[i]^t[i]),r[i]^=e,t[i]^=e}function z(r,t){var n,e,o,i=v(),h=v();for(n=0;n<16;n++)h[n]=t[n];for(L(h),L(h),L(h),e=0;e<2;e++){for(i[0]=h[0]-65517,n=1;n<15;n++)i[n]=h[n]-65535-(i[n-1]>>16&1),i[n-1]&=65535;i[15]=h[15]-32767-(i[14]>>16&1),o=i[15]>>16&1,i[14]&=65535,T(h,i,1-o)}for(n=0;n<16;n++)r[2*n]=255&h[n],r[2*n+1]=h[n]>>8}function R(r,t){var n=new Uint8Array(32),e=new Uint8Array(32);return z(n,r),z(e,t),g(n,0,e,0)}function P(r){var t=new Uint8Array(32);return z(t,r),1&t[0]}function N(r,t){var n;for(n=0;n<16;n++)r[n]=t[2*n]+(t[2*n+1]<<8);r[15]&=32767}function O(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]+n[e]}function C(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]-n[e]}function F(r,t,n){var e,o,i=0,h=0,a=0,f=0,s=0,u=0,c=0,y=0,l=0,w=0,v=0,p=0,b=0,g=0,A=0,_=0,U=0,d=0,E=0,x=0,M=0,m=0,B=0,S=0,k=0,K=0,Y=0,L=0,T=0,z=0,R=0,P=n[0],N=n[1],O=n[2],C=n[3],F=n[4],I=n[5],Z=n[6],G=n[7],q=n[8],D=n[9],V=n[10],X=n[11],j=n[12],H=n[13],J=n[14],Q=n[15];i+=(e=t[0])*P,h+=e*N,a+=e*O,f+=e*C,s+=e*F,u+=e*I,c+=e*Z,y+=e*G,l+=e*q,w+=e*D,v+=e*V,p+=e*X,b+=e*j,g+=e*H,A+=e*J,_+=e*Q,h+=(e=t[1])*P,a+=e*N,f+=e*O,s+=e*C,u+=e*F,c+=e*I,y+=e*Z,l+=e*G,w+=e*q,v+=e*D,p+=e*V,b+=e*X,g+=e*j,A+=e*H,_+=e*J,U+=e*Q,a+=(e=t[2])*P,f+=e*N,s+=e*O,u+=e*C,c+=e*F,y+=e*I,l+=e*Z,w+=e*G,v+=e*q,p+=e*D,b+=e*V,g+=e*X,A+=e*j,_+=e*H,U+=e*J,d+=e*Q,f+=(e=t[3])*P,s+=e*N,u+=e*O,c+=e*C,y+=e*F,l+=e*I,w+=e*Z,v+=e*G,p+=e*q,b+=e*D,g+=e*V,A+=e*X,_+=e*j,U+=e*H,d+=e*J,E+=e*Q,s+=(e=t[4])*P,u+=e*N,c+=e*O,y+=e*C,l+=e*F,w+=e*I,v+=e*Z,p+=e*G,b+=e*q,g+=e*D,A+=e*V,_+=e*X,U+=e*j,d+=e*H,E+=e*J,x+=e*Q,u+=(e=t[5])*P,c+=e*N,y+=e*O,l+=e*C,w+=e*F,v+=e*I,p+=e*Z,b+=e*G,g+=e*q,A+=e*D,_+=e*V,U+=e*X,d+=e*j,E+=e*H,x+=e*J,M+=e*Q,c+=(e=t[6])*P,y+=e*N,l+=e*O,w+=e*C,v+=e*F,p+=e*I,b+=e*Z,g+=e*G,A+=e*q,_+=e*D,U+=e*V,d+=e*X,E+=e*j,x+=e*H,M+=e*J,m+=e*Q,y+=(e=t[7])*P,l+=e*N,w+=e*O,v+=e*C,p+=e*F,b+=e*I,g+=e*Z,A+=e*G,_+=e*q,U+=e*D,d+=e*V,E+=e*X,x+=e*j,M+=e*H,m+=e*J,B+=e*Q,l+=(e=t[8])*P,w+=e*N,v+=e*O,p+=e*C,b+=e*F,g+=e*I,A+=e*Z,_+=e*G,U+=e*q,d+=e*D,E+=e*V,x+=e*X,M+=e*j,m+=e*H,B+=e*J,S+=e*Q,w+=(e=t[9])*P,v+=e*N,p+=e*O,b+=e*C,g+=e*F,A+=e*I,_+=e*Z,U+=e*G,d+=e*q,E+=e*D,x+=e*V,M+=e*X,m+=e*j,B+=e*H,S+=e*J,k+=e*Q,v+=(e=t[10])*P,p+=e*N,b+=e*O,g+=e*C,A+=e*F,_+=e*I,U+=e*Z,d+=e*G,E+=e*q,x+=e*D,M+=e*V,m+=e*X,B+=e*j,S+=e*H,k+=e*J,K+=e*Q,p+=(e=t[11])*P,b+=e*N,g+=e*O,A+=e*C,_+=e*F,U+=e*I,d+=e*Z,E+=e*G,x+=e*q,M+=e*D,m+=e*V,B+=e*X,S+=e*j,k+=e*H,K+=e*J,Y+=e*Q,b+=(e=t[12])*P,g+=e*N,A+=e*O,_+=e*C,U+=e*F,d+=e*I,E+=e*Z,x+=e*G,M+=e*q,m+=e*D,B+=e*V,S+=e*X,k+=e*j,K+=e*H,Y+=e*J,L+=e*Q,g+=(e=t[13])*P,A+=e*N,_+=e*O,U+=e*C,d+=e*F,E+=e*I,x+=e*Z,M+=e*G,m+=e*q,B+=e*D,S+=e*V,k+=e*X,K+=e*j,Y+=e*H,L+=e*J,T+=e*Q,A+=(e=t[14])*P,_+=e*N,U+=e*O,d+=e*C,E+=e*F,x+=e*I,M+=e*Z,m+=e*G,B+=e*q,S+=e*D,k+=e*V,K+=e*X,Y+=e*j,L+=e*H,T+=e*J,z+=e*Q,_+=(e=t[15])*P,h+=38*(d+=e*O),a+=38*(E+=e*C),f+=38*(x+=e*F),s+=38*(M+=e*I),u+=38*(m+=e*Z),c+=38*(B+=e*G),y+=38*(S+=e*q),l+=38*(k+=e*D),w+=38*(K+=e*V),v+=38*(Y+=e*X),p+=38*(L+=e*j),b+=38*(T+=e*H),g+=38*(z+=e*J),A+=38*(R+=e*Q),i=(e=(i+=38*(U+=e*N))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i=(e=(i+=o-1+37*(o-1))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i+=o-1+37*(o-1),r[0]=i,r[1]=h,r[2]=a,r[3]=f,r[4]=s,r[5]=u,r[6]=c,r[7]=y,r[8]=l,r[9]=w,r[10]=v,r[11]=p,r[12]=b,r[13]=g,r[14]=A,r[15]=_}function I(r,t){F(r,t,t)}function Z(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=253;0<=n;n--)I(e,e),2!==n&&4!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function G(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=250;0<=n;n--)I(e,e),1!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function q(r,t,n){var e,o,i=new Uint8Array(32),h=new Float64Array(80),a=v(),f=v(),s=v(),u=v(),c=v(),y=v();for(o=0;o<31;o++)i[o]=t[o];for(i[31]=127&t[31]|64,i[0]&=248,N(h,n),o=0;o<16;o++)f[o]=h[o],u[o]=a[o]=s[o]=0;for(a[0]=u[0]=1,o=254;0<=o;--o)T(a,f,e=i[o>>>3]>>>(7&o)&1),T(s,u,e),O(c,a,s),C(a,a,s),O(s,f,u),C(f,f,u),I(u,c),I(y,a),F(a,s,a),F(s,f,c),O(c,a,s),C(a,a,s),I(f,a),C(s,u,y),F(a,s,p),O(a,a,u),F(s,s,a),F(a,u,y),F(u,f,h),I(f,c),T(a,f,e),T(s,u,e);for(o=0;o<16;o++)h[o+16]=a[o],h[o+32]=s[o],h[o+48]=f[o],h[o+64]=u[o];var l=h.subarray(32),w=h.subarray(16);return Z(l,l),F(w,w,l),z(r,w),0}function D(r,t){return q(r,t,n)}function V(r,t){return h(t,32),D(r,t)}function X(r,t,n){var e=new Uint8Array(32);return q(e,n,t),_(r,o,e,U)}m.prototype.blocks=function(r,t,n){for(var e,o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d=this.fin?0:2048,E=this.h[0],x=this.h[1],M=this.h[2],m=this.h[3],B=this.h[4],S=this.h[5],k=this.h[6],K=this.h[7],Y=this.h[8],L=this.h[9],T=this.r[0],z=this.r[1],R=this.r[2],P=this.r[3],N=this.r[4],O=this.r[5],C=this.r[6],F=this.r[7],I=this.r[8],Z=this.r[9];16<=n;)y=c=0,y+=(E+=8191&(e=255&r[t+0]|(255&r[t+1])<<8))*T,y+=(x+=8191&(e>>>13|(o=255&r[t+2]|(255&r[t+3])<<8)<<3))*(5*Z),y+=(M+=8191&(o>>>10|(i=255&r[t+4]|(255&r[t+5])<<8)<<6))*(5*I),y+=(m+=8191&(i>>>7|(h=255&r[t+6]|(255&r[t+7])<<8)<<9))*(5*F),c=(y+=(B+=8191&(h>>>4|(a=255&r[t+8]|(255&r[t+9])<<8)<<12))*(5*C))>>>13,y&=8191,y+=(S+=a>>>1&8191)*(5*O),y+=(k+=8191&(a>>>14|(f=255&r[t+10]|(255&r[t+11])<<8)<<2))*(5*N),y+=(K+=8191&(f>>>11|(s=255&r[t+12]|(255&r[t+13])<<8)<<5))*(5*P),y+=(Y+=8191&(s>>>8|(u=255&r[t+14]|(255&r[t+15])<<8)<<8))*(5*R),l=c+=(y+=(L+=u>>>5|d)*(5*z))>>>13,l+=E*z,l+=x*T,l+=M*(5*Z),l+=m*(5*I),c=(l+=B*(5*F))>>>13,l&=8191,l+=S*(5*C),l+=k*(5*O),l+=K*(5*N),l+=Y*(5*P),c+=(l+=L*(5*R))>>>13,l&=8191,w=c,w+=E*R,w+=x*z,w+=M*T,w+=m*(5*Z),c=(w+=B*(5*I))>>>13,w&=8191,w+=S*(5*F),w+=k*(5*C),w+=K*(5*O),w+=Y*(5*N),v=c+=(w+=L*(5*P))>>>13,v+=E*P,v+=x*R,v+=M*z,v+=m*T,c=(v+=B*(5*Z))>>>13,v&=8191,v+=S*(5*I),v+=k*(5*F),v+=K*(5*C),v+=Y*(5*O),p=c+=(v+=L*(5*N))>>>13,p+=E*N,p+=x*P,p+=M*R,p+=m*z,c=(p+=B*T)>>>13,p&=8191,p+=S*(5*Z),p+=k*(5*I),p+=K*(5*F),p+=Y*(5*C),b=c+=(p+=L*(5*O))>>>13,b+=E*O,b+=x*N,b+=M*P,b+=m*R,c=(b+=B*z)>>>13,b&=8191,b+=S*T,b+=k*(5*Z),b+=K*(5*I),b+=Y*(5*F),g=c+=(b+=L*(5*C))>>>13,g+=E*C,g+=x*O,g+=M*N,g+=m*P,c=(g+=B*R)>>>13,g&=8191,g+=S*z,g+=k*T,g+=K*(5*Z),g+=Y*(5*I),A=c+=(g+=L*(5*F))>>>13,A+=E*F,A+=x*C,A+=M*O,A+=m*N,c=(A+=B*P)>>>13,A&=8191,A+=S*R,A+=k*z,A+=K*T,A+=Y*(5*Z),_=c+=(A+=L*(5*I))>>>13,_+=E*I,_+=x*F,_+=M*C,_+=m*O,c=(_+=B*N)>>>13,_&=8191,_+=S*P,_+=k*R,_+=K*z,_+=Y*T,U=c+=(_+=L*(5*Z))>>>13,U+=E*Z,U+=x*I,U+=M*F,U+=m*C,c=(U+=B*O)>>>13,U&=8191,U+=S*N,U+=k*P,U+=K*R,U+=Y*z,E=y=8191&(c=(c=((c+=(U+=L*T)>>>13)<<2)+c|0)+(y&=8191)|0),x=l+=c>>>=13,M=w&=8191,m=v&=8191,B=p&=8191,S=b&=8191,k=g&=8191,K=A&=8191,Y=_&=8191,L=U&=8191,t+=16,n-=16;this.h[0]=E,this.h[1]=x,this.h[2]=M,this.h[3]=m,this.h[4]=B,this.h[5]=S,this.h[6]=k,this.h[7]=K,this.h[8]=Y,this.h[9]=L},m.prototype.finish=function(r,t){var n,e,o,i,h=new Uint16Array(10);if(this.leftover){for(i=this.leftover,this.buffer[i++]=1;i<16;i++)this.buffer[i]=0;this.fin=1,this.blocks(this.buffer,0,16)}for(n=this.h[1]>>>13,this.h[1]&=8191,i=2;i<10;i++)this.h[i]+=n,n=this.h[i]>>>13,this.h[i]&=8191;for(this.h[0]+=5*n,n=this.h[0]>>>13,this.h[0]&=8191,this.h[1]+=n,n=this.h[1]>>>13,this.h[1]&=8191,this.h[2]+=n,h[0]=this.h[0]+5,n=h[0]>>>13,h[0]&=8191,i=1;i<10;i++)h[i]=this.h[i]+n,n=h[i]>>>13,h[i]&=8191;for(h[9]-=8192,e=(1^n)-1,i=0;i<10;i++)h[i]&=e;for(e=~e,i=0;i<10;i++)this.h[i]=this.h[i]&e|h[i];for(this.h[0]=65535&(this.h[0]|this.h[1]<<13),this.h[1]=65535&(this.h[1]>>>3|this.h[2]<<10),this.h[2]=65535&(this.h[2]>>>6|this.h[3]<<7),this.h[3]=65535&(this.h[3]>>>9|this.h[4]<<4),this.h[4]=65535&(this.h[4]>>>12|this.h[5]<<1|this.h[6]<<14),this.h[5]=65535&(this.h[6]>>>2|this.h[7]<<11),this.h[6]=65535&(this.h[7]>>>5|this.h[8]<<8),this.h[7]=65535&(this.h[8]>>>8|this.h[9]<<5),o=this.h[0]+this.pad[0],this.h[0]=65535&o,i=1;i<8;i++)o=(this.h[i]+this.pad[i]|0)+(o>>>16)|0,this.h[i]=65535&o;r[t+0]=this.h[0]>>>0&255,r[t+1]=this.h[0]>>>8&255,r[t+2]=this.h[1]>>>0&255,r[t+3]=this.h[1]>>>8&255,r[t+4]=this.h[2]>>>0&255,r[t+5]=this.h[2]>>>8&255,r[t+6]=this.h[3]>>>0&255,r[t+7]=this.h[3]>>>8&255,r[t+8]=this.h[4]>>>0&255,r[t+9]=this.h[4]>>>8&255,r[t+10]=this.h[5]>>>0&255,r[t+11]=this.h[5]>>>8&255,r[t+12]=this.h[6]>>>0&255,r[t+13]=this.h[6]>>>8&255,r[t+14]=this.h[7]>>>0&255,r[t+15]=this.h[7]>>>8&255},m.prototype.update=function(r,t,n){var e,o;if(this.leftover){for(n<(o=16-this.leftover)&&(o=n),e=0;e<o;e++)this.buffer[this.leftover+e]=r[t+e];if(n-=o,t+=o,this.leftover+=o,this.leftover<16)return;this.blocks(this.buffer,0,16),this.leftover=0}if(16<=n&&(o=n-n%16,this.blocks(r,t,o),t+=o,n-=o),n){for(e=0;e<n;e++)this.buffer[this.leftover+e]=r[t+e];this.leftover+=n}};var j=k,H=K;var J=[1116352408,3609767458,1899447441,602891725,3049323471,3964484399,3921009573,2173295548,961987163,4081628472,1508970993,3053834265,2453635748,2937671579,2870763221,3664609560,3624381080,2734883394,310598401,1164996542,607225278,1323610764,1426881987,3590304994,1925078388,4068182383,2162078206,991336113,2614888103,633803317,3248222580,3479774868,3835390401,2666613458,4022224774,944711139,264347078,2341262773,604807628,2007800933,770255983,1495990901,1249150122,1856431235,1555081692,3175218132,1996064986,2198950837,2554220882,3999719339,2821834349,766784016,2952996808,2566594879,3210313671,3203337956,3336571891,1034457026,3584528711,2466948901,113926993,3758326383,338241895,168717936,666307205,1188179964,773529912,1546045734,1294757372,1522805485,1396182291,2643833823,1695183700,2343527390,1986661051,1014477480,2177026350,1206759142,2456956037,344077627,2730485921,1290863460,2820302411,3158454273,3259730800,3505952657,3345764771,106217008,3516065817,3606008344,3600352804,1432725776,4094571909,1467031594,275423344,851169720,430227734,3100823752,506948616,1363258195,659060556,3750685593,883997877,3785050280,958139571,3318307427,1322822218,3812723403,1537002063,2003034995,1747873779,3602036899,1955562222,1575990012,2024104815,1125592928,2227730452,2716904306,2361852424,442776044,2428436474,593698344,2756734187,3733110249,3204031479,2999351573,3329325298,3815920427,3391569614,3928383900,3515267271,566280711,3940187606,3454069534,4118630271,4000239992,116418474,1914138554,174292421,2731055270,289380356,3203993006,460393269,320620315,685471733,587496836,852142971,1086792851,1017036298,365543100,1126000580,2618297676,1288033470,3409855158,1501505948,4234509866,1607167915,987167468,1816402316,1246189591];function Q(r,t,n,e){for(var o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d,E,x,M,m,B,S=new Int32Array(16),k=new Int32Array(16),K=r[0],Y=r[1],L=r[2],T=r[3],z=r[4],R=r[5],P=r[6],N=r[7],O=t[0],C=t[1],F=t[2],I=t[3],Z=t[4],G=t[5],q=t[6],D=t[7],V=0;128<=e;){for(_=0;_<16;_++)U=8*_+V,S[_]=n[U+0]<<24|n[U+1]<<16|n[U+2]<<8|n[U+3],k[_]=n[U+4]<<24|n[U+5]<<16|n[U+6]<<8|n[U+7];for(_=0;_<80;_++)if(o=Y,i=L,h=T,c=C,y=F,l=I,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,x+=65535&(E=((w=Z)>>>14|(a=z)<<18)^(Z>>>18|z<<14)^(z>>>9|Z<<23)),M+=E>>>16,m+=65535&(d=(z>>>14|Z<<18)^(z>>>18|Z<<14)^(Z>>>9|z<<23)),B+=d>>>16,x+=65535&(E=Z&(v=G)^~Z&(p=q)),M+=E>>>16,m+=65535&(d=z&(f=R)^~z&(s=P)),B+=d>>>16,d=J[2*_],x+=65535&(E=J[2*_+1]),M+=E>>>16,m+=65535&d,B+=d>>>16,d=S[_%16],M+=(E=k[_%16])>>>16,m+=65535&d,B+=d>>>16,m+=(M+=(x+=65535&E)>>>16)>>>16,x=65535&(E=A=65535&x|M<<16),M=E>>>16,m=65535&(d=g=65535&m|(B+=m>>>16)<<16),B=d>>>16,x+=65535&(E=(O>>>28|K<<4)^(K>>>2|O<<30)^(K>>>7|O<<25)),M+=E>>>16,m+=65535&(d=(K>>>28|O<<4)^(O>>>2|K<<30)^(O>>>7|K<<25)),B+=d>>>16,M+=(E=O&C^O&F^C&F)>>>16,m+=65535&(d=K&Y^K&L^Y&L),B+=d>>>16,u=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,b=65535&x|M<<16,x=65535&(E=l),M=E>>>16,m=65535&(d=h),B=d>>>16,M+=(E=A)>>>16,m+=65535&(d=g),B+=d>>>16,Y=K,L=o,T=i,z=h=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,R=a,P=f,N=s,K=u,C=O,F=c,I=y,Z=l=65535&x|M<<16,G=w,q=v,D=p,O=b,_%16==15)for(U=0;U<16;U++)d=S[U],x=65535&(E=k[U]),M=E>>>16,m=65535&d,B=d>>>16,d=S[(U+9)%16],x+=65535&(E=k[(U+9)%16]),M+=E>>>16,m+=65535&d,B+=d>>>16,g=S[(U+1)%16],x+=65535&(E=((A=k[(U+1)%16])>>>1|g<<31)^(A>>>8|g<<24)^(A>>>7|g<<25)),M+=E>>>16,m+=65535&(d=(g>>>1|A<<31)^(g>>>8|A<<24)^g>>>7),B+=d>>>16,g=S[(U+14)%16],M+=(E=((A=k[(U+14)%16])>>>19|g<<13)^(g>>>29|A<<3)^(A>>>6|g<<26))>>>16,m+=65535&(d=(g>>>19|A<<13)^(A>>>29|g<<3)^g>>>6),B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,S[U]=65535&m|B<<16,k[U]=65535&x|M<<16;x=65535&(E=O),M=E>>>16,m=65535&(d=K),B=d>>>16,d=r[0],M+=(E=t[0])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[0]=K=65535&m|B<<16,t[0]=O=65535&x|M<<16,x=65535&(E=C),M=E>>>16,m=65535&(d=Y),B=d>>>16,d=r[1],M+=(E=t[1])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[1]=Y=65535&m|B<<16,t[1]=C=65535&x|M<<16,x=65535&(E=F),M=E>>>16,m=65535&(d=L),B=d>>>16,d=r[2],M+=(E=t[2])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[2]=L=65535&m|B<<16,t[2]=F=65535&x|M<<16,x=65535&(E=I),M=E>>>16,m=65535&(d=T),B=d>>>16,d=r[3],M+=(E=t[3])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[3]=T=65535&m|B<<16,t[3]=I=65535&x|M<<16,x=65535&(E=Z),M=E>>>16,m=65535&(d=z),B=d>>>16,d=r[4],M+=(E=t[4])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[4]=z=65535&m|B<<16,t[4]=Z=65535&x|M<<16,x=65535&(E=G),M=E>>>16,m=65535&(d=R),B=d>>>16,d=r[5],M+=(E=t[5])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[5]=R=65535&m|B<<16,t[5]=G=65535&x|M<<16,x=65535&(E=q),M=E>>>16,m=65535&(d=P),B=d>>>16,d=r[6],M+=(E=t[6])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[6]=P=65535&m|B<<16,t[6]=q=65535&x|M<<16,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,d=r[7],M+=(E=t[7])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[7]=N=65535&m|B<<16,t[7]=D=65535&x|M<<16,V+=128,e-=128}return e}function W(r,t,n){var e,o=new Int32Array(8),i=new Int32Array(8),h=new Uint8Array(256),a=n;for(o[0]=1779033703,o[1]=3144134277,o[2]=1013904242,o[3]=2773480762,o[4]=1359893119,o[5]=2600822924,o[6]=528734635,o[7]=1541459225,i[0]=4089235720,i[1]=2227873595,i[2]=4271175723,i[3]=1595750129,i[4]=2917565137,i[5]=725511199,i[6]=4215389547,i[7]=327033209,Q(o,i,t,n),n%=128,e=0;e<n;e++)h[e]=t[a-n+e];for(h[n]=128,h[(n=256-128*(n<112?1:0))-9]=0,f(h,n-8,a/536870912|0,a<<3),Q(o,i,h,n),e=0;e<8;e++)f(r,8*e,o[e],i[e]);return 0}function $(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v(),s=v(),u=v();C(n,r[1],r[0]),C(u,t[1],t[0]),F(n,n,u),O(e,r[0],r[1]),O(u,t[0],t[1]),F(e,e,u),F(o,r[3],t[3]),F(o,o,y),F(i,r[2],t[2]),O(i,i,i),C(h,e,n),C(a,i,o),O(f,i,o),O(s,e,n),F(r[0],h,a),F(r[1],s,f),F(r[2],f,a),F(r[3],h,s)}function rr(r,t,n){var e;for(e=0;e<4;e++)T(r[e],t[e],n)}function tr(r,t){var n=v(),e=v(),o=v();Z(o,t[2]),F(n,t[0],o),F(e,t[1],o),z(r,e),r[31]^=P(n)<<7}function nr(r,t,n){var e,o;for(Y(r[0],s),Y(r[1],u),Y(r[2],u),Y(r[3],s),o=255;0<=o;--o)rr(r,t,e=n[o/8|0]>>(7&o)&1),$(t,r),$(r,r),rr(r,t,e)}function er(r,t){var n=[v(),v(),v(),v()];Y(n[0],e),Y(n[1],a),Y(n[2],u),F(n[3],e,a),nr(r,n,t)}function or(r,t,n){var e,o=new Uint8Array(64),i=[v(),v(),v(),v()];for(n||h(t,32),W(o,t,32),o[0]&=248,o[31]&=127,o[31]|=64,er(i,o),tr(r,i),e=0;e<32;e++)t[e+32]=r[e];return 0}var ir=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function hr(r,t){var n,e,o,i;for(e=63;32<=e;--e){for(n=0,o=e-32,i=e-12;o<i;++o)t[o]+=n-16*t[e]*ir[o-(e-32)],n=Math.floor((t[o]+128)/256),t[o]-=256*n;t[o]+=n,t[e]=0}for(o=n=0;o<32;o++)t[o]+=n-(t[31]>>4)*ir[o],n=t[o]>>8,t[o]&=255;for(o=0;o<32;o++)t[o]-=n*ir[o];for(e=0;e<32;e++)t[e+1]+=t[e]>>8,r[e]=255&t[e]}function ar(r){var t,n=new Float64Array(64);for(t=0;t<64;t++)n[t]=r[t];for(t=0;t<64;t++)r[t]=0;hr(r,n)}function fr(r,t,n,e){var o,i,h=new Uint8Array(64),a=new Uint8Array(64),f=new Uint8Array(64),s=new Float64Array(64),u=[v(),v(),v(),v()];W(h,e,32),h[0]&=248,h[31]&=127,h[31]|=64;var c=n+64;for(o=0;o<n;o++)r[64+o]=t[o];for(o=0;o<32;o++)r[32+o]=h[32+o];for(W(f,r.subarray(32),n+32),ar(f),er(u,f),tr(r,u),o=32;o<64;o++)r[o]=e[o];for(W(a,r,n+64),ar(a),o=0;o<64;o++)s[o]=0;for(o=0;o<32;o++)s[o]=f[o];for(o=0;o<32;o++)for(i=0;i<32;i++)s[o+i]+=a[o]*h[i];return hr(r.subarray(32),s),c}function sr(r,t,n,e){var o,i=new Uint8Array(32),h=new Uint8Array(64),a=[v(),v(),v(),v()],f=[v(),v(),v(),v()];if(n<64)return-1;if(function(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v();if(Y(r[2],u),N(r[1],t),I(o,r[1]),F(i,o,c),C(o,o,r[2]),O(i,r[2],i),I(h,i),I(a,h),F(f,a,h),F(n,f,o),F(n,n,i),G(n,n),F(n,n,o),F(n,n,i),F(n,n,i),F(r[0],n,i),I(e,r[0]),F(e,e,i),R(e,o)&&F(r[0],r[0],l),I(e,r[0]),F(e,e,i),R(e,o))return 1;P(r[0])===t[31]>>7&&C(r[0],s,r[0]),F(r[3],r[0],r[1])}(f,e))return-1;for(o=0;o<n;o++)r[o]=t[o];for(o=0;o<32;o++)r[o+32]=e[o];if(W(h,r,n),ar(h),nr(a,f,h),er(f,t.subarray(32)),$(a,f),tr(i,a),n-=64,g(t,0,i,0)){for(o=0;o<n;o++)r[o]=0;return-1}for(o=0;o<n;o++)r[o]=t[o+64];return n}function ur(r,t){if(32!==r.length)throw new Error("bad key size");if(24!==t.length)throw new Error("bad nonce size")}function cr(){for(var r=0;r<arguments.length;r++)if(!(arguments[r]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function yr(r){for(var t=0;t<r.length;t++)r[t]=0}i.lowlevel={crypto_core_hsalsa20:_,crypto_stream_xor:M,crypto_stream:x,crypto_stream_salsa20_xor:d,crypto_stream_salsa20:E,crypto_onetimeauth:B,crypto_onetimeauth_verify:S,crypto_verify_16:b,crypto_verify_32:g,crypto_secretbox:k,crypto_secretbox_open:K,crypto_scalarmult:q,crypto_scalarmult_base:D,crypto_box_beforenm:X,crypto_box_afternm:j,crypto_box:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),j(r,t,n,e,h)},crypto_box_open:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),H(r,t,n,e,h)},crypto_box_keypair:V,crypto_hash:W,crypto_sign:fr,crypto_sign_keypair:or,crypto_sign_open:sr,crypto_secretbox_KEYBYTES:32,crypto_secretbox_NONCEBYTES:24,crypto_secretbox_ZEROBYTES:32,crypto_secretbox_BOXZEROBYTES:16,crypto_scalarmult_BYTES:32,crypto_scalarmult_SCALARBYTES:32,crypto_box_PUBLICKEYBYTES:32,crypto_box_SECRETKEYBYTES:32,crypto_box_BEFORENMBYTES:32,crypto_box_NONCEBYTES:24,crypto_box_ZEROBYTES:32,crypto_box_BOXZEROBYTES:16,crypto_sign_BYTES:64,crypto_sign_PUBLICKEYBYTES:32,crypto_sign_SECRETKEYBYTES:64,crypto_sign_SEEDBYTES:32,crypto_hash_BYTES:64,gf:v,D:c,L:ir,pack25519:z,unpack25519:N,M:F,A:O,S:I,Z:C,pow2523:G,add:$,set25519:Y,modL:hr,scalarmult:nr,scalarbase:er},i.randomBytes=function(r){var t=new Uint8Array(r);return h(t,r),t},i.secretbox=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(32+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+32]=r[i];return k(o,e,e.length,t,n),o.subarray(16)},i.secretbox.open=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(16+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+16]=r[i];return e.length<32||0!==K(o,e,e.length,t,n)?null:o.subarray(32)},i.secretbox.keyLength=32,i.secretbox.nonceLength=24,i.secretbox.overheadLength=16,i.scalarMult=function(r,t){if(cr(r,t),32!==r.length)throw new Error("bad n size");if(32!==t.length)throw new Error("bad p size");var n=new Uint8Array(32);return q(n,r,t),n},i.scalarMult.base=function(r){if(cr(r),32!==r.length)throw new Error("bad n size");var t=new Uint8Array(32);return D(t,r),t},i.scalarMult.scalarLength=32,i.scalarMult.groupElementLength=32,i.box=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox(r,t,o)},i.box.before=function(r,t){cr(r,t),function(r,t){if(32!==r.length)throw new Error("bad public key size");if(32!==t.length)throw new Error("bad secret key size")}(r,t);var n=new Uint8Array(32);return X(n,r,t),n},i.box.after=i.secretbox,i.box.open=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox.open(r,t,o)},i.box.open.after=i.secretbox.open,i.box.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(32);return V(r,t),{publicKey:r,secretKey:t}},i.box.keyPair.fromSecretKey=function(r){if(cr(r),32!==r.length)throw new Error("bad secret key size");var t=new Uint8Array(32);return D(t,r),{publicKey:t,secretKey:new Uint8Array(r)}},i.box.publicKeyLength=32,i.box.secretKeyLength=32,i.box.sharedKeyLength=32,i.box.nonceLength=24,i.box.overheadLength=i.secretbox.overheadLength,i.sign=function(r,t){if(cr(r,t),64!==t.length)throw new Error("bad secret key size");var n=new Uint8Array(64+r.length);return fr(n,r,r.length,t),n},i.sign.open=function(r,t){if(cr(r,t),32!==t.length)throw new Error("bad public key size");var n=new Uint8Array(r.length),e=sr(n,r,r.length,t);if(e<0)return null;for(var o=new Uint8Array(e),i=0;i<o.length;i++)o[i]=n[i];return o},i.sign.detached=function(r,t){for(var n=i.sign(r,t),e=new Uint8Array(64),o=0;o<e.length;o++)e[o]=n[o];return e},i.sign.detached.verify=function(r,t,n){if(cr(r,t,n),64!==t.length)throw new Error("bad signature size");if(32!==n.length)throw new Error("bad public key size");var e,o=new Uint8Array(64+r.length),i=new Uint8Array(64+r.length);for(e=0;e<64;e++)o[e]=t[e];for(e=0;e<r.length;e++)o[e+64]=r[e];return 0<=sr(i,o,o.length,n)},i.sign.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(64);return or(r,t),{publicKey:r,secretKey:t}},i.sign.keyPair.fromSecretKey=function(r){if(cr(r),64!==r.length)throw new Error("bad secret key size");for(var t=new Uint8Array(32),n=0;n<t.length;n++)t[n]=r[32+n];return{publicKey:t,secretKey:new Uint8Array(r)}},i.sign.keyPair.fromSeed=function(r){if(cr(r),32!==r.length)throw new Error("bad seed size");for(var t=new Uint8Array(32),n=new Uint8Array(64),e=0;e<32;e++)n[e]=r[e];return or(t,n,!0),{publicKey:t,secretKey:n}},i.sign.publicKeyLength=32,i.sign.secretKeyLength=64,i.sign.seedLength=32,i.sign.signatureLength=64,i.hash=function(r){cr(r);var t=new Uint8Array(64);return W(t,r,r.length),t},i.hash.hashLength=64,i.verify=function(r,t){return cr(r,t),0!==r.length&&0!==t.length&&(r.length===t.length&&0===w(r,0,t,0,r.length))},i.setPRNG=function(r){h=r},function(){var o="undefined"!=typeof self?self.crypto||self.msCrypto:null;if(o&&o.getRandomValues){i.setPRNG(function(r,t){var n,e=new Uint8Array(t);for(n=0;n<t;n+=65536)o.getRandomValues(e.subarray(n,n+Math.min(t-n,65536)));for(n=0;n<t;n++)r[n]=e[n];yr(e)})}else"undefined"!=typeof require&&(o=require("crypto"))&&o.randomBytes&&i.setPRNG(function(r,t){var n,e=o.randomBytes(t);for(n=0;n<t;n++)r[n]=e[n];yr(e)})}()}("undefined"!=typeof module&&module.exports?module.exports:self.nacl=self.nacl||{});
 const APP_VERSION = "1.09.01";
-const APP_BUILD = 31;
+const APP_BUILD = 32;
 /* =========================================================================
    seiGEN Commerce Lite — single-file offline POS
    Storage: SQLite via sql.js (WASM), persisted to IndexedDB as a blob.
@@ -1700,7 +1709,8 @@ const APP_BUILD = 31;
         <div class="setup-card center">
           <h2>Activation needed</h2>
           ${clockAnomalyNoticeHtml()}
-          <p class="muted" id="lockReason">${escapeHtml(lockReasonText(st))} Selling is paused until this device has a licence. Your data is safe.</p>
+          <p class="muted" id="lockReason">${escapeHtml(lockReasonText(st))} ${typeof isSeat==="function" && isSeat()? "This Office seat is paused until it has a licence." : "Selling is paused until this device has a licence."} Your data is safe.</p>
+          <div data-business-bill>${typeof businessBillHtml==="function"? businessBillHtml() : ""}</div>
           ${activationFormHtml()}
           ${getSetting("trial_had","")? "" : `<div class="hr"></div>
           <p class="muted" style="margin:0 0 6px">This device never had the free trial.</p>
@@ -1712,6 +1722,7 @@ const APP_BUILD = 31;
       </div>
     `;
     wireActivationForm((r)=> renderActivationDone(r));
+    if(typeof refreshBusinessBill==="function") refreshBusinessBill().catch(()=>{});   // v32
     const lt = document.getElementById("lockTrial");
     if(lt) lt.onclick = ()=>{
       const wrap = openModal("Start your free trial", `
@@ -1796,6 +1807,7 @@ const APP_BUILD = 31;
       <h3 style="margin-top:0">Licence</h3>
       <p id="licenceLine" style="font-weight:600">${escapeHtml(line)}</p>
       <p id="licencePlanLine" class="muted" style="margin:0 0 8px">${escapeHtml(licencePlanText(st))}</p>
+      <div data-business-bill style="margin:0 0 8px">${typeof businessBillHtml==="function"? businessBillHtml() : ""}</div>
       <p class="muted" style="margin:0 0 8px">Device code: <b>${escapeHtml(licenceDeviceCode())}</b></p>
       <p id="rpnOnboardedLine" class="muted" style="margin:0 0 8px">${escapeHtml(typeof rpnOnboardedByText==="function"? rpnOnboardedByText() : "")}</p>
       ${st.status==="pretrial"? `<button class="btn btn-primary" id="licenceTrial" style="margin-bottom:8px">Start your free trial</button>` : ""}
@@ -1806,7 +1818,7 @@ const APP_BUILD = 31;
   // the till's role and price from cl_licence_terms (this device only),
   // remembered for when it's offline. Nothing here is editable.
   const LICENCE_PLAN_NAMES = { 1:"Business", 2:"Lite" };
-  const LICENCE_ROLE_TEXT = { main:"main till", branch:"first till of a branch", till:"extra till" };
+  const LICENCE_ROLE_TEXT = { main:"main till", branch:"first till of a branch", till:"extra till", seat:"Office seat" };   // seat: v32
   function licenceTermsCached(){ try{ return JSON.parse(getSetting("licence_terms","")||"null"); }catch(e){ return null; } }
   function licencePlanText(st){
     const lic = st && st.source==="licence" ? st.licence : null;
@@ -1833,6 +1845,7 @@ const APP_BUILD = 31;
   function wireLicenceStatusCard(){
     const st = licenceState();
     if(st.source==="licence") refreshLicenceTerms();
+    if(typeof refreshBusinessBill==="function") refreshBusinessBill().catch(()=>{});   // v32: every device of the business, seats included
     // "Onboarded by" (rpn.js): the RPN the server has for this shop
     if(typeof refreshRpnStatus==="function") refreshRpnStatus(false).then(()=>{
       const el = document.getElementById("rpnOnboardedLine");
@@ -3907,12 +3920,15 @@ const APP_BUILD = 31;
   // ================== RENDER ==================
   function render(){
     if(route==="setup") return renderSetup();
+    if(typeof seatWaiting==="function" && seatWaiting()) return renderSeatWaiting();   // v32: nothing else until the Office seat is approved
+    if(route==="seatinstall") return renderSeatInstall();
     // Activation (activation.js): a locked device only ever shows the lock
     // screen or read-only Reports, whatever route a button asks for.
     if(typeof licenceLocked==="function" && licenceLocked() && route!=="lockreports") route = "lock";
     if(route==="lock") return renderLock();
     if(route==="lockreports") return renderLockReports();
     if(route==="start") return renderStart();
+    if(typeof isSeat==="function" && isSeat() && !(typeof staffSession==="function" && staffSession())) return renderStart();   // v32: an Office seat shows nothing without someone signed in
     const desktop = isDesktopBuild();
     // Roles (v28): a menu without its right is hidden, and its screen can't be opened
     if(typeof navAllowed==="function" && route!=="more" && !navAllowed(route)) route = firstAllowedRoute();
@@ -3926,7 +3942,7 @@ const APP_BUILD = 31;
           <div class="branch">${escapeHtml(getSetting("branch_name",""))} · <span id="userChip" style="text-decoration:underline;cursor:pointer">${escapeHtml(sessionUser||"set name")}</span></div>
         </div>
         <button class="logout-btn" id="logoutBtn" aria-label="Log out" title="Log out">${ICON_LOGOUT}</button>
-        <button class="cart-btn" id="cartBtn" ${navItems.some(n=>n.id==="pos")? "" : "hidden"}>🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
+        <button class="cart-btn" id="cartBtn" ${navItems.some(n=>n.id==="pos")? "" : `hidden style="display:none"`}>🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
       </div>
       <main id="main"></main>
       ${desktop? "" : `<div class="navbar">${navItems.map(n=>navBtn(n.id,n.icon,n.label)).join("")}</div>`}
@@ -4210,6 +4226,7 @@ const APP_BUILD = 31;
     { id:"directory", label:"Directory" },
     { id:"productlist", label:"Product List" },
     { id:"branches", label:"Stock by branch", remoteLabel:"Other branches", needs:()=> typeof bsTabAvailable==="function" && bsTabAvailable() },   // Branches B1
+    { id:"transfers", label:"Transfers (store room)", needs:()=> typeof itAvailable==="function" && itAvailable() && (typeof can!=="function" || can("m.dispatch") || can("m.receive")) },   // v32 Office seats (transfers.js)
     { id:"stocktake", label:"Stocktake" },   // every branch counts its own stock (Branches addendum §R7)
     { id:"requests", label:"Requests" },
     { id:"itredorders", label:"Orders Fulfillment", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },      // iTred orders (itred-orders.js)
@@ -4251,6 +4268,7 @@ const APP_BUILD = 31;
     else if(moreTab==="productlist") renderProductList(body);
     else if(moreTab==="branches"){ if(typeof bsTabAvailable==="function" && bsTabAvailable()) renderBranchStock(body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="stocktake") renderStocktake(body);
+    else if(moreTab==="transfers") renderTransfers(body);
     else if(moreTab==="requests") renderStockRequests(body);
     else if(moreTab==="itredorders" || moreTab==="itredfeedback"){ if(typeof itredAvailable==="function" && itredAvailable()) renderItredMoreTab(moreTab, body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="purchasing"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderPurchasing(body); }
@@ -4765,14 +4783,14 @@ const APP_BUILD = 31;
 
   // DN files are self-contained JSON (see dnfile.js). GRV files (Phase 3) share it.
   const DOC_FILE_EXT = ".json";
-  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT","RCT","CN"];
+  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT","RCT","CN","IT"];   // IT = internal transfer (v32, Office seats)
   // Multi-terminal Phase 2: documents numbered per till once the device has a
   // till code (Settings → Business & Terminals). The counter itself stays per
   // device (doc_counters, keyed by getBranchId(), which is already per
   // device), so (dispatch_branch_id, dn_no) stays unique; only the displayed
   // number gains the till code. Export file numbers (EXP/LOG/ITM/MKT) don't.
-  const TILL_DOC_TYPES = ["DN","GRV","ADJ","CXL","RCT","CN"];   // CN = credit note (Phase 3c): CN-T1-0001, CN0001 unregistered
-  const TILL_CODE_RE = /^T[0-9]{1,3}$/;
+  const TILL_DOC_TYPES = ["DN","GRV","ADJ","CXL","RCT","CN","IT"];   // CN = credit note (Phase 3c): CN-T1-0001, CN0001 unregistered
+  const TILL_CODE_RE = /^[TS][0-9]{1,3}$/;   // v32: S<n> = an Office seat (GRV-S1-0001)
   const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
   // 4-digit zero-padded; past 9999 the number simply grows (DN10000) rather
@@ -14058,6 +14076,8 @@ ${readOnly? "" : `
       if(typeof marketAfterCheckin==="function") marketAfterCheckin();
       // seiGEN dispatches (dispatch-srv.js): send waiting dispatches, pull Incoming and the differences.
       if(typeof dsAfterCheckin==="function") dsAfterCheckin();
+      // internal transfers (transfers.js, v32): the main branch's devices, then the transfers when it has an Office seat.
+      if(typeof itAfterCheckin==="function") itAfterCheckin();
       // suppliers and supplier GRVs (supplier-grv.js): send waiting ones, pull the list.
       if(typeof sgAfterCheckin==="function") sgAfterCheckin();
       // the business's customer list (customers.js): send this till's new customers, pull the rest.
@@ -14211,7 +14231,10 @@ ${readOnly? "" : `
   }
   // What every device RPC is authenticated with.
   function terminalAuth(phrase){
-    return { p_install_id: getSetting("install_id",""), p_secret_phrase: phrase==null? getSetting("secret_phrase","") : phrase, p_device_key: deviceKey() };
+    let ph = phrase==null? getSetting("secret_phrase","") : phrase;
+    // v32 Office seats: a seat's calls carry the signed-in person's token after its own phrase (seiGEN checks their rights)
+    if(phrase==null && typeof isSeat==="function" && isSeat() && typeof staffToken==="function"){ const t = staffToken(); if(t) ph += "|"+t; }
+    return { p_install_id: getSetting("install_id",""), p_secret_phrase: ph, p_device_key: deviceKey() };
   }
 
   // Main device: creates the business, its main branch and this till (T1). Idempotent.
@@ -14309,6 +14332,7 @@ ${readOnly? "" : `
     }
     const m = String(r.message||"");
     if(/JOIN_LOCKED/.test(m)) return "Too many wrong codes. Wait an hour, then try again.";
+    if(/^SEAT_[A-Z_]+:/.test(m)) return m.replace(/^SEAT_[A-Z_]+:\s*/, "");   // v32 Office seats (cl_seat_need)
     if(/UPDATE_MAIN_FIRST/.test(m)) return "This version of the app is too old to add terminals. Update this app, then try again.";
     if(/APP_UPDATE_NEEDED/.test(m)) return "Update this app first, then join again. Your join code is still valid.";
     if(/ADMIN_SEED_INVALID/.test(m)) return "That Admin passcode couldn't be prepared. Try again.";
@@ -14364,7 +14388,8 @@ ${readOnly? "" : `
           <button class="btn btn-primary" id="termAddBtn" style="margin-top:12px">+ Add a terminal</button>
           <div class="hr"></div>
           <h4 style="margin:0 0 6px">Terminals</h4>
-          <div id="termList"><p class="muted">Loading…</p></div>` : ""}
+          <div id="termList"><p class="muted">Loading…</p></div>
+          ${typeof seatSectionHtml==="function"? seatSectionHtml() : ""}` : ""}
         ${typeof catalogueSyncCardHtml==="function"? catalogueSyncCardHtml() : ""}
         ${status}
       </div>`;
@@ -14401,6 +14426,7 @@ ${readOnly? "" : `
     const add = document.getElementById("termAddBtn");
     if(add) add.onclick = ()=> openAddTerminalModal();
     if(document.getElementById("termList")) loadTerminalList();
+    if(typeof wireSeatSection==="function" && document.getElementById("seatInviteBtn")) wireSeatSection();   // v32 Office seats
     if(typeof wireCatalogueSyncCard==="function") wireCatalogueSyncCard();
   }
   async function loadTerminalList(){
@@ -14416,8 +14442,8 @@ ${readOnly? "" : `
         <div style="font-weight:700">${escapeHtml(b.name)}${b.is_main? ` <span class="pill">Main</span>` : ""}</div>
         ${(b.terminals||[]).length? (b.terminals||[]).map(t=>{ byId[t.id] = { till:t.till_code, branch:b.name };
           return `<div class="term-row" data-term-id="${escapeHtml(t.id)}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0">
-            <span class="muted" style="font-size:12.5px">${escapeHtml(t.till_code)}${t.label? " · "+escapeHtml(t.label) : ""}${t.last_seen_ts? " · last seen "+escapeHtml(new Date(t.last_seen_ts).toLocaleString()) : ""}${t.active? "" : ` · <b style="color:var(--danger)">deactivated</b>`}${t.id===own? " · this till" : ""}</span>
-            ${t.id===own? "" : `<span style="display:flex;gap:6px;flex:none">${t.active? `<button class="btn btn-sm btn-outline" data-term-admin="${escapeHtml(t.id)}">Set its Admin passcode</button>` : ""}<button class="btn btn-sm btn-outline" data-term-active="${t.active? "0" : "1"}" data-term="${escapeHtml(t.id)}">${t.active? "Deactivate" : "Reactivate"}</button></span>`}
+            <span class="muted" style="font-size:12.5px">${escapeHtml(t.kind==="seat"? seatTillLabel(t.till_code) : t.till_code)}${t.approval==="pending"? " · waiting for approval" : t.approval==="refused"? " · refused" : ""}${t.label && t.kind!=="seat"? " · "+escapeHtml(t.label) : ""}${t.last_seen_ts? " · last seen "+escapeHtml(new Date(t.last_seen_ts).toLocaleString()) : ""}${t.active? "" : ` · <b style="color:var(--danger)">deactivated</b>`}${t.id===own? " · this till" : ""}</span>
+            ${t.id===own || t.approval==="pending" || t.approval==="refused"? "" : `<span style="display:flex;gap:6px;flex:none">${t.active && t.kind!=="seat"? `<button class="btn btn-sm btn-outline" data-term-admin="${escapeHtml(t.id)}">Set its Admin passcode</button>` : ""}<button class="btn btn-sm btn-outline" data-term-active="${t.active? "0" : "1"}" data-term="${escapeHtml(t.id)}">${t.active? "Deactivate" : "Reactivate"}</button></span>`}
           </div>`; }).join("")
           : `<div class="muted" style="font-size:12.5px">No tills yet</div>`}
       </div>`).join("") || `<p class="muted">No branches yet.</p>`;
@@ -14530,6 +14556,849 @@ ${readOnly? "" : `
       wrap.querySelector("#termShareCode").onclick = ()=> openExternalUrl(waLink("", text));
       loadTerminalList();
     };
+  }
+
+  // ================== Office seats (v32; seiGEN 20261109120000_office_seats) ==================
+  // docs/office/office-seat-design.md. An Office seat is a device on the MAIN
+  // branch with no till, for the bookkeeper, the stores clerk or the owner: it
+  // never sells, takes payments or runs End of Day (hidden here, refused by
+  // seiGEN, and marked in the signed licence); it holds main-branch stock like
+  // a till and does stores and office work by the signed-in person's rights.
+  //
+  // Joining: the Owner or an Admin makes an invite (a code + a link, one use,
+  // 24 hours, one named person); the person opens the link, installs the app,
+  // and joins INSIDE the installed app (never in a browser tab, so the data
+  // lives where the app does); they set or enter their PIN; the Owner or an
+  // Admin approves the device after comparing the device check shown on both
+  // screens; then the seat downloads the main branch's data.
+  // The seat never learns the business secret phrase: seiGEN gives it a phrase
+  // of its own (kept in secret_phrase, never shown). Each call from a seat
+  // carries the signed-in person's token after it ("<phrase>|<token>").
+
+  const SEAT_WEB_APP = "https://mobilepos-preview.seigendc.workers.dev/";   // where an invite link points when this device isn't the web app itself
+  const SEAT_DENY = ["m.sell","m.credit","m.eod","void_return","credit_over_limit"];   // never on a seat (seiGEN's cl_seat_need too)
+  const SEAT_CODE_KEY = "scl_seat_invite";   // this address's storage: the invite CODE only (never a phrase or a PIN), for 48 hours
+  const SEAT_POLL_MS = 30000;
+
+  // ---- what this device is ----
+  function isSeat(){
+    if(getSetting("terminal_kind","")==="seat") return true;
+    try{ const l = typeof currentLicence==="function"? currentLicence() : null; return !!(l && (l.features & 1)); }catch(e){ return false; }   // the signed licence's seat bit
+  }
+  function seatWaiting(){ return getSetting("terminal_kind","")==="seat" && getSetting("seat_approval","")!=="approved"; }
+  function seatCheckOf(k){ const h = sha256HexPure(String(k||"")).toUpperCase(); return h.slice(0,2)+"-"+h.slice(2,4); }
+  function seatTillLabel(code){ return /^S\d+$/.test(String(code||""))? code+" (Office seat)" : String(code||""); }
+  function seatStandalone(){
+    try{ return !!((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone===true); }catch(e){ return false; }
+  }
+  function seatTauri(){ return !!(typeof window!=="undefined" && window.__TAURI__); }
+  function seatCanJoinHere(){ return seatStandalone() || seatTauri(); }
+  // The browser and device, from the user agent (an in-app browser can't install apps, so it's warned off).
+  function seatDevice(ua){
+    ua = String(ua || (typeof window!=="undefined" && window.navigator && window.navigator.userAgent) || "");
+    const fb = /FBAN|FBAV|FB_IAB|FBIOS|FB4A/.test(ua), wa = /WhatsApp/i.test(ua), ig = /Instagram/i.test(ua);
+    const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && typeof window!=="undefined" && window.navigator && window.navigator.maxTouchPoints>1);
+    const android = /Android/.test(ua);
+    const webview = android && /; wv\)/.test(ua);   // an Android app's own browser (not Chrome)
+    const inApp = fb || wa || ig || /\bLine\//.test(ua) || webview;
+    const edge = /Edg(A|iOS)?\//.test(ua);
+    const browser = edge? "Edge" : /CriOS|Chrome\//.test(ua)? "Chrome" : /Firefox|FxiOS/.test(ua)? "Firefox" : /Safari\//.test(ua)? "Safari" : "browser";
+    return { inApp, inAppName: wa? "WhatsApp" : fb? "Facebook" : ig? "Instagram" : "this app", ios, android, desktop: !ios && !android, browser,
+      hint: (ios? "iPhone/iPad" : android? "Android" : /Windows/.test(ua)? "Windows" : /Mac/.test(ua)? "Mac" : "PC") + " · " + (seatTauri()? "Windows program" : browser) };
+  }
+
+  // ---- the invite code: from the link, kept for the installed app (Android, PC) ----
+  function takeSeatCodeFromUrl(){
+    try{
+      const loc = window.location, m = /(?:^#|&)seat=([A-Za-z0-9-]{8,9})(?:&|$)/.exec(String(loc.hash||""));
+      if(!m) return "";
+      const c = formatJoinCode(m[1]);
+      seatRememberCode(c);
+      if(window.history && window.history.replaceState) window.history.replaceState(null, "", loc.pathname + loc.search);
+      return c;
+    }catch(e){ return ""; }
+  }
+  function seatRememberCode(c){ try{ window.localStorage.setItem(SEAT_CODE_KEY, JSON.stringify({ code:formatJoinCode(c), ts:Date.now() })); }catch(e){} }
+  function seatStoredCode(){
+    try{ const o = JSON.parse(window.localStorage.getItem(SEAT_CODE_KEY)||"null"); return o && o.code && Date.now()-o.ts < 48*3600e3? o.code : ""; }catch(e){ return ""; }
+  }
+  function seatForgetCode(){ try{ window.localStorage.removeItem(SEAT_CODE_KEY); }catch(e){} }
+  function seatInviteLink(code){
+    const loc = typeof window!=="undefined" && window.location, here = loc && /^https?:$/.test(loc.protocol)? loc.origin + loc.pathname : SEAT_WEB_APP;
+    return here + "#seat=" + String(code||"").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  }
+  function seatShareText(inv, link){
+    const until = new Date(inv.expires_ts);
+    return "Hi " + inv.person_name + ", you're invited to " + (inv.business_name || getSetting("shop_name","") || "our business") +
+      " on seiGEN Commerce Lite as an Office seat (" + inv.role_name + ").\n" +
+      "1. Open this link in Chrome (Android or PC) or Safari (iPhone): " + link + "\n" +
+      "2. Install the app, then open it.\n" +
+      "3. Your code: " + formatJoinCode(inv.code) + " (one use, valid until " + until.toLocaleString() + ").\n" +
+      "Don't forward this message.";
+  }
+  async function seatCopy(text, btn){
+    let done = false;
+    try{ const nav = window.navigator; if(nav.clipboard && nav.clipboard.writeText){ await nav.clipboard.writeText(text); done = true; } }catch(e){}
+    if(!done){
+      try{ const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); done = document.execCommand("copy"); ta.remove(); }catch(e){}
+    }
+    if(btn){ const was = btn.dataset.label || btn.textContent; btn.dataset.label = was; btn.textContent = done? "Copied ✓" : "Select and copy it"; setTimeout(()=>{ btn.textContent = was; }, 2500); }
+    return done;
+  }
+  function seatProblemText(r){
+    r = r||{};
+    if(r.reason==="offline") return "You're offline. Connect to the internet, then try again.";
+    if(r.reason==="network") return "Couldn't reach seiGEN. Check the internet connection and try again.";
+    const m = String((r.data && r.data.message) || r.message || "");
+    const k = /^(SEAT_[A-Z_]+):\s*(.*)$/.exec(m);
+    return (k? k[2] : m) || "seiGEN couldn't do that. Try again.";
+  }
+  // Every seiGEN call from a seat carries the signed-in person's token (terminalAuth adds it); make sure there is one.
+  async function seatAuth(){
+    if(isSeat() && typeof staffEnsureToken==="function") await staffEnsureToken();
+    return terminalAuth();
+  }
+  if(typeof window!=="undefined" && window.setInterval){
+    const keepToken = ()=>{ try{ if(isSeat() && typeof staffSession==="function" && staffSession() && !staffToken() && isOnline()) staffEnsureToken(); }catch(e){} };
+    window.setInterval(keepToken, 60000);
+    if(window.addEventListener) window.addEventListener("online", keepToken);
+  }
+
+  // ================== the joining device ==================
+  function seatCodeBoxHtml(code){
+    return `<div class="seat-code-box"><div class="muted" style="font-size:12.5px">Your code</div>
+      <div class="seat-code" id="seatCode">${escapeHtml(formatJoinCode(code)||"—")}</div>
+      <button type="button" class="btn btn-outline" id="seatCopyCode">Copy code</button></div>`;
+  }
+  // The link opened in a browser tab: how to install, for this device. Never a Join button here.
+  function renderSeatInstall(code){
+    route = "seatinstall";
+    code = code || seatStoredCode();
+    if(code) seatRememberCode(code);
+    const d = seatDevice();
+    const app = "seiGEN Commerce Lite";
+    let steps;
+    if(d.inApp){
+      steps = `<div class="seat-warn" id="seatInApp"><b>You're inside ${escapeHtml(d.inAppName)}'s browser.</b> The app can't be installed here, and joining here would keep your data in the wrong place.</div>
+        <ol class="seat-steps"><li>${d.ios? "Tap <b>⋯</b> or the compass, then <b>Open in Safari</b>." : "Tap <b>⋮</b> (top right), then <b>Open in Chrome</b>."}</li>
+        <li>Then follow the steps there. Your code is below: copy it now in case you need it.</li></ol>`;
+    } else if(d.ios){
+      steps = `<ol class="seat-steps" id="seatStepsIos"><li>Tap <b>Share</b> <span aria-hidden="true">⬆</span> at the bottom of Safari.</li>
+        <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        <li>Open <b>${app}</b> from your home screen.</li>
+        <li>Tap <b>Join as an Office seat</b> and <b>paste the code</b> (copy it first).</li></ol>`;
+    } else {
+      steps = `<button type="button" class="btn btn-primary" id="seatInstallBtn" hidden>⬇️ Install the app</button>
+        <ol class="seat-steps" id="${d.android? "seatStepsAndroid" : "seatStepsDesktop"}">
+        <li>${d.android? "Tap <b>Install the app</b> above. If there's no button, tap <b>⋮</b> → <b>Install app</b> (or <b>Add to Home screen</b>)."
+                       : "Click <b>Install the app</b> above, or the install icon <span aria-hidden=\"true\">⊕</span> at the right of the address bar."}</li>
+        <li>Open <b>${app}</b> ${d.android? "from your home screen" : "from the new window or your Start menu"}.</li>
+        <li>Tap <b>Join as an Office seat</b>: the code is usually filled in. If not, paste it.</li></ol>`;
+    }
+    $app.innerHTML = `<div class="center-screen"><div class="setup-card" id="seatInstallCard">
+      <h2 style="margin-top:0">Join as an Office seat</h2>
+      <p class="muted" style="margin-top:0">An Office seat is the business's office and stores device on the main branch. It can't sell, take payments or run End of Day.</p>
+      ${code? seatCodeBoxHtml(code) : `<p class="seat-warn" id="seatNoCode">Open the link from your invite message to see your code.</p>`}
+      ${steps}
+      <p class="muted" style="font-size:12px;margin-top:12px">Join only in the installed app. Already installed? Open it, then tap <b>Join as an Office seat</b>.</p>
+    </div></div>`;
+    const cp = document.getElementById("seatCopyCode");
+    if(cp) cp.onclick = ()=> seatCopy(formatJoinCode(code), cp);
+    // pwa-extras.js (installable builds) shows #seatInstallBtn when the browser offers the install
+    if(typeof window!=="undefined" && window.sclSeatInstallMount) window.sclSeatInstallMount();
+  }
+  function renderSeatEntry(code){ return seatCanJoinHere()? renderSeatJoin(code) : renderSeatInstall(code); }
+
+  function renderSeatJoin(code){
+    route = "setup";
+    code = code || seatStoredCode();
+    $app.innerHTML = `<div class="center-screen"><div class="setup-card" id="seatJoinCard">
+      <h2 style="margin-top:0">Join as an Office seat</h2>
+      <p class="muted" style="margin-top:0">Type or paste the code from your invite. You don't need the business's secret phrase.</p>
+      <label for="seatJoinCode">Code</label>
+      <input class="field" id="seatJoinCode" value="${escapeHtml(formatJoinCode(code||""))}" placeholder="K7Q4-M9TX" autocomplete="off" style="letter-spacing:2px;text-transform:uppercase">
+      <button class="btn btn-primary" id="seatJoinGo" style="margin-top:12px">Join</button>
+      <p id="seatJoinMsg" role="alert" style="color:var(--danger);font-weight:600;margin:8px 0 0"></p>
+      <button type="button" class="btn btn-ghost" id="seatJoinBack" style="margin-top:6px">← Set up a shop instead</button>
+    </div></div>`;
+    const msg = document.getElementById("seatJoinMsg");
+    document.getElementById("seatJoinBack").onclick = ()=>{ if(typeof renderSetup==="function") renderSetup(); };
+    const go = document.getElementById("seatJoinGo");
+    go.onclick = async ()=>{
+      const c = formatJoinCode(document.getElementById("seatJoinCode").value);
+      if(!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(c)){ msg.textContent = "The code has 8 letters and numbers, like K7Q4-M9TX."; return; }
+      if(!seatCanJoinHere()){ renderSeatInstall(c); return; }
+      go.disabled = true; go.textContent = "Joining…"; msg.textContent = "";
+      const r = await seatJoin(c);
+      if(!r.ok){ go.disabled = false; go.textContent = "Join"; msg.textContent = seatProblemText(r); return; }
+      renderSeatPin();
+    };
+  }
+  async function seatJoin(code){
+    if(!seatCanJoinHere()) return { ok:false, reason:"refused", data:{ message:"Join inside the installed app." } };
+    if(!getSetting("install_id","")) setSetting("install_id", newInstallId());
+    deviceKey();
+    await persist();
+    const r = await terminalRpc("cl_seat_join", { p_install_id:getSetting("install_id",""), p_device_key:deviceKey(), p_code:formatJoinCode(code),
+      p_app_build:(typeof APP_BUILD!=="undefined")? APP_BUILD : null, p_join_hint:seatDevice().hint, p_device_code:null }, { timeoutMs:20000 });
+    if(!r.ok) return r;
+    seatStoreJoin(r.data);
+    await persist();
+    return r;
+  }
+  // Like a till's join (setup.js), with seiGEN's names; the till identity is kept back until approval.
+  function seatStoreJoin(d){
+    setSetting("terminal_kind", "seat");
+    setSetting("seat_approval", d.approval||"pending");
+    setSetting("seat_person", d.person_name||""); setSetting("seat_role", d.role_name||"");
+    setSetting("seat_has_pin", d.person_has_pin? "1" : ""); setSetting("seat_pin_ok", d.pin_ok? "1" : "");
+    setSetting("seat_join_json", JSON.stringify({ business_id:d.business_id, business_name:d.business_name, branch_id:d.branch_id, branch_name:d.branch_name,
+      is_main:true, terminal_id:d.terminal_id, till_code:d.till_code, label:d.label }));
+    setSetting("secret_phrase", d.device_phrase);   // this seat's own phrase from seiGEN: never shown, never the business's
+    setSetting("shop_name", d.business_name||""); setSetting("branch_name", d.branch_name||""); setSetting("branch_type", "main");
+    setSetting("single_operator_mode", "0");
+    if(!getSetting("install_date","")){
+      setSetting("currency", getSetting("currency","")||"$"); setSetting("paper_width","80");
+      resetBranchId();
+      const now = trustedNow();
+      setSetting("install_date", now.toISOString()); setSetting("licence_v2_since", now.toISOString());
+      setSetting("setup_complete","1");
+      backfillBranch(db, currentBranch());
+    }
+    logAudit("Joined as an Office seat", "", (d.till_code||"")+" of "+(d.branch_name||"")+" ("+(d.business_name||"")+") for "+(d.person_name||""));
+    seatForgetCode();
+  }
+
+  function renderSeatPin(){
+    route = "seatwait";
+    const has = getSetting("seat_has_pin","")==="1", who = getSetting("seat_person",""), role = getSetting("seat_role","");
+    $app.innerHTML = `<div class="center-screen"><div class="setup-card" id="seatPinCard">
+      <h2 style="margin-top:0">${has? "Enter your PIN" : "Choose your PIN"}</h2>
+      <p class="muted" style="margin-top:0">${escapeHtml(who)}${role? " ("+escapeHtml(role)+")" : ""}, ${has? "enter the PIN you already use at "+escapeHtml(getSetting("shop_name",""))+"."
+        : "choose a PIN of 4 to 6 digits. You'll sign in with it on this Office seat."}</p>
+      <label for="seatPin">${has? "Your PIN" : "New PIN"}</label>
+      <input class="field" id="seatPin" type="password" inputmode="numeric" maxlength="6" autocomplete="${has? "current-password" : "new-password"}">
+      ${has? "" : `<label for="seatPin2">The same PIN again</label><input class="field" id="seatPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password">`}
+      <button class="btn btn-primary" id="seatPinGo" style="margin-top:12px">${has? "Continue" : "Set PIN"}</button>
+      <p id="seatPinMsg" role="alert" style="color:var(--danger);font-weight:600;margin:8px 0 0"></p>
+    </div></div>`;
+    const go = document.getElementById("seatPinGo"), msg = document.getElementById("seatPinMsg");
+    go.onclick = async ()=>{
+      const p = document.getElementById("seatPin").value.trim();
+      const bad = pinProblem(p); if(bad){ msg.textContent = bad; return; }
+      if(!has && document.getElementById("seatPin2").value.trim()!==p){ msg.textContent = "The two PINs aren't the same."; return; }
+      if(go.disabled) return;
+      go.disabled = true; go.textContent = "Checking…"; msg.textContent = "";
+      const r = await seatSetPin(p);
+      go.disabled = false; go.textContent = has? "Continue" : "Set PIN";
+      if(!r.ok){ msg.textContent = (r.data && r.data.error==="BAD_PIN")? "Incorrect PIN."+(r.data.left!=null? " "+r.data.left+" tries left." : "") : seatProblemText(r); return; }
+      renderSeatWaiting();
+    };
+  }
+  async function seatSetPin(pin){
+    const has = getSetting("seat_has_pin","")==="1";
+    const c = has? {} : await adminCheckMakeAsync(pin);
+    const r = await terminalRpc("cl_seat_set_pin", Object.assign(terminalAuth(), { p_pin:pin, p_pin_salt:c.salt||null, p_pin_check:c.check||null, p_pin_rounds:c.rounds||null }), { timeoutMs:20000 });
+    if(r.ok){ setSetting("seat_pin_ok", "1"); logAudit("Office seat PIN "+(has? "entered" : "set"), "", getSetting("seat_person","")); await persist(); }
+    return r;
+  }
+
+  let _seatPoll = null;
+  function renderSeatWaiting(){
+    route = "seatwait";
+    if(getSetting("seat_approval","")==="refused") return renderSeatRefused();
+    if(getSetting("seat_pin_ok","")!=="1") return renderSeatPin();
+    const who = getSetting("seat_person",""), role = getSetting("seat_role","");
+    $app.innerHTML = `<div class="center-screen"><div class="setup-card center" id="seatWaitCard">
+      <h2 style="margin-top:0">Waiting for approval</h2>
+      <p class="muted" style="margin-top:0">Waiting for approval by the Owner or an Admin of ${escapeHtml(getSetting("shop_name",""))}. Ask them to open
+        <b>More → Settings → Business &amp; Terminals</b> on a main-branch device and approve this Office seat.</p>
+      <p style="margin:12px 0 4px">Read them this device check:</p>
+      <div class="seat-check" id="seatCheck">${escapeHtml(seatCheckOf(deviceKey()))}</div>
+      <p class="muted" style="font-size:12.5px">They see the same check on their screen. If it's different, they mustn't approve.</p>
+      <p class="muted" id="seatWaitWho">${escapeHtml(who)}${role? " · "+escapeHtml(role) : ""} · ${escapeHtml(getSetting("branch_name",""))}</p>
+      <button class="btn btn-outline" id="seatWaitCheckNow">Check now</button>
+      <p class="muted" id="seatWaitMsg" style="font-size:12.5px;margin-top:8px">This screen updates by itself.</p>
+    </div></div>`;
+    document.getElementById("seatWaitCheckNow").onclick = ()=> seatCheckStatus(true);
+    if(_seatPoll) clearInterval(_seatPoll);
+    _seatPoll = setInterval(()=>{ if(route!=="seatwait"){ clearInterval(_seatPoll); _seatPoll = null; return; } seatCheckStatus(false); }, SEAT_POLL_MS);
+  }
+  async function seatCheckStatus(say){
+    const el = document.getElementById("seatWaitMsg");
+    const r = await terminalRpc("cl_seat_status", terminalAuth());
+    if(!r.ok){ if(el && say) el.textContent = seatProblemText(r); return r; }
+    const d = r.data;
+    if(d.approval==="approved"){ await seatOnApproved(); return r; }
+    if(d.approval==="refused"){ setSetting("seat_approval", "refused"); setSetting("seat_refused_reason", d.refused_reason||""); await persist(); renderSeatRefused(); return r; }
+    if(!d.pin_ok && getSetting("seat_pin_ok","")==="1"){ setSetting("seat_pin_ok", ""); await persist(); renderSeatPin(); return r; }
+    if(el) el.textContent = "Still waiting · checked "+new Date().toLocaleTimeString();
+    return r;
+  }
+  async function seatOnApproved(){
+    if(_seatPoll){ clearInterval(_seatPoll); _seatPoll = null; }
+    let j = {}; try{ j = JSON.parse(getSetting("seat_join_json","{}"))||{}; }catch(e){}
+    setSetting("seat_approval", "approved");
+    setSetting("trial_cover_wanted", "1");   // the business's free trial covers this seat too (trial.js)
+    storeTerminal(j);                        // now a registered device of the main branch (catalogue, staff, stock figures)
+    logAudit("Office seat approved", "", (j.till_code||"")+" of "+(j.branch_name||""));
+    await persist();
+    $app.innerHTML = `<div class="center-screen"><div class="setup-card center" id="seatReadyCard"><h2 style="margin-top:0">Approved</h2>
+      <p class="muted" id="seatReadyMsg">Getting the main branch's data…</p></div></div>`;
+    try{ if(typeof staffPull==="function") await staffPull(); }catch(e){}
+    try{ if(typeof catBackgroundTick==="function") await catBackgroundTick(); }catch(e){}
+    try{ if(typeof dsRefreshBranches==="function") await dsRefreshBranches(); }catch(e){}
+    try{ if(typeof itRefreshDevices==="function") await itRefreshDevices(); }catch(e){}
+    await persist();
+    if(typeof renderTrialStarting==="function" && !(typeof currentLicence==="function" && currentLicence())) return renderTrialStarting({ quiet:true });
+    renderStart();
+  }
+  function renderSeatRefused(){
+    route = "seatwait";
+    const why = getSetting("seat_refused_reason","");
+    $app.innerHTML = `<div class="center-screen"><div class="setup-card center" id="seatRefusedCard">
+      <h2 style="margin-top:0">This Office seat was refused</h2>
+      <p class="muted">The Owner or an Admin of ${escapeHtml(getSetting("shop_name",""))} didn't approve this device.${why? " Reason: "+escapeHtml(why) : ""}</p>
+      <p class="muted">If this is a mistake, ask them for a new invite and join on a fresh install of the app.</p>
+    </div></div>`;
+  }
+
+  // ================== the main branch: invite, approve, revoke ==================
+  function seatAdminSession(){
+    const s = typeof staffSession==="function"? staffSession() : null;
+    const st = s && shopStaff(s.id), r = st && shopRole(st.role_id);
+    return r && (r.builtin==="owner" || r.builtin==="admin")? s : null;
+  }
+  function seatSectionHtml(){
+    return `<div class="hr"></div>
+      <h4 style="margin:0 0 4px">Office seats</h4>
+      <p class="muted" style="font-size:12.5px;margin:0 0 8px">An Office seat is a device on the main branch with no till, for the bookkeeper, the stores clerk or the owner.
+        It can't sell, take payments or run End of Day. It costs $3 per 30 days, like a till.</p>
+      <div id="seatPendingBox"></div>
+      <button class="btn btn-outline" id="seatInviteBtn">+ Invite an Office seat</button>
+      <div id="seatList" style="margin-top:8px"></div>`;
+  }
+  async function seatLoad(){
+    if(!seatAdminSession()) return { ok:false, reason:"refused", data:{ message:"Sign in as the Owner or an Admin to invite or approve Office seats." } };
+    const token = await staffEnsureToken();
+    return terminalRpc("cl_device_seat_invites", Object.assign(terminalAuth(), { p_staff_token:token }));
+  }
+  const SEAT_STATUS_TEXT = { open:"open", used:"used", expired:"expired", revoked:"revoked" };
+  async function wireSeatSection(){
+    const inv = document.getElementById("seatInviteBtn");
+    if(!inv) return;
+    inv.onclick = ()=> openSeatInviteModal();
+    const box = document.getElementById("seatList"), pend = document.getElementById("seatPendingBox");
+    const r = await seatLoad();
+    if(!document.getElementById("seatList")) return;
+    if(!r.ok){ box.innerHTML = `<p class="muted" style="font-size:12.5px" id="seatListMsg">${escapeHtml(seatProblemText(r))}</p>`; return; }
+    const d = r.data, waiting = (d.seats||[]).filter(s=>s.approval==="pending"), seats = (d.seats||[]).filter(s=>s.approval!=="pending");
+    pend.innerHTML = waiting.map(s=>`<div class="seat-pending" data-seat-pending="${escapeHtml(s.id)}">
+        <div><b>${escapeHtml(s.person||"?")}</b> · ${escapeHtml(s.role||"")} <span class="pill low">Waiting for approval</span></div>
+        <div class="muted" style="font-size:12.5px">${escapeHtml(s.till_code)} · joined ${escapeHtml(new Date(s.registered_ts).toLocaleString())}${s.join_hint? " from "+escapeHtml(s.join_hint) : ""}${s.pin_ok? "" : " · PIN not set yet"}</div>
+        <button class="btn btn-sm btn-primary" data-seat-approve="${escapeHtml(s.id)}" style="margin-top:6px">Approve or refuse…</button></div>`).join("");
+    const inviteRows = (d.invites||[]).map(i=>`<div class="term-row" data-seat-invite="${escapeHtml(i.id)}" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:2px 0">
+        <span class="muted" style="font-size:12.5px">Invite · ${escapeHtml(i.person||"?")} (${escapeHtml(i.role||"")}) · ${escapeHtml(SEAT_STATUS_TEXT[i.status]||i.status)}${i.status==="open"? " until "+escapeHtml(new Date(i.expires_ts).toLocaleString()) : ""}${i.seat_code? " · "+escapeHtml(i.seat_code) : ""}</span>
+        ${i.status==="open"? `<button class="btn btn-sm btn-outline" data-seat-revoke="${escapeHtml(i.id)}">Revoke</button>` : ""}</div>`).join("");
+    const seatRows = seats.map(s=>`<div class="term-row" style="margin:2px 0"><span class="muted" style="font-size:12.5px">${escapeHtml(seatTillLabel(s.till_code))} · ${escapeHtml(s.person||"")}
+        · ${s.approval==="refused"? "refused" : s.active? "approved"+(s.approved_by? " by "+escapeHtml(s.approved_by) : "") : "deactivated"}${s.last_seen_ts? " · last seen "+escapeHtml(new Date(s.last_seen_ts).toLocaleString()) : ""}</span></div>`).join("");
+    box.innerHTML = (seatRows + inviteRows) || `<p class="muted" style="font-size:12.5px">No Office seats or invites yet.</p>`;
+    pend.querySelectorAll("[data-seat-approve]").forEach(b=> b.onclick = ()=> openSeatApproveModal(waiting.find(s=>s.id===b.dataset.seatApprove)));
+    box.querySelectorAll("[data-seat-revoke]").forEach(b=> b.onclick = async ()=>{
+      if(!confirm("Revoke this invite? The code stops working.")) return;
+      b.disabled = true;
+      const x = await seatRevoke(b.dataset.seatRevoke);
+      if(!x.ok){ b.disabled = false; alert(seatProblemText(x)); return; }
+      wireSeatSection();
+    });
+  }
+  async function seatRevoke(id){
+    const token = await staffEnsureToken();
+    const r = await terminalRpc("cl_device_seat_invite_revoke", Object.assign(terminalAuth(), { p_staff_token:token, p_invite_id:id }));
+    if(r.ok) logAudit("Office seat invite revoked", "", id);
+    return r;
+  }
+  async function seatInviteCreate(o){
+    const token = await staffEnsureToken();
+    if(!token) return { ok:false, reason:"refused", data:{ message:"Sign in (online) as the Owner or an Admin first." } };
+    const r = await terminalRpc("cl_device_seat_invite_create", Object.assign(terminalAuth(), { p_staff_token:token,
+      p_staff_id:o.staffId||null, p_name:o.name||null, p_role_id:o.roleId||null, p_valid_hours:24 }));
+    if(r.ok) logAudit("Office seat invite created", "", r.data.person_name+" ("+r.data.role_name+"), valid until "+new Date(r.data.expires_ts).toLocaleString());
+    return r;
+  }
+  function openSeatInviteModal(){
+    if(!seatAdminSession()) return alert("Sign in as the Owner or an Admin to invite an Office seat.");
+    const roles = shopRoles().filter(r=> r.builtin!=="cashier");
+    const people = shopStaffAll().filter(s=> s.active && (shopRole(s.role_id)||{}).builtin!=="cashier");
+    const wrap = openModal("Invite an Office seat", `
+      <p class="muted" style="margin-top:0">For the main branch. No till: no selling, payments or End of Day. $3 per 30 days, like a till.</p>
+      <label for="seatWho">Person</label>
+      <select class="field" id="seatWho"><option value="">+ A new person</option>${people.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)} (${escapeHtml((shopRole(s.role_id)||{}).name||"")})</option>`).join("")}</select>
+      <div id="seatNewBox"><label for="seatName">Name</label><input class="field" id="seatName" maxlength="60" placeholder="e.g. Tendai">
+      <label for="seatRole">Role</label><select class="field" id="seatRole">${roles.map(r=>`<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`).join("")}</select></div>
+      <p class="muted" style="font-size:12.5px">The invite works once, for this person only, for 24 hours. You approve the device before it gets any data.</p>
+      <button class="btn btn-primary" id="seatCreate" style="margin-top:6px">Create invite</button>
+      <p id="seatCreateMsg" role="alert" style="color:var(--danger);font-weight:600;margin:8px 0 0"></p>`);
+    const who = wrap.querySelector("#seatWho"), nb = wrap.querySelector("#seatNewBox");
+    who.onchange = ()=>{ nb.style.display = who.value? "none" : ""; };
+    const go = wrap.querySelector("#seatCreate"), msg = wrap.querySelector("#seatCreateMsg");
+    go.onclick = async ()=>{
+      const o = who.value? { staffId:who.value } : { name:wrap.querySelector("#seatName").value.trim(), roleId:wrap.querySelector("#seatRole").value };
+      if(!o.staffId && !o.name){ msg.textContent = "Enter the person's name."; return; }
+      if(go.disabled) return;
+      go.disabled = true; go.textContent = "Creating…"; msg.textContent = "";
+      const r = await seatInviteCreate(o);
+      go.disabled = false; go.textContent = "Create invite";
+      if(!r.ok){ msg.textContent = seatProblemText(r); return; }
+      wrap.remove();
+      openSeatInviteResult(r.data);
+      wireSeatSection();
+    };
+    return wrap;
+  }
+  function openSeatInviteResult(inv){
+    const link = seatInviteLink(inv.code), text = seatShareText(inv, link);
+    const wrap = openModal("Invite ready", `
+      <p style="margin-top:0"><b>${escapeHtml(inv.person_name)}</b> · ${escapeHtml(inv.role_name)}</p>
+      <div class="seat-code" id="seatInvCode">${escapeHtml(formatJoinCode(inv.code))}</div>
+      <p class="muted" id="seatInvUntil" style="font-size:12.5px">Valid until ${escapeHtml(new Date(inv.expires_ts).toLocaleString())} · one use · for ${escapeHtml(inv.person_name)} only.
+        Share the code and the link together; there's no password in either.</p>
+      <label for="seatInvText">The message</label>
+      <textarea class="field" id="seatInvText" rows="7" readonly>${escapeHtml(text)}</textarea>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px">
+        <a class="btn btn-primary" id="seatShareWa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text)}">Share on WhatsApp</a>
+        <button class="btn btn-outline" id="seatCopyMsg">Copy message</button>
+        <button class="btn btn-outline" id="seatCopyCode2">Copy code</button>
+        <button class="btn btn-ghost" id="seatRevokeNow">Revoke</button>
+      </div>
+      <p id="seatInvMsg" role="alert" style="font-weight:600;margin:8px 0 0"></p>`);
+    wrap.querySelector("#seatCopyMsg").onclick = (e)=> seatCopy(text, e.currentTarget);
+    wrap.querySelector("#seatCopyCode2").onclick = (e)=> seatCopy(formatJoinCode(inv.code), e.currentTarget);
+    wrap.querySelector("#seatRevokeNow").onclick = async (e)=>{
+      if(!confirm("Revoke this invite? The code stops working.")) return;
+      e.currentTarget.disabled = true;
+      const r = await seatRevoke(inv.invite_id);
+      wrap.querySelector("#seatInvMsg").textContent = r.ok? "Revoked. The code no longer works." : seatProblemText(r);
+      wireSeatSection();
+    };
+    return wrap;
+  }
+  function openSeatApproveModal(s){
+    if(!s) return null;
+    const wrap = openModal("Approve an Office seat", `
+      <p style="margin-top:0"><b>${escapeHtml(s.person||"?")}</b> · ${escapeHtml(s.role||"")} · ${escapeHtml(s.till_code)}</p>
+      <p class="muted" style="font-size:12.5px">Joined ${escapeHtml(new Date(s.registered_ts).toLocaleString())}${s.join_hint? " from "+escapeHtml(s.join_hint) : ""}.</p>
+      <p style="margin:10px 0 4px">Device check on their screen should be:</p>
+      <div class="seat-check" id="seatApproveCheck">${escapeHtml(s.check||"")}</div>
+      <p class="muted" style="font-size:12.5px">Ask ${escapeHtml(s.person||"them")} to read the check on their Office seat (call them if they aren't here). Approve only if it's the same.</p>
+      ${s.pin_ok? "" : `<p class="seat-warn" id="seatApproveNoPin">They haven't set or entered their PIN yet. Ask them to do it on the Office seat first.</p>`}
+      <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="seatCheckSame" style="width:auto;margin-top:3px"><span>The check on their screen is the same</span></label>
+      <button class="btn btn-primary" id="seatApproveGo" disabled style="margin-top:8px">Approve</button>
+      <div class="hr"></div>
+      <label for="seatRefuseWhy">Or refuse it (reason, optional)</label>
+      <input class="field" id="seatRefuseWhy" maxlength="200" placeholder="e.g. not our device">
+      <button class="btn btn-outline" id="seatRefuseGo" style="margin-top:6px">Refuse</button>
+      <p id="seatApproveMsg" role="alert" style="color:var(--danger);font-weight:600;margin:8px 0 0"></p>`);
+    const same = wrap.querySelector("#seatCheckSame"), ap = wrap.querySelector("#seatApproveGo"), msg = wrap.querySelector("#seatApproveMsg");
+    same.onchange = ()=>{ ap.disabled = !same.checked; };
+    ap.onclick = async ()=>{
+      if(ap.disabled) return;
+      ap.disabled = true; ap.textContent = "Approving…"; msg.textContent = "";
+      const token = await staffEnsureToken();
+      const r = await terminalRpc("cl_device_seat_approve", Object.assign(terminalAuth(), { p_staff_token:token, p_terminal_id:s.id, p_check:s.check }));
+      if(!r.ok){ ap.disabled = false; ap.textContent = "Approve"; msg.textContent = seatProblemText(r); return; }
+      logAudit("Office seat approved", "", s.till_code+" for "+(s.person||""));
+      if(typeof staffPull==="function") staffPull().catch(()=>{});   // a new person from the invite
+      if(typeof itRefreshDevices==="function") itRefreshDevices().catch(()=>{});   // this till can now send to and receive from the seat
+      wrap.remove(); wireSeatSection();
+    };
+    wrap.querySelector("#seatRefuseGo").onclick = async (e)=>{
+      if(!confirm("Refuse this Office seat? It gets no data, and the device can't join again.")) return;
+      e.currentTarget.disabled = true;
+      const token = await staffEnsureToken();
+      const r = await terminalRpc("cl_device_seat_refuse", Object.assign(terminalAuth(), { p_staff_token:token, p_terminal_id:s.id, p_reason:wrap.querySelector("#seatRefuseWhy").value.trim()||null }));
+      if(!r.ok){ e.currentTarget.disabled = false; msg.textContent = seatProblemText(r); return; }
+      logAudit("Office seat refused", "", s.till_code+" for "+(s.person||""));
+      wrap.remove(); wireSeatSection();
+    };
+    return wrap;
+  }
+
+  // ================== the business's bill (every device, seats included) ==================
+  const BILL_ROLE_TEXT = { main:"main till", branch:"first till of a branch", till:"extra till", seat:"Office seat" };
+  function businessBillCached(){ try{ return JSON.parse(getSetting("business_bill","")||"null"); }catch(e){ return null; } }
+  function businessBillHtml(){
+    const b = businessBillCached();
+    if(!b || !b.devices || !b.devices.length) return "";
+    const cur = b.currency || "USD", money = (n)=> cur+" "+Number(n).toFixed(2);
+    return `<div class="business-bill" id="businessBillBox"><div style="font-weight:600;margin-bottom:4px">Your business's bill${b.plan_name? " ("+escapeHtml(b.plan_name)+" plan)" : ""}</div>
+      ${b.devices.map(d=>`<div class="muted" style="font-size:12.5px">${escapeHtml(d.branch)} ${escapeHtml(seatTillLabel(d.till_code))} · ${d.unit_fee==null? escapeHtml(d.problem||"not billed") : escapeHtml(BILL_ROLE_TEXT[d.role]||d.role)+" "+escapeHtml(money(d.unit_fee))}</div>`).join("")}
+      <div style="font-weight:700;margin-top:4px" id="businessBillTotal">Total ${escapeHtml(money(b.total))} per 30 days</div></div>`;
+  }
+  async function refreshBusinessBill(){
+    if(!(typeof isTerminalRegistered==="function" && isTerminalRegistered()) || !isOnline()) return null;
+    const r = await terminalRpc("cl_business_bill", terminalAuth());
+    if(!r.ok || !r.data) return null;
+    setSetting("business_bill", JSON.stringify(r.data));
+    document.querySelectorAll("[data-business-bill]").forEach(el=>{ el.innerHTML = businessBillHtml(); });
+    return r.data;
+  }
+
+  // ================== Internal transfers (v32; seiGEN 20261109120000_office_seats) ==================
+  // Stock between an Office seat (the store room) and a till of the SAME branch
+  // (the shop floor), in two steps like a Delivery Note and its GRV: the sender
+  // posts (its stock goes down), the receiving device confirms each line's
+  // quantity (its stock goes up by what arrived). A shortage goes back into
+  // the sender's stock; the sender writes it off (an ADJ, approved as any
+  // write-off) or keeps it. No costs travel, no transport, no charge; costs
+  // show here only to people with "View costs", from this device's own catalogue.
+  // Each device moves its own stock once per document (stock_movements.doc_uid),
+  // so a retry, a pull after a restore or a double tap never counts twice.
+
+  function itEnabled(){ return typeof isTerminalRegistered==="function" && isTerminalRegistered() && getSetting("terminal_is_main","")==="1"; }
+  function itDevices(){ try{ return JSON.parse(getSetting("it_devices","[]"))||[]; }catch(e){ return []; } }
+  // Another device this one can send to: a seat sends to a till, a till to a seat (seiGEN checks it too).
+  function itTargets(){ return itDevices().filter(d=> d.id!==getSetting("terminal_id","") && d.active && d.approval==="approved" && ((d.kind==="seat")!==isSeat())); }
+  function itAvailable(){ return itEnabled() && (isSeat() || itDevices().some(d=>d.kind==="seat")); }
+  async function itRefreshDevices(){
+    if(!itEnabled() || typeof fetchBusinessBranches!=="function") return false;
+    const r = await fetchBusinessBranches();
+    if(!r.ok || !r.data) return false;
+    const mine = (r.data.branches||[]).find(b=> b.id===getSetting("branch_uuid",""));
+    if(!mine || !mine.terminals) return false;
+    setSetting("it_devices", JSON.stringify(mine.terminals.map(t=>({ id:t.id, till_code:t.till_code, label:t.label||"", kind:t.kind||"till", active:!!t.active, approval:t.approval||"approved" }))));
+    return true;
+  }
+  function itCache(){ try{ return JSON.parse(getSetting("it_cache","")||"null") || { incoming:[], outgoing:[] }; }catch(e){ return { incoming:[], outgoing:[] }; } }
+  // seiGEN's answer to a send or a confirm goes into the list at once (the pull after it may take a while)
+  function itCacheUpsert(dir, x){
+    const c = itCache(), list = c[dir] || (c[dir] = []), i = list.findIndex(t=>t.id===x.id);
+    if(i>=0) list[i] = x; else list.push(x);
+    setSetting("it_cache", JSON.stringify(c));
+  }
+  function itDeviceName(code, kind){ return kind==="seat" || /^S\d+$/.test(String(code||""))? code+" (Office seat)" : code+" (till)"; }
+  const itApplied = (docUid)=> !!one("SELECT 1 AS x FROM stock_movements WHERE doc_uid=? LIMIT 1",[docUid]);
+  const itUid = (id)=> String(id||"").toLowerCase().replace(/-/g,"");
+  function itNewId(){ const h = (typeof dsNewUid==="function"? dsNewUid() : sha256HexPure(String(Math.random())+Date.now()).slice(0,32)); return h.slice(0,8)+"-"+h.slice(8,12)+"-4"+h.slice(13,16)+"-a"+h.slice(17,20)+"-"+h.slice(20,32); }
+  function itFindProduct(l){ return dsFindProduct(l); }
+  function itSeatApprover(pin){
+    const s = typeof staffSession==="function"? staffSession() : null;
+    if(!s || !canStrict("approve_writeoffs")) throw new Error("A write-off needs someone signed in who may approve write-offs.");
+    const st = shopStaff(s.id);
+    if(!st || !staffPinMatches(st, pin)) throw new Error("Incorrect PIN.");
+    return { name:st.name };
+  }
+  function itCanSeeCosts(){ return typeof can==="function"? can("costs") : true; }
+  function itStatusText(x){
+    if(x.status==="sent") return "Sent, waiting to be received";
+    if(x.status==="cancelled") return "Cancelled";
+    if(x.status==="received") return "Received";
+    if(x.status==="received_short"){
+      const open = (x.lines||[]).filter(l=>l.short_status==="open").length;
+      return "Received short" + (open? " · "+open+" to settle" : "");
+    }
+    return x.status||"";
+  }
+  function itSay(r){ return typeof seatProblemText==="function"? seatProblemText(r) : ((r.data && r.data.message) || r.message || "Couldn't reach seiGEN."); }
+
+  // ---- the sender ----
+  // o: { toId, lines:[{ productId, qty }], note }
+  async function itSend(o){
+    if(!isOnline()) throw new Error("You need the internet to send a transfer, so both devices see the same thing.");
+    if(typeof can==="function" && !can("m.dispatch")) throw new Error("Sending stock needs the Dispatch right.");
+    const to = itTargets().find(d=>d.id===o.toId);
+    if(!to) throw new Error("Choose another device of this branch.");
+    const lines = (o.lines||[]).filter(l=>l.qty>0).map((l, i)=>{
+      const p = one("SELECT * FROM products WHERE id=?",[l.productId]);
+      if(!p) throw new Error("A product on this transfer isn't here any more.");
+      if(!Number.isInteger(l.qty) || l.qty<1) throw new Error("Quantities are whole numbers.");
+      if(l.qty > (p.stock||0)) throw new Error(p.name+": only "+(p.stock||0)+" in stock here.");
+      return { line_no:i+1, cat_uid:p.cat_uid||null, code:p.sku||null, name:p.name, qty:l.qty, productId:p.id };
+    });
+    if(!lines.length) throw new Error("Add at least one product with a quantity.");
+    const doc = reserveDocNumber("IT");
+    await persist();
+    const id = itNewId();
+    const payload = { id, it_no:doc.n, it_display:doc.text, to_terminal_id:to.id, created_iso:new Date().toISOString(),
+      sent_by:String(sessionUser||""), note:String(o.note||"").trim()||null, lines:lines.map(({ productId, ...l })=>l) };
+    const r = await terminalRpc("cl_device_transfer_send", Object.assign(await seatAuth(), { p_transfer:payload }), { timeoutMs:20000 });
+    if(!r.ok) throw new Error(itSay(r));
+    itApplySend(r.data.transfer);
+    itCacheUpsert("outgoing", r.data.transfer);
+    logAudit("Internal transfer sent", "", doc.text+" to "+itDeviceName(to.till_code, to.kind)+": "+lines.map(l=>l.qty+" × "+l.name).join(", "));
+    await persist();
+    itPull().catch(()=>{});
+    return r.data.transfer;
+  }
+  function itApplySend(x){
+    const uid = itUid(x.id);
+    return dsTx(()=>{
+      if(itApplied(uid)) return false;
+      const ts = new Date().toISOString();
+      (x.lines||[]).forEach(l=>{
+        const p = itFindProduct(l);
+        if(!p) throw new Error(l.name+" isn't a product here.");
+        dsMove(p, -l.qty, "transfer_out", "it", uid, x.it_display, "To "+itDeviceName(x.to_till, x.to_kind), ts);
+      });
+      return true;
+    });
+  }
+  async function itCancel(id, reason){
+    if(!isOnline()) throw new Error("You need the internet for this.");
+    if(String(reason||"").trim().length<3) throw new Error("Give a reason (at least 3 characters).");
+    const r = await terminalRpc("cl_device_transfer_cancel", Object.assign(await seatAuth(), { p_transfer_id:id, p_by:String(sessionUser||""), p_reason:String(reason).trim() }));
+    if(!r.ok) throw new Error(itSay(r));
+    itReconcileOut(r.data.transfer);
+    logAudit("Internal transfer cancelled", "", r.data.transfer.it_display+": "+String(reason).trim());
+    await persist();
+    return r.data.transfer;
+  }
+  // A shortage: written off (ADJ, approved like any write-off) or kept in this device's stock.
+  async function itResolve(id, lineNo, action, o){
+    o = o||{};
+    if(!isOnline()) throw new Error("You need the internet for this.");
+    const x = itCache().outgoing.find(t=>t.id===id);
+    const l = x && (x.lines||[]).find(k=>k.line_no===lineNo);
+    if(!l || l.short_status!=="open") throw new Error("That shortage isn't open.");
+    let p = { by:String(sessionUser||"") };
+    if(action==="write_off"){
+      const admin = isSeat()? itSeatApprover(o.passcode) : dsNeedAdmin(o.passcode, "approve_writeoffs");   // a seat has no Admin passcode: the signed-in person's own PIN
+      if(String(o.reason||"").trim().length<3) throw new Error("Give a reason (at least 3 characters).");
+      const adj = reserveDocNumber("ADJ");
+      p = Object.assign(p, { adj_no:adj.n, adj_text:adj.text, adj_till:adj.till||null, reason:String(o.reason).trim(), admin:admin.name });
+      await persist();
+    }
+    const r = await terminalRpc("cl_device_transfer_resolve", Object.assign(await seatAuth(), { p_transfer_id:id, p_line_no:lineNo, p_action:action,
+      p_by:p.by, p_note:p.reason||null, p_adj_display:p.adj_text||null }));
+    if(!r.ok) throw new Error(itSay(r));
+    itReconcileOut(r.data.transfer, action==="write_off"? Object.assign({ line_no:lineNo }, p) : null);
+    logAudit(action==="write_off"? "Write-off (internal transfer)" : "Internal transfer shortage kept", l.name, x.it_display+": "+(l.qty-l.received)+(p.adj_text? " ("+p.adj_text+", authorised by "+p.admin+")" : ""));
+    await persist();
+    return r.data.transfer;
+  }
+  // What seiGEN says happened to a transfer this device sent: moved here once each.
+  function itReconcileOut(x, wo){
+    if(x.from_terminal_id!==getSetting("terminal_id","")) return;
+    const uid = itUid(x.id), ts = new Date().toISOString();
+    dsTx(()=>{
+      if(x.status!=="cancelled" && !itApplied(uid)){
+        (x.lines||[]).forEach(l=>{ const p = itFindProduct(l); if(p) dsMove(p, -l.qty, "transfer_out", "it", uid, x.it_display, "To "+itDeviceName(x.to_till, x.to_kind)+" (put back from seiGEN)", ts); });
+      }
+      if(x.status==="cancelled" && itApplied(uid) && !itApplied(uid+":cancel")){
+        (x.lines||[]).forEach(l=>{ const p = itFindProduct(l); if(p) dsMove(p, l.qty, "transfer_cancel", "it", uid+":cancel", x.it_display, "Cancelled: "+(x.cancel_reason||""), ts); });
+      }
+      if(x.status==="received_short" && itApplied(uid)){
+        (x.lines||[]).filter(l=>l.received!=null && l.received<l.qty).forEach(l=>{
+          const p = itFindProduct(l), k = uid+":"+l.line_no, short = l.qty-l.received;
+          if(!p) return;
+          if(!itApplied(k+":return")) dsMove(p, short, "transfer_return", "it", k+":return", x.it_display, "Short at "+itDeviceName(x.to_till, x.to_kind), ts);
+          if(l.short_status==="written_off" && !itApplied(k+":wo")){
+            const w = (wo && wo.line_no===l.line_no)? wo : {};
+            if(w.adj_no!=null)
+              run(`INSERT INTO stock_adjustments(branch,branch_id,adj_no,product_code,product_name,qty_delta,reason,note,by_user,authorised_by,ts,till_code)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+                [currentBranch(), getBranchId(), w.adj_no, p.sku||"", p.name, -short, "Lost in transit", w.reason||l.short_note||"", String(sessionUser||""), w.admin||l.short_resolved_by||"", ts, w.adj_till||null]);
+            moveStock({ productId:p.id, delta:-short, kind:"write_off", docType:"adj", docUid:k+":wo", docNo:l.adj_display||w.adj_text||"", ts, note:"Short on "+x.it_display+": "+(w.reason||l.short_note||"") });
+          }
+        });
+      }
+    });
+  }
+
+  // ---- the receiver ----
+  // counts: { line_no: received }
+  async function itReceive(id, counts){
+    if(!isOnline()) throw new Error("You need the internet to confirm a transfer.");
+    if(typeof can==="function" && !can("m.receive")) throw new Error("Receiving stock needs the Receive right.");
+    const x = itCache().incoming.find(t=>t.id===id);
+    if(!x) throw new Error("That transfer isn't here. Tap Refresh.");
+    const lines = (x.lines||[]).map(l=>{
+      const n = Number(counts[l.line_no]);
+      if(!Number.isInteger(n) || n<0 || n>l.qty) throw new Error(l.name+": received must be 0 to "+l.qty+".");
+      if(n>0 && !itFindProduct(l)) throw new Error(l.name+" isn't a product on this device. Add it (or let the catalogue arrive), then confirm.");
+      return { line_no:l.line_no, received:n };
+    });
+    const r = await terminalRpc("cl_device_transfer_receive", Object.assign(await seatAuth(), { p_transfer_id:id, p_by:String(sessionUser||""), p_lines:lines }), { timeoutMs:20000 });
+    if(!r.ok) throw new Error(itSay(r));
+    itApplyReceive(r.data.transfer);
+    itCacheUpsert("incoming", r.data.transfer);
+    const short = (r.data.transfer.lines||[]).filter(l=>l.received<l.qty);
+    logAudit("Internal transfer received", "", r.data.transfer.it_display+" from "+itDeviceName(r.data.transfer.from_till, r.data.transfer.from_kind)+(short.length? ": short "+short.map(l=>(l.qty-l.received)+" × "+l.name).join(", ") : ""));
+    await persist();
+    itPull().catch(()=>{});
+    return r.data.transfer;
+  }
+  function itApplyReceive(x){
+    if(x.to_terminal_id!==getSetting("terminal_id","") || !(x.status==="received" || x.status==="received_short")) return false;
+    const uid = itUid(x.id)+":in";
+    return dsTx(()=>{
+      if(itApplied(uid)) return false;
+      const ts = new Date().toISOString();
+      (x.lines||[]).filter(l=>l.received>0).forEach(l=>{
+        const p = itFindProduct(l);
+        if(!p) throw new Error(l.name+" isn't a product on this device.");
+        dsMove(p, l.received, "transfer_in", "it", uid, x.it_display, "From "+itDeviceName(x.from_till, x.from_kind), ts);
+      });
+      return true;
+    });
+  }
+
+  // ---- the pull: on opening the screen, after a check-in, on Refresh ----
+  // A pull asked for while one runs gets a fresh pull after it (the running one may have
+  // started before a send, and would put back a list without it); callers meanwhile share it.
+  let _itPulling = null, _itNext = null, _itRedraw = null;
+  function itPull(){
+    if(_itPulling) return _itNext || (_itNext = _itPulling.catch(()=>{}).then(()=>{ _itNext = null; return itPull(); }));
+    _itPulling = (async ()=>{
+      if(!itEnabled() || !isOnline()) return { ok:false, offline:!isOnline() };
+      const r = await terminalRpc("cl_device_transfers_pull", await seatAuth(), { timeoutMs:20000 });
+      if(!r.ok) return { ok:false, message:itSay(r) };
+      setSetting("it_cache", JSON.stringify({ incoming:r.data.incoming||[], outgoing:r.data.outgoing||[], ts:new Date().toISOString() }));
+      if(r.data.max_it_no>0) dsBumpCounter("IT", r.data.max_it_no);
+      const problems = [];
+      (r.data.outgoing||[]).forEach(x=>{ try{ itReconcileOut(x); }catch(e){ problems.push(x.it_display+": "+(e.message||e)); } });
+      (r.data.incoming||[]).forEach(x=>{ try{ itApplyReceive(x); }catch(e){ problems.push(x.it_display+": "+(e.message||e)); } });
+      await persist();
+      if(_itRedraw) _itRedraw();   // the Transfers screen, if it's open
+      return { ok:true, problems };
+    })().finally(()=>{ _itPulling = null; });
+    return _itPulling;
+  }
+  // After every check-in on a main-branch device: this branch's devices (so a till learns of a new
+  // seat and shows Transfers), then the transfers themselves when there's a seat.
+  function itAfterCheckin(){
+    if(!itEnabled() || !isOnline()) return Promise.resolve();
+    return itRefreshDevices().then(()=> itAvailable()? itPull() : null).catch(()=>{});
+  }
+  function itWaitingCount(){ return itCache().incoming.filter(x=>x.status==="sent").length; }
+
+  // ================== the screen: More → Transfers ==================
+  function itLineValue(l){
+    if(!itCanSeeCosts()) return "";
+    const p = itFindProduct(l);
+    return p && p.cost!=null? ` · ${escapeHtml(currency+(Number(p.cost)*(l.received!=null? l.received : l.qty)).toFixed(2))} at cost` : "";
+  }
+  function itCardHtml(x, dir){
+    const other = dir==="in"? itDeviceName(x.from_till, x.from_kind) : itDeviceName(x.to_till, x.to_kind);
+    return `<div class="card it-card" data-it="${escapeHtml(x.id)}">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${escapeHtml(x.it_display)}</b>
+        <span class="pill ${x.status==="received"? "ok" : x.status==="sent"? "" : "low"}">${escapeHtml(itStatusText(x))}</span></div>
+      <div class="muted" style="font-size:12.5px">${dir==="in"? "From" : "To"} ${escapeHtml(other)} · ${escapeHtml(new Date(x.sent_at).toLocaleString())}${x.sent_by? " · "+escapeHtml(x.sent_by) : ""}${x.note? " · "+escapeHtml(x.note) : ""}</div>
+      ${(x.lines||[]).map(l=>`<div class="it-line" style="font-size:13px;margin-top:4px">${escapeHtml(l.name)}${l.code? " ("+escapeHtml(l.code)+")" : ""}: ${l.qty}${l.received!=null? " sent, "+l.received+" received" : ""}${itLineValue(l)}
+        ${l.received!=null && l.received<l.qty? ` · <b>short ${l.qty-l.received}</b>${l.short_status==="open"? (dir==="out"? ` <button class="btn btn-sm btn-outline" data-it-wo="${escapeHtml(x.id)}:${l.line_no}">Write off</button> <button class="btn btn-sm btn-ghost" data-it-keep="${escapeHtml(x.id)}:${l.line_no}">Keep in stock</button>` : " (back with the sender)")
+          : l.short_status==="written_off"? " · written off "+escapeHtml(l.adj_display||"") : l.short_status==="kept"? " · kept by the sender" : ""}` : ""}</div>`).join("")}
+      ${dir==="in" && x.status==="sent"? `<button class="btn btn-primary btn-sm" data-it-receive="${escapeHtml(x.id)}" style="margin-top:8px">Confirm what arrived</button>` : ""}
+      ${dir==="out" && x.status==="sent"? `<button class="btn btn-outline btn-sm" data-it-cancel="${escapeHtml(x.id)}" style="margin-top:8px">Cancel</button>` : ""}
+    </div>`;
+  }
+  async function renderTransfers(main){
+    const draw = ()=>{
+      const c = itCache(), waiting = c.incoming.filter(x=>x.status==="sent"), past = c.incoming.filter(x=>x.status!=="sent");
+      main.innerHTML = `
+        <p class="muted" style="margin-top:0">Stock between ${isSeat()? "this Office seat (the store room) and the branch's tills" : "this till and the branch's Office seat (the store room)"}.
+          The sender posts it; the receiving device confirms what arrived. No costs travel and there's no transport charge.</p>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          ${typeof can!=="function" || can("m.dispatch")? `<button class="btn btn-primary" id="itNew"${itTargets().length? "" : " disabled"}>+ New transfer</button>` : ""}
+          <button class="btn btn-outline" id="itRefresh">Refresh</button></div>
+        <p class="muted" id="itMsg" style="font-size:12.5px"></p>
+        <h3>Waiting for you${waiting.length? " ("+waiting.length+")" : ""}</h3>
+        ${waiting.map(x=>itCardHtml(x,"in")).join("") || `<p class="muted">Nothing waiting.</p>`}
+        <h3>Sent</h3>
+        ${c.outgoing.slice().reverse().map(x=>itCardHtml(x,"out")).join("") || `<p class="muted">Nothing sent in the last 60 days.</p>`}
+        ${past.length? `<h3>Received</h3>${past.slice().reverse().map(x=>itCardHtml(x,"in")).join("")}` : ""}`;
+      const msg = main.querySelector("#itMsg");
+      const say = (t, bad)=>{ msg.textContent = t||""; msg.style.color = bad? "var(--danger)" : ""; };
+      const nb = main.querySelector("#itNew"); if(nb) nb.onclick = ()=> openTransferModal(()=>{ draw(); });
+      main.querySelector("#itRefresh").onclick = async ()=>{ say("Loading…"); await itRefreshDevices().catch(()=>{}); const r = await itPull(); draw(); const m2 = main.querySelector("#itMsg"); if(m2) m2.textContent = r.ok? (r.problems && r.problems.length? r.problems.join(" · ") : "Up to date.") : (r.offline? "You're offline." : r.message||""); };
+      main.querySelectorAll("[data-it-receive]").forEach(b=> b.onclick = ()=> openTransferReceiveModal(b.dataset.itReceive, draw));
+      const redraw = ()=>{ if(main.isConnected && main.querySelector("#itRefresh")) draw(); else if(_itRedraw===redraw) _itRedraw = null; };
+      _itRedraw = redraw;
+      main.querySelectorAll("[data-it-cancel]").forEach(b=> b.onclick = async ()=>{
+        const why = prompt("Why cancel this transfer?"); if(why==null) return;
+        try{ await itCancel(b.dataset.itCancel, why); await itPull(); draw(); }catch(e){ say(e.message||String(e), true); }
+      });
+      main.querySelectorAll("[data-it-keep]").forEach(b=> b.onclick = async ()=>{
+        const [id, ln] = b.dataset.itKeep.split(":");
+        if(!confirm("Keep the missing units in this device's stock?")) return;
+        try{ await itResolve(id, Number(ln), "keep"); await itPull(); draw(); }catch(e){ say(e.message||String(e), true); }
+      });
+      main.querySelectorAll("[data-it-wo]").forEach(b=> b.onclick = ()=>{
+        const [id, ln] = b.dataset.itWo.split(":");
+        const wrap = openModal("Write off the shortage", `
+          <p class="muted" style="margin-top:0">The missing units are taken off this device's stock with an adjustment (ADJ).</p>
+          <label for="itWoWhy">Reason</label><input class="field" id="itWoWhy" placeholder="e.g. Lost between the store room and the counter">
+          <label for="itWoPass">Admin passcode, or your own PIN if you may approve write-offs</label><input class="field" id="itWoPass" type="password" autocomplete="off">
+          <button class="btn btn-primary" id="itWoGo" style="margin-top:10px">Write off</button>
+          <p id="itWoMsg" role="alert" style="color:var(--danger);font-weight:600;margin:8px 0 0"></p>`);
+        wrap.querySelector("#itWoGo").onclick = async ()=>{
+          try{ await itResolve(id, Number(ln), "write_off", { reason:wrap.querySelector("#itWoWhy").value, passcode:wrap.querySelector("#itWoPass").value }); wrap.remove(); await itPull(); draw(); }
+          catch(e){ wrap.querySelector("#itWoMsg").textContent = e.message||String(e); }
+        };
+      });
+    };
+    draw();
+    if(isOnline()){ await itRefreshDevices().catch(()=>{}); await itPull(); if(main.isConnected) draw(); }
+  }
+  function openTransferModal(done){
+    const targets = itTargets();
+    const products = all("SELECT * FROM products WHERE branch=? AND stock>0 ORDER BY lower(name)",[currentBranch()]);
+    const costs = itCanSeeCosts();
+    const wrap = openModal("New transfer", `
+      <label for="itTo">To</label>
+      <select class="field" id="itTo">${targets.map(d=>`<option value="${escapeHtml(d.id)}">${escapeHtml(itDeviceName(d.till_code, d.kind))}${d.label? " · "+escapeHtml(d.label) : ""}</option>`).join("")}</select>
+      <label for="itFind">Products</label>
+      <input class="field" id="itFind" placeholder="Search a product to add">
+      <div id="itPick" style="max-height:160px;overflow:auto"></div>
+      <div id="itLines" style="margin-top:8px"></div>
+      <label for="itNote">Note (optional)</label><input class="field" id="itNote" maxlength="200">
+      <button class="btn btn-primary" id="itSend" style="margin-top:10px">Send</button>
+      <p id="itSendMsg" role="alert" style="color:var(--danger);font-weight:600;margin:8px 0 0"></p>`);
+    const chosen = new Map();   // productId -> qty
+    const $w = (s)=> wrap.querySelector(s);
+    const drawLines = ()=>{
+      $w("#itLines").innerHTML = [...chosen.entries()].map(([id, qty])=>{ const p = products.find(x=>x.id===id);
+        return `<div class="it-pickline" style="display:flex;gap:8px;align-items:center;margin:3px 0"><span style="flex:1">${escapeHtml(p.name)} <span class="muted">(${p.stock} here${costs && p.cost!=null? " · "+escapeHtml(currency+Number(p.cost).toFixed(2))+" each" : ""})</span></span>
+          <input class="field" type="number" min="1" max="${p.stock}" step="1" value="${qty}" data-it-qty="${id}" style="width:90px;margin:0"><button class="btn btn-sm btn-ghost" data-it-drop="${id}">✕</button></div>`; }).join("") || `<p class="muted" style="font-size:12.5px">No products yet.</p>`;
+      wrap.querySelectorAll("[data-it-qty]").forEach(i=> i.oninput = ()=>{ chosen.set(Number(i.dataset.itQty), Math.floor(Number(i.value)||0)); });
+      wrap.querySelectorAll("[data-it-drop]").forEach(b=> b.onclick = ()=>{ chosen.delete(Number(b.dataset.itDrop)); drawLines(); });
+    };
+    const drawPick = ()=>{
+      const qy = $w("#itFind").value.trim().toLowerCase();
+      const hits = qy? products.filter(p=> (p.name+" "+(p.sku||"")).toLowerCase().includes(qy)).slice(0, 30) : [];
+      $w("#itPick").innerHTML = hits.map(p=>`<button type="button" class="btn btn-sm btn-ghost" data-it-add="${p.id}" style="display:block;width:100%;text-align:left">${escapeHtml(p.name)}${p.sku? " · "+escapeHtml(p.sku) : ""} <span class="muted">(${p.stock})</span></button>`).join("");
+      wrap.querySelectorAll("[data-it-add]").forEach(b=> b.onclick = ()=>{ const id = Number(b.dataset.itAdd); if(!chosen.has(id)) chosen.set(id, 1); $w("#itFind").value = ""; drawPick(); drawLines(); });
+    };
+    $w("#itFind").oninput = drawPick;
+    drawLines();
+    const go = $w("#itSend");
+    go.onclick = async ()=>{
+      if(go.disabled) return;
+      go.disabled = true; go.textContent = "Sending…"; $w("#itSendMsg").textContent = "";
+      try{
+        await itSend({ toId:$w("#itTo").value, note:$w("#itNote").value, lines:[...chosen.entries()].map(([productId, qty])=>({ productId, qty })) });
+        wrap.remove(); if(done) done();
+      }catch(e){ go.disabled = false; go.textContent = "Send"; $w("#itSendMsg").textContent = e.message||String(e); }
+    };
+    return wrap;
+  }
+  function openTransferReceiveModal(id, done){
+    const x = itCache().incoming.find(t=>t.id===id);
+    if(!x) return null;
+    const wrap = openModal("Confirm "+x.it_display, `
+      <p class="muted" style="margin-top:0">From ${escapeHtml(itDeviceName(x.from_till, x.from_kind))}. Count what arrived; anything missing goes back to the sender's stock.</p>
+      ${(x.lines||[]).map(l=>`<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><span style="flex:1">${escapeHtml(l.name)} <span class="muted">(sent ${l.qty})</span></span>
+        <input class="field" type="number" min="0" max="${l.qty}" step="1" value="${l.qty}" data-it-got="${l.line_no}" style="width:90px;margin:0"></div>`).join("")}
+      <button class="btn btn-primary" id="itRecvGo" style="margin-top:10px">Confirm</button>
+      <p id="itRecvMsg" role="alert" style="color:var(--danger);font-weight:600;margin:8px 0 0"></p>`);
+    const go = wrap.querySelector("#itRecvGo");
+    go.onclick = async ()=>{
+      if(go.disabled) return;
+      const counts = {}; wrap.querySelectorAll("[data-it-got]").forEach(i=>{ counts[Number(i.dataset.itGot)] = Math.floor(Number(i.value)); });
+      go.disabled = true; go.textContent = "Confirming…";
+      try{ await itReceive(id, counts); wrap.remove(); if(done) done(); }
+      catch(e){ go.disabled = false; go.textContent = "Confirm"; wrap.querySelector("#itRecvMsg").textContent = e.message||String(e); }
+    };
+    return wrap;
   }
 
   // ================== Catalogue sync (multi-terminal Phase 3a) ==================
@@ -16544,7 +17413,7 @@ ${readOnly? "" : `
   // ---- the sender's actions (the dispatching till only) ----
   function dsNeedAdmin(passcode, right){
     requireSignedIn();
-    if(!hasAdminPasscode()) throw new Error(NO_ADMIN_PASSCODE_MSG);
+    if(!hasAdminPasscode() && !(right && typeof isSeat==="function" && isSeat())) throw new Error(NO_ADMIN_PASSCODE_MSG);   // v32: an Office seat approves with the holder's own PIN
     const admin = right? findApprover(passcode, right) : findAdmin(passcode);   // roles (v28): a write-off by the holder's own PIN too
     if(!admin) throw new Error("Incorrect Admin passcode.");
     return admin;
@@ -17335,7 +18204,7 @@ ${readOnly? "" : `
       const heads = shown.map(b=>{ const u = bsUpdatedText(b.updated_at); return `<th class="bs-col">${escapeHtml(b.name)}${b.id===mineId? " (this)" : ""}<div class="pmeta" style="font-weight:400;${u.old? "color:#b54708" : ""}">${escapeHtml(u.text)}</div></th>`; }).join("");
       const warn = isMain? shown.map(b=>bsCopies(b).map(c=>`<div class="box bs-copies" style="margin-bottom:8px;border-color:#b54708;background:#fffaeb;color:#b54708;font-size:12.5px"><b>${escapeHtml(b.name)}: ${escapeHtml(c.a)} and ${escapeHtml(c.b)} look like copies of the same stock list</b> (${c.same} of ${c.of} products show the same figure). The branch total may count those products twice. Count the stock (Stocktake) on one of them.</div>`).join("")).join("") : "";
       const value = isMain && bsCostsVisible()? `<div class="muted bs-value" style="margin-top:8px;font-size:12.5px">${shown.map(b=>{ const v = bsValueAtCost(b); return escapeHtml(b.name)+": value at cost "+escapeHtml(currency+v.value.toFixed(2))+(v.unmatched? " ("+v.unmatched+" product"+(v.unmatched===1?"":"s")+" without a cost here)" : ""); }).join("<br>")}</div>` : "";
-      const tillsLine = (b)=> b.tills && b.tills.length>1? `<div class="muted bs-tilltimes" style="font-size:12.5px">${escapeHtml(b.name)}: ${b.tills.filter(t=>t.active).map(t=>escapeHtml(t.till_code)+" "+escapeHtml(bsUpdatedText(t.pushed_at).text)).join(" · ")}</div>` : "";
+      const tillsLine = (b)=> b.tills && b.tills.length>1? `<div class="muted bs-tilltimes" style="font-size:12.5px">${escapeHtml(b.name)}: ${b.tills.filter(t=>t.active).map(t=>escapeHtml(typeof seatTillLabel==="function"? seatTillLabel(t.till_code) : t.till_code)+" "+escapeHtml(bsUpdatedText(t.pushed_at).text)).join(" · ")}</div>` : "";
       return `${warn}
         <div style="overflow-x:auto"><table class="simple bs-grid"><tr><th>Item</th>${heads}</tr>
         ${items.length? items.map(([,v], i)=>`<tr><td class="bv-name" data-bvledger="${i}">${v.code? `<div class="psku">${escapeHtml(v.code)}</div>` : ""}${escapeHtml(v.name)}</td>${shown.map(b=>{
@@ -19117,7 +19986,7 @@ ${readOnly? "" : `
   // On (the default) = today's free-text name entry, unchanged. Off = the
   // dropdown+PIN flow below. Defaults ON so every existing install, and every
   // fresh one until an owner opts in, behaves exactly as before.
-  function singleOperatorMode(){ return getSetting("single_operator_mode","1")==="1"; }
+  function singleOperatorMode(){ if(typeof isSeat==="function" && isSeat()) return false; return getSetting("single_operator_mode","1")==="1"; }   // v32: never on an Office seat
   function activeStaffWithPin(branch){ return all("SELECT * FROM staff WHERE branch=? AND active=1 AND pin_hash<>'' ORDER BY name",[branch]); }
   // Who can sign in here: the business's staff from seiGEN once this till has them (roles.js, v28),
   // else this till's own list as before. -> [{ key, name }] ("s:<id>" seiGEN, "l:<id>" this till's).
@@ -19604,7 +20473,13 @@ ${readOnly? "" : `
   // { id, name, pin (memory only), token, tokenExp, legacy } or null.
   let _staffSession = null;
   function staffSession(){ return _staffSession; }
+  // v32 Office seats: nothing without someone signed in, and never selling, payments or EOD
   function currentRights(){
+    const r = currentRightsAll();
+    if(typeof isSeat==="function" && isSeat()) return r===null? new Set() : new Set([...r].filter(x=> !SEAT_DENY.includes(x)));
+    return r;
+  }
+  function currentRightsAll(){
     if(_staffSession){
       const st = shopStaff(_staffSession.id), r = st? shopRole(st.role_id) : null;
       if(!r) return new Set();
@@ -19629,7 +20504,7 @@ ${readOnly? "" : `
   // Menus (router.js): the nav bar and More.
   const NAV_RIGHT = { pos:"m.sell", products:"m.products", credit:"m.credit", reports:"m.reports", marketing:"m.marketing" };
   const MORE_RIGHT = { directory:"m.directory", productlist:"m.productlist", branches:"m.productlist", stocktake:"m.stocktake", requests:"m.requests",
-    purchasing:"m.purchasing", reportwriter:"m.reportwriter", settings:"m.settings", itredorders:"m.sell", itredfeedback:"m.sell" };
+    purchasing:"m.purchasing", reportwriter:"m.reportwriter", settings:"m.settings", itredorders:"m.sell", itredfeedback:"m.sell" };   // transfers: its own check (router.js)
   function navAllowed(id){ return !NAV_RIGHT[id] || can(NAV_RIGHT[id]); }
   function moreTabAllowed(id){ return !MORE_RIGHT[id] || can(MORE_RIGHT[id]); }
   // The first screen this person may open (Sell when they have it).
@@ -19993,7 +20868,7 @@ ${readOnly? "" : `
     const who = _staffSession? _staffSession.name+(staffToken()? "" : " (not checked by seiGEN yet)") : "";
     return `<div class="card" id="shopStaffCard">
       <h3>Staff & Roles</h3>
-      <label style="display:flex;gap:8px;align-items:flex-start;margin-top:0"><input type="checkbox" id="sSingleOperator" ${single? "checked" : ""} style="width:auto;margin-top:3px"><span>Single operator mode — skip staff sign-in, just type a name (today's behaviour)</span></label>
+      ${typeof isSeat==="function" && isSeat()? `<p class="muted" id="seatNoSingle" style="margin-top:0">This is an Office seat: everyone signs in with their own PIN. Single operator mode is never used here.</p>` : ""}<label${typeof isSeat==="function" && isSeat()? " hidden" : ""} style="display:flex;gap:8px;align-items:flex-start;margin-top:0"><input type="checkbox" id="sSingleOperator" ${single? "checked" : ""} style="width:auto;margin-top:3px"><span>Single operator mode — skip staff sign-in, just type a name (today's behaviour)</span></label>
       <p class="muted" style="font-size:12px">Turn this off so everyone signs in with their own PIN. Menus then follow each person's role. Reports of other branches and costs at a remote need a signed-in person with the right.</p>
       <p class="muted" style="font-size:12px;margin:6px 0">Kept on seiGEN for every branch${pulled? " · updated "+escapeHtml(new Date(pulled).toLocaleString()) : ""}. <button type="button" class="btn btn-sm btn-ghost" id="staffRefresh">🔄 Refresh</button></p>
       ${edit? (who? `<p class="muted" style="font-size:12px">Signed in: ${escapeHtml(who)}${staffManaging()? ` · signed out after 5 minutes without use <button type="button" class="btn btn-sm btn-outline" id="staffMgrDone" style="width:auto">Done</button>` : ""}</p>`
@@ -20363,15 +21238,16 @@ ${readOnly? "" : `
       </div>` : ""}
       ${rpnSectionHtml()}
       ${currenciesSectionHtml()}
+      ${typeof isSeat==="function" && isSeat()? "" : `
       <div class="card">
         <h3>Activation secret phrase</h3>
         <input class="field" id="sSecret" value="${escapeHtml(getSetting("secret_phrase",""))}">
         <button class="btn btn-outline" id="saveSecret" style="margin-top:10px">Save phrase</button>
-      </div>
+      </div>`}
       ${typeof can!=="function" || can("m.terminals")? terminalSectionHtml() : ""}
       ${printerSectionHtml()}
       ${barcodeReaderSectionHtml()}
-      ${cashDrawerSectionHtml()}
+      ${typeof isSeat==="function" && isSeat()? "" : cashDrawerSectionHtml()}
       ${isRemote()? "" : `
       <div class="card">
         <h3>Frequent Customer Vouchers</h3>
@@ -20395,6 +21271,7 @@ ${readOnly? "" : `
       const v = (id)=> document.getElementById(id).value;
       const wantType = v("sBranchType");
       // v30 (owner 2026-10-20): a till registered with seiGEN as a remote doesn't make itself Main here
+      if(typeof isSeat==="function" && isSeat() && wantType!=="main"){ alert("An Office seat is part of the main branch.\n\nNothing was changed."); render(); return; }   // v32
       if(isRemote() && wantType==="main" && branchTypeLockedRemote()){ alert(BRANCH_TYPE_LOCKED_TEXT+"\n\nNothing was changed."); render(); return; }
       // switching cancel/reissue on or off needs an Admin (asked before anything is written)
       let cancelTo = null;
@@ -20447,7 +21324,8 @@ ${readOnly? "" : `
       setSetting("freq_voucher_amount", parseFloat(document.getElementById("sFreqAmount").value)||0);
       persist(); alert("Voucher settings saved.");
     };
-    document.getElementById("saveSecret").onclick=async (e)=>{
+    const saveSecretBtn = document.getElementById("saveSecret");   // not on an Office seat (v32: its phrase is its own, never shown)
+    if(saveSecretBtn) saveSecretBtn.onclick=async (e)=>{
       const btn = e.currentTarget;
       setSetting("secret_phrase", document.getElementById("sSecret").value.trim());
       await persist();
@@ -20462,7 +21340,7 @@ ${readOnly? "" : `
     if(typeof can!=="function" || can("m.terminals")) wireTerminalSection();
     wirePrinterSection();
     wireBarcodeReaderSection();
-    wireCashDrawerSection();
+    if(!(typeof isSeat==="function" && isSeat())) wireCashDrawerSection();
     wireRpnSection();
     wireCurrenciesSection();
     wireSettingsStaffCard(main);
@@ -20577,6 +21455,8 @@ ${readOnly? "" : `
             <p class="muted" style="margin-top:8px">A remote branch needs a join code from your main branch (it shares the business's free trial).</p>
             <button type="button" class="btn btn-outline" id="setJoinBtn" style="margin-top:8px">Join an existing branch</button>
             <p class="muted" style="margin-top:4px">Adding another till to a business that's already set up? Join it with a code from your main branch.</p>
+            <button type="button" class="btn btn-outline" id="setSeatBtn" style="margin-top:8px">Join as an Office seat</button>
+            <p class="muted" style="margin-top:4px">Invited as the bookkeeper, the stores clerk or the owner? Use the code from your invite (no secret phrase needed).</p>
             <button class="btn btn-primary" id="setupNext" style="margin-top:16px">Continue</button>
           ` : setupStep===2? `
             <h2>Contact & branding</h2>
@@ -20687,6 +21567,7 @@ ${readOnly? "" : `
       // Billing-B: a remote branch joins the business with a join code (no code-less remote set-up any more)
       document.getElementById("setRemoteBtn").onclick=()=>{ keepStep1(); setupData.branch_type="join"; setupData.join_kind="remote"; renderSetup(); };
       document.getElementById("setJoinBtn").onclick=()=>{ keepStep1(); setupData.branch_type="join"; setupData.join_kind="till"; renderSetup(); };
+      document.getElementById("setSeatBtn").onclick=()=>{ keepStep1(); renderSeatEntry(""); };   // v32 Office seats (seat.js)
       document.getElementById("setupNext").onclick=()=>{
         keepStep1();
         if(!setupData.shop_name) return alert("Enter your shop name");
@@ -20816,11 +21697,14 @@ ${readOnly? "" : `
     businessDateToday(); // Shift/EOD control: establish the anti-rollback high-water-mark as early as possible each session — see eod.js.
     await establishTrustedTime(); // License anti-rollback: same "as early as possible each session" habit, extended to full-timestamp precision — see eod.js. Awaited so activationStatus() below always sees this session's checked/corroborated time, never a stale one.
     const linkLicence = takeLicenceFromUrl(); // activation.js: an activation link (#lic=…), checked offline
+    const seatCode = typeof takeSeatCodeFromUrl==="function"? takeSeatCodeFromUrl() : "";   // v32: an Office seat invite link (#seat=...)
     const status = activationStatus();
     if(status==="no_setup"){
+      if(seatCode || (typeof seatStoredCode==="function" && seatStoredCode() && seatCanJoinHere())){ renderSeatEntry(seatCode); return; }   // the install page, or the join screen in the installed app
       if(linkLicence){ route="setup"; renderLinkNoSetup(linkLicence); return; }   // never start setup from a link
       route="setup"; renderSetup(); return;
     }
+    if(typeof seatWaiting==="function" && seatWaiting()){ renderSeatWaiting(); return; }   // v32: an Office seat waits for approval (no data, no licence yet)
     refreshLicenceLock();
     startLicenceWatch(); // re-checks every hour and when the app returns to the foreground
     if(linkLicence){ renderLinkResult(await applyLicence(linkLicence, "link")); return; }

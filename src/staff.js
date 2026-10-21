@@ -22,7 +22,7 @@
   // On (the default) = today's free-text name entry, unchanged. Off = the
   // dropdown+PIN flow below. Defaults ON so every existing install, and every
   // fresh one until an owner opts in, behaves exactly as before.
-  function singleOperatorMode(){ return getSetting("single_operator_mode","1")==="1"; }
+  function singleOperatorMode(){ if(typeof isSeat==="function" && isSeat()) return false; return getSetting("single_operator_mode","1")==="1"; }   // v32: never on an Office seat
   function activeStaffWithPin(branch){ return all("SELECT * FROM staff WHERE branch=? AND active=1 AND pin_hash<>'' ORDER BY name",[branch]); }
   // Who can sign in here: the business's staff from seiGEN once this till has them (roles.js, v28),
   // else this till's own list as before. -> [{ key, name }] ("s:<id>" seiGEN, "l:<id>" this till's).

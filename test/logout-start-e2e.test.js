@@ -11,6 +11,7 @@
 // The database is read straight from IndexedDB with the page's own sql.js —
 // the same blob the app persists — so the audit check needs no test hooks.
 "use strict";
+require("./dist-fresh");   // stop here if a bundle is older than its source (node tools/build-all.js)
 const assert = require("assert");
 const fs = require("fs");
 const os = require("os");

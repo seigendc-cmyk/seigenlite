@@ -81,7 +81,10 @@
   }
   // What every device RPC is authenticated with.
   function terminalAuth(phrase){
-    return { p_install_id: getSetting("install_id",""), p_secret_phrase: phrase==null? getSetting("secret_phrase","") : phrase, p_device_key: deviceKey() };
+    let ph = phrase==null? getSetting("secret_phrase","") : phrase;
+    // v32 Office seats: a seat's calls carry the signed-in person's token after its own phrase (seiGEN checks their rights)
+    if(phrase==null && typeof isSeat==="function" && isSeat() && typeof staffToken==="function"){ const t = staffToken(); if(t) ph += "|"+t; }
+    return { p_install_id: getSetting("install_id",""), p_secret_phrase: ph, p_device_key: deviceKey() };
   }
 
   // Main device: creates the business, its main branch and this till (T1). Idempotent.
@@ -179,6 +182,7 @@
     }
     const m = String(r.message||"");
     if(/JOIN_LOCKED/.test(m)) return "Too many wrong codes. Wait an hour, then try again.";
+    if(/^SEAT_[A-Z_]+:/.test(m)) return m.replace(/^SEAT_[A-Z_]+:\s*/, "");   // v32 Office seats (cl_seat_need)
     if(/UPDATE_MAIN_FIRST/.test(m)) return "This version of the app is too old to add terminals. Update this app, then try again.";
     if(/APP_UPDATE_NEEDED/.test(m)) return "Update this app first, then join again. Your join code is still valid.";
     if(/ADMIN_SEED_INVALID/.test(m)) return "That Admin passcode couldn't be prepared. Try again.";
@@ -234,7 +238,8 @@
           <button class="btn btn-primary" id="termAddBtn" style="margin-top:12px">+ Add a terminal</button>
           <div class="hr"></div>
           <h4 style="margin:0 0 6px">Terminals</h4>
-          <div id="termList"><p class="muted">Loading…</p></div>` : ""}
+          <div id="termList"><p class="muted">Loading…</p></div>
+          ${typeof seatSectionHtml==="function"? seatSectionHtml() : ""}` : ""}
         ${typeof catalogueSyncCardHtml==="function"? catalogueSyncCardHtml() : ""}
         ${status}
       </div>`;
@@ -271,6 +276,7 @@
     const add = document.getElementById("termAddBtn");
     if(add) add.onclick = ()=> openAddTerminalModal();
     if(document.getElementById("termList")) loadTerminalList();
+    if(typeof wireSeatSection==="function" && document.getElementById("seatInviteBtn")) wireSeatSection();   // v32 Office seats
     if(typeof wireCatalogueSyncCard==="function") wireCatalogueSyncCard();
   }
   async function loadTerminalList(){
@@ -286,8 +292,8 @@
         <div style="font-weight:700">${escapeHtml(b.name)}${b.is_main? ` <span class="pill">Main</span>` : ""}</div>
         ${(b.terminals||[]).length? (b.terminals||[]).map(t=>{ byId[t.id] = { till:t.till_code, branch:b.name };
           return `<div class="term-row" data-term-id="${escapeHtml(t.id)}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0">
-            <span class="muted" style="font-size:12.5px">${escapeHtml(t.till_code)}${t.label? " · "+escapeHtml(t.label) : ""}${t.last_seen_ts? " · last seen "+escapeHtml(new Date(t.last_seen_ts).toLocaleString()) : ""}${t.active? "" : ` · <b style="color:var(--danger)">deactivated</b>`}${t.id===own? " · this till" : ""}</span>
-            ${t.id===own? "" : `<span style="display:flex;gap:6px;flex:none">${t.active? `<button class="btn btn-sm btn-outline" data-term-admin="${escapeHtml(t.id)}">Set its Admin passcode</button>` : ""}<button class="btn btn-sm btn-outline" data-term-active="${t.active? "0" : "1"}" data-term="${escapeHtml(t.id)}">${t.active? "Deactivate" : "Reactivate"}</button></span>`}
+            <span class="muted" style="font-size:12.5px">${escapeHtml(t.kind==="seat"? seatTillLabel(t.till_code) : t.till_code)}${t.approval==="pending"? " · waiting for approval" : t.approval==="refused"? " · refused" : ""}${t.label && t.kind!=="seat"? " · "+escapeHtml(t.label) : ""}${t.last_seen_ts? " · last seen "+escapeHtml(new Date(t.last_seen_ts).toLocaleString()) : ""}${t.active? "" : ` · <b style="color:var(--danger)">deactivated</b>`}${t.id===own? " · this till" : ""}</span>
+            ${t.id===own || t.approval==="pending" || t.approval==="refused"? "" : `<span style="display:flex;gap:6px;flex:none">${t.active && t.kind!=="seat"? `<button class="btn btn-sm btn-outline" data-term-admin="${escapeHtml(t.id)}">Set its Admin passcode</button>` : ""}<button class="btn btn-sm btn-outline" data-term-active="${t.active? "0" : "1"}" data-term="${escapeHtml(t.id)}">${t.active? "Deactivate" : "Reactivate"}</button></span>`}
           </div>`; }).join("")
           : `<div class="muted" style="font-size:12.5px">No tills yet</div>`}
       </div>`).join("") || `<p class="muted">No branches yet.</p>`;
