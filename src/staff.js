@@ -86,7 +86,10 @@
     return one("SELECT * FROM staff WHERE id=?",[added.id]);
   }
 
-  function staffSectionHtml(){
+  // opts.noAdd (v33, owner 2026-10-21 "approved option 1"): under "Roles not loaded" on a till registered with
+  // seiGEN, the list stays (Edit, and with it the Admin passcode, as before) without "+ Add Staff".
+  function staffSectionHtml(opts){
+    const noAdd = !!(opts && opts.noAdd);
     const branch = currentBranch();
     const staffList = all("SELECT * FROM staff WHERE branch=? ORDER BY active DESC, name",[branch]);
     const single = singleOperatorMode();
@@ -96,7 +99,7 @@
         <label style="display:flex;gap:8px;align-items:flex-start;margin-top:0"><input type="checkbox" id="sSingleOperator" ${single? "checked" : ""} style="width:auto;margin-top:3px"><span>Single operator mode — skip staff sign-in, just type a name (today's behaviour)</span></label>
         <p class="muted" style="font-size:12px">Turn this off so everyone picks their name and enters a PIN on the "Who's working today?" screen instead. Needs at least one active staff member with a PIN set below.</p>
         <div class="hr"></div>
-        <button class="btn btn-primary" id="openAddStaff" style="margin-bottom:10px">+ Add Staff</button>
+        ${noAdd? "" : `<button class="btn btn-primary" id="openAddStaff" style="margin-bottom:10px">+ Add Staff</button>`}
         ${staffList.length===0? `<p class="muted">No staff added yet.</p>` : staffList.map(s=>{
           const locked = s.pin_locked_until && new Date(s.pin_locked_until) > new Date();
           return `
@@ -150,7 +153,8 @@
     };
   }
   function wireStaffSection(){
-    document.getElementById("openAddStaff").onclick=()=>staffModal(null);
+    const add = document.getElementById("openAddStaff");
+    if(add) add.onclick=()=>staffModal(null);
     document.querySelectorAll("[data-edit-staff]").forEach(b=>{
       b.onclick=()=>{
         const s = one("SELECT * FROM staff WHERE id=?",[+b.dataset.editStaff]);
@@ -413,6 +417,96 @@
     run("INSERT INTO staff(name,role,passcode,branch,active,created_ts) VALUES(?,?,?,?,1,?)",
       [name,"Admin",String(passcode).trim(),branch,new Date().toISOString()]);
     return name;
+  }
+
+  // ---- Settings → "Admin passcode (this till)" on a main till (v33, owner 2026-10-21 "approved") ----
+  // Every case: not registered, waiting for roles, and with roles (before v33 a main till with roles had no
+  // way to make or change its own). Only where the till makes its own: never a remote, a till whose passcode
+  // comes from the main branch, or an Office seat (those are unchanged). The passcode is never shown or logged.
+  function adminPasscodeSettingShown(){
+    return !isRemote() && !adminComesFromMain() && !(typeof isSeat==="function" && isSeat());
+  }
+  // A signed-in Owner or Admin (seiGEN's staff, or this till's own list): "Name (role)", else "".
+  function adminPasscodeSignedInBy(){
+    const ss = typeof staffSession==="function"? staffSession() : null;
+    if(ss){
+      const st = shopStaff(ss.id), r = st? shopRole(st.role_id) : null;
+      return r && (r.builtin==="owner" || r.builtin==="admin")? st.name+" ("+r.name+")" : "";
+    }
+    const l = currentStaff();
+    return l && l.role==="Admin"? l.name+" (Admin)" : "";
+  }
+  // The business's people: seiGEN's once this till has them, else this till's own list.
+  function adminPasscodeStaffCount(){
+    if(typeof rolesSynced==="function" && rolesSynced()) return shopStaffAll().length;
+    return (one("SELECT COUNT(*) AS n FROM staff WHERE branch=?",[currentBranch()])||{}).n || 0;
+  }
+  // Create (none yet): while the business has nobody, or by a signed-in Owner or Admin.
+  function adminPasscodeCreate(passcode, confirmText){
+    if(hasAdminPasscode()) throw new Error("This till already has an Admin passcode. Change it instead.");
+    const by = adminPasscodeSignedInBy();
+    if(!by && adminPasscodeStaffCount()>0) throw new Error("Sign in as the Owner or an Admin to create this till's Admin passcode.");
+    const name = createDeviceAdmin(passcode, confirmText);
+    logAudit("Admin passcode created", "", "Settings"+(by? ", by "+by : ", while the business had no staff"));
+    return name;
+  }
+  // Change: with the current passcode, or by a signed-in Owner or Admin (then the till's only one).
+  async function adminPasscodeChange(current, passcode, confirmText){
+    const bad = adminPasscodeProblem(passcode, confirmText);
+    if(bad) throw new Error(bad);
+    let row = null, how = "";
+    if(String(current==null?"":current).trim()){
+      row = await findAdminAsync(current);
+      if(!row) throw new Error("Incorrect current Admin passcode. Nothing was changed.");
+      how = "with the current passcode";
+    } else {
+      const by = adminPasscodeSignedInBy();
+      if(!by) throw new Error("Enter the current Admin passcode, or sign in as the Owner or an Admin.");
+      const rows = all("SELECT * FROM staff WHERE role='Admin' AND active=1 AND (trim(COALESCE(passcode,''))<>'' OR COALESCE(passcode_check,'')<>'') ORDER BY id");
+      if(!rows.length) throw new Error("This till has no Admin passcode yet. Create one instead.");
+      if(rows.length>1) throw new Error("This till has "+rows.length+" Admin passcodes. Enter the current one you want to change.");
+      row = rows[0]; how = "by "+by;
+    }
+    run("UPDATE staff SET passcode=?, passcode_salt='', passcode_check='', passcode_rounds=0 WHERE id=?",[String(passcode).trim(), row.id]);
+    _adminMatchCache.clear();
+    logAudit("Admin passcode changed", "", "Settings, "+how+" ("+row.name+")");
+    return row.name;
+  }
+  function adminPasscodeCardHtml(){
+    const has = hasAdminPasscode(), by = adminPasscodeSignedInBy();
+    return `<div class="card" id="adminPassCard">
+      <h3>Admin passcode (this till)</h3>
+      <p class="muted" style="font-size:12px;margin-top:-4px">It approves price and stock changes, returns, credit over the limit and other Admin steps on this till. It is never shown.</p>
+      ${has? `<label for="apCurrent">Current Admin passcode</label>
+        <input class="field" id="apCurrent" type="password" autocomplete="off" placeholder="${by? "Not needed: "+escapeHtml(by)+" is signed in" : "Needed to change it"}">`
+        : `<p class="box" id="apNone" style="font-size:12.5px">This till has no Admin passcode yet.${by || !adminPasscodeStaffCount()? "" : " Sign in as the Owner or an Admin to create it."}</p>`}
+      <label for="apNew">${has? "New Admin passcode" : "Admin passcode"} (at least ${ADMIN_PASSCODE_MIN} characters)</label>
+      <input class="field" id="apNew" type="password" autocomplete="new-password">
+      <label for="apNew2">Repeat it</label>
+      <input class="field" id="apNew2" type="password" autocomplete="new-password">
+      <button type="button" class="btn btn-primary btn-sm" id="apSave" style="width:auto;margin-top:10px">${has? "Change Admin passcode" : "Create Admin passcode"}</button>
+      <p id="apMsg" role="status" style="font-size:12.5px;margin:8px 0 0"></p>
+    </div>`;
+  }
+  function wireAdminPasscodeCard(root){
+    const card = (root||document).querySelector("#adminPassCard");
+    if(!card) return;
+    const go = card.querySelector("#apSave"), msg = card.querySelector("#apMsg");
+    const v = (id)=> (card.querySelector("#"+id)||{}).value||"";
+    go.onclick = async ()=>{
+      if(go.disabled) return;
+      const was = go.textContent;
+      go.disabled = true; go.textContent = "Saving…"; msg.textContent = ""; msg.style.color = "";
+      try{
+        if(card.querySelector("#apCurrent")) await adminPasscodeChange(v("apCurrent"), v("apNew"), v("apNew2"));
+        else adminPasscodeCreate(v("apNew"), v("apNew2"));
+      }catch(e){ go.disabled = false; go.textContent = was; msg.style.color = "var(--danger)"; msg.textContent = e.message||String(e); return; }
+      await persist();
+      if(!card.isConnected) return;
+      const box = document.createElement("div"); box.innerHTML = adminPasscodeCardHtml();
+      const fresh = box.firstElementChild; card.replaceWith(fresh); wireAdminPasscodeCard(fresh.parentNode);
+      fresh.querySelector("#apMsg").textContent = was.startsWith("Create")? "Admin passcode created." : "Admin passcode changed.";
+    };
   }
 
   // The Admin unlock shared by price edits and stock adjustments: an active Admin whose

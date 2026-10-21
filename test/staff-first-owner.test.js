@@ -108,7 +108,8 @@ async function until(cond, what){ for(let i = 0; i < 400; i++){ if(await cond())
     const c = staffCard(T1);
     assert.match(c.$("#staffWaitNote").textContent, /Roles not loaded from seiGEN yet — tap Refresh\./);
     assert.match(c.$("#staffWaitWhy").textContent, /seiGEN didn't answer/);
-    assert.ok(!c.$("#openAddStaff") && !c.$("[data-edit-staff]") && !/Cathy/.test(c.text()), "no local list or Add staff");
+    assert.ok(!c.$("#openAddStaff"), "no local Add staff");
+    assert.ok(c.$("[data-edit-staff]") && /Cathy/.test(c.text()), "the old list stays under it, with Edit (owner 2026-10-21 \"approved option 1\")");
     c.remove();
     assert.deepStrictEqual([...T1.api.signinChoices()].map((x)=> x.name), ["Cathy"], "sign-in on this till works as before meanwhile");
   });

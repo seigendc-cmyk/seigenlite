@@ -119,6 +119,7 @@
         <input class="field" id="sFreqAmount" type="number" min="0" step="0.01" value="${escapeHtml(getSetting("freq_voucher_amount","0"))}">
         <button class="btn btn-primary" id="saveFreqSettings" style="margin-top:12px">Save</button>
       </div>`}
+      ${adminPasscodeSettingShown()? adminPasscodeCardHtml() : ""}
       ${settingsStaffCardHtml()}
       ${isRemote() || !(typeof can!=="function" || can("m.terminals"))? "" : branchRegisterCardHtml()}
       ${backupMergeSectionHtml()}
@@ -202,6 +203,7 @@
     if(!(typeof isSeat==="function" && isSeat())) wireCashDrawerSection();
     wireRpnSection();
     wireCurrenciesSection();
+    wireAdminPasscodeCard(main);
     wireSettingsStaffCard(main);
     if(!isRemote() && (typeof can!=="function" || can("m.terminals"))) wireBranchRegisterCard();
     wireBackupMergeSection();
@@ -215,18 +217,19 @@
   // Settings → Staff & Roles. A till with the business's staff from seiGEN (roles.js, v28): the
   // shared people and roles, at any branch, for a holder of Staff (anyone once Settings is open,
   // in single operator mode). v33: a till registered with seiGEN that has no roles yet says so, with
-  // Refresh (never the old list: people added there would never reach seiGEN). Otherwise (not on
-  // seiGEN) this till's own list, on a main branch, as before.
+  // Refresh; on a main branch this till's own list stays under it, without "+ Add Staff" (people added
+  // there would never reach seiGEN; Edit and the Admin passcode as before: owner 2026-10-21 "approved
+  // option 1"). Otherwise (not on seiGEN) this till's own list, on a main branch, as before.
   function settingsStaffMode(){
     if(typeof rolesSynced==="function" && rolesSynced()) return can("m.staff")? "shop" : "";
     if(typeof isTerminalRegistered==="function" && isTerminalRegistered()) return "wait";
     return isRemote()? "" : "local";
   }
-  function settingsStaffCardHtml(){ const m = settingsStaffMode(); return m==="shop"? shopStaffSectionHtml() : m==="wait"? staffWaitingCardHtml() : m==="local"? staffSectionHtml() : ""; }
+  function settingsStaffCardHtml(){ const m = settingsStaffMode(); return m==="shop"? shopStaffSectionHtml() : m==="wait"? `<div id="staffWaitBox">${staffWaitingCardHtml()}${isRemote()? "" : staffSectionHtml({ noAdd:true })}</div>` : m==="local"? staffSectionHtml() : ""; }
   function wireSettingsStaffCard(main){
     const m = settingsStaffMode();
     if(m==="local") return wireStaffSection();
-    const card = m==="shop"? main.querySelector("#shopStaffCard") : m==="wait"? main.querySelector("#staffWaitCard") : null;
+    const card = m==="shop"? main.querySelector("#shopStaffCard") : m==="wait"? main.querySelector("#staffWaitBox") : null;
     if(!card) return;
     const redraw = ()=>{
       if(!card.isConnected) return;
@@ -237,6 +240,7 @@
     card._staffRedraw = redraw;
     if(m==="shop") return wireShopStaffSection(card, redraw);
     wireStaffWaitingCard(card, redraw);
+    if(!isRemote()) wireStaffSection();
     // the safety net (at most once a minute): the roles may arrive while Settings is open
     staffEnsureRoles().then(r=>{
       if(!r || !card.isConnected) return;
@@ -247,7 +251,7 @@
   }
   // v33: the roles arrived while Settings shows "Roles not loaded": that card only is drawn again (never the whole page).
   function settingsStaffCardRefresh(){
-    const card = typeof document!=="undefined" && document.getElementById? document.getElementById("staffWaitCard") : null;
+    const card = typeof document!=="undefined" && document.getElementById? document.getElementById("staffWaitBox") : null;
     if(card && card._staffRedraw && typeof rolesSynced==="function" && rolesSynced()) card._staffRedraw();
   }
   // Settings -> Diagnostics: read-only. Every product of this branch should

@@ -332,7 +332,7 @@
   // -> { seed } or { error }
   function adminSeedFromForm(root, idp){
     const v = (id)=> (root.querySelector("#"+idp+id)||{}).value||"";
-    if(!hasAdminPasscode()) return { error:"Set an Admin passcode for this till first: Settings → Staff." };
+    if(!hasAdminPasscode()) return { error:"Set an Admin passcode for this till first: Settings → Admin passcode (this till)." };
     if(!findAdmin(v("Main"))) return { error:"Incorrect Admin passcode for this till." };
     const bad = adminSeedPasscodeProblem(v("New"), v("New2"));
     if(bad) return { error:bad };

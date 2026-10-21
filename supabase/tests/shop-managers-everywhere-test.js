@@ -36,7 +36,7 @@ const check = () => ({ pin_salt: hex(16), pin_check: hex(32), pin_rounds: 150000
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261109120000_office_seats.sql']) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261109120000_office_seats.sql', '20261110120000_staff_first_owner.sql']) });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
   const anon = async (fn, args) => {

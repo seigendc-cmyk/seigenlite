@@ -34,7 +34,7 @@ const uuid = () => crypto.randomUUID();
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261109120000_office_seats.sql']) });   // the live shape
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261109120000_office_seats.sql', '20261110120000_staff_first_owner.sql']) });   // the live shape
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const run = async (sql) => { try { await pg.exec(sql); return { ok: true }; } catch (e) { await pg.exec('rollback').catch(() => {}); return { e: e.message }; } };
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
