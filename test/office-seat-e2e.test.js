@@ -311,12 +311,14 @@ async function signIn(d, name, pin){
     await shots(A, "19-main-confirm-transfer");
     await ap.click("#itRecvGo");
     const recvState = ()=> ap.evaluate(()=>{ const b = document.querySelector("#itRecvGo"), m = document.querySelector("#itRecvMsg");
-      return { open:!!b, msg:m? m.textContent.trim() : "" }; });
+      return { open:!!b, busy:!!b && b.disabled, msg:m? m.textContent.trim() : "" }; });
+    // a retried Confirm keeps the last refusal on screen while it works, so wait for it to finish
+    // ("Confirming…" disabled) before reading the message
     // T1 may not have the new product from the catalogue yet ("isn't a product on this device"):
     // a check-in pulls the catalogue, then Confirm again, as a person would
     const tries = Date.now() + 60000;
     for(;;){
-      await waitFor(async()=>{ const s = await recvState(); return !s.open || !!s.msg; }, "confirmed or refused", 30000);
+      await waitFor(async()=>{ const s = await recvState(); return !s.open || (!s.busy && !!s.msg); }, "confirmed or refused", 30000);
       const s = await recvState();
       if(!s.open) break;
       if(!/isn't a product on this device/.test(s.msg) || Date.now() > tries) throw new Error("not confirmed: " + s.msg);
