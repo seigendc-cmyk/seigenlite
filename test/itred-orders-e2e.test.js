@@ -469,7 +469,9 @@ const shared = (page)=> page.evaluate(()=> window.__shared);
     assert.deepStrictEqual(stored, [BYO]);
     const ref = refOf(po);
     const cardText = (await sentCard(page).innerText()).replace(/\s+/g," ");
-    assert.match(cardText, new RegExp("Boka General Dealer " + ref + " · \\d+ \\w+ \\d{4} · Harare"));
+    // decision 9: the order number has its own Copy button (no page text selection)
+    assert.match(cardText, new RegExp("Boka General Dealer " + ref + " Copy · \\d+ \\w+ \\d{4} · Harare"));
+    assert.strictEqual(await sentCard(page).locator(".copy-ref").getAttribute("data-copy"), ref);
     assert.match(cardText, /Total USD 11\.75/);
     assert.match(cardText, /\+ 1 to quote/);
     assert.match(await sentCard(page).locator(".note").textContent(), /Sent to Boka General Dealer\. Their shop sees it in Orders Fulfillment/);

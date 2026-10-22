@@ -92,7 +92,10 @@ const state = (page)=> page.evaluate(()=>({
     for(const f of ["sw.js", "manifest.webmanifest", "apps.json", "itred-icon-192.png", "itred-icon-512.png", "itred-maskable-512.png",
       "apple-touch-icon.png", "og-image.png", "supabase-2.117.1.js", "jspdf-4.2.1.umd.min.js"]) assert.ok(fs.existsSync(path.join(DIST_DIR, f)), "missing "+f);
     const sw = fs.readFileSync(path.join(DIST_DIR, "sw.js"), "utf8");
-    assert.strictEqual(/const ITRED_BUILD = (\d+);/.exec(html)[1], /\/\/ build: i(\d+)/.exec(sw)[1]);
+    // the script is scrambled (decision 9), so the build number is read from build.js's tag
+    assert.strictEqual(/<meta name="itred-build" content="(\d+)">/.exec(html)[1], /\/\/ build: i(\d+)/.exec(sw)[1]);
+    assert.ok(!/function orderRef\(order\)\{ return 'PO-'/.test(html) && /_0x[0-9a-f]{4,}/.test(html), "the page's script is scrambled");
+    assert.strictEqual(html.split("seiGEN content protection (decision 9)").length - 1, 1, "content protection once, in the head");
     assert.ok(!/cdn\.jsdelivr|unpkg|cdnjs/.test(html), "no CDN scripts: the app serves its own");
   });
 
@@ -120,7 +123,8 @@ const state = (page)=> page.evaluate(()=>({
     await page.goto(srv.base + "/no-such-page");
     await page.waitForSelector(".page.active");
     assert.deepStrictEqual((await state(page)).active, ["page-/"], "an unknown path shows the market");
-    assert.deepStrictEqual(otherSupabase(), [], "no static page queries Supabase");
+    // Contact reads seiGEN's numbers from the contact directory (decision 10); nothing else
+    assert.deepStrictEqual(otherSupabase().filter((r)=> r !== "POST /rest/v1/rpc/cl_contact_directory"), [], "no other static page queries Supabase");
     assert.deepStrictEqual(errors, []);
     await context.close();
   });

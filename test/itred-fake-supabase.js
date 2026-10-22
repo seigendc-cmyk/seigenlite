@@ -35,6 +35,11 @@ function createFakeSupabase(opts){
     log: [],                // every request: { method, path, query, body, auth }
     unexpected: [],         // anything this fake doesn't implement
   };
+  // what cl_contact_directory answers (the migration's starting data by default)
+  state.contacts = opts.contacts || ["Queries Desk:+263774479121", "Sales:+263789487287", "Support:+263789487287"].map((s)=>{
+    const [desk, phone] = s.split(":");
+    return { desk, numbers:[{ label:"Main line", phone, call:true, whatsapp:true }] };
+  });
   state.orders = [];  // purchase_orders rows
   state.items = [];   // purchase_order_items rows
   state.messages = []; // itred_order_messages rows
@@ -309,6 +314,12 @@ function createFakeSupabase(opts){
       if(!state.orders.some(o=> o.id===body.p_order_id && o.customer_id===userId)) return send(200, { error:"NOT_FOUND" });
       state.messages.filter(m=> m.purchase_order_id===body.p_order_id && m.author==="vendor" && !m.customer_read_at).forEach(m=> m.customer_read_at = new Date().toISOString());
       return send(200, { ok:true });
+    }
+
+    // the contact directory (20261111120000): anyone; state.contactsDown = the function isn't there yet
+    if(url.pathname==="/rest/v1/rpc/cl_contact_directory" && method==="POST"){
+      if(state.contactsDown) return send(404, { code:"PGRST202", message:"Could not find the function public.cl_contact_directory" });
+      return send(200, state.contacts);
     }
 
     state.unexpected.push(method+" "+url.pathname+url.search);

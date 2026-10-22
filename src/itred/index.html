@@ -512,6 +512,7 @@
   .oc .oh{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;}
   .oc h3{font-size:16px;margin:0;font-family:'Inter',sans-serif;font-weight:700;}
   .oc .sub{font-size:12px;color:var(--text-soft);}
+  .copy-ref{font:inherit;font-size:11px;font-weight:600;padding:1px 7px;border-radius:8px;border:1px solid var(--line, #d9dde5);background:transparent;color:var(--navy-soft);cursor:pointer;}
   .chip{font-size:11px;padding:2px 8px;border-radius:10px;display:inline-block;white-space:nowrap;font-weight:600;}
   .chip.fulfilled{background:#E3F0E6;color:#1E6B35;}
   .chip.partially_fulfilled{background:#FFF4E0;color:#8A5A00;}
@@ -1007,11 +1008,9 @@
     </section>
     <section style="padding-top:0;">
       <div class="wrap narrow">
-        <div class="card" style="margin-bottom:24px;">
-          <h3>WhatsApp</h3>
-          <p>The fastest way to reach us — including sending your product photos to get listed.</p>
-          <a href="https://wa.me/263789487287?text=Hi%2C%20I%27m%20reaching%20out%20from%20the%20iTred%20Market%20Place%20website." target="_blank" class="btn btn-gold">Message +263 78 948 7287</a>
-        </div>
+        <p style="margin:0 0 16px;">WhatsApp is the fastest way to reach us — including sending your product photos to get listed.</p>
+        <!-- seiGEN's desks and numbers: from the Console's contact directory (decision 10), never hard-coded -->
+        <div id="contactDesks" aria-live="polite"></div>
         <div class="card" style="margin-bottom:24px;">
           <h3>Our address</h3>
           <p style="margin:0;">49 Brechin Est, Commerce Valley, Beatrice, Zimbabwe</p>
@@ -1164,7 +1163,7 @@
 
 <script>
   // ---- Build and backend config ----
-  const ITRED_BUILD = 1;   // = the "// build: iN" line in sw.js (build.js checks)
+  const ITRED_BUILD = 2;   // = the "// build: iN" line in sw.js (build.js checks)
   // Digital Commerce's Supabase project — the same one Commerce Lite's device
   // check-in talks to. The anon key is public by design: what it can read or
   // write is set by the row-level security in
@@ -1197,6 +1196,71 @@
   }
   // Device storage that may be blocked (private mode): never let it break the page.
   function store(key, value){ try{ if(value === undefined) return localStorage.getItem(key); if(value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); return true; }catch(e){ return value === undefined ? null : false; } }
+
+  // ---- Copy buttons (owner decision 9: no page text selection, so values people need have one) ----
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).catch(()=> fallbackCopy(text));
+    fallbackCopy(text); return Promise.resolve();
+  }
+  function fallbackCopy(text){
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} ta.remove();
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-copy]');
+    if(!b) return;
+    e.preventDefault();
+    copyText(b.getAttribute('data-copy')).then(()=>{
+      const was = b.dataset.caption || b.textContent; b.dataset.caption = was; b.textContent = 'Copied';
+      setTimeout(()=>{ b.textContent = b.dataset.caption; }, 1500);
+    });
+  });
+
+  // ---- Contact Us: seiGEN's desks and numbers (owner decision 10) ----
+  // Never hard-coded: the Console's contact directory (cl_contact_directory,
+  // the active desks and numbers in order), kept on this device so the page
+  // works offline after one visit online.
+  const CONTACTS_KEY = 'itred_contact_directory_v1';
+  const CONTACT_HELLO = encodeURIComponent("Hi, I'm reaching out from the iTred Market Place website.");
+  let contactsLoading = null, contactsFailed = false;
+  function cachedContacts(){ try{ const v = JSON.parse(store(CONTACTS_KEY) || 'null'); return v && Array.isArray(v.desks) ? v : null; }catch(e){ return null; } }
+  // +263771234567 -> "+263 77 123 4567" (other countries: as stored)
+  function contactPhoneText(phone){
+    const d = String(phone || '').replace(/\D/g, '');
+    return d.startsWith('263') && d.length === 12 ? '+263 ' + d.slice(3, 5) + ' ' + d.slice(5, 8) + ' ' + d.slice(8) : '+' + d;
+  }
+  function renderContacts(){
+    const box = document.getElementById('contactDesks');
+    if(!box) return;
+    const c = cachedContacts();
+    if(!c || !c.desks.length){
+      box.innerHTML = `<div class="card" style="margin-bottom:24px;"><p style="margin:0;">${contactsLoading ? 'Loading our numbers…'
+        : navigator.onLine === false ? "Our numbers show here once you've been online. You can still send the form below."
+        : contactsFailed ? "Our numbers couldn't load just now. Try again in a moment, or send the form below." : 'Loading our numbers…'}</p></div>`;
+      return;
+    }
+    box.innerHTML = c.desks.map(d => `
+      <div class="card contact-desk" style="margin-bottom:24px;"><h3>${escapeHtml(d.desk)}</h3>
+        ${(d.numbers || []).map(n => `
+          <div class="contact-number" style="margin:0 0 12px;">
+            <p style="margin:0 0 8px;"><strong>${escapeHtml(n.label)}</strong> · ${escapeHtml(contactPhoneText(n.phone))}</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              ${n.call ? `<a class="btn btn-navy" href="tel:${escapeHtml(n.phone)}">Call</a>` : ''}
+              ${n.whatsapp ? `<a class="btn btn-gold" href="https://wa.me/${escapeHtml(String(n.phone).replace(/\D/g, ''))}?text=${CONTACT_HELLO}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+              <button type="button" class="btn btn-outline" data-copy="${escapeHtml(n.phone)}" aria-label="Copy ${escapeHtml(contactPhoneText(n.phone))}">Copy number</button>
+            </div></div>`).join('')}
+      </div>`).join('');
+  }
+  function loadContacts(){
+    if(supabaseClient && !contactsLoading){
+      contactsLoading = Promise.resolve(supabaseClient.rpc('cl_contact_directory')).then(({ data, error })=>{
+        contactsFailed = !!error || !Array.isArray(data);
+        if(!contactsFailed) store(CONTACTS_KEY, JSON.stringify({ v: 1, at: new Date().toISOString(), desks: data }));
+      }).catch(()=>{ contactsFailed = true; }).finally(()=>{ contactsLoading = null; renderContacts(); });
+    }
+    renderContacts();
+    return contactsLoading;
+  }
 
   // ---- The search rule shared with Commerce Lite (copied from src/utils.js by build.js) ----
 /*@@SHARED_SEARCH@@*/
@@ -1261,6 +1325,7 @@
     if(r === '/orders'){ renderOrders(); loadSentOrders(); }
     if(r === '/vendors') renderVendors();
     if(r === '/apps') renderApps();
+    if(r === '/contact') loadContacts();
   }
   window.addEventListener('DOMContentLoaded', render);
   window.addEventListener('DOMContentLoaded', loadListings);
@@ -2197,7 +2262,7 @@
     return `
       <div class="oc" data-order="${oid}">
         <div class="oh"><div><h3>${escapeHtml(vendor.name)}</h3>
-            <div class="sub">${escapeHtml(orderRef(order))} · ${escapeHtml(formatDate(order.created_at))}${vendor.city ? ' · ' + escapeHtml(vendor.city) : ''}</div></div>
+            <div class="sub">${escapeHtml(orderRef(order))} <button type="button" class="copy-ref" data-copy="${escapeHtml(orderRef(order))}" aria-label="Copy the order number ${escapeHtml(orderRef(order))}">Copy</button> · ${escapeHtml(formatDate(order.created_at))}${vendor.city ? ' · ' + escapeHtml(vendor.city) : ''}</div></div>
           <span class="chip ${escapeHtml(order.status)}">${escapeHtml(status)}${order.completed_at ? ' · completed' : ''}</span></div>
         ${lines.map(lineHtml).join('')}
         <div class="ot"><b>${money.length ? 'Total ' + money.join(' + ') : 'To quote'}</b>${t.custom && money.length ? `<span class="sub">+ ${t.custom} to quote</span>` : ''}</div>

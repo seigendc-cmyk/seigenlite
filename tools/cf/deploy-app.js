@@ -47,7 +47,7 @@ function checkItredFolder(dir, worker) {
   if (problems.length) return problems;
   const html = fs.readFileSync(path.join(dir, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(dir, "sw.js"), "utf8");
-  const swBuild = (/\/\/ build: i(\d+)/.exec(sw) || [])[1], pageBuild = (/const ITRED_BUILD = (\d+);/.exec(html) || [])[1];
+  const swBuild = (/\/\/ build: i(\d+)/.exec(sw) || [])[1], pageBuild = (/<meta name="itred-build" content="(\d+)">/.exec(html) || [])[1];   // the page is scrambled (decision 9): build.js writes this tag
   if (!swBuild || swBuild !== pageBuild) problems.push("index.html is build i" + pageBuild + " but sw.js is i" + swBuild + " (rebuild)");
   if (/@@[A-Z_]+@@/.test(html)) problems.push("index.html still has a build token (copied from src/, not built)");
   const ogUrl = (/<meta property="og:url" content="([^"]+)">/.exec(html) || [])[1];
@@ -135,7 +135,7 @@ async function verifyItred(worker, dir) {
       if (i) await new Promise((r) => setTimeout(r, 5000));
       res = await fetch(BASE(worker) + p + "?v=" + Date.now(), { cache: "no-store" }).catch(() => null);
       body = res && res.ok ? await res.text() : "";
-      ok = !!(res && res.ok) && (p === "sw.js" ? body.includes("// build: " + swWant) : p === "" || p === "orders" ? /const ITRED_BUILD = /.test(body) : true);
+      ok = !!(res && res.ok) && (p === "sw.js" ? body.includes("// build: " + swWant) : p === "" || p === "orders" ? /<meta name="itred-build" content="/.test(body) : true);
     }
     console.log((ok ? "  ok   " : "  FAIL ") + "/" + p + " " + (res ? res.status : "no answer"));
     if (!ok) bad++;

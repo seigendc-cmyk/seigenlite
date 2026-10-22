@@ -1,0 +1,6 @@
+/* Content protection (owner decision 9): no page text selection and no long-press
+   menu; inputs and .selectable keep both. See protect.js. */
+html { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable], [contenteditable] *, .selectable, .selectable * {
+  -webkit-user-select: text; user-select: text; -webkit-touch-callout: default;
+}

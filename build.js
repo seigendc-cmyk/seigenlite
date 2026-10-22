@@ -43,6 +43,36 @@ const OBFUSCATOR_OPTIONS = {
   selfDefending: true,
   sourceMap: false, // explicitly no source map — a source map would completely defeat the purpose
 };
+// Code scrambling for iTred and the Console (owner decision 9): the same as
+// above, minus control-flow flattening, which slows hot code (search, list
+// drawing) for little gain. Their pages carry no crypto of their own (iTred's
+// libraries are separate files; the Console only hashes a pack checksum).
+const LIGHT_OBFUSCATOR_OPTIONS = Object.assign({}, OBFUSCATOR_OPTIONS, { controlFlowFlattening: false });
+// A page's one inline app script (a plain <script> without src), scrambled in place.
+function scrambleInlineScript(html, what) {
+  const re = /<script>\n?([\s\S]*?)<\/script>/g;
+  const found = [...html.matchAll(re)];
+  if (found.length !== 1) throw new Error(what + ": expected exactly one inline <script>, found " + found.length);
+  const m = found[0];
+  const js = JavaScriptObfuscator.obfuscate(m[1], LIGHT_OBFUSCATOR_OPTIONS).getObfuscatedCode();
+  if (/<\/script/i.test(js)) throw new Error(what + ": the scrambled script contains </script");
+  return html.slice(0, m.index) + "<script>\n" + js + "\n</script>" + html.slice(m.index + m[0].length);
+}
+
+// Content protection (owner decision 9): src/protect/protect.css and
+// protect.js go into the head of every app page built here, just before the
+// first </head>, and into the Console's (tools/console/build-console.js).
+// Never into src/ pages, so the tests of the source are unaffected.
+const PROTECT_MARK = "<!-- seiGEN content protection (decision 9) -->";
+function protectPage(html, what) {
+  const at = html.indexOf("</head>");
+  if (at === -1) throw new Error((what || "page") + ": no </head>");
+  if (html.includes(PROTECT_MARK)) throw new Error((what || "page") + ": already protected");
+  const css = fs.readFileSync(path.join(SRC, "protect", "protect.css"), "utf8");
+  const js = fs.readFileSync(path.join(SRC, "protect", "protect.js"), "utf8");
+  return html.slice(0, at) + PROTECT_MARK + "\n<style>\n" + css + "</style>\n<script>\n" + js + "</script>\n" + html.slice(at);
+}
+
 function obfuscateJS(code) {
   return JavaScriptObfuscator.obfuscate(code, OBFUSCATOR_OPTIONS).getObfuscatedCode();
 }
@@ -244,7 +274,7 @@ function buildHTML(scriptOrder, extraCssFiles, opts) {
 // no sibling files required. manifest.json/sw.js/icons are copied alongside
 // only for the case where this same file is also served over http(s).
 function buildSingleFile() {
-  const html = inlineIcons(buildHTML(SCRIPT_ORDER).html); // never obfuscated — see OBFUSCATOR_OPTIONS comment above
+  const html = protectPage(inlineIcons(buildHTML(SCRIPT_ORDER).html), "dist"); // never obfuscated — see OBFUSCATOR_OPTIONS comment above
 
   fs.mkdirSync(DIST, { recursive: true });
   fs.writeFileSync(path.join(DIST, "index.html"), html);
@@ -266,7 +296,8 @@ function buildSingleFile() {
 // visible Install button and an update-available banner.
 function buildPWA() {
   const scriptOrder = SCRIPT_ORDER.concat(PWA_EXTRA_SCRIPTS);
-  const { html, jsBytesBefore, jsBytesAfter } = buildHTML(scriptOrder, null, { obfuscate: true });
+  const built = buildHTML(scriptOrder, null, { obfuscate: true });
+  const { jsBytesBefore, jsBytesAfter } = built, html = protectPage(built.html, "dist-pwa");
 
   fs.mkdirSync(DIST_PWA, { recursive: true });
   fs.writeFileSync(path.join(DIST_PWA, "index.html"), html);
@@ -307,7 +338,8 @@ function tauriScriptOrder() {
 }
 function buildTauri() {
   const scriptOrder = tauriScriptOrder();
-  const { html, jsBytesBefore, jsBytesAfter } = buildHTML(scriptOrder, DESKTOP_EXTRA_CSS, { obfuscate: true });
+  const built = buildHTML(scriptOrder, DESKTOP_EXTRA_CSS, { obfuscate: true });
+  const { jsBytesBefore, jsBytesAfter } = built, html = protectPage(built.html, "dist-tauri");
 
   fs.mkdirSync(DIST_TAURI, { recursive: true });
   fs.writeFileSync(path.join(DIST_TAURI, "index.html"), html);
@@ -341,10 +373,10 @@ function buildMarket() {
     .join("\n");
   const js = "const APP_VERSION = " + JSON.stringify(readVersion()) + ";\n" +
     MARKET_SCRIPTS.map((name) => fs.readFileSync(path.join(SRC, name), "utf8")).join("\n");
-  const html =
+  const html = protectPage(
     head +
     "<style>\n" + css + "</style>\n" +
-    "</head>\n<body>\n<div id=\"market\"></div>\n<script>\n" + js + "</script>\n</body>\n</html>\n";
+    "</head>\n<body>\n<div id=\"market\"></div>\n<script>\n" + js + "</script>\n</body>\n</html>\n", "market.html");
 
   fs.mkdirSync(DIST_MARKET, { recursive: true });
   fs.writeFileSync(path.join(DIST_MARKET, "market.html"), html);
@@ -404,6 +436,8 @@ function buildItred() {
   const swBuild = (/\/\/ build: i(\d+)/.exec(sw) || [])[1], swConst = (/const ITRED_SW_BUILD = (\d+);/.exec(sw) || [])[1];
   const pageBuild = (/const ITRED_BUILD = (\d+);/.exec(html) || [])[1];
   if (!swBuild || swBuild !== swConst || swBuild !== pageBuild) throw new Error("iTred build numbers differ: sw.js line i" + swBuild + ", ITRED_SW_BUILD " + swConst + ", page ITRED_BUILD " + pageBuild);
+  // scrambled (decision 9): the build number is then read from this tag (tools/cf/deploy-app.js)
+  html = protectPage(scrambleInlineScript(html, "iTred"), "iTred").replace("</head>", '<meta name="itred-build" content="' + swBuild + '">\n</head>');
   fs.rmSync(DIST_ITRED, { recursive: true, force: true });
   fs.mkdirSync(DIST_ITRED, { recursive: true });
   fs.writeFileSync(path.join(DIST_ITRED, "index.html"), html);
@@ -472,10 +506,10 @@ function buildRpn() {
     "(function () {\n\"use strict\";\n" + data +
     RPN_SCRIPTS.map((name) => fs.readFileSync(path.join(SRC, name), "utf8")).join("\n") +
     "\n})();\n";
-  const html =
+  const html = protectPage(
     head +
     "<style>\n" + css + "</style>\n" +
-    "</head>\n<body>\n<div id=\"fg\"></div>\n<script>\n" + js + "</script>\n</body>\n</html>\n";
+    "</head>\n<body>\n<div id=\"fg\"></div>\n<script>\n" + js + "</script>\n</body>\n</html>\n", "dist-rpn");
 
   fs.mkdirSync(DIST_RPN, { recursive: true });
   fs.writeFileSync(path.join(DIST_RPN, "index.html"), html);
@@ -493,7 +527,7 @@ function buildRpn() {
 
 // Tests (test/licence-e2e.test.js) assemble unobfuscated copies of the
 // phone and desktop builds in memory; requiring this file builds nothing.
-module.exports = { buildHTML, SCRIPT_ORDER, tauriScriptOrder, DESKTOP_EXTRA_CSS, inlineIcons };
+module.exports = { buildHTML, SCRIPT_ORDER, tauriScriptOrder, DESKTOP_EXTRA_CSS, inlineIcons, protectPage, scrambleInlineScript, PROTECT_MARK };
 if (require.main !== module) return;
 
 const mode = process.argv.includes("--rpn") ? "rpn" : process.argv.includes("--itred") ? "itred" : process.argv.includes("--market") ? "market" : process.argv.includes("--tauri") ? "tauri" : process.argv.includes("--pwa") ? "pwa" : "single";
