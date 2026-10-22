@@ -39,6 +39,9 @@ async function waitFor(cond, what, ms){
 async function device(browser, kind){
   const desktop = kind==="desktop";
   const ctx = await browser.newContext({ viewport: desktop? { width:1280, height:800 } : { width:390, height:844 } });
+  // "no server at all": the built app would otherwise check in to the live
+  // seiGEN and leave a "Gentronix" vendor row there on every run (2026-10-22)
+  await ctx.route(/supabase\.co/, (r)=>r.abort());
   const page = await ctx.newPage();
   const pageErrors = [], dialogs = [];
   page.on("pageerror", e=>pageErrors.push(e.message));
