@@ -8,7 +8,7 @@
 | v30 | Fix for the sign-in and branch-switch freeze | done, `2c67145` |
 | v31 | Staff managers on every till | applied, `4a8b439` |
 | v32 | Office seat by invite (migration `20261109120000_office_seats`) | applied, on the previews, `d92a690`; test fix `0b2d67b` |
-| v33 | Roles fetch after register/join, visible Refresh, limited old-staff upload, Owner default, first-Owner log, internal-transfer error fix | in progress |
+| v33 | Roles fetch after register/join, visible Refresh, limited old-staff upload, Owner default, first-Owner log, internal-transfer error fix | done, pushed `4e7eef2`, on previews + sclconsole-preview |
 | next | Purge of test data | prompt ready |
 
 ## Roadmap (in order)

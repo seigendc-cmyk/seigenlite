@@ -2,6 +2,11 @@
 
 Owner decisions and roadmap: docs/decisions/post-build-29-decisions.md — read it before any task; it overrides older design docs unless the task prompt says otherwise.
 
+## WORKING MODE (owner, 22 Oct 2026)
+Decisions are in docs/decisions/post-build-29-decisions.md. Do NOT stop for design approval on anything already decided there.
+Stop ONLY for: (1) "apply" on the live database, (2) a decision missing from the doc, (3) a logic change not approved in the doc, (4) "go production".
+Keep the evidence report at every stop.
+
 ## NO SILENT LOGIC CHANGES (owner control rule, 21 Oct 2026)
 Never change, remove, bypass or weaken existing logic without telling the owner first and getting an explicit "approved".
 "Logic" includes: business rules, calculations (prices, stock, credit, totals, tax, COGS), validations and limits, permissions/rights and server checks, sign-in and passcode checks, sync and offline behaviour, licensing/billing, receipts and documents, defaults and settings, menu/screen flows, and any existing feature.
