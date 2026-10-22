@@ -39,7 +39,9 @@
   function runX(t, sql, params=[]){ t.run(sql, params); }
   function all(sql, params=[]){ return allX(db, sql, params); }
   function one(sql, params=[]){ return oneX(db, sql, params); }
-  function run(sql, params=[]){ return runX(db, sql, params); }
+  // v34: counts writes that may touch products (the Sell list held in memory, pos.js productsForSale)
+  let productsWriteGen = 0;
+  function run(sql, params=[]){ if(/products|rollback/i.test(sql) && !/^\s*select\b/i.test(sql)) productsWriteGen++; return runX(db, sql, params); }
 
   function getSettingX(t, key, fallback=""){ const r = oneX(t,"SELECT value FROM settings WHERE key=?",[key]); return r? r.value: fallback; }
   function setSetting(key, value){
@@ -555,7 +557,14 @@
       "ALTER TABLE customers ADD COLUMN src_branch TEXT DEFAULT ''",
       "ALTER TABLE customers ADD COLUMN src_branch_name TEXT DEFAULT ''",
       "ALTER TABLE suppliers ADD COLUMN src_branch TEXT DEFAULT ''",
-      "ALTER TABLE suppliers ADD COLUMN src_branch_name TEXT DEFAULT ''"
+      "ALTER TABLE suppliers ADD COLUMN src_branch_name TEXT DEFAULT ''",
+      // v34 (decisions 4, 30, 31, 3): the built-in customers, and a credit sale's check
+      "ALTER TABLE customers ADD COLUMN builtin TEXT DEFAULT ''",
+      "ALTER TABLE sales ADD COLUMN credit_check TEXT DEFAULT ''",
+      "ALTER TABLE sales ADD COLUMN credit_before REAL",
+      "ALTER TABLE sales ADD COLUMN credit_after REAL",
+      "ALTER TABLE sales ADD COLUMN credit_override TEXT DEFAULT ''",
+      "ALTER TABLE sales ADD COLUMN credit_override_mode TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -600,6 +609,8 @@
     migrateSyncIdentity(t);
     migrateStockLedger(t);
     migrateCatalogueSync(t);
+    migratePriceChanges(t);
+    ensureBuiltinCustomers(t);
     if(typeof pauseSyncBacklog==="function") pauseSyncBacklog(t);   // sync.js; absent in partial test loads
   }
   // Catalogue sync (Phase 3a): a change to a catalogue field of a linked
@@ -623,6 +634,36 @@
         AND NEW.branch=(SELECT value FROM settings WHERE key='cat_branch')
       BEGIN UPDATE products SET cat_dirty=1, cat_op=lower(hex(randomblob(16))), cat_error='' WHERE id=NEW.id; END`); }catch(e){}
   }
+  // v34 (decision 32, the Price changes report): every change of a selling
+  // price, whatever made it (an edit, a GRV, an import, a catalogue sync), with
+  // the cost at that moment. A trigger, like products.price_ts, so no path can forget.
+  function migratePriceChanges(t){
+    try{ t.run(`CREATE TABLE IF NOT EXISTS price_changes(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, product_id INTEGER, product_name TEXT DEFAULT '', sku TEXT DEFAULT '',
+      branch TEXT DEFAULT '', old_price REAL, new_price REAL, cost REAL)`); }catch(e){}
+    try{ t.run("CREATE INDEX IF NOT EXISTS ix_price_changes_ts ON price_changes(ts)"); }catch(e){}
+    try{ t.run(`CREATE TRIGGER IF NOT EXISTS products_price_log AFTER UPDATE OF price ON products
+      WHEN NEW.price IS NOT OLD.price
+      BEGIN INSERT INTO price_changes(ts,product_id,product_name,sku,branch,old_price,new_price,cost)
+        VALUES(strftime('%Y-%m-%dT%H:%M:%fZ','now'), NEW.id, NEW.name, COALESCE(NEW.sku,''), COALESCE(NEW.branch,''), OLD.price, NEW.price, NEW.cost); END`); }catch(e){}
+  }
+  // v34 (decision 4): "Cash Sale" and "Wholesale", the same two on every till of
+  // every business (fixed uids, 32 hex like every other uid, so a merge or B4
+  // finds them by uid). Locked: no edit, no delete, no credit (customers.js,
+  // credit.js, pos.js); never sent to seiGEN's customer list (srv_status
+  // 'builtin'), which refuses their uids.
+  const BUILTIN_CUSTOMERS = [
+    { builtin:"cash_sale", uid:"b1170000000000000000000000000001", name:"Cash Sale", type:"retail" },
+    { builtin:"wholesale", uid:"b1170000000000000000000000000002", name:"Wholesale", type:"wholesale" },
+  ];
+  function ensureBuiltinCustomers(t){
+    BUILTIN_CUSTOMERS.forEach(b=>{
+      try{ t.run(`INSERT INTO customers(name,phone,phone_norm,branch,customer_type,credit_limit,uid,builtin,srv_status)
+        SELECT ?,'',?,'',?,NULL,?,?,'builtin' WHERE NOT EXISTS (SELECT 1 FROM customers WHERE uid=?)`,
+        [b.name, "builtin:"+b.builtin, b.type, b.uid, b.builtin, b.uid]); }catch(e){}
+    });
+  }
+  function isBuiltinCustomer(c){ return !!(c && c.builtin); }
   // Opening balance: one 'opening' movement per product equal to its stock
   // when the ledger started, so SUM(qty_delta) = products.stock from day one.
   // Its uid is 'open-<product uid>', and it is only written for a product with

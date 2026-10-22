@@ -323,6 +323,7 @@
       + (d.app_build? "runs build v"+d.app_build : "hasn't reported its build yet") + ". Open the app on that till while online (it updates and checks in), then try again.";
   }
   async function sharedStockStart(passcode){
+    await passcodeWarm(passcode);   // v34: off the screen thread first
     if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode.");
     if(typeof catalogueSyncNow==="function"){ const c = await catalogueSyncNow({}); if(c && c.needsReport) throw new Error("Finish the first catalogue sync first (Settings → Business & Terminals)."); }
     const plan = sharedStockStartPlan();
@@ -343,6 +344,7 @@
     return await stockSyncNow({});
   }
   async function sharedStockMerge(passcode){
+    await passcodeWarm(passcode);   // v34: off the screen thread first
     if(!findAdmin(passcode)) throw new Error("Incorrect Admin passcode.");
     const own = all("SELECT * FROM products WHERE branch=? AND cat_uid IS NOT NULL AND stock>0",[currentBranch()]);
     if(own.length){

@@ -380,7 +380,7 @@ const COSTS = /unit.?cost|landed|charge|\b1\.50\b|\b4\.00\b/i;   // Sugar costs 
   });
 
   // ---- a credit sale to another branch's customer (Q5): this till alone, a fixed clock ----
-  await t("credit to another branch's customer: every sale asks the Admin passcode; a wrong one sells nothing; cash never asks", ()=>{
+  await t("credit to another branch's customer: every sale asks the Admin passcode; a wrong one sells nothing; cash never asks", async ()=>{
     const A = fixedClock(makeApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1", branch_uuid:"11111111-1111-4111-8111-111111111111" }, { dom:true }), "2026-10-06T10:00:00Z");
     A.hook("printReceipt", ()=>{});
     A.api.run("INSERT INTO staff(name,role,passcode,branch,active,created_ts) VALUES('Boss','Admin','4321','Boka',1,'x')");
@@ -396,9 +396,9 @@ const COSTS = /unit.?cost|landed|charge|\b1\.50\b|\b4\.00\b/i;   // Sugar costs 
     assert.strictEqual(sales(), 0, "nothing sold before the passcode");
     let m = lastModal(A);
     assert.match(flat(m.textContent), /Credit for another branch's customer.*added at Norton\. Their credit balance here covers this till only \(until the update that shares sales\)/);
-    m.querySelector("#xcPass").value = "0000"; m.querySelector("#xcGo").click();
+    m.querySelector("#xcPass").value = "0000"; await m.querySelector("#xcGo").onclick();   // v34: the passcode is checked off the screen thread first
     assert.match(m.querySelector("#xcMsg").textContent, /Incorrect Admin passcode/); assert.strictEqual(sales(), 0);
-    m.querySelector("#xcPass").value = "4321"; m.querySelector("#xcGo").click();
+    m.querySelector("#xcPass").value = "4321"; await m.querySelector("#xcGo").onclick();
     assert.strictEqual(sales(), 1, "sold after the passcode");
     assert.strictEqual(A.api.customerBalance(farai.id), 20);
     assert.ok(A.api.one("SELECT * FROM audit_log WHERE action=?", ["Credit to another branch's customer"]), "logged with who approved");

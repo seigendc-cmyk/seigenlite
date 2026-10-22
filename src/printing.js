@@ -312,18 +312,142 @@
   // printed under the receipt number only when non-blank.
   // POS fixes: the price level a sale was sold at ("retail" | "wholesale"), printed on its receipt.
   function salePriceLevel(saleId){ try{ return ((one("SELECT price_level FROM sales WHERE id=?",[saleId])||{}).price_level)||"retail"; }catch(e){ return "retail"; } }
+
+  // ---- v34 receipt upgrade (roadmap Batch 2; decision 33) ----
+  // Every receipt (thermal, print dialog / PDF, copies, WhatsApp) carries the
+  // business name, address and phones; the customer and who served; the payment
+  // reference; a credit sale's balance at this till before and after; the
+  // receipt message from Settings; and "powered by seiGEN Commerce", small and
+  // faint. The logo is on the screen and PDF receipts only: thermal receipts
+  // print the business name in bold instead. Never a customer's ID or address.
+  const RECEIPT_MESSAGE_DEFAULT = "Thank you for your business";
+  const RECEIPT_POWERED_BY = "powered by seiGEN Commerce";
+  function receiptShopInfo(){
+    return { shop:getSetting("shop_name","My Shop"), branch:getSetting("branch_name",""), address:getSetting("receipt_address",""),
+      phones:getSetting("receipt_phones","") || getSetting("contact_phone",""), logo:getSetting("receipt_logo",""),
+      message:getSetting("receipt_message", RECEIPT_MESSAGE_DEFAULT) };
+  }
+  // What the sale row adds to its receipt (an unknown id, e.g. the test receipt: nothing).
+  function receiptSaleInfo(saleId){
+    let s = null, c = null;
+    try{ s = one("SELECT customer_id, user, payment_ref, credit_before, credit_after FROM sales WHERE id=?",[saleId]); }catch(e){ s = null; }
+    if(s && s.customer_id) c = one("SELECT name FROM customers WHERE id=?",[s.customer_id]);
+    s = s || {};
+    return { customer:c? c.name : "", operator:s.user||"", paymentRef:s.payment_ref||"",
+      creditBefore:s.credit_before==null? null : Number(s.credit_before), creditAfter:s.credit_after==null? null : Number(s.credit_after) };
+  }
+  function receiptPartyLines(info){ return [info.customer? "Customer: "+info.customer : "", info.operator? "Served by: "+info.operator : ""].filter(Boolean); }
+  function receiptCreditRows(info){
+    if(info.creditBefore==null || info.creditAfter==null) return [];
+    return [["Balance before (this till)", currency+info.creditBefore.toFixed(2)], ["Balance after (this till)", currency+info.creditAfter.toFixed(2)]];
+  }
+  function receiptHeaderBytes(shopInfo, w, copy){
+    const parts = [ escposInit(), escposFontB(), escposNormalSize(), escposAlign("center"), escposBold(true) ];
+    if(copy) parts.push(escposTextBytes("*** COPY - NOT ORIGINAL ***\n"));
+    parts.push(escposTextBytes(shopInfo.shop+"\n"), escposBold(false));
+    [shopInfo.branch, shopInfo.address, shopInfo.phones].filter(Boolean).forEach(t=> parts.push(escposTextBytes(t+"\n")));
+    parts.push(escposAlign("left"), escposLine(w));
+    return parts;
+  }
+  function receiptFooterBytes(shopInfo, info, w){
+    const parts = [];
+    if(info.paymentRef) parts.push(escposTextBytes("Ref: "+info.paymentRef+"\n"));
+    receiptCreditRows(info).forEach(([a,b])=> parts.push(escposTextBytes(padLine(a, b, w)+"\n")));
+    parts.push(escposLine(w), escposAlign("center"));
+    if(shopInfo.message) parts.push(escposTextBytes(shopInfo.message+"\n"));
+    parts.push(escposTextBytes(RECEIPT_POWERED_BY+"\n"), escposCut());
+    return parts;
+  }
+  function receiptHeaderHtml(shopInfo){
+    return `${shopInfo.logo? `<div style="text-align:center"><img class="receipt-logo" src="${escapeHtml(shopInfo.logo)}" alt="" style="max-width:60%;max-height:64px"></div>` : ""}
+        <h3><b>${escapeHtml(shopInfo.shop)}</b></h3>
+        ${[shopInfo.branch, shopInfo.address, shopInfo.phones].filter(Boolean).map(t=>`<div style="text-align:center">${escapeHtml(t)}</div>`).join("")}`;
+  }
+  function receiptFooterHtml(shopInfo, info){
+    return `${info.paymentRef? `<div>Ref: ${escapeHtml(info.paymentRef)}</div>` : ""}
+        ${receiptCreditRows(info).map(([a,b])=>`<div class="line"><span>${escapeHtml(a)}</span><span>${escapeHtml(b)}</span></div>`).join("")}
+        <hr>
+        ${shopInfo.message? `<div style="text-align:center">${escapeHtml(shopInfo.message)}</div>` : ""}
+        <div class="receipt-powered" style="text-align:center;font-size:9px;color:#9a9a9a;margin-top:4px">${RECEIPT_POWERED_BY}</div>`;
+  }
+  // Settings → Receipts (v34)
+  const RECEIPT_LOGO_MAX_PX = 240;
+  function receiptSettingsCardHtml(){
+    const s = receiptShopInfo();
+    return `<div class="card" id="receiptSettingsCard">
+        <h3>Receipts</h3>
+        <label for="rcAddress">Address on receipts</label>
+        <input class="field" id="rcAddress" maxlength="120" value="${escapeHtml(getSetting("receipt_address",""))}" placeholder="e.g. Shop 4, Main Street, Harare">
+        <label for="rcPhones">Phones on receipts</label>
+        <input class="field" id="rcPhones" maxlength="80" value="${escapeHtml(getSetting("receipt_phones",""))}" placeholder="${escapeHtml(getSetting("contact_phone","") || "e.g. 077 123 4567, 078 765 4321")}">
+        <p class="muted">Empty: the contact number above.</p>
+        <label for="rcMessage">Receipt message</label>
+        <input class="field" id="rcMessage" maxlength="120" value="${escapeHtml(s.message)}">
+        <label>Logo (screen and PDF receipts; thermal receipts print the name in bold)</label>
+        <div id="rcLogoBox">${s.logo? `<img src="${escapeHtml(s.logo)}" alt="" style="max-height:64px;max-width:60%;display:block;margin:4px 0">` : `<p class="muted" style="margin:4px 0">No logo.</p>`}</div>
+        <div class="row">
+          <input class="field" id="rcLogo" type="file" accept="image/png,image/jpeg,image/webp">
+          ${s.logo? `<button class="btn btn-outline btn-sm" id="rcLogoRemove" style="flex:none;width:auto">Remove logo</button>` : ""}
+        </div>
+        <div id="rcMsg" role="status" class="muted" style="margin-top:6px"></div>
+        <button class="btn btn-primary" id="rcSave" style="margin-top:10px">Save receipt details</button>
+      </div>`;
+  }
+  // A picture made small (at most RECEIPT_LOGO_MAX_PX wide or high) as a PNG data URL.
+  function receiptLogoFromFile(file){
+    return new Promise((res, rej)=>{
+      const r = new FileReader();
+      r.onerror = ()=> rej(new Error("That picture couldn't be read."));
+      r.onload = ()=>{
+        const img = new Image();
+        img.onerror = ()=> rej(new Error("That file isn't a picture this app can read."));
+        img.onload = ()=>{
+          const k = Math.min(1, RECEIPT_LOGO_MAX_PX/Math.max(img.width, img.height||1));
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(img.width*k)); c.height = Math.max(1, Math.round(img.height*k));
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          res(c.toDataURL("image/png"));
+        };
+        img.src = r.result;
+      };
+      r.readAsDataURL(file);
+    });
+  }
+  function saveReceiptSettings(f){
+    setSetting("receipt_address", String(f.address||"").trim().slice(0,120));
+    setSetting("receipt_phones", String(f.phones||"").trim().slice(0,80));
+    setSetting("receipt_message", String(f.message==null? RECEIPT_MESSAGE_DEFAULT : f.message).trim().slice(0,120));
+    if(f.logo!==undefined) setSetting("receipt_logo", f.logo||"");
+    logAudit("Receipt details", "", "address, phones, message"+(f.logo!==undefined? (f.logo? ", logo" : ", logo removed") : ""));
+    persist();
+  }
+  function wireReceiptSettingsCard(){
+    const card = document.getElementById("receiptSettingsCard");
+    if(!card) return;
+    let logo;   // undefined: unchanged
+    const msg = card.querySelector("#rcMsg"), v = (id)=> card.querySelector(id).value;
+    card.querySelector("#rcLogo").onchange = async (e)=>{
+      const f = e.target.files && e.target.files[0];
+      if(!f) return;
+      try{ logo = await receiptLogoFromFile(f); card.querySelector("#rcLogoBox").innerHTML = `<img src="${escapeHtml(logo)}" alt="" style="max-height:64px;max-width:60%;display:block;margin:4px 0">`; msg.textContent = "Tap Save to keep this logo."; }
+      catch(err){ msg.textContent = err.message; }
+    };
+    const rm = card.querySelector("#rcLogoRemove");
+    if(rm) rm.onclick = ()=>{ logo = ""; card.querySelector("#rcLogoBox").innerHTML = `<p class="muted" style="margin:4px 0">No logo.</p>`; msg.textContent = "Tap Save to remove the logo."; };
+    card.querySelector("#rcSave").onclick = ()=>{
+      saveReceiptSettings({ address:v("#rcAddress"), phones:v("#rcPhones"), message:v("#rcMessage"), logo });
+      msg.textContent = "Receipt details saved.";
+    };
+  }
   function buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
     const w = escposColWidth();
-    const shop = getSetting("shop_name","My Shop");
-    const branch = getSetting("branch_name","");
-    const parts = [ escposInit(), escposFontB(), escposNormalSize(), escposAlign("center"), escposBold(true),
-      escposTextBytes(shop+"\n"), escposBold(false) ];
-    if(branch) parts.push(escposTextBytes(branch+"\n"));
-    parts.push(escposAlign("left"), escposLine(w));
+    const shopInfo = receiptShopInfo(), info = receiptSaleInfo(saleId);
+    const parts = receiptHeaderBytes(shopInfo, w, false);
     parts.push(escposTextBytes(new Date(ts).toLocaleString()+"\n"));
     parts.push(escposTextBytes("Receipt "+receiptLabel(saleId, receiptNo)+"\n"));
     if(docRef) parts.push(escposTextBytes("Doc Ref: "+docRef+"\n"));
     if(salePriceLevel(saleId)==="wholesale") parts.push(escposTextBytes("Wholesale prices\n"));
+    receiptPartyLines(info).forEach(t=> parts.push(escposTextBytes(t+"\n")));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
     parts.push(escposLine(w));
@@ -333,9 +457,7 @@
     if(voucherAmount>0) parts.push(escposTextBytes(padLine("Voucher", `-${currency}${voucherAmount.toFixed(2)}`, w)+"\n"));
     parts.push(escposBold(true), escposTextBytes(padLine("TOTAL", `${currency}${total.toFixed(2)}`, w)+"\n"), escposBold(false));
     paymentLinesText(method, payments).forEach(line=> parts.push(escposTextBytes(line+"\n")));
-    parts.push(escposLine(w));
-    parts.push(escposAlign("center"), escposTextBytes("Thank you for your business\n"));
-    parts.push(escposCut());
+    receiptFooterBytes(shopInfo, info, w).forEach(b=> parts.push(b));
     return concatBytes(parts);
   }
   async function usbPrintReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
@@ -423,21 +545,18 @@
   async function printReceipt(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo){
     const sentDirect = await sendDirect(buildReceiptBytes(saleId, ts, subtotal, discount, markup, voucherAmount, total, method, items, payments, docRef, receiptNo), "Receipt "+receiptLabel(saleId, receiptNo));
     if(sentDirect) return;
-    const shop = getSetting("shop_name","My Shop");
-    const branch = getSetting("branch_name","");
-    const contact = getSetting("contact_phone","");
+    const shopInfo = receiptShopInfo(), info = receiptSaleInfo(saleId);
     const lines = items.map(saleItemLineHtml).join("");
     const paymentLines = paymentLinesText(method, payments).map(t=>`<div>${escapeHtml(t)}</div>`).join("");
     document.getElementById("printArea").innerHTML = `
       <div class="receipt">
-        <h3>${escapeHtml(shop)}</h3>
-        ${branch?`<div style="text-align:center">${escapeHtml(branch)}</div>`:""}
-        ${contact?`<div style="text-align:center">${escapeHtml(contact)}</div>`:""}
+        ${receiptHeaderHtml(shopInfo)}
         <hr>
         <div>${new Date(ts).toLocaleString()}</div>
         <div>Receipt ${escapeHtml(receiptLabel(saleId, receiptNo))}</div>
         ${docRef?`<div>Doc Ref: ${escapeHtml(docRef)}</div>`:""}
         ${salePriceLevel(saleId)==="wholesale"? `<div>Wholesale prices</div>` : ""}
+        ${receiptPartyLines(info).map(t=>`<div>${escapeHtml(t)}</div>`).join("")}
         <hr>
         ${lines}
         <hr>
@@ -447,8 +566,7 @@
         ${voucherAmount>0?`<div class="line"><span>Voucher</span><span>-${currency}${voucherAmount.toFixed(2)}</span></div>`:""}
         <div class="line"><b>TOTAL</b><b>${currency}${total.toFixed(2)}</b></div>
         ${paymentLines}
-        <hr>
-        <div style="text-align:center">Thank you for your business</div>
+        ${receiptFooterHtml(shopInfo, info)}
       </div>`;
     printNow(paperWidth());
   }
@@ -547,16 +665,13 @@
   // can't do a true watermark.
   function buildSaleCopyBytes(sale, items, payments){
     const w = escposColWidth();
-    const shop = getSetting("shop_name","My Shop");
-    const branch = getSetting("branch_name","");
-    const parts = [ escposInit(), escposFontB(), escposNormalSize(), escposAlign("center"), escposBold(true),
-      escposTextBytes("*** COPY - NOT ORIGINAL ***\n"), escposTextBytes(shop+"\n"), escposBold(false) ];
-    if(branch) parts.push(escposTextBytes(branch+"\n"));
-    parts.push(escposAlign("left"), escposLine(w));
+    const shopInfo = receiptShopInfo(), info = receiptSaleInfo(sale.id);
+    const parts = receiptHeaderBytes(shopInfo, w, true);
     parts.push(escposTextBytes(new Date(sale.ts).toLocaleString()+"\n"));
     parts.push(escposTextBytes("Receipt "+receiptDisplay(sale)+"\n"));
     if(sale.doc_ref) parts.push(escposTextBytes("Doc Ref: "+sale.doc_ref+"\n"));
     if(sale.price_level==="wholesale") parts.push(escposTextBytes("Wholesale prices\n"));
+    receiptPartyLines(info).forEach(t=> parts.push(escposTextBytes(t+"\n")));
     parts.push(escposLine(w));
     items.forEach(i=> saleItemLineBytes(i,w).forEach(b=>parts.push(b)));
     parts.push(escposLine(w));
@@ -566,9 +681,7 @@
     if(sale.voucher_amount>0) parts.push(escposTextBytes(padLine("Voucher", `-${currency}${sale.voucher_amount.toFixed(2)}`, w)+"\n"));
     parts.push(escposBold(true), escposTextBytes(padLine("TOTAL", `${currency}${sale.total.toFixed(2)}`, w)+"\n"), escposBold(false));
     paymentLinesText(sale.method, payments).forEach(line=> parts.push(escposTextBytes(line+"\n")));
-    parts.push(escposLine(w));
-    parts.push(escposAlign("center"), escposTextBytes("Thank you for your business\n"));
-    parts.push(escposCut());
+    receiptFooterBytes(shopInfo, info, w).forEach(b=> parts.push(b));
     return concatBytes(parts);
   }
   async function printSaleCopy(saleId){
@@ -578,22 +691,19 @@
     const payments = salePayments(saleId);
     const sentDirect = await sendDirect(buildSaleCopyBytes(sale, items, payments), "Receipt copy #"+sale.id);
     if(sentDirect) return;
-    const shop = getSetting("shop_name","My Shop");
-    const branch = getSetting("branch_name","");
-    const contact = getSetting("contact_phone","");
+    const shopInfo = receiptShopInfo(), info = receiptSaleInfo(sale.id);
     const lines = items.map(saleItemLineHtml).join("");
     const paymentLines = paymentLinesText(sale.method, payments).map(t=>`<div>${escapeHtml(t)}</div>`).join("");
     document.getElementById("printArea").innerHTML = `
       <div class="receipt" style="position:relative">
         <div style="position:absolute;top:40%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:44px;font-weight:800;color:rgba(0,0,0,.18);white-space:nowrap;z-index:5;pointer-events:none">COPY</div>
-        <h3>${escapeHtml(shop)}</h3>
-        ${branch?`<div style="text-align:center">${escapeHtml(branch)}</div>`:""}
-        ${contact?`<div style="text-align:center">${escapeHtml(contact)}</div>`:""}
+        ${receiptHeaderHtml(shopInfo)}
         <hr>
         <div>${new Date(sale.ts).toLocaleString()}</div>
         <div>Receipt ${escapeHtml(receiptDisplay(sale))}</div>
         ${sale.doc_ref?`<div>Doc Ref: ${escapeHtml(sale.doc_ref)}</div>`:""}
         ${sale.price_level==="wholesale"? `<div>Wholesale prices</div>` : ""}
+        ${receiptPartyLines(info).map(t=>`<div>${escapeHtml(t)}</div>`).join("")}
         <hr>
         ${lines}
         <hr>
@@ -603,8 +713,7 @@
         ${sale.voucher_amount>0?`<div class="line"><span>Voucher</span><span>-${currency}${sale.voucher_amount.toFixed(2)}</span></div>`:""}
         <div class="line"><b>TOTAL</b><b>${currency}${sale.total.toFixed(2)}</b></div>
         ${paymentLines}
-        <hr>
-        <div style="text-align:center">Thank you for your business</div>
+        ${receiptFooterHtml(shopInfo, info)}
       </div>`;
     printNow(paperWidth());
   }
@@ -617,13 +726,12 @@
     const items = all("SELECT * FROM sale_items WHERE sale_id=?",[saleId]);
     const cust = sale.customer_id? one("SELECT * FROM customers WHERE id=?",[sale.customer_id]) : null;
     const balance = sale.customer_id? customerBalance(sale.customer_id) : sale.total;
-    const shop = getSetting("shop_name","My Shop");
-    const branch = getSetting("branch_name","");
-    const contact = getSetting("contact_phone","");
+    const shopInfo = receiptShopInfo();   // v34: the logo, address and phones as on the receipts
     document.getElementById("printArea").innerHTML = `
       <div class="report-print">
-        <h2>${escapeHtml(shop)}</h2>
-        <div class="sub">${escapeHtml(branch)}${contact? ` · ${escapeHtml(contact)}` : ""}</div>
+        ${shopInfo.logo? `<img class="receipt-logo" src="${escapeHtml(shopInfo.logo)}" alt="" style="max-height:64px;max-width:40%">` : ""}
+        <h2>${escapeHtml(shopInfo.shop)}</h2>
+        <div class="sub">${[shopInfo.branch, shopInfo.address, shopInfo.phones].filter(Boolean).map(escapeHtml).join(" · ")}</div>
         <h3 class="section">INVOICE</h3>
         <p>${sale.receipt_no? `Invoice: ${escapeHtml(sale.receipt_no)}` : `Invoice #: ${sale.id}`}<br>Date: ${new Date(sale.ts).toLocaleString()}${sale.doc_ref? `<br>Doc Ref: ${escapeHtml(sale.doc_ref)}` : ""}</p>
         <p><b>Bill To:</b><br>${cust? escapeHtml(cust.name) : "—"}${cust && cust.phone? `<br>${escapeHtml(cust.phone)}` : ""}</p>

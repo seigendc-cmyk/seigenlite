@@ -112,7 +112,22 @@
     if(admin) return admin;
     if(!_staffSession || !canStrict(right) || !String(code||"").trim()) return null;
     const st = shopStaff(_staffSession.id);
-    return st && staffPinMatches(st, code)? { id:null, name:st.name, role:"Staff" } : null;
+    if(!st) return null;
+    const k = approverPinKey(st, code), known = _approverPinCache.get(k);
+    const ok = known!==undefined? known : !!staffPinMatches(st, code);
+    return ok? { id:null, name:st.name, role:"Staff" } : null;
+  }
+  // v34: the holder's own PIN worked out off the screen thread (staff.js passcodeWarm); keyed by the
+  // stored PIN check, so a changed PIN is compared again.
+  const _approverPinCache = new Map();
+  function approverPinKey(st, code){ return st.id+"|"+(st.pin_check||"")+"|"+(st.legacy||"")+"|"+String(code); }
+  async function approverPinWarm(code, right){
+    if(!_staffSession || !canStrict(right) || !String(code||"").trim()) return;
+    const st = shopStaff(_staffSession.id);
+    if(!st) return;
+    const ok = !!(await staffPinMatchesAsync(st, code));
+    if(_approverPinCache.size > 200) _approverPinCache.clear();
+    _approverPinCache.set(approverPinKey(st, code), ok);
   }
 
   // ---- PINs ----

@@ -44,6 +44,12 @@
   }
 
   // ---- the cart combo ----
+  // v34 (decision 31): until B4 the credit check uses this till's own sales, and says so.
+  function custBalanceLineHtml(c){
+    if(!c || isBuiltinCustomer(c)) return "";
+    const bal = roundMoney(customerBalance(c.id)), lim = c.credit_limit==null || c.credit_limit===""? null : Number(c.credit_limit);
+    return `<div class="muted cust-balance" id="custBalance" style="font-size:12px;margin-top:4px">Balance at this till: ${currency}${bal.toFixed(2)}${lim!==null? " · limit "+currency+lim.toFixed(2)+" · available "+currency+Math.max(0, roundMoney(lim-bal)).toFixed(2) : ""}</div>`;
+  }
   // The input keeps id "custName" (completeSale reads it for an exact-name
   // match); picking sets cartCustomer and re-prices. Only #custList and the
   // chip are re-rendered while typing, never the input.
@@ -53,7 +59,7 @@
       <label for="custName" class="cust-combo-label">Customer (needed for Credit)</label>
       ${c? `<div class="cust-chip" id="custChip"><span><b>${escapeHtml(c.name)}</b>${c.phone? " · "+escapeHtml(c.phone) : ""}
             <span class="pill ${c.customer_type==="wholesale"? "warn" : ""}" style="margin-left:4px">${escapeHtml(customerTypeLabel(c))}</span></span>
-          <button type="button" class="close-x" id="custClear" aria-label="Remove customer">✕</button></div>`
+          <button type="button" class="close-x" id="custClear" aria-label="Remove customer">✕</button></div>${custBalanceLineHtml(c)}`
         : `<input class="field" id="custName" autocomplete="off" placeholder="Search name or phone, or add new" value="${escapeHtml(window._custNameVal||"")}">
            <div class="cust-list" id="custList" role="listbox"></div>`}
       <div class="cust-notice" id="custNotice" role="status">${escapeHtml(window._custNotice||"")}</div>
@@ -144,9 +150,12 @@
         <button class="btn btn-primary" id="xcGo">Continue the sale</button>
       </div>`);
     wrap.querySelector("#xcCancel").onclick = ()=> wrap.remove();
-    wrap.querySelector("#xcGo").onclick = ()=>{
-      try{ approveCrossBranchCredit(info, wrap.querySelector("#xcPass").value); }
-      catch(e){ wrap.querySelector("#xcMsg").textContent = e.message; return; }
+    const go = wrap.querySelector("#xcGo");
+    go.onclick = async ()=>{
+      const code = wrap.querySelector("#xcPass").value;
+      go.disabled = true;
+      try{ await passcodeWarm(code, "credit_over_limit"); approveCrossBranchCredit(info, code); }   // v34: checked off the screen thread first
+      catch(e){ wrap.querySelector("#xcMsg").textContent = e.message; go.disabled = false; return; }
       wrap.remove(); retry();
     };
     return wrap;
@@ -157,9 +166,10 @@
   // (a name, or digits for the phone); o.onSaved(customerRow).
   function openCustomerModal(existing, o){
     o = o||{};
+    if(existing && isBuiltinCustomer(existing)){ alert(BUILTIN_LOCKED_MSG); return null; }   // v34 (decision 4)
     const perm = canCreateCustomers();
     if(perm===false){ alert("Ask an admin to add or change customers."); return null; }
-    const pre = String(o.prefill||"").trim(), preIsPhone = /^[+0-9][0-9 ()+\-]{5,}$/.test(pre);
+    const pre =String(o.prefill||"").trim(), preIsPhone = /^[+0-9][0-9 ()+\-]{5,}$/.test(pre);
     const c = existing || { name: preIsPhone? "" : pre, phone: preIsPhone? pre : "", customer_type:"retail", credit_limit:null, address:"", national_id:"" };
     const wrap = openModal(existing? "Edit customer" : "Add new customer", `
       <label for="cuName">Name</label>
@@ -188,8 +198,9 @@
       wrap.querySelectorAll("[data-cu-type]").forEach(x=>{ x.className = "btn "+(x.dataset.cuType===type? "btn-primary" : "btn-outline"); });
     });
     const msg = wrap.querySelector("#cuMsg");
-    wrap.querySelector("#cuSave").onclick = ()=>{
+    wrap.querySelector("#cuSave").onclick = async ()=>{
       msg.innerHTML = "";
+      if(perm===null) await passcodeWarm(wrap.querySelector("#cuPass").value);   // v34: off the screen thread first
       try{
         const saved = saveCustomer(existing, {
           name: wrap.querySelector("#cuName").value, phone: wrap.querySelector("#cuPhone").value, customer_type: type,
@@ -212,8 +223,10 @@
   }
   // The one write path for customers (the modal, tests). Throws a plain
   // Error; a duplicate phone throws with .existing (the customer to select).
+  const BUILTIN_LOCKED_MSG = "Cash Sale and Wholesale are built in: they can't be changed or deleted, and take no credit.";
   function saveCustomer(existing, f, o){
     o = o||{};
+    if(existing && isBuiltinCustomer(one("SELECT * FROM customers WHERE id=?",[existing.id]) || existing)) throw new Error(BUILTIN_LOCKED_MSG);   // v34 (decision 4)
     const perm = canCreateCustomers();
     if(perm===false) throw new Error("Ask an admin to add or change customers.");
     let by = sessionUser||"";
@@ -255,20 +268,25 @@
   }
 
   // ---- credit limit (the cart) ----
+  // v34 (decisions 2, 30): blocked; the override only for who may give it (pos.js creditLimitCheck).
   function openCreditLimitModal(info, retry){
     const wrap = openModal("Over the credit limit", `
       <p id="clText" style="font-weight:600">${escapeHtml(info.text)}</p>
-      <label for="clPass">Admin passcode</label>
-      <input class="field" id="clPass" type="password" autocomplete="off">
+      ${info.offline? `<p class="muted" id="clOffline">Checked offline, against this till's own sales.</p>` : ""}
+      ${info.canOverride? `<label for="clPass">Admin passcode</label>
+      <input class="field" id="clPass" type="password" autocomplete="off">` : ""}
       <div id="clMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
       <div class="row" style="margin-top:10px">
         <button class="btn btn-outline" id="clCancel">Don't sell</button>
-        <button class="btn btn-primary" id="clGo">Continue the sale</button>
+        ${info.canOverride? `<button class="btn btn-primary" id="clGo">Override and sell</button>` : ""}
       </div>`);
     wrap.querySelector("#clCancel").onclick = ()=> wrap.remove();
-    wrap.querySelector("#clGo").onclick = ()=>{
-      try{ approveCreditLimit(info, wrap.querySelector("#clPass").value); }
-      catch(e){ wrap.querySelector("#clMsg").textContent = e.message; return; }
+    const go = wrap.querySelector("#clGo");
+    if(go) go.onclick = async ()=>{
+      const code = wrap.querySelector("#clPass").value;
+      go.disabled = true;
+      try{ await passcodeWarm(code); approveCreditLimit(info, code); }   // v34: the passcode is checked off the screen thread first
+      catch(e){ wrap.querySelector("#clMsg").textContent = e.message; go.disabled = false; return; }
       wrap.remove(); retry();
     };
     return wrap;
@@ -279,7 +297,7 @@
 
   // ---- Admin-only full customer export (the only export with ID and address) ----
   async function exportCustomersFull(passcode){
-    const admin = findAdmin(passcode||"");
+    const admin = await findAdminAsync(passcode||"");   // v34: off the screen thread
     if(!admin) throw new Error("Incorrect Admin passcode. Nothing was exported.");
     await loadXLSX();
     const rows = all("SELECT * FROM customers ORDER BY name").map(c=>({ "Name":c.name, "Phone":c.phone||"", "Type":customerTypeLabel(c),
@@ -401,7 +419,8 @@
         <label for="ccPass">Admin passcode</label><input class="field" id="ccPass" type="password" autocomplete="off">
         <div id="ccMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
         <button class="btn btn-primary" id="ccGo" style="margin-top:10px">${action==="merge"? "Merge" : "Keep apart"}</button>`);
-      wrap.querySelector("#ccGo").onclick = ()=>{
+      wrap.querySelector("#ccGo").onclick = async ()=>{
+        await passcodeWarm(wrap.querySelector("#ccPass").value);   // v34: off the screen thread first
         try{ resolveCustomerClash(id, action, wrap.querySelector("#ccPass").value); wrap.remove(); render(); }
         catch(e){ wrap.querySelector("#ccMsg").textContent = e.message||String(e); }
       };

@@ -261,6 +261,7 @@
       let r;
       try{
         note = body.querySelector("#cwNote").value;
+        await passcodeWarm(body.querySelector("#cwPass").value);   // v34: off the screen thread first
         r = startCancelCase({ dnNo, kind, plan:planFromState(), note, passcode:body.querySelector("#cwPass").value });
         await persist();
       }catch(e){ busy = false; draw(e.message||String(e)); return; }
@@ -310,6 +311,7 @@
     let busy = false;
     q("#pcGo").onclick=async ()=>{
       if(busy) return; busy = true;
+      await passcodeWarm(q("#pcPass").value);   // v34: off the screen thread first
       try{ overridePendingCase({ dnNo, passcode:q("#pcPass").value, typed:q("#pcTyped").value }); await persist(); }
       catch(e){ busy = false; q("#pcErr").textContent = e.message||String(e); return; }
       wrap.remove(); if(onDone) onDone(); else render();

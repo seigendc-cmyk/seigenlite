@@ -308,6 +308,7 @@
   }
   function dsOnline(){ if(!isOnline()) throw new Error("You need the internet for this, so both branches see the same thing."); }
   async function dsCancel(dispatchId, reason, passcode){
+    await passcodeWarm(passcode);   // v34: off the screen thread first
     const admin = dsNeedAdmin(passcode); dsOnline();
     if(String(reason||"").trim().length<3) throw new Error("Give a reason (at least 3 characters).");
     if(dsPendingOne(dispatchId)) await dsSendPending();
@@ -338,6 +339,7 @@
   }
   // Write off a shortage or damaged unit: ADJ number saved first, then the server, then the stock.
   async function dsWriteOff(issueId, reason, passcode){
+    await passcodeWarm(passcode, "approve_writeoffs");   // v34
     const admin = dsNeedAdmin(passcode, "approve_writeoffs"); dsOnline();
     if(String(reason||"").trim().length<3) throw new Error("Give a reason (at least 3 characters).");
     let pend = dsPendingOne(issueId);
@@ -360,6 +362,7 @@
     return { ok:true, adj:p.adj_text };
   }
   async function dsResolveExtra(issueId, action, reason, passcode){
+    if(action==="confirm") await passcodeWarm(passcode);   // v34
     if(action==="confirm") dsNeedAdmin(passcode); else requireSignedIn();
     dsOnline();
     if(action==="dispute" && String(reason||"").trim().length<3) throw new Error("Give a reason (at least 3 characters).");
@@ -631,10 +634,11 @@
       body.querySelectorAll("[data-dsc]").forEach(inp=>inp.oninput=()=>{ const [n,k] = inp.dataset.dsc.split(":"); const v = inp.value.trim(); counts[+n][k] = /^\d+$/.test(v)? +v : NaN; });
       body.querySelectorAll("[data-dsnote]").forEach(inp=>inp.oninput=()=>{ counts[+inp.dataset.dsnote].note = inp.value; });
       body.querySelectorAll("[data-dspick]").forEach(s=>s.onchange=()=>{ if(s.value){ matches[+s.dataset.dspick] = +s.value; draw(); } });
-      body.querySelectorAll("[data-dsnew]").forEach(b=>b.onclick=()=>{
+      body.querySelectorAll("[data-dsnew]").forEach(b=>b.onclick=async ()=>{
         const l = dsLine(d, +b.dataset.dsnew);
         const price = prompt("Selling price for "+l.name+" in this branch?", ""); if(price===null) return;
         const pass = prompt("Admin passcode"); if(pass===null) return;
+        await passcodeWarm(pass);   // v34: off the screen thread first
         try{ matches[l.line_no] = dsCreateProduct(l, price, pass); persist(); draw(); }catch(e){ draw(e.message||String(e)); }
       });
       body.querySelector("#dsBack").onclick=()=>done();

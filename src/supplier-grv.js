@@ -56,6 +56,7 @@
   //      lines:[{ product (row) | null, name (when new), qty, unitCost, newPrice? }] }
   // -> { grv, lines, warning? }. Throws a plain message, changing nothing, on any refusal.
   async function sgPostGrv(o){
+    if(o && (o.lines||[]).some(l=>l.newPrice!=null)) await passcodeWarm(o.passcode);   // v34: off the screen thread first
     requireSignedIn();
     if(isRemote()) throw new Error("Goods from suppliers are received on the main branch.");
     const sup = sgSupplier(o.supplierUid);

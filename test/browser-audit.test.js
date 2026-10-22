@@ -95,7 +95,7 @@ async function addProduct(page, name, price, stock){
     const search = await page.$("#searchInput");
     await search.click();
     for(const ch of "vitz bumper") await search.type(ch, { delay: 10 });
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(400);   // v34: the list follows after a pause in typing (180 ms)
 
     const mainHtml = await page.$eval("#main", el => el.outerHTML);
     assert.ok(/Start a shift/.test(mainHtml), "the banner's own text is still intact — not overwritten by search results");
@@ -299,6 +299,7 @@ async function addProduct(page, name, price, stock){
       const stillFocused = await page.evaluate(()=> document.activeElement && document.activeElement.id==="dsSearch");
       assert.ok(stillFocused, `desktop search lost focus after "${ch}"`);
     }
+    await page.waitForTimeout(400);   // v34: the list follows after a pause in typing
     const rows = await page.$$eval("#dsRows tr", els=>els.length);
     assert.strictEqual(rows, 1, "only the matching product row shown");
     assert.deepStrictEqual(pageErrors, []);

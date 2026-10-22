@@ -1,9 +1,26 @@
   function searchProducts(q, branch){
     branch = branch===undefined ? currentBranch() : branch;
-    // deactivated products (Phase 3a soft delete) are never offered for sale
-    const all_ = branch? all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch])
-                        : all("SELECT * FROM products WHERE COALESCE(active,1)=1 ORDER BY branch,name");
-    return productSearch(all_, q);   // utils.js: every term must match (words by their start, whole numbers)
+    // utils.js: every term must match (words by their start, whole numbers). Copies, so the held list never changes.
+    return productSearch(productsForSale(branch), q).map(p=> Object.assign({}, p));
+  }
+  // v34 Sell speed: the list is read once and held in memory until a write to
+  // products (db.js productsWriteGen) or another database (restore, merge).
+  // deactivated products (Phase 3a soft delete) are never offered for sale
+  let _saleListHeld = { db:null, gen:-1, branch:null, rows:null };
+  function productsForSale(branch){
+    const h = _saleListHeld, gen = typeof productsWriteGen==="number"? productsWriteGen : null;
+    if(gen!==null && h.rows && h.db===db && h.gen===gen && h.branch===branch) return h.rows;
+    const rows = branch? all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch])
+                       : all("SELECT * FROM products WHERE COALESCE(active,1)=1 ORDER BY branch,name");
+    _saleListHeld = { db, gen, branch, rows };
+    return rows;
+  }
+  // v34: the Sell search waits for a pause in typing (a scanner's code arrives in one burst).
+  const SELL_SEARCH_PAUSE_MS = 180;
+  let _sellSearchTimer = null;
+  function afterTypingPause(fn){
+    if(_sellSearchTimer) clearTimeout(_sellSearchTimer);
+    _sellSearchTimer = setTimeout(()=>{ _sellSearchTimer = null; fn(); }, SELL_SEARCH_PAUSE_MS);
   }
 
   // Owner decision (2026-10-06, replaces the first Phase 3a rule): a till
@@ -56,23 +73,44 @@
     render();
   }
 
-  // ---- credit limit (warn; the Admin passcode lets it through) ----
-  // Checked against THIS till's balance: credit sales don't sync between tills.
-  let creditLimitApproval = null;   // { customerId, after, admin } for the sale being finished
+  // ---- credit limit (decisions 2, 3, 30, 31; v34) ----
+  // Checked against THIS till's balance ("Balance at this till"), online and
+  // offline alike: credit sales don't sync between tills until B4. Over the
+  // limit the sale is blocked. The override: the signed-in person holds "Credit
+  // sales over limit" AND types the Admin passcode; in single operator mode
+  // (nobody signs in) the Admin passcode alone, logged as "single operator".
+  let creditLimitApproval = null;   // { customerId, after, admin, by, mode } for the sale being finished
+  const CREDIT_OVERRIDE_SINGLE = "single operator";
+  // Who may override now: { mode, name } | null (the signed-in person lacks the right)
+  function creditOverrider(){
+    const r = typeof currentRights==="function"? currentRights() : null;
+    if(r===null) return { mode:CREDIT_OVERRIDE_SINGLE, name:"" };
+    if(!r.has("credit_over_limit")) return null;
+    const s = typeof staffSession==="function"? staffSession() : null, legacy = typeof currentStaff==="function"? currentStaff() : null;
+    return { mode:"right", name:(s && s.name) || (legacy && legacy.name) || sessionUser || "" };
+  }
   function creditLimitCheck(customer, creditAmount){
     if(!customer || !(creditAmount>0) || customer.credit_limit==null || customer.credit_limit==="") return null;
     const limit = Number(customer.credit_limit), balance = roundMoney(customerBalance(customer.id)), after = roundMoney(balance + creditAmount);
     if(!(after > limit)) return null;
     if(creditLimitApproval && creditLimitApproval.customerId===customer.id && creditLimitApproval.after===after) return null;
-    return { customer, limit, balance, after,
-      text: customer.name+" would owe "+currency+after.toFixed(2)+" on this till, over their credit limit of "+currency+limit.toFixed(2)+
-        ". This checks this till's credit sales only. An Admin passcode lets the sale continue." };
+    const who = creditOverrider();
+    return { customer, limit, balance, after, canOverride: !!who, offline: typeof isOnline==="function" && !isOnline(),
+      text: customer.name+" would owe "+currency+after.toFixed(2)+", over their credit limit of "+currency+limit.toFixed(2)+
+        ". Balance at this till: "+currency+balance.toFixed(2)+". The sale is blocked. "+
+        (!who? "Only someone with \"Credit sales over limit\" can override it, with the Admin passcode."
+          : who.mode===CREDIT_OVERRIDE_SINGLE? "The Admin passcode overrides it (single operator)."
+          : "You hold \"Credit sales over limit\": the Admin passcode overrides it.") };
   }
   function approveCreditLimit(info, passcode){
-    const admin = findApprover(passcode, "credit_over_limit");   // roles (v28): or the signed-in holder's own PIN
+    const who = creditOverrider();
+    if(!who) throw new Error("Only someone with \"Credit sales over limit\" can override the limit. The sale wasn't finished.");
+    const admin = findAdmin(passcode);
     if(!admin) throw new Error("Incorrect Admin passcode. The sale wasn't finished.");
-    creditLimitApproval = { customerId:info.customer.id, after:info.after, admin:admin.name };
-    logAudit("Credit limit override", info.customer.name, "Owes "+currency+info.after.toFixed(2)+" on this till, limit "+currency+info.limit.toFixed(2)+" · approved by "+admin.name);
+    const single = who.mode===CREDIT_OVERRIDE_SINGLE, by = single? admin.name : who.name;
+    creditLimitApproval = { customerId:info.customer.id, after:info.after, admin:admin.name, by, mode: single? CREDIT_OVERRIDE_SINGLE : "right + Admin passcode" };
+    logAudit("Credit limit override", info.customer.name, "Owes "+currency+info.after.toFixed(2)+" (balance at this till "+currency+info.balance.toFixed(2)+"), limit "+currency+info.limit.toFixed(2)+
+      " · "+(single? "single operator, Admin passcode ("+admin.name+")" : "by "+by+" with the Admin passcode ("+admin.name+")"));
     return creditLimitApproval;
   }
   // ---- credit to another branch's customer (Branches step 2, owner 2026-10-14, Q5): every
@@ -638,6 +676,8 @@
     }
     if(lines.some(l=>l.method==="Credit") && !customer){ alert("Pick the customer, or add them, for a credit sale."); return; }
     const creditAmount = roundMoney(lines.filter(l=>l.method==="Credit").reduce((s,l)=>s+l.amount,0));
+    // v34 (decision 4): the built-in Cash Sale and Wholesale customers never buy on credit
+    if(creditAmount>0 && typeof isBuiltinCustomer==="function" && isBuiltinCustomer(customer)){ alert(customer.name+" can't buy on credit. Pick the customer's own account for a credit sale."); return; }
     const crossBranch = crossBranchCreditCheck(customer, creditAmount);
     if(crossBranch){
       if(typeof openCrossBranchCreditModal==="function" && typeof document.createElement==="function") openCrossBranchCreditModal(crossBranch, ()=>completeSale(method, payments, stockPlan));
@@ -692,6 +732,7 @@
     const discountStatus = discount>0? (discountApprovedBy? "Approved":"Pending") : "";
     const branch = currentBranch();
     let customerId, saleId, receiptNo, label, receiptItems, exchangeCn = null;
+    const creditBefore = creditAmount>0 && customer? roundMoney(customerBalance(customer.id)) : null;
     if(exPlan) run("BEGIN");
     try{
       customerId = customer? customer.id : null;
@@ -709,6 +750,14 @@
            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [ts,subtotal,discount,total,saleMethod,customerId,branch,discountReason,discountApprovedBy,discountStatus,0,"",paymentRef,sessionUser||"",voucherAmount,docRef,receiptNo,priceLevel]);
       saleId = one("SELECT last_insert_rowid() as id").id;
+      // v34: a credit sale keeps the balance at this till before and after it, whether it was checked
+      // online or offline (decision 3), and who overrode the limit (decision 30)
+      if(creditAmount>0 && customerId){
+        const ov = creditLimitApproval && creditLimitApproval.customerId===customerId? creditLimitApproval : null;
+        run("UPDATE sales SET credit_check=?, credit_before=?, credit_after=?, credit_override=?, credit_override_mode=? WHERE id=?",
+          [typeof isOnline==="function" && !isOnline()? "offline" : "online", creditBefore, roundMoney(creditBefore + creditAmount),
+           ov? ov.by+(ov.mode===CREDIT_OVERRIDE_SINGLE? "" : " (Admin passcode: "+ov.admin+")") : "", ov? ov.mode : "", saleId]);
+      }
       if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
       const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
       label = receiptLabel(saleId, receiptNo);
@@ -797,7 +846,7 @@
     wireDcMessagesBanner();
     if(typeof wireItredBanner==="function") wireItredBanner();
     const input = document.getElementById("searchInput");
-    input.oninput = (e)=>{ searchQuery = e.target.value; renderPOSListOnly(); };
+    input.oninput = (e)=>{ searchQuery = e.target.value; afterTypingPause(renderPOSListOnly); };
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
     wireProductAdds(main);
@@ -827,6 +876,14 @@
       if(r.payments && r.payments.length>1) r.payments.forEach(p=> totalLines.push(padLine(`Payment: ${p.method}`, `${currency}${(parseFloat(p.amount)||0).toFixed(2)}`)));
       else totalLines.push(`Payment: ${r.method}`);
       if(r.docRef) totalLines.push(`Doc Ref: ${r.docRef}`);
+      // v34 receipt upgrade (printing.js): the same details as the printed receipt, without the logo
+      if(typeof receiptSaleInfo==="function"){
+        const shopInfo = receiptShopInfo(), info = receiptSaleInfo(r.saleId);
+        receiptPartyLines(info).forEach(t=> totalLines.push(t));
+        if(info.paymentRef) totalLines.push("Ref: "+info.paymentRef);
+        receiptCreditRows(info).forEach(([a,b])=> totalLines.push(padLine(a, b)));
+        [shopInfo.address, shopInfo.phones, shopInfo.message, RECEIPT_POWERED_BY].filter(Boolean).forEach(t=> totalLines.push(t));
+      }
       shareWhatsApp(receiptText(`${escapeHtml(getSetting("shop_name",""))} — Receipt ${receiptLabel(r.saleId, r.receiptNo)}`, itemLines, totalLines));
     };
   }
@@ -848,6 +905,7 @@
             <div style="min-width:0" data-bsline="${p.id}">
               ${p.sku?`<div class="psku">${escapeHtml(p.sku)}</div>`:""}
               <div class="pname">${escapeHtml(p.name)}</div>
+              ${p.category? `<div class="pcat muted" style="font-size:12px">${escapeHtml(p.category)}</div>` : ""}
               <div class="pmeta">${currency}${p.price.toFixed(2)} · ${line? `<span class="ss-stock">${escapeHtml(line)}</span>` : p.stock<0?`<span class="pill neg">${p.stock} below zero</span>`:p.stock<=p.low_threshold?`<span class="pill low">${p.stock} left</span>`:`${p.stock} in stock`}</div>
               ${typeof bsSellLineHtml==="function"? bsSellLineHtml(p) : ""}
             </div>

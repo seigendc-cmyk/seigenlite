@@ -213,6 +213,59 @@
         return { headers:["Date/Time","Branch","User","Action","Item","Details"], rows, footer:"" };
       }
     },
+    // ---- v34 (decision 32): the Batch 2 reports ----
+    { id:"creditoverrides", label:"Credit Limit Overrides", hasDate:true,
+      fetch(b,fromTs,toTs){
+        const sales = rwSalesWhere("COALESCE(credit_override,'')<>''", b, fromTs, toTs);
+        const rows = sales.map(s=>[new Date(s.ts).toLocaleString(), escapeHtml(String(s.receipt_no||s.id)), escapeHtml(s.branch||""), escapeHtml(rwCustomerName(s)),
+          currency+Number(s.credit_before||0).toFixed(2), currency+roundMoney(Number(s.credit_after||0)-Number(s.credit_before||0)).toFixed(2), currency+Number(s.credit_after||0).toFixed(2),
+          escapeHtml(s.credit_override||""), escapeHtml(s.credit_override_mode==="single operator"? "Single operator" : "Right + Admin passcode"), s.credit_check==="offline"? "Offline" : "Online"]);
+        return { headers:["Date/Time","Receipt#","Branch","Customer","Balance before","Credit","Balance after","Overridden by","How","Checked"], rows,
+          footer:`${sales.length} override${sales.length===1? "" : "s"}. Balances are at the till that sold (until sales are shared between tills).` };
+      }
+    },
+    { id:"offlinecredit", label:"Offline Credit Sales", hasDate:true,
+      fetch(b,fromTs,toTs){
+        const sales = rwSalesWhere("credit_check='offline'", b, fromTs, toTs);
+        let credit = 0;
+        const rows = sales.map(s=>{ const c = roundMoney(Number(s.credit_after||0)-Number(s.credit_before||0)); credit += c;
+          return [new Date(s.ts).toLocaleString(), escapeHtml(String(s.receipt_no||s.id)), escapeHtml(s.branch||""), escapeHtml(rwCustomerName(s)), currency+s.total.toFixed(2), currency+c.toFixed(2),
+            currency+Number(s.credit_after||0).toFixed(2), escapeHtml(s.credit_override||"")]; });
+        return { headers:["Date/Time","Receipt#","Branch","Customer","Sale total","Credit","Balance after","Overridden by"], rows,
+          footer:`Credit checked offline: ${currency}${roundMoney(credit).toFixed(2)} on ${sales.length} sale${sales.length===1? "" : "s"}` };
+      }
+    },
+    { id:"customertype", label:"Sales by Customer Type", hasDate:true,
+      fetch(b,fromTs,toTs){
+        const sales = rwSalesWhere("1=1", b, fromTs, toTs);
+        const groups = {}, order = ["Walk-in (no customer)","Cash Sale","Wholesale (built in)","Retail customers","Wholesale customers"];
+        const custs = {}; all("SELECT id, builtin, customer_type FROM customers").forEach(c=>{ custs[c.id] = c; });
+        sales.forEach(s=>{
+          const c = s.customer_id? custs[s.customer_id] : null;
+          const g = !c? order[0] : c.builtin==="cash_sale"? order[1] : c.builtin==="wholesale"? order[2] : c.customer_type==="wholesale"? order[4] : order[3];
+          if(!groups[g]) groups[g] = { n:0, total:0 }; groups[g].n++; groups[g].total += s.total;
+        });
+        const grand = sales.reduce((t,s)=>t+s.total,0);
+        const rows = order.filter(g=>groups[g]).map(g=>[escapeHtml(g), groups[g].n, currency+roundMoney(groups[g].total).toFixed(2), grand>0? Math.round(groups[g].total/grand*1000)/10+"%" : "–"]);
+        return { headers:["Customer type","Sales","Total","Share"], rows, footer:`Grand total: ${currency}${roundMoney(grand).toFixed(2)}` };
+      }
+    },
+    { id:"pricechanges", label:"Price Changes", hasDate:true, remoteHidden:true,
+      fetch(b,fromTs,toTs){
+        const list = b? all("SELECT * FROM price_changes WHERE branch=? AND ts>=? AND ts<=? ORDER BY ts DESC",[b,fromTs,toTs])
+                      : all("SELECT * FROM price_changes WHERE ts>=? AND ts<=? ORDER BY ts DESC",[fromTs,toTs]);
+        let below = 0;
+        const rows = list.map(r=>{
+          const np = Number(r.new_price||0), cost = Number(r.cost||0), isBelow = cost>0 && np<cost;
+          if(isBelow) below++;
+          const hl = (t)=> isBelow? `<span class="rw-below-cost" style="color:var(--danger,#b42318);font-weight:700">${t}</span>` : t;
+          return [new Date(r.ts).toLocaleString(), hl(skuNameCell(r.sku, r.product_name)), escapeHtml(r.branch||""), currency+Number(r.old_price||0).toFixed(2), hl(currency+np.toFixed(2)),
+            currency+cost.toFixed(2), hl(np>0? Math.round((np-cost)/np*1000)/10+"%" : "–"), isBelow? hl("BELOW COST") : ""];
+        });
+        return { headers:["Date/Time","Item","Branch","Old price","New price","Cost","Margin",""], rows,
+          footer:`${list.length} price change${list.length===1? "" : "s"}${below? `, ${below} below cost` : ""}` };
+      }
+    },
     { id:"nopricecost", label:"Items Missing Price/Cost", hasDate:false, remoteHidden:true,
       fetch(b){
         const products = b? all("SELECT * FROM products WHERE branch=? AND (price<=0 OR cost<=0) ORDER BY name",[b])
@@ -290,8 +343,14 @@
   // Roles (v28, addendum §R4): what each report shows. cost: needs View costs; sales: needs "Sales and
   // money reports"; stock: every role with Report Writer (Stores: stock reports only). RW_REMOTE: the
   // kind seiGEN serves for another branch (needs "View other branches' reports").
-  const RW_KIND = { margin:"cost", purchases:"cost", nopricecost:"cost", adjustments:"cost", movements:"cost",
+  const RW_KIND = { pricechanges:"cost", margin:"cost", purchases:"cost", nopricecost:"cost", adjustments:"cost", movements:"cost",
     inventory:"stock", stock:"stock", lowstock:"stock", aging:"stock", transfers:"stock", branchstock:"stock", itemledger:"stock", requests:"stock" };
+  // v34 reports: the sales in the period (one branch or all), and a sale's customer name
+  function rwSalesWhere(cond, b, fromTs, toTs){
+    return b? all(`SELECT * FROM sales WHERE ${cond} AND branch=? AND ts>=? AND ts<=? ORDER BY ts`,[b,fromTs,toTs])
+            : all(`SELECT * FROM sales WHERE ${cond} AND ts>=? AND ts<=? ORDER BY ts`,[fromTs,toTs]);
+  }
+  function rwCustomerName(s){ const c = s.customer_id? one("SELECT name FROM customers WHERE id=?",[s.customer_id]) : null; return c? c.name : "—"; }
   const RW_REMOTE = { inventory:"inventory", transfers:"dispatches", stock:"supplier_grvs" };
   function rwKindAllowed(c){
     if(typeof can!=="function") return true;

@@ -67,7 +67,7 @@ function makeDomApp(settings){
     + "\n;this.printReceipt = printReceipt;";
 
   vm.runInContext(code, ctx, { filename: "app-sources" });
-  vm.runInContext(`db.run(SCHEMA); migrate(db);`, ctx);
+  vm.runInContext(`persist = async function(){}; db.run(SCHEMA); migrate(db);`, ctx);   // no IndexedDB here (the tests now wait for the typing pause, so a save can run)
   Object.entries(settings||{}).forEach(([k,v])=>{
     vm.runInContext(`setSetting(${JSON.stringify(k)}, ${JSON.stringify(String(v))});`, ctx);
   });
@@ -92,13 +92,14 @@ function addProducts(app){
     .forEach(([name,sku])=> app.run("INSERT INTO products(name,price,stock,low_threshold,branch,sku) VALUES(?,10,5,3,'Boka',?)",[name,sku]));
 }
 
-function typeInto(el, text){
+async function typeInto(el, text){   // v34: the list follows after a pause in typing
   let acc = "";
   for(const ch of text){ acc += ch; el.value = acc; el.oninput({ target: el }); }
+  await new Promise(r=>setTimeout(r, 250));
 }
 
 (async()=>{
-  await t("searching does not corrupt the shift-block banner and shows only matching results — the exact repro this bug came from", ()=>{
+  await t("searching does not corrupt the shift-block banner and shows only matching results — the exact repro this bug came from", async ()=>{
     // No shift started -> shiftBlockBannerHtml() renders its own ".card"
     // ABOVE the results, reproducing the exact precondition of the bug.
     const app = makeDomApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" });
@@ -109,7 +110,7 @@ function typeInto(el, text){
     assert.ok(/Start a shift/.test(bannerBefore), "the shift-block banner is showing (precondition)");
 
     const search = app.document.getElementById("searchInput");
-    typeInto(search, "vitz bumper");
+    await typeInto(search, "vitz bumper");
 
     assert.ok(/Start a shift/.test(app.document.getElementById("main").textContent), "the banner's own text survived the search — not overwritten");
     const resultsArea = app.document.getElementById("posResultsArea");
@@ -119,47 +120,47 @@ function typeInto(el, text){
     assert.deepStrictEqual(names.sort(), ["Toyota Vitz Front Bumper","Toyota Vitz Rear Bumper"], "only the matching products, not the stale full list");
   });
 
-  await t("the banner's own button (Go to End of Day) still works after a search — proves the banner itself wasn't clobbered", ()=>{
+  await t("the banner's own button (Go to End of Day) still works after a search — proves the banner itself wasn't clobbered", async ()=>{
     const app = makeDomApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" });
     addProducts(app);
     app.exec("render();");
-    typeInto(app.document.getElementById("searchInput"), "vitz");
+    await typeInto(app.document.getElementById("searchInput"), "vitz");
     const goBtn = app.document.getElementById("goToEodBtn");
     assert.ok(goBtn, "the banner's button still exists in the DOM");
     assert.strictEqual(typeof goBtn.onclick, "function", "and is still wired");
   });
 
-  await t("typing keystroke by keystroke keeps the SAME search input node and never loses focus", ()=>{
+  await t("typing keystroke by keystroke keeps the SAME search input node and never loses focus", async ()=>{
     const app = makeDomApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" });
     addProducts(app);
     app.exec("render();");
     const search = app.document.getElementById("searchInput");
     search.focus();
-    typeInto(search, "widget");
+    await typeInto(search, "widget");
     assert.strictEqual(app.document.getElementById("searchInput"), search, "same node throughout");
     assert.strictEqual(app.document.activeElement, search, "focus never lost");
     assert.strictEqual(search.value, "widget");
   });
 
-  await t("once a shift IS open (no banner), search still works correctly (regression guard for the non-banner case)", ()=>{
+  await t("once a shift IS open (no banner), search still works correctly (regression guard for the non-banner case)", async ()=>{
     const app = makeDomApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" });
     addProducts(app);
     app.exec(`startShift("0", new Date());`);
     app.exec("render();");
     assert.strictEqual(app.document.getElementById("goToEodBtn"), null, "no banner this time");
-    typeInto(app.document.getElementById("searchInput"), "widget");
+    await typeInto(app.document.getElementById("searchInput"), "widget");
     const resultsArea = app.document.getElementById("posResultsArea");
     const names = Array.from(resultsArea.querySelectorAll(".pname")).map(el=>el.textContent);
     assert.deepStrictEqual(names, ["Generic Widget"]);
   });
 
-  await t("clearing the search restores the full list via the same #posResultsArea, no duplication", ()=>{
+  await t("clearing the search restores the full list via the same #posResultsArea, no duplication", async ()=>{
     const app = makeDomApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" });
     addProducts(app);
     app.exec("render();");
     const search = app.document.getElementById("searchInput");
-    typeInto(search, "vitz");
-    search.value = ""; search.oninput({ target: search }); // clearing is a single event, not zero characters typed
+    await typeInto(search, "vitz");
+    search.value = ""; search.oninput({ target: search }); await new Promise(r=>setTimeout(r, 250)); // clearing is a single event, not zero characters typed
     assert.strictEqual(app.document.querySelectorAll('[id="posResultsArea"]').length, 1);
     const names = Array.from(app.document.getElementById("posResultsArea").querySelectorAll(".pname")).map(el=>el.textContent);
     assert.strictEqual(names.length, 3, "back to the full unfiltered list");

@@ -4,15 +4,16 @@
     openCustomerModal(null, { onSaved: (c)=>{ if(onDone) onDone(c.id); render(); } });
   }
   function editCustomerModal(customer){
+    if(isBuiltinCustomer(customer)){ alert(BUILTIN_LOCKED_MSG); return; }   // v34 (decision 4): no edit, no delete
     const wrap = openCustomerModal(customer, { onSaved: ()=> render() });
     if(!wrap) return;
     const del = document.createElement("button");
     del.className = "btn btn-danger"; del.id = "ecDelete"; del.style.marginTop = "8px"; del.textContent = "Delete customer";
-    del.onclick = ()=>{
+    del.onclick = async ()=>{
       if(!confirm(`Delete ${customer.name}? This does not delete their past sales history, just the contact record.`)) return;
       if(canCreateCustomers()===null){
         const pass = wrap.querySelector("#cuPass");
-        if(!findAdmin(pass? pass.value : "")){ wrap.querySelector("#cuMsg").textContent = "Enter the Admin passcode to delete a customer."; return; }
+        if(!(await findAdminAsync(pass? pass.value : ""))){ /* v34: off the screen thread */ wrap.querySelector("#cuMsg").textContent = "Enter the Admin passcode to delete a customer."; return; }
       }
       run("DELETE FROM customers WHERE id=?", [customer.id]);
       logAudit("Delete customer", customer.name, "");
@@ -122,12 +123,12 @@
     if(filtered.length===0) return `<p class="muted">No customers match "${escapeHtml(query)}".</p>`;
     return filtered.map(c=>`
       <div class="card" style="display:flex;justify-content:space-between;align-items:center">
-        <div>${escapeHtml(c.name)} <span class="pill ${c.customer_type==="wholesale"? "warn" : ""}">${escapeHtml(customerTypeLabel(c))}</span>
+        <div>${isBuiltinCustomer(c)? `<span class="cust-lock" title="Built in: locked">🔒</span> ` : ""}${escapeHtml(c.name)} <span class="pill ${c.customer_type==="wholesale"? "warn" : ""}">${escapeHtml(customerTypeLabel(c))}</span>${isBuiltinCustomer(c)? ` <span class="muted" style="font-size:12px">Built in · no credit</span>` : ""}
           ${directorySourceHtml(c)}
           ${customerPrivateVisible() && (c.credit_limit!=null || c.address || c.national_id)? `<div class="muted" style="font-size:12px">${c.credit_limit!=null? "Limit "+currency+Number(c.credit_limit).toFixed(2) : ""}${c.address? " · "+escapeHtml(c.address) : ""}${c.national_id? " · ID "+escapeHtml(c.national_id) : ""}</div>` : ""}</div>
         <div style="display:flex;align-items:center;gap:8px">
-          ${c.phone? `<button class="wa-link" data-dwa="${c.id}">📲 ${escapeHtml(c.phone)}</button>` : `<div class="muted">No phone</div>`}
-          <button class="btn btn-sm btn-outline" data-editcust="${c.id}" title="Edit" style="padding:8px 10px">${ICON_EDIT}</button>
+          ${c.phone? `<button class="wa-link" data-dwa="${c.id}">📲 ${escapeHtml(c.phone)}</button>` : isBuiltinCustomer(c)? "" : `<div class="muted">No phone</div>`}
+          ${isBuiltinCustomer(c)? "" : `<button class="btn btn-sm btn-outline" data-editcust="${c.id}" title="Edit" style="padding:8px 10px">${ICON_EDIT}</button>`}
         </div>
       </div>`).join("");
   }

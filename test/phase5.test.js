@@ -518,7 +518,7 @@ const plan = (...p)=>p.map(x=>({ nw:x[0], writeoff:x[1]||0, reason:x[2]||"" }));
     const A = makeApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1" });
     assert.strictEqual(A.api.cancelEnabled(),false);
     const src = fs.readFileSync(path.join(__dirname,"..","src","settings.js"),"utf8");
-    assert.ok(/id="sCancelOn"/.test(src) && /findAdmin\(prompt\(/.test(src));
+    assert.ok(/id="sCancelOn"/.test(src) && /findAdmin(?:Async)?\(prompt\(/.test(src));   // v34: the same check, off the screen thread
     const A2 = makeApp({ branch_name:"Boka", branch_type:"main", setup_complete:"1", cancel_enabled:"1" }); assert.strictEqual(A2.api.cancelEnabled(),true);
   });
 

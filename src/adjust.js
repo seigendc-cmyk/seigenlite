@@ -165,6 +165,7 @@
     let busy = false;
     $q("#aSave").onclick=async ()=>{
       if(busy) return; busy = true;
+      await passcodeWarm($q("#aPass").value, "approve_writeoffs");   // v34: off the screen thread first
       // Multi-terminal Phase 3b: on a shared-stock till a reduction is taken
       // from branch stock on the server first; the record is written after.
       const q = parseAdjustQty($q("#aQty").value);

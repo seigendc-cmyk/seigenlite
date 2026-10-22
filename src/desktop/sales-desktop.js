@@ -174,7 +174,7 @@
     wireDcMessagesBanner();
     if(typeof wireItredBanner==="function") wireItredBanner();
     const search = document.getElementById("dsSearch");
-    search.oninput = (e)=>{ searchQuery = e.target.value; window._dsListScroll = 0; const l = main.querySelector(".ds-main"); if(l) l.scrollTop = 0; refreshDesktopRows(); };
+    search.oninput = (e)=>{ searchQuery = e.target.value; afterTypingPause(()=>{ window._dsListScroll = 0; const l = main.querySelector(".ds-main"); if(l) l.scrollTop = 0; refreshDesktopRows(); }); };   // v34: after a pause in typing
     wireDesktopRowActions(document.getElementById("dsRows"));
     wireDesktopCartActions(main);
     keepDesktopScroll(main);

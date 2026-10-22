@@ -717,7 +717,7 @@
       const go = body.querySelector("#cbrApply"); go.disabled = true;
       let keep = false;
       if(keepable && body.querySelector("#cbrKeep").checked){
-        if(!findAdmin(body.querySelector("#cbrPass").value)){ body.querySelector("#cbrMsg").textContent = "Incorrect Admin passcode."; go.disabled = false; return; }
+        if(!(await findAdminAsync(body.querySelector("#cbrPass").value))){ /* v34: off the screen thread */ body.querySelector("#cbrMsg").textContent = "Incorrect Admin passcode."; go.disabled = false; return; }
         keep = true;
       }
       try{

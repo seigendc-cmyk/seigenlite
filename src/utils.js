@@ -101,8 +101,20 @@
   function productMatches(query, p){
     const terms = searchTokens(query);
     if(!terms.length) return true;
-    const parts = productSearchParts([p.name, p.sku, p.description, p.category].join(" "));
+    const parts = productPartsMemo(p, "all", [p.name, p.sku, p.description, p.category].join(" "));
     return terms.every(t=> productTermMatches(t, parts));
+  }
+  // v34 Sell speed: a product's search parts are worked out once per text, not on every keystroke.
+  // Keyed by id and checked against the text itself, so an edited product is worked out again.
+  const _productPartsMemo = new Map();
+  function productPartsMemo(p, kind, text){
+    if(!p || p.id==null) return productSearchParts(text);
+    const k = kind+"|"+p.id, hit = _productPartsMemo.get(k);
+    if(hit && hit.text===text) return hit.parts;
+    const parts = productSearchParts(text);
+    if(_productPartsMemo.size > 200000) _productPartsMemo.clear();
+    _productPartsMemo.set(k, { text, parts });
+    return parts;
   }
   // The products matching the query, best first: name starts with the first
   // term, then all terms found in name/SKU (ahead of keyword-only matches),
@@ -113,7 +125,7 @@
     const out = [];
     products.forEach((p, idx)=>{
       if(!productMatches(query, p)) return;
-      const main = productSearchParts([p.name, p.sku].join(" "));
+      const main = productPartsMemo(p, "main", [p.name, p.sku].join(" "));
       const firstWord = (String(p.name||"").toLowerCase().match(/[a-z0-9]+/)||[""])[0];
       out.push({ p, idx, starts: productTermKind(terms[0])==="word" && firstWord.startsWith(terms[0]) ? 0 : 1,
                  primary: terms.every(t=> productTermMatches(t, main))? 0 : 1 });

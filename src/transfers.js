@@ -116,6 +116,7 @@
     if(!l || l.short_status!=="open") throw new Error("That shortage isn't open.");
     let p = { by:String(sessionUser||"") };
     if(action==="write_off"){
+      if(!isSeat()) await passcodeWarm(o.passcode, "approve_writeoffs");   // v34: off the screen thread first
       const admin = isSeat()? itSeatApprover(o.passcode) : dsNeedAdmin(o.passcode, "approve_writeoffs");   // a seat has no Admin passcode: the signed-in person's own PIN
       if(String(o.reason||"").trim().length<3) throw new Error("Give a reason (at least 3 characters).");
       const adj = reserveDocNumber("ADJ");

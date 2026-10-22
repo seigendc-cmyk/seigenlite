@@ -10,8 +10,8 @@
 //   - wholesale prices by customer type: re-pricing with a notice, discounts
 //     capped on the new line total, the price level on the sale, its lines
 //     and the receipt, and the Sales Report filter
-//   - the credit limit: warns against this till's balance, the Admin
-//     passcode lets the sale continue (and is logged)
+//   - the credit limit (v34, decisions 2, 30, 31): blocked against this till's
+//     balance; in single operator mode the Admin passcode overrides (logged)
 //   - privacy: national ID / address never on the receipt, and hidden from
 //     staff without the permission
 "use strict";
@@ -125,7 +125,7 @@ function suite(label, desktop){
       assert.ok(app.$("custName"), "back to the search box");
     });
 
-    await t(`[${label}] "+ Add new customer": disabled without the permission, the Admin passcode without PIN sign-in, saved and selected`, ()=>{
+    await t(`[${label}] "+ Add new customer": disabled without the permission, the Admin passcode without PIN sign-in, saved and selected`, async ()=>{
       const app = makeDomApp(desktop);
       app.add("Rice 2kg");
       app.staff("Rudo");
@@ -147,11 +147,11 @@ function suite(label, desktop){
       m.querySelector("#cuLimit").value = "50";
       m.querySelector("#cuNid").value = "08-765432-Z-08";
       m.querySelector("#cuPass").value = "0000";
-      m.querySelector("#cuSave").onclick();
+      await m.querySelector("#cuSave").onclick();   // v34: the passcode is checked off the screen thread first
       assert.ok(/Admin passcode/.test(m.querySelector("#cuMsg").textContent), "wrong passcode refused");
       assert.strictEqual(app.one("SELECT COUNT(*) n FROM customers WHERE name='Nyasha Dube'").n, 0);
       m.querySelector("#cuPass").value = "4321";
-      m.querySelector("#cuSave").onclick();
+      await m.querySelector("#cuSave").onclick();
       const c = app.one("SELECT * FROM customers WHERE name='Nyasha Dube'");
       assert.ok(c, "saved");
       assert.strictEqual(c.phone_norm, "263775550001");
@@ -164,7 +164,7 @@ function suite(label, desktop){
       assert.ok(app.one("SELECT * FROM audit_log WHERE action='Add customer' AND details LIKE '%by Boss%'"), "logged with the Admin's name");
     });
 
-    await t(`[${label}] a duplicate phone (any spelling) is refused with "Select <name>"`, ()=>{
+    await t(`[${label}] a duplicate phone (any spelling) is refused with "Select <name>"`, async ()=>{
       const app = makeDomApp(desktop);
       app.add("Rice 2kg");
       app.staff("Farai");
@@ -172,14 +172,14 @@ function suite(label, desktop){
       app.document.querySelector("#custList [data-cust-add]").onclick();
       const m = app.modal();
       m.querySelector("#cuPhone").value = "+263 77 123 4567";
-      m.querySelector("#cuSave").onclick();
+      await m.querySelector("#cuSave").onclick();
       const msg = m.querySelector("#cuMsg");
       assert.ok(/A customer with this phone already exists: Tendai Moyo\./.test(msg.textContent), msg.textContent);
       const sel = msg.querySelector("button");
       assert.strictEqual(sel.textContent, "Select Tendai Moyo");
       sel.onclick();
       assert.strictEqual(app.exec("cartCustomer.name"), "Tendai Moyo");
-      assert.strictEqual(app.one("SELECT COUNT(*) n FROM customers").n, 2, "nothing added");
+      assert.strictEqual(app.one("SELECT COUNT(*) n FROM customers WHERE COALESCE(builtin,'')=''").n, 2, "nothing added (v34: besides the 2 built-in customers)");
     });
 
     await t(`[${label}] a typed name is a walk-in (no customer created); Credit needs a picked customer`, async ()=>{
@@ -189,7 +189,7 @@ function suite(label, desktop){
       app.pay("Cash"); await tick();
       const s = app.one("SELECT * FROM sales ORDER BY id DESC LIMIT 1");
       assert.strictEqual(s.customer_id, null);
-      assert.strictEqual(app.one("SELECT COUNT(*) n FROM customers").n, 2, "no silent customer");
+      assert.strictEqual(app.one("SELECT COUNT(*) n FROM customers WHERE COALESCE(builtin,'')=''").n, 2, "no silent customer (v34: besides the 2 built-in customers)");
       app.add("Rice 2kg");
       app.type("custName", "Someone New");
       app.pay("Credit"); await tick();
@@ -255,7 +255,7 @@ function suite(label, desktop){
       assert.strictEqual(app.exec("cartCustomer"), null, "the next sale starts as a walk-in");
     });
 
-    await t(`[${label}] over the credit limit (this till): warns, the Admin passcode continues the sale and is logged`, async ()=>{
+    await t(`[${label}] over the credit limit (this till): blocked; single operator mode: the Admin passcode overrides and is logged (v34, decisions 2, 30, 31)`, async ()=>{
       const app = makeDomApp(desktop);
       app.add("Paint DURAN 5lt"); app.add("Paint DURAN 5lt"); app.add("Paint DURAN 5lt");
       app.type("custName", "chipo");
@@ -265,14 +265,14 @@ function suite(label, desktop){
       assert.strictEqual(app.one("SELECT COUNT(*) n FROM sales").n, 0, "not sold yet");
       const m = app.modal();
       const text = m.querySelector("#clText").textContent;
-      assert.ok(/Chipo Traders would owe \$24\.00 on this till, over their credit limit of \$15\.00/.test(text) && /this till's credit sales only/.test(text), text);
-      m.querySelector("#clPass").value = "1111"; m.querySelector("#clGo").onclick();
+      assert.ok(/Chipo Traders would owe \$24\.00, over their credit limit of \$15\.00/.test(text) && /Balance at this till: \$0\.00/.test(text) && /The sale is blocked/.test(text), text);
+      m.querySelector("#clPass").value = "1111"; await m.querySelector("#clGo").onclick();
       assert.ok(/Incorrect Admin passcode/.test(m.querySelector("#clMsg").textContent));
       assert.strictEqual(app.one("SELECT COUNT(*) n FROM sales").n, 0);
-      m.querySelector("#clPass").value = "4321"; m.querySelector("#clGo").onclick(); await tick();
+      m.querySelector("#clPass").value = "4321"; await m.querySelector("#clGo").onclick(); await tick();
       const s = app.one("SELECT * FROM sales ORDER BY id DESC LIMIT 1");
       assert.ok(s && s.method==="Credit" && s.total===24, "sold on credit");
-      assert.ok(app.one("SELECT * FROM audit_log WHERE action='Credit limit override' AND details LIKE '%approved by Boss%'"));
+      assert.ok(app.one("SELECT * FROM audit_log WHERE action='Credit limit override' AND details LIKE '%single operator, Admin passcode (Boss)%'"));
       // under the limit: no warning
       app.add("Rice 2kg");
       app.type("custName", "tendai"); app.document.querySelector("#custList [data-cust-pick]").onclick();

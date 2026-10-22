@@ -413,6 +413,7 @@
       <div id="peErr" style="color:#b42318;font-size:12.5px;margin-top:6px"></div>
       <button class="btn btn-primary" id="peSave" style="margin-top:10px">Save price</button>`);
     wrap.querySelector("#peSave").onclick=async ()=>{
+      await passcodeWarm(wrap.querySelector("#pePass").value);   // v34: off the screen thread first
       try{
         applyRemotePriceEdit({ productId:product.id, price:wrap.querySelector("#peNew").value, passcode:wrap.querySelector("#pePass").value });
         await persist(); wrap.remove(); render();

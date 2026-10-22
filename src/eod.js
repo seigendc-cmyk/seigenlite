@@ -129,23 +129,25 @@
   }
   function wireBusinessDayCard(){
     const save = document.getElementById("saveBizCutoff");
-    if(save) save.onclick=()=>{
+    if(save) save.onclick=async ()=>{
       const h = parseInt(document.getElementById("sBizCutoff").value,10);
       if(h===businessCutoffHours()) return alert("The business day already ends at "+businessCutoffLabel(h)+".");
       if(!hasAdminPasscode()) return alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
       const pc = prompt("Admin passcode to make the business day end at "+businessCutoffLabel(h)+":");
       if(pc===null) return;
+      await passcodeWarm(pc);   // v34: off the screen thread first
       try{ setBusinessDayCutoff(h, pc); alert("The business day now ends at "+businessCutoffLabel(h)+"."); render(); }
       catch(e){ alert(e.message); }
     };
     const br = document.getElementById("saveBizBranches");
-    if(br) br.onclick=()=>{
+    if(br) br.onclick=async ()=>{
       const changes = [...document.querySelectorAll("[data-biz-branch]")].filter(s=>{
         const r = one("SELECT business_day_cutoff AS v FROM branch_register WHERE name=?",[s.dataset.bizBranch]);
         return (r? r.v||"" : "")!==s.value; });
       if(!changes.length) return alert("Nothing changed.");
       const pc = prompt("Admin passcode to set the business day for "+changes.map(s=>s.dataset.bizBranch).join(", ")+":");
       if(pc===null) return;
+      await passcodeWarm(pc);   // v34: off the screen thread first
       try{ changes.forEach(s=>setBranchBusinessDay(s.dataset.bizBranch, s.value, pc)); alert("Saved. Each branch's tills pick it up when they next sync."); render();
         if(typeof catalogueSyncNow==="function") catalogueSyncNow({}).catch(()=>{}); }
       catch(e){ alert(e.message); }

@@ -29,7 +29,7 @@ const J = (x) => JSON.stringify(x);
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES });   // the live shape
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261111120000_contact_directory.sql', '20261112120000_builtin_customers.sql']) });   // the live shape the purge ran on (22 Oct 05:42, before 6A)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
   const PHRASE = { AA: 'Alpha Phrase', BB: 'Beta Phrase', NN: 'New Phrase' };

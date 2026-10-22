@@ -74,7 +74,12 @@ function snapshot(A){
   tables(A).forEach(tbl=>{ const c = cols(A, tbl); out[tbl] = { cols:c, rows:plain(A.api.all(`SELECT ${c.map(x=>'"'+x+'"').join(",")} FROM ${tbl} ORDER BY rowid`)) }; });
   return out;
 }
-function rowsIn(A, snap, tbl){ const c = snap[tbl].cols; return plain(A.api.all(`SELECT ${c.map(x=>'"'+x+'"').join(",")} FROM ${tbl} ORDER BY rowid`)); }
+function rowsIn(A, snap, tbl){
+  const c = snap[tbl].cols;
+  // v34: the 2 built-in customers (Cash Sale, Wholesale) are new rows, not v4's; v4's own rows are compared as before
+  const where = tbl==="customers" && !c.includes("builtin") && cols(A, tbl).includes("builtin")? " WHERE COALESCE(builtin,'')=''" : "";
+  return plain(A.api.all(`SELECT ${c.map(x=>'"'+x+'"').join(",")} FROM ${tbl}${where} ORDER BY rowid`));
+}
 
 // ---- a v4 shop: main "Harare" (Admin, products, sales, debtor, loyalty voucher, EOD history,
 //      a DN to Murehwa) and the Murehwa device that received it (GRV) ----

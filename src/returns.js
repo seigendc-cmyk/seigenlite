@@ -644,6 +644,7 @@
         let busy = false;
         $("#rtSave").onclick = async ()=>{
           if(busy) return; busy = true;
+          await passcodeWarm($("#rtPass").value, "void_return");   // v34: off the screen thread first
           try{
             if(S.method==="exchange"){
               startExchange(sale.id, picksArr(), Object.assign(opts(), { passcode:$("#rtPass").value }));

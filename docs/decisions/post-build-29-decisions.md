@@ -11,7 +11,7 @@
 | v33 | Roles fetch after register/join, visible Refresh, limited old-staff upload, Owner default, first-Owner log, internal-transfer error fix | done, pushed `4e7eef2`, on previews + sclconsole-preview |
 | purge | All test businesses deleted (961 rows, 56 photos, 6 sign-ins); backup kept offline | done 22 Oct 05:42; the 2 old-device vendor rows and the 2 test-leak rows removed 22 Oct (`d3e8ad8`) |
 | 6A | Content protection + Contact directory | applied 22 Oct (`20261111120000_contact_directory`), `d3e8ad8` / Console `fe68c6a`, on previews + sclconsole-preview |
-| next | Batch 2 (v34) | decisions 30–33 settled |
+| v34 | Batch 2, selling and credit (migration `20261112120000_builtin_customers`) | built and tested; apply pending; not deployed |
 
 ## Roadmap (in order)
 1. ~~Purge of the test data~~ (done 22 Oct).

@@ -87,6 +87,7 @@
         <button class="btn btn-outline" id="printTestLine" style="margin-bottom:12px">🖨️ Print test line</button>
         <button class="btn btn-primary" id="saveSettings" style="margin-top:12px">Save</button>
       </div>
+      ${typeof receiptSettingsCardHtml==="function"? receiptSettingsCardHtml() : ""}
       ${businessDayCardHtml()}
       ${typeof returnDaysLimit==="function"? `<div class="card">
         <h3>Returns</h3>
@@ -127,7 +128,7 @@
       ${diagnosticsSectionHtml()}
     `;
     document.getElementById("printTestLine").onclick=()=>printTestLine();
-    document.getElementById("saveSettings").onclick=()=>{
+    document.getElementById("saveSettings").onclick=async ()=>{
       const v = (id)=> document.getElementById(id).value;
       const wantType = v("sBranchType");
       // v30 (owner 2026-10-20): a till registered with seiGEN as a remote doesn't make itself Main here
@@ -138,7 +139,7 @@
       { const want = document.getElementById("sCancelOn").checked;
         if(want!==cancelEnabled()){
           if(!hasAdminPasscode()) alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
-          else if(!findAdmin(prompt("Admin passcode to "+(want? "switch on" : "switch off")+" cancel and reissue:")||"")) alert("Incorrect Admin passcode. Cancel and reissue was not changed.");
+          else if(!(await findAdminAsync(prompt("Admin passcode to "+(want? "switch on" : "switch off")+" cancel and reissue:")||""))) alert("Incorrect Admin passcode. Cancel and reissue was not changed.");
           else cancelTo = want;
         }
       }
@@ -167,13 +168,15 @@
       persist(); render();
     };
     wireBusinessDayCard();
+    if(typeof wireReceiptSettingsCard==="function") wireReceiptSettingsCard();
     const saveRet = document.getElementById("saveReturnDays");
-    if(saveRet) saveRet.onclick=()=>{
+    if(saveRet) saveRet.onclick=async ()=>{
       const n = parseInt(document.getElementById("sReturnDays").value,10);
       if(n===returnDaysLimit()) return alert("Returns are already allowed for "+n+" days.");
       if(!hasAdminPasscode()) return alert(NO_ADMIN_PASSCODE_MSG+" before this can be changed.");
       const pc = prompt("Admin passcode to allow returns for "+n+" days:");
       if(pc===null) return;
+      await passcodeWarm(pc);   // v34: off the screen thread first
       try{ setReturnDaysLimit(n, pc); alert("Returns are now allowed for "+n+" days."); render(); }
       catch(e){ alert(e.message); }
     };

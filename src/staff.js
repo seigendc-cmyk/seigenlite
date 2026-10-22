@@ -136,7 +136,8 @@
       ${isEdit? `<label style="display:flex;align-items:center;gap:8px;margin-top:14px"><input type="checkbox" id="stActive" ${existing.active? "checked":""} style="width:auto;margin:0"> Active</label>` : ""}
       <button class="btn btn-primary" id="stConfirm" style="margin-top:14px">${isEdit? "Save Changes" : "Add Staff"}</button>
     `);
-    wrap.querySelector("#stConfirm").onclick=()=>{
+    wrap.querySelector("#stConfirm").onclick=async ()=>{
+      if(wrap.querySelector("#stAuth")) await passcodeWarm(wrap.querySelector("#stAuth").value);   // v34: off the screen thread first
       try{
         saveStaffMember({
           id: isEdit? existing.id : null,
@@ -514,6 +515,10 @@
   // An Admin set by the main branch has a check value instead of a passcode
   // (about a second to compare on a phone, so a match is remembered this session).
   const _adminMatchCache = new Map();
+  // v34: a passcode already compared with a check value and found not to match (the async check below
+  // fills it, so the screen's own check that follows doesn't compare it again on the screen thread).
+  const _adminMissCache = new Map();
+  function adminMissRemember(k){ if(_adminMissCache.size > 500) _adminMissCache.clear(); _adminMissCache.set(k, true); }
   function findAdmin(passcode){
     const code = String(passcode==null?"":passcode);
     if(!code.trim()) return null;
@@ -522,7 +527,10 @@
     if(typeof adminCheckMatches!=="function") return null;
     for(const r of all("SELECT * FROM staff WHERE role='Admin' AND active=1 AND COALESCE(passcode_check,'')<>'' ORDER BY id")){
       const k = r.id+"|"+r.passcode_check+"|"+code;
-      if(_adminMatchCache.get(k) || adminCheckMatches(code, r.passcode_salt, r.passcode_check, r.passcode_rounds)){ _adminMatchCache.set(k, true); return r; }
+      if(_adminMatchCache.get(k)) return r;
+      if(_adminMissCache.get(k)) continue;
+      if(adminCheckMatches(code, r.passcode_salt, r.passcode_check, r.passcode_rounds)){ _adminMatchCache.set(k, true); return r; }
+      adminMissRemember(k);
     }
     return null;
   }
@@ -535,7 +543,20 @@
     if(typeof adminCheckMatchesAsync!=="function") return findAdmin(code);
     for(const r of all("SELECT * FROM staff WHERE role='Admin' AND active=1 AND COALESCE(passcode_check,'')<>'' ORDER BY id")){
       const k = r.id+"|"+r.passcode_check+"|"+code;
-      if(_adminMatchCache.get(k) || await adminCheckMatchesAsync(code, r.passcode_salt, r.passcode_check, r.passcode_rounds)){ _adminMatchCache.set(k, true); return r; }
+      if(_adminMatchCache.get(k)) return r;
+      if(_adminMissCache.get(k)) continue;
+      if(await adminCheckMatchesAsync(code, r.passcode_salt, r.passcode_check, r.passcode_rounds)){ _adminMatchCache.set(k, true); return r; }
+      adminMissRemember(k);
     }
     return null;
+  }
+  // v34 (roadmap Batch 2): the remaining Admin passcode checks, off the screen thread. A screen awaits
+  // this before calling its usual (synchronous) action, which then finds the answer already worked out:
+  // the same passcodes pass and fail, with the same messages. right: also the signed-in holder's own
+  // PIN (roles.js findApprover). Never throws.
+  async function passcodeWarm(code, right){
+    try{
+      await findAdminAsync(code);
+      if(right && typeof approverPinWarm==="function") await approverPinWarm(code, right);
+    }catch(e){ /* the action's own check decides */ }
   }

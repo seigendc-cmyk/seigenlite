@@ -350,6 +350,7 @@
     go.onclick = async ()=>{
       go.disabled = true; go.textContent = "Preparing…"; st.textContent = ""; st.style.color = "";
       await new Promise((res)=> setTimeout(res, 30));
+      await passcodeWarm((wrap.querySelector("#termSetMain")||{}).value);   // v34: off the screen thread first
       const f = adminSeedFromForm(wrap, "termSet");
       const fail = (text)=>{ go.disabled = false; go.textContent = "Set the Admin passcode"; st.textContent = text; st.style.color = "var(--danger)"; };
       if(f.error) return fail(f.error);
@@ -386,6 +387,7 @@
       if(req.newBranchName!==undefined && !req.newBranchName){ st.textContent = "Enter the new branch's name."; st.style.color="var(--danger)"; return; }
       btn.disabled = true; btn.textContent = "Preparing…"; st.textContent = ""; st.style.color = "";
       await new Promise((res)=> setTimeout(res, 30));                // let "Preparing…" show: the check value takes a moment
+      await passcodeWarm((wrap.querySelector("#termAddMain")||{}).value);   // v34: off the screen thread first
       const f = adminSeedFromForm(wrap, "termAdd");
       if(f.error){ btn.disabled = false; btn.textContent = "Get a join code"; st.textContent = f.error; st.style.color = "var(--danger)"; return; }
       req.seed = f.seed;
