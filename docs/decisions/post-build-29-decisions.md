@@ -1,6 +1,6 @@
 # Post–build 29 upgrade: owner decisions and roadmap
 
-**Source of truth for Claude Code.** Save it at `docs/decisions/post-build-29-decisions.md`. The owner (Lovemore) updates it. Where it conflicts with an older design doc, this file wins, unless the owner says otherwise in the task prompt. Last updated 21 Oct 2026.
+**Source of truth for Claude Code.** Save it at `docs/decisions/post-build-29-decisions.md`. The owner (Lovemore) updates it. Where it conflicts with an older design doc, this file wins, unless the owner says otherwise in the task prompt. Last updated 22 Oct 2026.
 
 ## Status
 | Build | What | State |
@@ -9,11 +9,13 @@
 | v31 | Staff managers on every till | applied, `4a8b439` |
 | v32 | Office seat by invite (migration `20261109120000_office_seats`) | applied, on the previews, `d92a690`; test fix `0b2d67b` |
 | v33 | Roles fetch after register/join, visible Refresh, limited old-staff upload, Owner default, first-Owner log, internal-transfer error fix | done, pushed `4e7eef2`, on previews + sclconsole-preview |
-| next | Purge of test data | prompt ready |
+| purge | All test businesses deleted (961 rows, 56 photos, 6 sign-ins); backup kept offline | done 22 Oct 05:42; the 2 old-device vendor rows and the 2 test-leak rows removed 22 Oct (`d3e8ad8`) |
+| 6A | Content protection + Contact directory | applied 22 Oct (`20261111120000_contact_directory`), `d3e8ad8` / Console `fe68c6a`, on previews + sclconsole-preview |
+| next | Batch 2 (v34) | decisions 30–33 settled |
 
 ## Roadmap (in order)
-1. **Purge of the test data:** keep only Sysadmin.
-2. **Batch 6A:** content protection in all apps, plus the Contact directory managed from the Console (items 9 and 10).
+1. ~~Purge of the test data~~ (done 22 Oct).
+2. ~~**Batch 6A:** content protection in all apps, plus the Contact directory managed from the Console (items 9 and 10).~~ (done 22 Oct)
 3. **Batch 2 (v34), selling and credit:**
    - items 1–4;
    - the receipt upgrade (business name, logo, address and phones; customer and operator; payment method and reference; credit before and after; a receipt message set in Settings; "powered by seiGEN Commerce" in small faint text);
@@ -22,7 +24,7 @@
    - the remaining ~25 Admin passcode checks moved off the screen thread;
    - Batch 2 reports (below).
 4. **B4:** sales sync (every sale, return, credit payment, payout, EOD cash; the cost at the time of sale; currency and exchange rate; payment method).
-5. **Working Capital / Cash Flow WC-1** (items 17–25), then WC-2, WC-3, WC-4.
+5. **Books + Cash Flow, one engine** (items 17–29): **F-1** books and cash basics, **F-2** growth tools, **F-3** purchasing and control, **F-4** payroll (wages, no tax calculation).
 6. **Batch 3:** orders checkout and supervisor verification (items 5 and 5b).
 7. **Batch 4, iTred:**
    - proof of payment (6), chat archive and delete-for-me (7);
@@ -34,9 +36,10 @@
 9. **Batch 6B:** privacy and legal notices; the rule-based Seith helper on iTred Contact Us (11).
 10. **Batch 7 (Console repo):** monthly document-review reminders.
 11. **Office / business brain:** Seith prices (14), market intelligence (15), activity logs (B5).
-12. **Books add-on** (double entry and payroll), then the **Qwen3 4B trial** (Windows .exe only).
+12. Seith (after F-1 to F-4), then the **Qwen3 4B trial** (Windows .exe only).
 
 **Production** comes as its own step, only on "go production", after the purge and the production checklist:
+- the removed-devices fix (item 34);
 - a unique, hidden secret phrase per device;
 - dropping old-code acceptance;
 - a private repo;
@@ -65,15 +68,24 @@
 | 16 | Office seat by invite | A one-time code + link (expires in 24 h, for one named person, no secrets; Owner or Admin approves the device; revocable). A device with no till, for admin work; holds main-branch stock; can do GRVs, dispatch, stocktake and adjustments, but **never sells or runs EOD**. **$3 per 30 days.** Built in v32. |
 | 17 | COGS Reserve money | Held in a **separate reserve account** (bank, EcoCash or a locked cash box). **Funding is an actual transfer into it.** Paying suppliers for stock from it is the permitted use. |
 | 18 | Reserve used for other purposes | Rent, wages, drawings and similar need **Owner or Admin approval with a reason**. Every use is logged, raises an alert and creates a recovery plan. Never physically blocked. |
-| 19 | Packaging | Core Office feature for Business-plan shops. Lite gets a simple version (debtors and the reserve). |
-| 20 | Order | After B4, Working Capital first; the double-entry books add-on follows, posting from the same synced documents. |
+| 19 | Packaging (updated 22 Oct) | **Books + Cash Flow are core for Business-plan shops.** Lite gets debtors and the reserve only. **Payroll (F-4) is a paid add-on.** |
+| 20 | Order (updated 22 Oct) | After B4, **one engine**: a double-entry ledger underneath, with Cash Flow, Debtors, Creditors, the Reserve and the growth tools on top, all reading the same ledger. Before Seith. Replaces "Working Capital first, books add-on later". |
 | 21 | Rights | Approved (table below), including a new built-in **Bookkeeper** role. |
 | 22 | Manager approval limit | **$200 per supplier payment** by default; above that, Owner or Admin approves; each shop can change it. |
-| 23 | Name and placement | **Office → Cash Flow**, hidden by rights. Sub-pages: Cash position, Cash-flow plan (13-week grid; 30-day daily and 12-month views), Debtors, Creditors, COGS Reserve, Alerts. 4 cash tiles on the Office Dashboard. The full grid is for a PC or Office seat; phones get a summary. |
+| 23 | Name and placement (updated 22 Oct) | **Finance: its own module with its own UI/UX**, replacing "Office → Cash Flow". A **"Finance" item in the main menu** (☰ on desktop, More on phones), hidden by rights; Office links to it. **Same brand, finance layout:** orange accent and the same fonts, a calm white workspace, a left sidebar, dense number-friendly tables with frozen columns and drill-down to the document, clear Actual / Forecast / Plan tags, a USD/ZiG switch and a branch filter. **PC first** (full workspace on a PC or Office seat); **phones get a summary**: Overview, Cash, Debtors, Creditors, approvals, via a Finance bottom bar and a "Back to shop" button. **Its own build layer** (like Marketing): loaded only for Business-plan shops and finance users, so the selling screens stay light. Sidebar: Overview · Cash · Debtors · Creditors · Reserve · Books · Journals · Plan · Payroll (add-on) · Reports · Finance settings (chart of accounts, months, reserve policy, approval limits, opening balances). Office keeps the Dashboard, the Approvals inbox (finance approvals also show inside Finance), messages and branch control. |
 | 24 | End of Day prompts | "Bank the takings" and "Fund the reserve" (today's stock cost sold), each needing confirmation. |
 | 25 | Privacy from seiGEN | Console staff never see a shop's cash flow, debtors, creditors or books. Support access needs the shop's written permission. To be stated in the Privacy Policy. |
+| 26 | One engine: phases | **F-1** (after B4): the ledger and automatic posting from synced documents (sales, returns, GRVs, supplier GRVs, payments, payouts, EOD, transfers, dispatch/GRV between branches); a standard chart of accounts; cash, bank, EcoCash and the COGS Reserve as real accounts; debtors and creditors with ageing; supplier payments with approvals; Trial Balance, P&L, Balance Sheet, cash book, general ledger; the opening-balances wizard; closing and locking months; the End of Day prompts. **F-2:** the 13-week cash-flow plan and forecasts; break-even, margin by product and branch, stock money stuck, a weekly health score with the top 3 actions. **F-3:** purchase orders, supplier scorecards, bank matching, currency gains and losses. **F-4:** payroll (wages, advances, deductions, payslips; PAYE, NSSA and AIDS levy typed in, not calculated). |
+| 27 | Posting | Automatic, on seiGEN, from the synced documents; deterministic and re-runnable with uids. Staff never type journals. Entries are never edited, only reversed; each links to its source document; debits equal credits per entry and currency; each entry carries its branch, currency and the rate used. |
+| 28 | Starting the books | **Fresh from a go-live date**, with the opening-balances wizard (cash, bank, stock at weighted average cost, debtors, creditors, capital). No back-posting of older history. |
+| 29 | Manual journals | The **Bookkeeper prepares them with a reason; Owner or Admin approves** before they post. Never edited, only reversed. Closing a month: Owner or Admin. |
+| 30 | Over-limit credit (22 Oct) | The signed-in person must hold "Credit sales over limit" **and** type the Admin passcode. In single operator mode, the Admin passcode alone may override, logged as "single operator". |
+| 31 | Credit before B4 | The credit limit uses **this till's own balance**, shown as "Balance at this till". No extra balance sync; B4 makes it business-wide. |
+| 32 | Batch 2 reports | Approved: credit overrides, offline credit sales, sales by customer type, price changes (below-cost highlighted). |
+| 33 | Receipt logo | On screen and PDF receipts only; thermal receipts print the business name in bold. |
+| 34 | Removed devices (before production) | seiGEN keeps a list of removed devices and refuses their check-ins; the device sends its last vendor id; the app shows "Reset this device", offering a backup first. To be built before "go production". |
 
-### Working Capital rights (approved)
+### Books + Cash Flow rights (approved; journals and month-close added 22 Oct)
 | Right | Owner | Admin | Manager | Bookkeeper | Stores | Cashier |
 |---|---|---|---|---|---|---|
 | View Working Capital | all branches | all branches | own branch | all branches | – | – |
@@ -86,6 +98,11 @@
 | Use reserve for other purposes | ✓ | ✓ | – | – | – | – |
 | Reserve policy | ✓ | – | – | – | – | – |
 | Credit limits and terms | ✓ | ✓ | request | request | – | – |
+| View books (TB, P&L, BS, GL) | ✓ | ✓ | own branch P&L | ✓ | – | – |
+| Prepare manual journals | ✓ | ✓ | – | ✓ | – | – |
+| Approve manual journals | ✓ | ✓ | – | – | – | – |
+| Bank matching | ✓ | ✓ | – | ✓ | – | – |
+| Close and lock a month | ✓ | ✓ | – | – | – | – |
 
 **What each role sees:**
 - **Bookkeeper:** the figures, but payroll only as totals.
@@ -100,19 +117,20 @@
 **Build rule:** follow the real codebase, not any spec's technical section: no React, no WAL (the database runs in the browser), polling instead of Realtime. Money is held in cents, and USD and ZiG are kept separately.
 
 ## Report Writer additions (proposed, awaiting owner confirmation)
-Each report follows the rights above and supports any-order search, PDF, Excel and WhatsApp share. **Office → Cash Flow** shows the live screens; **Report Writer** holds the printable and exportable versions of the same figures.
+Each report follows the rights above and supports any-order search, PDF, Excel and WhatsApp share. **Finance** shows the live screens; **Report Writer** holds the printable and exportable versions of the same figures.
 
 | Batch | Reports |
 |---|---|
-| Batch 2 | credit limit overrides, offline credit sales, sales by customer type, price changes (below-cost changes highlighted) |
+| Batch 2 | credit limit overrides, offline credit sales, sales by customer type, price changes (below-cost changes highlighted) — **approved 22 Oct (item 32)** |
 | Batch 3–4 | orders fulfilment (self-verified orders flagged), iTred payments (proof submitted vs. verified) |
 | v32 follow-up | internal transfers (seat ↔ tills) |
-| WC-1 | debtors ageing, customer statement, creditors ageing, supplier statement, payments due, cash position, bank deposits and transfers, COGS Reserve, reserve misuse, expenses by account, cash-flow forecast, approvals log |
+| F-1 | trial balance, P&L, balance sheet, general ledger, cash book, debtors ageing, customer statement, creditors ageing, supplier statement, payments due, cash position, bank deposits and transfers, COGS Reserve, reserve misuse, expenses by account, cash-flow forecast, approvals log |
 | Later | forecast scenarios, collection performance, supplier and customer scorecards, purchase orders vs. deliveries, market intelligence |
 
 ## Standing rules
 - Inspect first, follow `docs/CODING-AGENT-PROTOCOL.md`, report with evidence.
 - Live database: backup, the final SQL, then the owner's "apply". **Commit before asking for "apply" and before every deploy.**
+- **Never chain an apply after a commit with ";"** (22 Oct 2026): if the commit fails, stop.
 - Previews only, unless the owner says "go production".
 - Rebuild the bundles before tests, commits and deploys; the freshness check enforces this.
 - No secrets or personal data in commits or reports. The repo is public.
