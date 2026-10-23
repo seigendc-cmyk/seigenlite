@@ -87,7 +87,7 @@ History (decision 35) goes at **priority 2**, whatever its kind: live priority-1
   - Read literally, decision 3 subtracts this till's unsynced **credit sales** only. A payment taken offline counts once it reaches seiGEN.
 - **The till's balance list:** pulled after each push (`cl_device_credit_balances`). Before the first pull, the till uses the v34 rule ("Balance at this till"). So does a device that isn't registered.
 - **Wording:** cart, box and receipts show "Balance (business)" online, and "Balance (as of last sync)" offline. Without B4 they keep "Balance at this till".
-- **The Q5 warning** ("Credit for another branch's customer", 14 Oct) said: "until B4 shares sales between tills". When seiGEN answered with the business balance, it no longer shows. Offline it still does. **Listed under Logic changes.**
+- **The Q5 warning** ("Credit for another branch's customer", 14 Oct) said: "until B4 shares sales between tills". Decision 40 (23 Oct): the notice and its rules stay (cash: once per customer per till; credit: every time, with the Admin passcode). When seiGEN answered with the business balance, only the sentence "Their credit balance here covers this till only" is left out; offline the full text stays.
 - **Unchanged:**
   - the Credit tab, statements and the full customer export keep this till's balance;
   - the over-limit override rules (decisions 2 and 30);

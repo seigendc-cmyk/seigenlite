@@ -128,13 +128,14 @@
   let crossBranchCreditApproval = null;   // { customerId, amount, admin } for the sale being finished
   function crossBranchCreditCheck(customer, creditAmount){
     if(!customer || !(creditAmount>0) || typeof custOtherBranch!=="function") return null;
-    // v35 B4: seiGEN answered with the business balance, the reason for this note ("covers this till only") is gone
-    if(typeof b4CreditBusinessAnswered==="function" && b4CreditBusinessAnswered(customer, creditAmount)) return null;
     const other = custOtherBranch(customer);
     if(!other) return null;
     if(crossBranchCreditApproval && crossBranchCreditApproval.customerId===customer.id && crossBranchCreditApproval.amount===creditAmount) return null;
+    // v35 B4 (decision 40): the notice and its passcode stay; only the "this till only" sentence
+    // goes when seiGEN answered with the business balance (offline it stays)
+    const business = typeof b4CreditBusinessAnswered==="function" && b4CreditBusinessAnswered(customer, creditAmount);
     return { customer, branch:other, amount:creditAmount,
-      text: "This customer was added at "+other+". Their credit balance here covers this till only (until the update that shares sales). An Admin passcode lets the credit sale continue." };
+      text: "This customer was added at "+other+"."+(business? "" : " Their credit balance here covers this till only (until the update that shares sales).")+" An Admin passcode lets the credit sale continue." };
   }
   function approveCrossBranchCredit(info, passcode){
     const admin = findApprover(passcode, "credit_over_limit");   // roles (v28): or the signed-in holder's own PIN

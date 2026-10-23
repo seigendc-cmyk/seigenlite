@@ -89,6 +89,7 @@ const DAY = 86400000;
     for(let i = 0; i < 400; i++){
       if(A.api.one("SELECT COUNT(*) n FROM sales").n > n0 || A.alerts.length > a0 || A.dom.window.document.querySelector("#clText")) break;
       const xc = A.dom.window.document.querySelector("#xcPass");
+      if(xc) A.lastXc = A.dom.window.document.querySelector("#xcText").textContent;
       if(xc && o && o.otherBranchAdmin){ xc.value = o.otherBranchAdmin; await A.dom.window.document.querySelector("#xcGo").onclick(); }
       else if(xc) break;
       await sleep(25);
@@ -248,8 +249,11 @@ const DAY = 86400000;
     assert.strictEqual(await srvBalance(chipoH1.uid), 35);
     const cH2 = H2.api.one("SELECT * FROM customers WHERE uid=?", [chipoH1.uid]), cM1 = M1.api.one("SELECT * FROM customers WHERE uid=?", [chipoH1.uid]);
     // each wants $50 on credit: 35 + 50 fits once (85), not twice (135)
-    const [a, b] = await Promise.all([sell(H2, 5, "Credit", cH2), sell(M1, 5, "Credit", cM1)]);
+    M1.lastXc = "";
+    const [a, b] = await Promise.all([sell(H2, 5, "Credit", cH2), sell(M1, 5, "Credit", cM1, { otherBranchAdmin:"4321" })]);
     assert.ok((a && !b) || (!a && b), "exactly one sale: " + JSON.stringify([!!a, !!b]));
+    // decision 40: Murehwa still gets the notice and the passcode for Harare's customer, without the "this till only" sentence
+    assert.strictEqual(M1.lastXc, "This customer was added at Harare. An Admin passcode lets the credit sale continue.");
     const loser = a? M1 : H2, winner = a? H2 : M1, sold = a || b;
     const box = boxText(loser);
     assert.ok(/over their credit limit of \$100\.00/.test(box) && /Balance \(business\): \$85\.00/.test(box) && /blocked/.test(box), box);
@@ -286,7 +290,9 @@ const DAY = 86400000;
     const c = M1.api.one("SELECT * FROM customers WHERE uid=?", [chipoH1.uid]);
     M1.ctx.navigator.onLine = false;
     assert.ok(/Balance \(business, as of last sync \d\d:\d\d(?: ?[AP]M)?\): \$55\.00 · limit \$100\.00 · available \$45\.00/.test(M1.api.custBalanceLineHtml(c)), M1.api.custBalanceLineHtml(c));
+    M1.lastXc = "";
     let s = await sell(M1, 3, "Credit", c, { otherBranchAdmin:"4321" });                            // 55 + 30 = 85: allowed offline
+    assert.ok(/added at Harare\. Their credit balance here covers this till only \(until the update that shares sales\)\. An Admin passcode/.test(M1.lastXc), "decision 40: offline the sentence stays: " + M1.lastXc);
     assert.ok(s && s.credit_check === "offline" && s.credit_scope === "last_sync" && s.credit_before === 55 && s.credit_after === 85, JSON.stringify(s));
     assert.deepStrictEqual(JSON.parse(JSON.stringify(M1.api.receiptCreditRows(M1.api.receiptSaleInfo(s.id)).map((x)=> x[0]))), ["Balance before (as of last sync)", "Balance after (as of last sync)"]);
     const s2 = await sell(M1, 2, "Credit", c, { otherBranchAdmin:"4321" });                         // 55 + 30 (unsynced, this till) + 20 = 105: blocked

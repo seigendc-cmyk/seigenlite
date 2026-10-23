@@ -12,7 +12,8 @@
 | purge | All test businesses deleted (961 rows, 56 photos, 6 sign-ins); backup kept offline | done 22 Oct 05:42; the 2 old-device vendor rows and the 2 test-leak rows removed 22 Oct (`d3e8ad8`) |
 | 6A | Content protection + Contact directory | applied 22 Oct (`20261111120000_contact_directory`), `d3e8ad8` / Console `fe68c6a`, on previews + sclconsole-preview |
 | v34 | Batch 2: credit limits, built-in customers, receipts, 4 reports, Sell speed (migration `20261112120000_builtin_customers`) | applied 22 Oct, done, `e541fc9`, on the 3 previews |
-| next | B4 sales sync (v35) | prompt ready |
+| v35 | B4 sales sync (migration `20261113120000_sales_sync`) | built `77878d2`; applied 23 Oct; decision 40 wording in the apply commit |
+| next | F-0 data gaps (v36; items 41–44), then Finance F-1 screen designs | F-0 prompt ready |
 
 ## Roadmap (in order)
 1. ~~Purge of the test data~~ (done 22 Oct).
@@ -25,7 +26,7 @@
    - the remaining ~25 Admin passcode checks moved off the screen thread;
    - Batch 2 reports (below).
 4. **B4:** sales sync (every sale, return, credit payment, payout, EOD cash; the cost at the time of sale; currency and exchange rate; payment method).
-5. **Books + Cash Flow, one engine** (items 17–29): **F-1** books and cash basics, **F-2** growth tools, **F-3** purchasing and control, **F-4** payroll (wages, no tax calculation).
+5. **F-0, data gaps** (item 41), then **Books + Cash Flow, one engine** (items 17–29): **F-1** books and cash basics, **F-2** growth tools, **F-3** purchasing and control, **F-4** payroll (wages, no tax calculation).
 6. **Batch 3:** orders checkout and supervisor verification (items 5 and 5b).
 7. **Batch 4, iTred:**
    - proof of payment (6), chat archive and delete-for-me (7);
@@ -89,6 +90,15 @@
 | 36 | B4 retention | Full sale detail kept 13 months on seiGEN; daily summaries per branch and till kept for good; books entries (Finance) kept for good. |
 | 37 | Credit across the business | Balance = all synced credit sales − payments, business-wide. Online: seiGEN checks before the sale is committed (short timeout, then offline rule). Offline: decision 3, marked "checked offline". Two tills at once can't both use the same available credit. Receipts show "Balance (business)", or "(as of last sync)" offline. Replaces decision 31 once B4 is live. |
 | 38 | Other branches' sales | In Report Writer only with "View other branches' reports" (Owner and Admin by default); costs and margins only with "View costs"; Cashiers see their own branch. |
+| 39 | Older debts (23 Oct) | Each till sends one opening balance per customer, once, marked "balance before history"; seiGEN sums them across tills; never posted to the books. |
+| 40 | Another branch's customer notice | Keep the notice and its rules (cash once per customer per till; credit every time with the Admin passcode). Drop only the "this till's balance" sentence when the business balance is available; keep it offline. |
+| 41 | Data gaps for Finance | A separate step before F-1 (not built yet): weighted-average cost (logic change, before/after comparison for owner approval); payment method + reference on credit payments; account + approver on payouts; EOD counted per currency; a currency code (USD/ZiG). |
+| 42 | Weighted-average cost rules (23 Oct) | WAC per product per stock holder (till or seat). Supplier GRV: (old qty × old WAC + received qty × cost) ÷ total; if old qty ≤ 0, WAC = the received cost. Dispatch → GRV moves at the sender's WAC, plus the transport charge added to the received cost (spread by value). Internal transfer at the sender's WAC. Sales, adjustments, write-offs and stocktake at the current WAC. Returns at the original sale's cost. Opening WAC at go-live = the current last landed cost; no history recalculated. Shadow mode first (both costs recorded, comparison report); switching reports and margins to WAC needs the owner's "approved". |
+| 43 | Payment and payout fields | Credit payments: method required (cash / EcoCash / bank / card); reference required for EcoCash and bank. Payouts: account required (from the payout chart of accounts); who made it and who approved it recorded. End of Day: expected and counted cash per currency. Old records stay readable, with the fields empty. |
+| 44 | Currency code | Every business has a base currency code (USD; ZiG stored as ZWG, shown as "ZiG"); every money event carries its code; the owner-set rate stays the rate used. |
+| 45 | Payout accounts (23 Oct) | A fixed built-in list, the same on every till, not editable until F-1 maps it to the chart of accounts: Transport & fuel · Stock bought with till cash · Wages & casual labour · Rent & utilities · Repairs & maintenance · Cleaning & shop supplies · Food & refreshments · Owner drawings · Other (reason required). The reason box stays; old payouts show "Unassigned". |
+| 46 | Base currency code for existing businesses (23 Oct) | Derived from the symbol: "$", "US$", "USD" → USD; "ZiG", "ZWG", "ZWL" → ZWG (shown as ZiG). Otherwise Owner/Admin picks it in Settings, and events send the code empty until then. New businesses pick it at setup. |
+| 47 | Credit payments at End of Day (23 Oct) | Unchanged in v36: expected cash still leaves out credit payments, whatever the method. The method is recorded, printed and synced only. Revisit in F-1. |
 
 ### Books + Cash Flow rights (approved; journals and month-close added 22 Oct)
 | Right | Owner | Admin | Manager | Bookkeeper | Stores | Cashier |
