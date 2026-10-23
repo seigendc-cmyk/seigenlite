@@ -297,6 +297,7 @@
         <h3>Cloud sync</h3>
         <p class="muted">Built in — there's nothing to set up. Records are kept on this device and saved to your cloud storage whenever you're online.</p>
         <p class="muted" id="cloudSyncStatus" style="font-size:12px">${escapeHtml(cloudSyncStatusText())}</p>
+        ${typeof b4SettingsHtml==="function"? b4SettingsHtml() : ""}
         ${pendingSyncCount()? `<button class="btn btn-outline" id="syncNowBtn" style="margin-top:6px">Sync now</button>` : ""}
       </div>`;
   }

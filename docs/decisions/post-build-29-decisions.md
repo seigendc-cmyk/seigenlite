@@ -1,6 +1,6 @@
 # Post–build 29 upgrade: owner decisions and roadmap
 
-**Source of truth for Claude Code.** Save it at `docs/decisions/post-build-29-decisions.md`. The owner (Lovemore) updates it. Where it conflicts with an older design doc, this file wins, unless the owner says otherwise in the task prompt. Last updated 22 Oct 2026.
+**Source of truth for Claude Code.** Save it at `docs/decisions/post-build-29-decisions.md`. The owner (Lovemore) updates it. Where it conflicts with an older design doc, this file wins, unless the owner says otherwise in the task prompt. Last updated 23 Oct 2026.
 
 ## Status
 | Build | What | State |
@@ -11,7 +11,8 @@
 | v33 | Roles fetch after register/join, visible Refresh, limited old-staff upload, Owner default, first-Owner log, internal-transfer error fix | done, pushed `4e7eef2`, on previews + sclconsole-preview |
 | purge | All test businesses deleted (961 rows, 56 photos, 6 sign-ins); backup kept offline | done 22 Oct 05:42; the 2 old-device vendor rows and the 2 test-leak rows removed 22 Oct (`d3e8ad8`) |
 | 6A | Content protection + Contact directory | applied 22 Oct (`20261111120000_contact_directory`), `d3e8ad8` / Console `fe68c6a`, on previews + sclconsole-preview |
-| v34 | Batch 2, selling and credit (migration `20261112120000_builtin_customers`) | built and tested; apply pending; not deployed |
+| v34 | Batch 2: credit limits, built-in customers, receipts, 4 reports, Sell speed (migration `20261112120000_builtin_customers`) | applied 22 Oct, done, `e541fc9`, on the 3 previews |
+| next | B4 sales sync (v35) | prompt ready |
 
 ## Roadmap (in order)
 1. ~~Purge of the test data~~ (done 22 Oct).
@@ -84,6 +85,10 @@
 | 32 | Batch 2 reports | Approved: credit overrides, offline credit sales, sales by customer type, price changes (below-cost highlighted). |
 | 33 | Receipt logo | On screen and PDF receipts only; thermal receipts print the business name in bold. |
 | 34 | Removed devices (before production) | seiGEN keeps a list of removed devices and refuses their check-ins; the device sends its last vendor id; the app shows "Reset this device", offering a backup first. To be built before "go production". |
+| 35 | B4 history (23 Oct) | On its first B4 check-in each till uploads its last 90 days of sales and money events, marked "history", for reports and the dashboard only; never posted to the books (decision 28). |
+| 36 | B4 retention | Full sale detail kept 13 months on seiGEN; daily summaries per branch and till kept for good; books entries (Finance) kept for good. |
+| 37 | Credit across the business | Balance = all synced credit sales − payments, business-wide. Online: seiGEN checks before the sale is committed (short timeout, then offline rule). Offline: decision 3, marked "checked offline". Two tills at once can't both use the same available credit. Receipts show "Balance (business)", or "(as of last sync)" offline. Replaces decision 31 once B4 is live. |
+| 38 | Other branches' sales | In Report Writer only with "View other branches' reports" (Owner and Admin by default); costs and margins only with "View costs"; Cashiers see their own branch. |
 
 ### Books + Cash Flow rights (approved; journals and month-close added 22 Oct)
 | Right | Owner | Admin | Manager | Bookkeeper | Stores | Cashier |

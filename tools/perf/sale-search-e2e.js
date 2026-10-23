@@ -4,6 +4,8 @@
 // a shift started; "large" = 5,000 products and 10,000 earlier sales / 50,000 lines (as freeze-e2e.js).
 //   search: each keystroke of "prod 42" (the list redrawn by the app's own input handler), total and slowest;
 //   sale: Add one product, Cart, Cash -> the sale saved (window._lastReceipt), median of 5.
+// B4=1 (v35): the till is registered and has just had its first B4 check-in, so the sales sync
+// queues its 90 days of history (and tries to send it; seiGEN is blocked) while search and sales are measured.
 "use strict";
 const fs = require("fs"), os = require("os"), path = require("path");
 const [ROOT_ARG, BUILD_ARG, SIZE, RATE_S, LABEL] = process.argv.slice(2);
@@ -11,10 +13,10 @@ const ROOT = path.resolve(ROOT_ARG || "."), BUILD = path.resolve(BUILD_ARG), RAT
 const { chromium } = require(path.join(ROOT, "node_modules/playwright"));
 const { activateForTest } = require(path.join(ROOT, "test/test-activation"));
 const fileUrl = (p)=> "file:///" + p.split(path.sep).join("/");
-const out = { build: LABEL || path.basename(path.dirname(BUILD)), size: SIZE, rate: RATE };
+const out = { build: LABEL || path.basename(path.dirname(BUILD)), size: SIZE, rate: RATE, b4: process.env.B4==="1" };
 
 async function seed(page, large){
-  return page.evaluate(async ({ large })=>{
+  return page.evaluate(async ({ large, b4 })=>{
     const open = ()=> new Promise((res, rej)=>{ const r = indexedDB.open("seigen_lite_db", 1); r.onsuccess = ()=>res(r.result); r.onerror = ()=>rej(r.error); });
     const conn = await open();
     const bytes = await new Promise((res, rej)=>{ const g = conn.transaction("kv","readonly").objectStore("kv").get("dbfile"); g.onsuccess = ()=>res(g.result); g.onerror = ()=>rej(g.error); });
@@ -33,10 +35,16 @@ async function seed(page, large){
         for(let k = 0; k < 5; k++){ const pid = 1 + ((s*5+k) % 5000); d.run("INSERT INTO sale_items(sale_id,product_id,name,price,qty) VALUES(?,?,?,5,1)", [sid, pid, "Product "+pid]); }
       }
     }
+    if(b4){   // as b4Begin() leaves a till at its first B4 check-in (src/b4-sync.js)
+      const set = (k, v)=> d.run("INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)", [k, String(v)]);
+      set("terminal_id", "00000000-0000-4000-8000-000000000001"); set("b4_start", new Date().toISOString());
+      for(const t of ["sales","credit_notes","credit_payments","payouts","price_changes","vouchers"]){
+        const m = (d.exec(`SELECT COALESCE(MAX(id),0) FROM ${t}`)[0]||{values:[[0]]}).values[0][0]; set("b4_cur_"+t, m); set("b4_hist_"+t, m); }
+    }
     d.run("COMMIT");
     const o = d.export(); d.close();
     await new Promise((res, rej)=>{ const tx = conn.transaction("kv","readwrite"); tx.objectStore("kv").put(o, "dbfile"); tx.oncomplete = ()=>res(); tx.onerror = ()=>rej(tx.error); });
-  }, { large });
+  }, { large, b4: process.env.B4==="1" });
 }
 const median = (a)=>{ const s = a.slice().sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
 
@@ -67,6 +75,7 @@ const median = (a)=>{ const s = a.slice().sort((x,y)=>x-y); return s[Math.floor(
   const go = await page.$("#goToEodBtn");
   if(go){ await go.click(); await page.waitForSelector("#openingFloat"); await page.fill("#openingFloat", "50"); await page.click("#startShiftBtn"); await page.click('.navbar [data-route="pos"]'); }
   await page.waitForSelector("#searchInput", { timeout:0 });
+  if(process.env.B4==="1") await page.waitForTimeout(6000);   // B4's first step has started (5 s after boot)
   const cdp = await ctx.newCDPSession(page);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: RATE });
 
@@ -101,6 +110,7 @@ const median = (a)=>{ const s = a.slice().sort((x,y)=>x-y); return s[Math.floor(
   }
   out.sale_commit_ms = sales;
   out.sale_commit_median_ms = median(sales);
+  if(process.env.B4==="1") out.b4_queued = await page.evaluate(()=>{ try{ return one("SELECT COUNT(*) n FROM b4_outbox").n; }catch(e){ return "n/a"; } });
   console.log(JSON.stringify(out));
   await browser.close();
 })().catch(e=>{ console.log(JSON.stringify(Object.assign(out, { error: e.message.split("\n")[0] }))); process.exit(1); });

@@ -351,7 +351,9 @@
             : all(`SELECT * FROM sales WHERE ${cond} AND ts>=? AND ts<=? ORDER BY ts`,[fromTs,toTs]);
   }
   function rwCustomerName(s){ const c = s.customer_id? one("SELECT name FROM customers WHERE id=?",[s.customer_id]) : null; return c? c.name : "—"; }
-  const RW_REMOTE = { inventory:"inventory", transfers:"dispatches", stock:"supplier_grvs" };
+  // v35 B4 (decision 38): other branches' sales and payouts too, from what their tills sent seiGEN
+  const RW_REMOTE = { inventory:"inventory", transfers:"dispatches", stock:"supplier_grvs",
+    sales:"sales", creditoverrides:"sales", offlinecredit:"sales", customertype:"sales", payouts:"payouts" };
   function rwKindAllowed(c){
     if(typeof can!=="function") return true;
     const k = RW_KIND[c.id] || "sales";
@@ -372,7 +374,7 @@
       const others = RW_REMOTE[selected.id]? rwOtherBranches() : [];
       if(!others.some(b=> "srv:"+b.id===rwBranch)) rwBranch = currentBranch();
       return `<select class="field" id="rwBranchSel"><option value="${escapeHtml(currentBranch())}" ${rwBranch===currentBranch()? "selected" : ""}>${escapeHtml(currentBranch())} (this branch)</option>${others.map(b=>`<option value="srv:${escapeHtml(b.id)}" ${rwBranch==="srv:"+b.id? "selected" : ""}>${escapeHtml(b.name)} (from seiGEN)</option>`).join("")}</select>
-        ${!others.length && canStrict("other_branches") && !RW_REMOTE[selected.id]? `<p class="muted rw-other-note" style="font-size:12px;margin:4px 0 0">Other branches: Inventory, Stock Received and Stock Dispatched come from seiGEN. Their sales come with a later update.</p>` : ""}`;
+        ${!others.length && canStrict("other_branches") && !RW_REMOTE[selected.id]? `<p class="muted rw-other-note" style="font-size:12px;margin:4px 0 0">Other branches: Inventory, Stock Received, Stock Dispatched, Sales, Payouts, Credit Limit Overrides, Offline Credit Sales and Sales by Customer Type come from seiGEN.</p>` : ""}`;
     }
     if(isRemote()){ rwBranch = currentBranch(); return `<select class="field" id="rwBranchSel"><option value="${escapeHtml(currentBranch())}" selected>${escapeHtml(currentBranch())} (this branch)</option></select>`; }
     return branchSelectHtml("rwBranchSel", rwBranch);
@@ -489,13 +491,19 @@
     target.innerHTML = `<p class="muted">Loading from seiGEN…</p>`;
     const r = await staffBranchReport(RW_REMOTE[selected.id], branchId, fromTs, toTs);
     if(!r.ok){ target.innerHTML = `<p class="muted rw-remote-msg">${escapeHtml(r.message)}</p>`; return r; }
-    const data = rwRemoteTable(RW_REMOTE[selected.id], r.data);
+    const data = rwRemoteTable(RW_REMOTE[selected.id], r.data, selected.id);
     window._rwLastData = { title:selected.label, subtitle:r.data.branch+" (from seiGEN)"+(selected.hasDate? " · "+rwFrom+" to "+rwTo : ""), headers:data.headers, rows:data.rows, footer:data.footer };
     rwShowData(data);
     return r;
   }
-  function rwRemoteTable(kind, d){
+  function rwRemoteTable(kind, d, reportId){
     const money = (v)=> v==null? "" : currency+Number(v).toFixed(2), costs = !!d.costs;
+    if(kind==="sales") return rwRemoteSalesTable(d, reportId, money, costs);
+    if(kind==="payouts"){
+      const total = d.rows.reduce((s,x)=> s+(Number(x.amount)||0), 0);
+      return { headers:["Date/Time","Till","Reason","Amount","By"], rows:d.rows.map(x=>[escapeHtml(new Date(x.at).toLocaleString()), escapeHtml(x.till||""), escapeHtml(x.reason||""), money(x.amount), escapeHtml(x.operator||"")]),
+        footer:`Total payouts: ${money(total)}` };
+    }
     if(kind==="inventory"){
       const value = d.rows.reduce((s,x)=> s+(Number(x.value)||0), 0);
       return { headers:["Item","Qty"].concat(costs? ["Cost","Value"] : []),
@@ -511,6 +519,44 @@
     d.rows.forEach(g=> g.lines.forEach(l=> rows.push([escapeHtml(new Date(g.posted_at).toLocaleString()), escapeHtml(g.grv_display), escapeHtml(g.supplier||""),
       escapeHtml(g.invoice_no||""), skuNameCell(l.code,l.name), String(l.qty)].concat(costs? [money(l.unit_cost), money(l.landed_cost)] : []))));
     return { headers:["Date","GRV","Supplier","Invoice","Item","Qty"].concat(costs? ["Unit cost","Landed"] : []), rows, footer:d.rows.length+" supplier GRV"+(d.rows.length===1?"":"s") };
+  }
+  // v35 B4: another branch's sales from seiGEN, as this till's own reports show them
+  // (costs and margins only when seiGEN sent them: "View costs").
+  function rwRemoteSalesTable(d, reportId, money, costs){
+    const sales = d.rows.filter(x=> x.type==="sale"), returns = d.rows.filter(x=> x.type==="return");
+    const when = (x)=> escapeHtml(new Date(x.at).toLocaleString());
+    if(reportId==="creditoverrides"){
+      const list = sales.filter(x=> x.credit_override);
+      return { headers:["Date/Time","Receipt#","Till","Customer","Balance before","Credit","Balance after","Overridden by","How","Checked"],
+        rows:list.map(x=>[when(x), escapeHtml(x.doc||""), escapeHtml(x.till||""), escapeHtml(x.customer||"—"), money(x.credit_before||0), money(x.credit_amount||0), money(x.credit_after||0),
+          escapeHtml(x.credit_override||""), escapeHtml(x.credit_override_mode==="single operator"? "Single operator" : "Right + Admin passcode"), x.credit_check==="offline"? "Offline" : "Online"]),
+        footer:`${list.length} override${list.length===1? "" : "s"}` };
+    }
+    if(reportId==="offlinecredit"){
+      const list = sales.filter(x=> x.credit_check==="offline");
+      const credit = list.reduce((s,x)=> s+(Number(x.credit_amount)||0), 0);
+      return { headers:["Date/Time","Receipt#","Till","Customer","Sale total","Credit","Balance after","Overridden by"],
+        rows:list.map(x=>[when(x), escapeHtml(x.doc||""), escapeHtml(x.till||""), escapeHtml(x.customer||"—"), money(x.total), money(x.credit_amount||0), money(x.credit_after||0), escapeHtml(x.credit_override||"")]),
+        footer:`Credit checked offline: ${money(roundMoney(credit))} on ${list.length} sale${list.length===1? "" : "s"}` };
+    }
+    if(reportId==="customertype"){
+      const order = ["Walk-in (no customer)","Cash Sale","Wholesale (built in)","Retail customers","Wholesale customers"], groups = {};
+      sales.forEach(x=>{
+        const g = !x.customer_uid? order[0] : x.customer_type==="builtin_cash_sale"? order[1] : x.customer_type==="builtin_wholesale"? order[2] : x.customer_type==="wholesale"? order[4] : order[3];
+        if(!groups[g]) groups[g] = { n:0, total:0 }; groups[g].n++; groups[g].total += Number(x.total)||0;
+      });
+      const grand = sales.reduce((t,x)=> t+(Number(x.total)||0), 0);
+      return { headers:["Customer type","Sales","Total","Share"], rows:order.filter(g=>groups[g]).map(g=>[escapeHtml(g), groups[g].n, money(roundMoney(groups[g].total)),
+        grand>0? Math.round(groups[g].total/grand*1000)/10+"%" : "–"]), footer:`Grand total: ${money(roundMoney(grand))}` };
+    }
+    const rows = sales.map(x=>[escapeHtml(x.doc||""), when(x), escapeHtml(x.till||""), escapeHtml(x.method||""), escapeHtml(x.doc_ref||""), money(x.subtotal), money(x.discount), money(x.total)]
+      .concat(costs? [money(x.cost), Number(x.total)>0 && x.cost!=null? Math.round((Number(x.total)-Number(x.cost))/Number(x.total)*1000)/10+"%" : "–"] : []));
+    returns.forEach(x=> rows.push([escapeHtml(x.doc||""), when(x), escapeHtml(x.till||""), "Return", escapeHtml("receipt "+(x.sale_receipt||"")), "", "", "-"+money(x.total)].concat(costs? ["-"+money(x.cost), ""] : [])));
+    const gross = sales.reduce((s,x)=> s+(Number(x.total)||0), 0), back = returns.reduce((s,x)=> s+(Number(x.total)||0), 0);
+    const cost = sales.reduce((s,x)=> s+(Number(x.cost)||0), 0) - returns.reduce((s,x)=> s+(Number(x.cost)||0), 0);
+    return { headers:["Receipt#","Date/Time","Till","Method","Doc Ref","Subtotal","Discount","Total"].concat(costs? ["Cost","Margin"] : []), rows,
+      footer:(returns.length? `Gross ${money(roundMoney(gross))} · Returns -${money(roundMoney(back))} · Net ${money(roundMoney(gross-back))}` : `Grand Total: ${money(roundMoney(gross))}`)
+        + (costs? ` · cost ${money(roundMoney(cost))}` : "") + (sales.some(x=> x.history)? " · includes history from before sales sync" : "") };
   }
   function rwShowData(data){
     const target = document.getElementById("rwResults");

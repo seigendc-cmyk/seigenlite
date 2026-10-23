@@ -330,16 +330,18 @@
   // What the sale row adds to its receipt (an unknown id, e.g. the test receipt: nothing).
   function receiptSaleInfo(saleId){
     let s = null, c = null;
-    try{ s = one("SELECT customer_id, user, payment_ref, credit_before, credit_after FROM sales WHERE id=?",[saleId]); }catch(e){ s = null; }
+    try{ s = one("SELECT customer_id, user, payment_ref, credit_before, credit_after, credit_scope FROM sales WHERE id=?",[saleId]); }catch(e){ s = null; }
     if(s && s.customer_id) c = one("SELECT name FROM customers WHERE id=?",[s.customer_id]);
     s = s || {};
     return { customer:c? c.name : "", operator:s.user||"", paymentRef:s.payment_ref||"",
-      creditBefore:s.credit_before==null? null : Number(s.credit_before), creditAfter:s.credit_after==null? null : Number(s.credit_after) };
+      creditBefore:s.credit_before==null? null : Number(s.credit_before), creditAfter:s.credit_after==null? null : Number(s.credit_after), creditScope:s.credit_scope||"" };
   }
   function receiptPartyLines(info){ return [info.customer? "Customer: "+info.customer : "", info.operator? "Served by: "+info.operator : ""].filter(Boolean); }
   function receiptCreditRows(info){
     if(info.creditBefore==null || info.creditAfter==null) return [];
-    return [["Balance before (this till)", currency+info.creditBefore.toFixed(2)], ["Balance after (this till)", currency+info.creditAfter.toFixed(2)]];
+    // v35 B4 (decision 37): which balance the credit check used
+    const where = info.creditScope==="business"? "(business)" : info.creditScope==="last_sync"? "(as of last sync)" : "(this till)";
+    return [["Balance before "+where, currency+info.creditBefore.toFixed(2)], ["Balance after "+where, currency+info.creditAfter.toFixed(2)]];
   }
   function receiptHeaderBytes(shopInfo, w, copy){
     const parts = [ escposInit(), escposFontB(), escposNormalSize(), escposAlign("center"), escposBold(true) ];

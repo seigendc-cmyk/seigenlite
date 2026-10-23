@@ -188,6 +188,8 @@
       if(typeof bsAfterCheckin==="function") bsAfterCheckin().catch(()=>{});
       // iTred orders (itred-orders.js): send this till's fulfilment changes and replies, pull the business's orders.
       if(typeof itredAfterCheckin==="function") itredAfterCheckin();
+      // sales sync (b4-sync.js, v35): the first check-in starts B4 (the 90 days of history), then this till's sales and money events.
+      if(typeof b4AfterCheckin==="function") b4AfterCheckin().catch(()=>{});
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —

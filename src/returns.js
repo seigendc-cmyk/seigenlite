@@ -309,6 +309,7 @@
         cn.text+" for receipt "+receiptDisplay(p.sale)+" · "+currency+p.calc.goods.toFixed(2)+" · "+how+" · "+nR+" restocked, "+nW+" written off"
         +" · reason: "+p.reason+(p.note? " ("+p.note+")" : "")+" · started by "+startedBy+", authorised by "+admin.name);
       if(!o.inTx) run("COMMIT");
+      if(typeof b4Soon==="function" && b4Started()) b4Soon();   // v35 B4: the return goes to seiGEN in the background
       return { id:row.id, text:cn.text, goods:p.calc.goods, refunds:p.refunds };
     }catch(e){
       if(!o.inTx){ try{ run("ROLLBACK"); }catch(_){} }

@@ -45,6 +45,7 @@
     main.className = "desktop-main";
     main.innerHTML = `
       ${shiftBlockBannerHtml()}
+      ${typeof b4IndicatorHtml==="function" && b4Started()? `<div style="padding:6px 24px 0">${b4IndicatorHtml()}</div>` : ""}
       ${typeof tillStockNoteHtml==="function" && tillStockPending()? `<div style="padding:12px 24px 0">${tillStockNoteHtml()}</div>` : ""}
       ${typeof sharedStockOfflineBadgeHtml==="function" && sharedStockOfflineBadgeHtml()? `<div style="padding:12px 24px 0">${sharedStockOfflineBadgeHtml()}</div>` : ""}
       ${dcMessagesBannerHtml()}
@@ -171,6 +172,7 @@
 
   function wireDesktopSales(main){
     wireShiftBlockBanner();
+    if(typeof b4WireIndicator==="function") b4WireIndicator();   // v35 B4: the sync line
     wireDcMessagesBanner();
     if(typeof wireItredBanner==="function") wireItredBanner();
     const search = document.getElementById("dsSearch");

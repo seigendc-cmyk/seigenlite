@@ -564,7 +564,15 @@
       "ALTER TABLE sales ADD COLUMN credit_before REAL",
       "ALTER TABLE sales ADD COLUMN credit_after REAL",
       "ALTER TABLE sales ADD COLUMN credit_override TEXT DEFAULT ''",
-      "ALTER TABLE sales ADD COLUMN credit_override_mode TEXT DEFAULT ''"
+      "ALTER TABLE sales ADD COLUMN credit_override_mode TEXT DEFAULT ''",
+      // v35 B4 (b4-sync.js): who sold (the signed-in person's seiGEN id), the limit at a credit
+      // check, which balance it used (decision 37), and the uid seiGEN held the credit under
+      "ALTER TABLE sales ADD COLUMN staff_id TEXT DEFAULT ''",
+      "ALTER TABLE sales ADD COLUMN credit_limit_at REAL",
+      "ALTER TABLE sales ADD COLUMN credit_scope TEXT DEFAULT ''",
+      "ALTER TABLE sales ADD COLUMN b4_hold_uid TEXT",
+      "ALTER TABLE payouts ADD COLUMN staff_id TEXT DEFAULT ''",
+      "ALTER TABLE credit_payments ADD COLUMN staff_id TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -611,6 +619,7 @@
     migrateCatalogueSync(t);
     migratePriceChanges(t);
     ensureBuiltinCustomers(t);
+    if(typeof migrateB4==="function") migrateB4(t);                 // b4-sync.js; absent in partial test loads
     if(typeof pauseSyncBacklog==="function") pauseSyncBacklog(t);   // sync.js; absent in partial test loads
   }
   // Catalogue sync (Phase 3a): a change to a catalogue field of a linked

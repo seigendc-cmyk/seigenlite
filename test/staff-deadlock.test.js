@@ -30,7 +30,7 @@ async function until(cond, what){ for(let i = 0; i < 250; i++){ if(await cond())
 
 (async ()=>{
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261108120000_shop_managers_everywhere.sql", "20261109120000_office_seats.sql", "20261110120000_staff_first_owner.sql", "20261112120000_builtin_customers.sql"]) });   // the shape before it: the test applies it part-way (it is on live now)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261108120000_shop_managers_everywhere.sql", "20261109120000_office_seats.sql", "20261110120000_staff_first_owner.sql", "20261112120000_builtin_customers.sql", "20261113120000_sales_sync.sql"]) });   // the shape before it: the test applies it part-way (it is on live now)
   let lock = Promise.resolve();
   const serial = (fn)=>{ const run = lock.then(fn, fn); lock = run.catch(()=>{}); return run; };
   const q = (sql, p)=> serial(async ()=> (await pg.query(sql, p)).rows);

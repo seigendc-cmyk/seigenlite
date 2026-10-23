@@ -23,7 +23,7 @@ function ok(name, cond, extra) {
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261023120000_admin_passcode_from_main.sql', '20261023180000_update_app_first_message.sql', '20261024120000_branch_stock.sql', '20261025120000_min_app_build.sql', '20261105120000_itred_order_fulfilment.sql', '20261106120000_branch_views.sql', '20261107120000_shop_roles.sql', '20261108120000_shop_managers_everywhere.sql', '20261109120000_office_seats.sql', '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql']) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261023120000_admin_passcode_from_main.sql', '20261023180000_update_app_first_message.sql', '20261024120000_branch_stock.sql', '20261025120000_min_app_build.sql', '20261105120000_itred_order_fulfilment.sql', '20261106120000_branch_views.sql', '20261107120000_shop_roles.sql', '20261108120000_shop_managers_everywhere.sql', '20261109120000_office_seats.sql', '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql']) });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const run = async (sql) => { try { await pg.exec(sql); return { ok: true }; } catch (e) { await pg.exec('rollback').catch(() => {}); return { e: e.message }; } };
   const keys = async () => (await q(`select conname, confupdtype, confdeltype, pg_get_constraintdef(oid) def from pg_constraint

@@ -62,6 +62,7 @@
         const ts = new Date().toISOString();
         run("INSERT INTO credit_payments(customer_id,ts,amount,note,branch,user) VALUES(?,?,?,?,?,?)",
           [cid, ts, amt, "", currentBranch(), sessionUser||""]);
+        if(typeof b4StampStaff==="function"){ b4StampStaff("credit_payments", one("SELECT last_insert_rowid() AS id").id); if(b4Started()) b4Soon(); }   // v35 B4
         persist();
         const cust = one("SELECT * FROM customers WHERE id=?",[cid]);
         printPaymentReceipt(cust.name, amt, customerBalance(cid), ts);
@@ -225,6 +226,7 @@ ${customerClashesHtml()}
       const reason = wrap.querySelector("#poReason").value.trim();
       if(!amt || amt<=0) return alert("Enter a valid amount");
       run("INSERT INTO payouts(ts,amount,reason,branch,user) VALUES(?,?,?,?,?)",[new Date().toISOString(),amt,reason||"Payout",currentBranch(),sessionUser||""]);
+      if(typeof b4StampStaff==="function"){ b4StampStaff("payouts", one("SELECT last_insert_rowid() AS id").id); if(b4Started()) b4Soon(); }   // v35 B4
       persist(); wrap.remove();
       if(refreshFn) refreshFn(); else render();
     };

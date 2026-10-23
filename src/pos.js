@@ -89,15 +89,24 @@
     const s = typeof staffSession==="function"? staffSession() : null, legacy = typeof currentStaff==="function"? currentStaff() : null;
     return { mode:"right", name:(s && s.name) || (legacy && legacy.name) || sessionUser || "" };
   }
+  // v35 B4 (decision 37): once this till has the business balances, the check counts
+  // against seiGEN's answer (business), or offline the balance at the last sync plus this
+  // till's credit sales since (decision 3); before that, this till's balance as above.
+  function creditBasisFor(customer, creditAmount){
+    return typeof b4CreditBasis==="function"? b4CreditBasis(customer, creditAmount) : null;
+  }
   function creditLimitCheck(customer, creditAmount){
     if(!customer || !(creditAmount>0) || customer.credit_limit==null || customer.credit_limit==="") return null;
-    const limit = Number(customer.credit_limit), balance = roundMoney(customerBalance(customer.id)), after = roundMoney(balance + creditAmount);
+    const basis = creditBasisFor(customer, creditAmount);
+    const limit = basis && basis.limit!=null? basis.limit : Number(customer.credit_limit);
+    const balance = basis? basis.balance : roundMoney(customerBalance(customer.id)), after = roundMoney(balance + creditAmount);
     if(!(after > limit)) return null;
     if(creditLimitApproval && creditLimitApproval.customerId===customer.id && creditLimitApproval.after===after) return null;
     const who = creditOverrider();
-    return { customer, limit, balance, after, canOverride: !!who, offline: typeof isOnline==="function" && !isOnline(),
+    return { customer, limit, balance, after, canOverride: !!who, offline: basis? basis.offline : (typeof isOnline==="function" && !isOnline()),
+      scope: basis? basis.scope : "till", lastSync: basis && basis.scope==="last_sync" && typeof b4LastSyncText==="function"? b4LastSyncText() : "",
       text: customer.name+" would owe "+currency+after.toFixed(2)+", over their credit limit of "+currency+limit.toFixed(2)+
-        ". Balance at this till: "+currency+balance.toFixed(2)+". The sale is blocked. "+
+        ". "+(basis? basis.label : "Balance at this till")+": "+currency+balance.toFixed(2)+". The sale is blocked. "+
         (!who? "Only someone with \"Credit sales over limit\" can override it, with the Admin passcode."
           : who.mode===CREDIT_OVERRIDE_SINGLE? "The Admin passcode overrides it (single operator)."
           : "You hold \"Credit sales over limit\": the Admin passcode overrides it.") };
@@ -109,7 +118,8 @@
     if(!admin) throw new Error("Incorrect Admin passcode. The sale wasn't finished.");
     const single = who.mode===CREDIT_OVERRIDE_SINGLE, by = single? admin.name : who.name;
     creditLimitApproval = { customerId:info.customer.id, after:info.after, admin:admin.name, by, mode: single? CREDIT_OVERRIDE_SINGLE : "right + Admin passcode" };
-    logAudit("Credit limit override", info.customer.name, "Owes "+currency+info.after.toFixed(2)+" (balance at this till "+currency+info.balance.toFixed(2)+"), limit "+currency+info.limit.toFixed(2)+
+    const where = info.scope==="business"? "business balance " : info.scope==="last_sync"? "balance as of last sync " : "balance at this till ";
+    logAudit("Credit limit override", info.customer.name, "Owes "+currency+info.after.toFixed(2)+" ("+where+currency+info.balance.toFixed(2)+"), limit "+currency+info.limit.toFixed(2)+
       " · "+(single? "single operator, Admin passcode ("+admin.name+")" : "by "+by+" with the Admin passcode ("+admin.name+")"));
     return creditLimitApproval;
   }
@@ -118,6 +128,8 @@
   let crossBranchCreditApproval = null;   // { customerId, amount, admin } for the sale being finished
   function crossBranchCreditCheck(customer, creditAmount){
     if(!customer || !(creditAmount>0) || typeof custOtherBranch!=="function") return null;
+    // v35 B4: seiGEN answered with the business balance, the reason for this note ("covers this till only") is gone
+    if(typeof b4CreditBusinessAnswered==="function" && b4CreditBusinessAnswered(customer, creditAmount)) return null;
     const other = custOtherBranch(customer);
     if(!other) return null;
     if(crossBranchCreditApproval && crossBranchCreditApproval.customerId===customer.id && crossBranchCreditApproval.amount===creditAmount) return null;
@@ -678,6 +690,8 @@
     const creditAmount = roundMoney(lines.filter(l=>l.method==="Credit").reduce((s,l)=>s+l.amount,0));
     // v34 (decision 4): the built-in Cash Sale and Wholesale customers never buy on credit
     if(creditAmount>0 && typeof isBuiltinCustomer==="function" && isBuiltinCustomer(customer)){ alert(customer.name+" can't buy on credit. Pick the customer's own account for a credit sale."); return; }
+    // v35 B4 (decision 37): online, seiGEN checks the business balance first (a short wait, then the offline rule)
+    if(creditAmount>0 && typeof b4CreditPrecheck==="function" && b4CreditPrecheck(customer, creditAmount, ()=>completeSale(method, payments, stockPlan))==="waiting") return;
     const crossBranch = crossBranchCreditCheck(customer, creditAmount);
     if(crossBranch){
       if(typeof openCrossBranchCreditModal==="function" && typeof document.createElement==="function") openCrossBranchCreditModal(crossBranch, ()=>completeSale(method, payments, stockPlan));
@@ -732,7 +746,8 @@
     const discountStatus = discount>0? (discountApprovedBy? "Approved":"Pending") : "";
     const branch = currentBranch();
     let customerId, saleId, receiptNo, label, receiptItems, exchangeCn = null;
-    const creditBefore = creditAmount>0 && customer? roundMoney(customerBalance(customer.id)) : null;
+    const creditBasis = creditAmount>0 && customer? creditBasisFor(customer, creditAmount) : null;   // v35 B4
+    const creditBefore = creditAmount>0 && customer? (creditBasis? creditBasis.balance : roundMoney(customerBalance(customer.id))) : null;
     if(exPlan) run("BEGIN");
     try{
       customerId = customer? customer.id : null;
@@ -755,9 +770,14 @@
       if(creditAmount>0 && customerId){
         const ov = creditLimitApproval && creditLimitApproval.customerId===customerId? creditLimitApproval : null;
         run("UPDATE sales SET credit_check=?, credit_before=?, credit_after=?, credit_override=?, credit_override_mode=? WHERE id=?",
-          [typeof isOnline==="function" && !isOnline()? "offline" : "online", creditBefore, roundMoney(creditBefore + creditAmount),
+          [creditBasis? (creditBasis.offline? "offline" : "online") : (typeof isOnline==="function" && !isOnline()? "offline" : "online"), creditBefore, roundMoney(creditBefore + creditAmount),
            ov? ov.by+(ov.mode===CREDIT_OVERRIDE_SINGLE? "" : " (Admin passcode: "+ov.admin+")") : "", ov? ov.mode : "", saleId]);
+        // v35 B4: which balance the check used (decision 37), and the limit then
+        const limAt = creditBasis && creditBasis.limit!=null? creditBasis.limit : (customer.credit_limit==null || customer.credit_limit===""? null : Number(customer.credit_limit));
+        run("UPDATE sales SET credit_scope=?, credit_limit_at=? WHERE id=?",[creditBasis? creditBasis.scope : "till", limAt, saleId]);
+        if(typeof b4AfterCreditSale==="function") b4AfterCreditSale(saleId, customer, creditAmount, !!ov);
       }
+      if(typeof b4StampStaff==="function") b4StampStaff("sales", saleId);   // v35 B4: the signed-in person's seiGEN id
       if(stockPlan) run("UPDATE sales SET uid=? WHERE id=?",[stockPlan.saleUid, saleId]);   // the uid the server knows this sale by
       const saleUid = (one("SELECT uid FROM sales WHERE id=?",[saleId])||{}).uid || null;
       label = receiptLabel(saleId, receiptNo);
@@ -808,6 +828,8 @@
     window._lastCreditNote = exchangeCn;   // only right after an exchange
     printReceipt(saleId, ts, subtotal, discount, 0, voucherAmount, total, saleMethod, receiptItems, lines, docRef, receiptNo);
     cart = []; drawerOpen=false; appliedVoucher=null; cartCustomer=null; creditLimitApproval=null; crossBranchCreditApproval=null; cancelSplitTender(); fxPreviewCurrency=""; quickTapCurrency="";
+    if(typeof b4ClearCreditAnswer==="function") b4ClearCreditAnswer();
+    if(typeof b4Soon==="function" && typeof b4Started==="function" && b4Started()) b4Soon();   // v35 B4: send it in a moment, in the background
     render();
   }
 
@@ -816,6 +838,7 @@
     const results = searchProducts(searchQuery);
     main.innerHTML = `
       ${shiftBlockBannerHtml()}
+      ${typeof b4IndicatorHtml==="function"? b4IndicatorHtml() : ""}
       ${dcMessagesBannerHtml()}
       ${typeof itredBannerHtml==="function"? itredBannerHtml() : ""}
       ${tillStockNoteHtml()}
@@ -843,6 +866,7 @@
       </div>
     `;
     wireShiftBlockBanner();
+    if(typeof b4WireIndicator==="function") b4WireIndicator();   // v35 B4: the sync line
     wireDcMessagesBanner();
     if(typeof wireItredBanner==="function") wireItredBanner();
     const input = document.getElementById("searchInput");

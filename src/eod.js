@@ -442,6 +442,7 @@
       [totals.expected,counted,variance,notes||"",ts,eodOperatorName(),eodOperatorStaffId(),shift.id]);
     logAudit("EOD completed","",`Expected ${currency}${totals.expected.toFixed(2)}, counted ${currency}${counted.toFixed(2)}, variance ${currency}${variance.toFixed(2)}`);
     if(getSetting("business_day_pending","")!=="") applyPendingBusinessDay(now);   // main's time for this branch, held for this shift
+    if(typeof b4Soon==="function" && b4Started()) b4Soon();   // v35 B4: the End of Day goes to seiGEN in the background
     persist();
     return one("SELECT * FROM eod_sessions WHERE id=?",[shift.id]);
   }

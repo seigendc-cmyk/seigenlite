@@ -45,10 +45,14 @@
 
   // ---- the cart combo ----
   // v34 (decision 31): until B4 the credit check uses this till's own sales, and says so.
+  // v35 B4 (decision 37): once this till has the business balances, the line shows the
+  // balance as of the last sync plus this till's credit sales since.
   function custBalanceLineHtml(c){
     if(!c || isBuiltinCustomer(c)) return "";
-    const bal = roundMoney(customerBalance(c.id)), lim = c.credit_limit==null || c.credit_limit===""? null : Number(c.credit_limit);
-    return `<div class="muted cust-balance" id="custBalance" style="font-size:12px;margin-top:4px">Balance at this till: ${currency}${bal.toFixed(2)}${lim!==null? " · limit "+currency+lim.toFixed(2)+" · available "+currency+Math.max(0, roundMoney(lim-bal)).toFixed(2) : ""}</div>`;
+    const biz = typeof b4CreditActive==="function" && b4CreditActive(c);
+    const bal = biz? b4SnapshotBalance(c) : roundMoney(customerBalance(c.id)), lim = c.credit_limit==null || c.credit_limit===""? null : Number(c.credit_limit);
+    const label = biz? "Balance (business, as of last sync"+(b4LastSyncText()? " "+b4LastSyncText() : "")+")" : "Balance at this till";
+    return `<div class="muted cust-balance" id="custBalance" style="font-size:12px;margin-top:4px">${escapeHtml(label)}: ${currency}${bal.toFixed(2)}${lim!==null? " · limit "+currency+lim.toFixed(2)+" · available "+currency+Math.max(0, roundMoney(lim-bal)).toFixed(2) : ""}</div>`;
   }
   // The input keeps id "custName" (completeSale reads it for an exact-name
   // match); picking sets cartCustomer and re-prices. Only #custList and the
@@ -272,7 +276,7 @@
   function openCreditLimitModal(info, retry){
     const wrap = openModal("Over the credit limit", `
       <p id="clText" style="font-weight:600">${escapeHtml(info.text)}</p>
-      ${info.offline? `<p class="muted" id="clOffline">Checked offline, against this till's own sales.</p>` : ""}
+      ${info.offline? `<p class="muted" id="clOffline">${info.scope==="last_sync"? `Checked offline, against the balance at the last sync${info.lastSync? " ("+escapeHtml(info.lastSync)+")" : ""} and this till's credit sales since.` : "Checked offline, against this till's own sales."}</p>` : ""}
       ${info.canOverride? `<label for="clPass">Admin passcode</label>
       <input class="field" id="clPass" type="password" autocomplete="off">` : ""}
       <div id="clMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
