@@ -1,5 +1,5 @@
 {
- "taken_at": "2026-10-22T16-14-51-369Z",
+ "taken_at": "2026-10-22T23-25-53-494Z",
  "source": "live, read-only (tools/db/catalog.js)",
  "server": "17.6",
  "objects": {
@@ -1913,7 +1913,7 @@
   "grant fn cl_device_business_dispatches(p_install_id text, p_secret_phrase text, p_device_key text, p_days integer)": "[\"anon:EXECUTE\",\"authenticated:EXECUTE\",\"service_role:EXECUTE\"]",
   "fn cl_device_checkin(p_install_id text, p_shop_secret_phrase text, p_device_code text, p_business_name text, p_owner_name text, p_phone text, p_city text, p_location text, p_rpn_hint_id uuid, p_device_key text, p_app_build integer)": "{\"result\":\"json\",\"kind\":\"f\",\"lang\":\"plpgsql\",\"secdef\":true,\"volatile\":\"v\",\"config\":[\"search_path=public\"],\"body_md5\":\"a29cf2dbc62079665750c6c6756be5b6\",\"comment\":null}",
   "grant fn cl_device_checkin(p_install_id text, p_shop_secret_phrase text, p_device_code text, p_business_name text, p_owner_name text, p_phone text, p_city text, p_location text, p_rpn_hint_id uuid, p_device_key text, p_app_build integer)": "[\"anon:EXECUTE\",\"authenticated:EXECUTE\",\"public:EXECUTE\",\"service_role:EXECUTE\"]",
-  "fn cl_device_customer_save(p_install_id text, p_secret_phrase text, p_device_key text, p_customer jsonb)": "{\"result\":\"json\",\"kind\":\"f\",\"lang\":\"plpgsql\",\"secdef\":true,\"volatile\":\"v\",\"config\":[\"search_path=public\"],\"body_md5\":\"efb922a7ddc813f303ec29d695895fbe\",\"comment\":null}",
+  "fn cl_device_customer_save(p_install_id text, p_secret_phrase text, p_device_key text, p_customer jsonb)": "{\"result\":\"json\",\"kind\":\"f\",\"lang\":\"plpgsql\",\"secdef\":true,\"volatile\":\"v\",\"config\":[\"search_path=public\"],\"body_md5\":\"79c995b5fc80c3c0a5bb85e75600e8b8\",\"comment\":null}",
   "grant fn cl_device_customer_save(p_install_id text, p_secret_phrase text, p_device_key text, p_customer jsonb)": "[\"anon:EXECUTE\",\"authenticated:EXECUTE\",\"service_role:EXECUTE\"]",
   "fn cl_device_customers_pull(p_install_id text, p_secret_phrase text, p_device_key text, p_cursor bigint)": "{\"result\":\"json\",\"kind\":\"f\",\"lang\":\"plpgsql\",\"secdef\":true,\"volatile\":\"v\",\"config\":[\"search_path=public\"],\"body_md5\":\"c446396dcd1c6411c636805577cee5d5\",\"comment\":null}",
   "grant fn cl_device_customers_pull(p_install_id text, p_secret_phrase text, p_device_key text, p_cursor bigint)": "[\"anon:EXECUTE\",\"authenticated:EXECUTE\",\"service_role:EXECUTE\"]",
