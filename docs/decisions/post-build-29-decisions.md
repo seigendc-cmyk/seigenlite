@@ -13,7 +13,7 @@
 | 6A | Content protection + Contact directory | applied 22 Oct (`20261111120000_contact_directory`), `d3e8ad8` / Console `fe68c6a`, on previews + sclconsole-preview |
 | v34 | Batch 2: credit limits, built-in customers, receipts, 4 reports, Sell speed (migration `20261112120000_builtin_customers`) | applied 22 Oct, done, `e541fc9`, on the 3 previews |
 | v35 | B4 sales sync (migration `20261113120000_sales_sync`) | built `77878d2`; applied 23 Oct, `d5ec497` (with decision 40); on the 3 previews |
-| v36 | Fix-A (open issues A1–A13, below) | migrations removed_devices + roles_everywhere applied on live (27 Oct, run by the owner); on the previews; A8 waits for its "apply" |
+| v36 | Fix-A (open issues A1–A13, below) | migrations removed_devices + roles_everywhere applied on live (27 Oct, run by the owner); on the previews + sclconsole-preview, pushed `f19d4d6`; A8 superseded by Purge 2 (waits for the owner to run it) |
 | v37 | Stock control + notification bell (decisions 51–55) | after v36 |
 | v38 | F-0 data gaps (items 41–47), then Finance F-1 screen designs | after v37 (decision 51) |
 
@@ -59,7 +59,7 @@
 - A5. About shows a hard-coded address, website and WhatsApp number; it should read from the Contact directory and business settings.
 - A6. Old destination branches that aren't on seiGEN (e.g. Norton "file only") stay in the till's local list.
 - A7. Builds aren't repeatable: give the code scrambler a fixed seed.
-- A8. Stray vendor rows on live from old devices ("Today and Tomorrow", "Romana Books" device AKFW): delete them once A1 is live (data fix, owner's "apply").
+- A8. ~~Stray vendor rows on live from old devices ("Today and Tomorrow", "Romana Books" device AKFW): delete them once A1 is live (data fix, owner's "apply").~~ **Superseded by Purge 2** (owner 27 Oct): never applied; `20261027_a8_stray_vendor_rows.sql` stays in the repo unrun.
 - A9. Confirm v35 is deployed to the three previews and pushed, and that the decision-40 correction is in (the other-branch customer notice stays online; only the "this till's balance" sentence goes).
 - A10. Anything found in the owner's outstanding tests (below) is added here before Fix-A starts.
 - A11. Role is authoritative everywhere (decision 48): seiGEN checks the person's role on tills too (B2 moved here); Office seats show every menu the role allows except Sell, cash and EOD.
