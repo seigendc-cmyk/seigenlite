@@ -65,6 +65,7 @@
 - A11. Role is authoritative everywhere (decision 48): seiGEN checks the person's role on tills too (B2 moved here); Office seats show every menu the role allows except Sell, cash and EOD.
 - A12. The built-in Guest role (decision 49).
 - A13. Lock the RPN link and details in the shop app (decision 50).
+- A14. (owner 27 Oct, for v37; approved, not a logic change) The app must not depend on cdnjs at runtime: serve the database engine files (and any other cdnjs or third-party files the app loads at runtime, listed in the report) from our own app address, cached by the service worker as now. Measure first-load time on a throttled 2G profile before and after. (Found in the v36 full suite: sql-wasm.wasm took 12–48 s from cdnjs; the browser tests now use local copies, `test/local-cdn.js`.)
 
 **Security before production:**
 - B1. The secret phrase is shown in Settings and shared by every device → one phrase per device, hidden.
