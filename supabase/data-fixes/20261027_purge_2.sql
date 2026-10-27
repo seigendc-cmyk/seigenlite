@@ -1,12 +1,13 @@
 -- One-off DATA fix (no schema change): Purge 2 (owner, 27 Oct 2026). It
 -- supersedes A8. Same rules as the 22 Oct purge (20261022_test_data_purge.sql):
 -- every business, vendor, till and iTred account on live is test data, all
--- 19 vendors go, IVO Motor Spares (U5VZ-C1) included.
+-- 20 vendors go, IVO Motor Spares (U5VZ-C1) and Today & Tomorow (B288-C2,
+-- registered 27 Oct 15:27 UTC, after the first run was written) included.
 -- Run only after the owner has seen this file and said "apply"; the owner runs it:
 --   node tools/db/run-data-fix.js apply supabase/data-fixes/20261027_purge_2.sql
 -- Storage: bucket listing-images holds 0 files (checked 27 Oct), so there is
 -- no Storage step.
--- Backup first: docs/database/live-backup-2026-10-27T13-10-46-743Z/ (gitignored;
+-- Backup first: docs/database/live-backup-2026-10-27T18-17-36-802Z/ (gitignored;
 -- every public table, auth.users and auth.identities).
 --
 -- KEPT (unchanged; checked before and after): Console staff and their module
@@ -14,7 +15,7 @@
 -- price plans and versions, the company and platform settings
 -- (cl_app_settings, cl_app_build_rule, cl_activation_pricing, cl_token_prices,
 -- cl_modules, cl_shop_meta), the Contact directory, the chart of accounts.
--- KEPT AND ADDED TO: cl_removed_devices. Every install of the 19 vendor rows
+-- KEPT AND ADDED TO: cl_removed_devices. Every install of the 20 vendor rows
 -- (their tills and seats are among them), and the 148 installs purged on
 -- 22 Oct (A8's list, from the offline backup). An install already listed
 -- is left as it is. Their check-ins are then refused (DEVICE_REMOVED) until
@@ -29,7 +30,7 @@
 -- Sequences (licence serials, document numbers) are NOT restarted.
 -- It rolls itself back, changing nothing, if public isn't the 96 tables of
 -- the inventory, a kept table's count differs from what the owner was shown,
--- cl_vendors isn't 19 rows, or anything is left behind.
+-- cl_vendors isn't 20 rows, or anything is left behind.
 begin;
 
 create temp table _purge_before on commit drop as
@@ -52,7 +53,7 @@ where s.nspname = 'public' and t.relkind = 'r' and t.relname = any (array[
 
 do $$
 declare
-  -- the kept tables' counts the owner was shown (inventory 27 Oct)
+  -- the kept tables' counts the owner was shown (inventory 27 Oct; unchanged at the 2nd inventory, 27 Oct evening)
   v_expect jsonb := '{"cl_staff":2,"cl_staff_module_access":6,"portal_staff":2,"cl_rpn":2,"cl_rpn_pins":2,"cl_rpn_commission_rates":2,"cl_price_plans":2,"cl_price_plan_versions":8,"cl_app_settings":7,"cl_contact_desks":3,"cl_contact_numbers":5,"cl_chart_of_accounts":8,"cl_app_build_rule":1,"cl_activation_pricing":3,"cl_token_prices":4,"cl_modules":18,"cl_shop_meta":1}';
   v_have jsonb := '{}'; k text; n bigint; r record; total bigint := 0; users bigint; v_public int;
 begin
@@ -71,8 +72,8 @@ begin
   if v_have <> v_expect then
     raise exception 'Purge 2 aborted: a kept table changed since it was shown (% vs %). Nothing was changed.', v_have, v_expect;
   end if;
-  if (select count(*) from public.cl_vendors) <> 19 then
-    raise exception 'Purge 2 aborted: cl_vendors has % rows, not the 19 shown. Nothing was changed.', (select count(*) from public.cl_vendors);
+  if (select count(*) from public.cl_vendors) <> 20 then
+    raise exception 'Purge 2 aborted: cl_vendors has % rows, not the 20 shown. Nothing was changed.', (select count(*) from public.cl_vendors);
   end if;
   for r in select tbl from _purge_before loop
     execute format('select count(*) from public.%I', r.tbl) into n;
@@ -290,7 +291,7 @@ begin
     (select count(*) from public.cl_removed_devices), (select count(*) from _purge_installs),
     (select count(*) from _purge_installs where reason like 'Purge 2%'), (select count(*) from _purge_installs where reason like 'purged 22 Oct%'), v_missing;
   if left_over <> '' or users <> 0 or v_have <> v_expect or v_missing <> 0
-     or (select count(*) from _purge_installs where reason like 'Purge 2%') <> 19 then
+     or (select count(*) from _purge_installs where reason like 'Purge 2%') <> 20 then
     raise exception 'Purge 2 aborted: the result is not what was shown. Nothing was changed.';
   end if;
   insert into public.cl_activity_log (staff_id, action, target_table, target_id, detail)
