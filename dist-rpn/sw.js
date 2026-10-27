@@ -1,4 +1,4 @@
-// build: 1.09.01-06edcff6da4e
+// build: 1.09.01-a43708693f66
 // RPN Field Guide — service worker (dist-rpn/ only; build.js copies it in
 // as sw.js with a BUILD_ID line on top, so every build that changes the
 // app also changes this file's bytes, which is what makes the browser
@@ -31,15 +31,34 @@ const SHELL_URLS = [
   "./apple-touch-icon.png",
 ];
 
+// The host answers ./index.html with a redirect to ./ (Cloudflare does).
+// A response that came through a redirect can't answer a page load (the
+// browser fails it with ERR_FAILED, online or off), so the shell is stored
+// as a plain copy: same bytes, status and headers, minus the redirect.
+function storable(response) {
+  if (!response.redirected) return response;
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers: response.headers });
+}
+
 self.addEventListener("install", (event) => {
   // All or nothing: every file is on our own origin, and half a shell is
-  // worse than keeping the previous one. No skipWaiting() here; see the
-  // SKIP_WAITING message below.
+  // worse than keeping the previous one. Everything is downloaded before
+  // anything is stored, as cache.addAll() does. No skipWaiting() here; see
+  // the SKIP_WAITING message below.
   event.waitUntil(
     caches
       .delete(STAGING_CACHE)
       .then(() => caches.open(STAGING_CACHE))
-      .then((cache) => cache.addAll(SHELL_URLS.map((url) => new Request(url, { cache: "reload" }))))
+      .then((cache) =>
+        Promise.all(
+          SHELL_URLS.map((url) =>
+            fetch(new Request(url, { cache: "reload" })).then((response) => {
+              if (!response.ok) throw new TypeError("precache " + url + ": HTTP " + response.status);
+              return storable(response);
+            })
+          )
+        ).then((responses) => Promise.all(responses.map((response, i) => cache.put(SHELL_URLS[i], response))))
+      )
   );
 });
 

@@ -274,7 +274,7 @@
         '<div class="fg-row"><dt>Connection</dt><dd id="fgConn">' + (state.online ? '<span class="pill ok">Online</span>' : '<span class="pill fg-pill-warn">Offline</span>') + "</dd></div>" +
         '<div class="fg-row"><dt>Works offline</dt><dd id="fgReady">' + offlineReadyText() + "</dd></div>" +
         '<div class="fg-row"><dt>Version</dt><dd>' + escapeHtml(APP_VERSION) + "</dd></div>" +
-      "</dl>" + offlineReadyHint() + "</div>" +
+      '</dl><div id="fgReadyHint">' + offlineReadyHint() + "</div></div>" +
       installCard()
     );
   }
@@ -341,7 +341,15 @@
         state.offlineReady = "pending";
       }
     }
-    if (state.tab === "me") render();
+    patchOfflineReady();
+  }
+  // Updated in place, never by redrawing Me: the worker usually takes over
+  // on a first visit while someone may be typing their sign-in.
+  function patchOfflineReady() {
+    const ready = document.getElementById("fgReady");
+    const hint = document.getElementById("fgReadyHint");
+    if (ready) ready.innerHTML = offlineReadyText();
+    if (hint) hint.innerHTML = offlineReadyHint();
   }
   function showUpdate(worker) {
     state.updateWorker = worker;
@@ -380,7 +388,7 @@
       .then(checkOfflineReady)
       .catch(() => {
         state.offlineReady = "pending";
-        if (state.tab === "me") render();
+        patchOfflineReady();
       });
   }
 

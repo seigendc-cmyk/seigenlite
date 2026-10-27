@@ -49,10 +49,13 @@ async function t(name, fn){
 
 const TYPES = { ".html":"text/html", ".js":"text/javascript", ".webmanifest":"application/manifest+json", ".png":"image/png", ".svg":"image/svg+xml" };
 // A fresh copy of dist-rpn/ per server, so a test can change sw.js.
+// Like Cloudflare's static assets (rpn-field-guide.seigendc.workers.dev):
+// /index.html answers 307 -> /, and / serves the page.
 function deploy(){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rpn-hosted-"));
   for(const f of fs.readdirSync(DIST)) fs.copyFileSync(path.join(DIST, f), path.join(dir, f));
   const server = http.createServer((req, res)=>{
+    if(req.url.split("?")[0]==="/index.html"){ res.writeHead(307, { Location:"/" }); res.end(); return; }
     const rel = decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html";
     const file = path.join(dir, rel);
     if(!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()){ res.writeHead(404); res.end("not found"); return; }
