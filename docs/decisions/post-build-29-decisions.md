@@ -13,7 +13,7 @@
 | 6A | Content protection + Contact directory | applied 22 Oct (`20261111120000_contact_directory`), `d3e8ad8` / Console `fe68c6a`, on previews + sclconsole-preview |
 | v34 | Batch 2: credit limits, built-in customers, receipts, 4 reports, Sell speed (migration `20261112120000_builtin_customers`) | applied 22 Oct, done, `e541fc9`, on the 3 previews |
 | v35 | B4 sales sync (migration `20261113120000_sales_sync`) | built `77878d2`; applied 23 Oct, `d5ec497` (with decision 40); on the 3 previews |
-| v36 | Fix-A (open issues A1–A13, below) | migrations removed_devices + roles_everywhere applied on live (27 Oct, run by the owner); on the previews + sclconsole-preview, pushed `f19d4d6`; A8 superseded by Purge 2 (waits for the owner to run it) |
+| v36 | Fix-A (open issues A1–A13, below) | migrations removed_devices + roles_everywhere applied on live (27 Oct, run by the owner); on the previews + sclconsole-preview, pushed `f19d4d6`; A8 superseded by Purge 2; **Purge 2 applied on live** (owner ran it 27 Oct evening, `0106c7e`: all 20 vendors and their data gone, 170 installs on the removed list, kept tables unchanged) |
 | v37 | Stock control + notification bell (decisions 51–55) | after v36 |
 | v38 | F-0 data gaps (items 41–47), then Finance F-1 screen designs | after v37 (decision 51) |
 
