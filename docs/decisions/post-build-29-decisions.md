@@ -13,7 +13,7 @@
 | 6A | Content protection + Contact directory | applied 22 Oct (`20261111120000_contact_directory`), `d3e8ad8` / Console `fe68c6a`, on previews + sclconsole-preview |
 | v34 | Batch 2: credit limits, built-in customers, receipts, 4 reports, Sell speed (migration `20261112120000_builtin_customers`) | applied 22 Oct, done, `e541fc9`, on the 3 previews |
 | v35 | B4 sales sync (migration `20261113120000_sales_sync`) | built `77878d2`; applied 23 Oct, `d5ec497` (with decision 40); on the 3 previews |
-| v36 | Fix-A (open issues A1–A13, below) | in progress (27 Oct) |
+| v36 | Fix-A (open issues A1–A13, below) | migrations removed_devices + roles_everywhere applied on live (27 Oct, run by the owner); on the previews; A8 waits for its "apply" |
 | v37 | Stock control + notification bell (decisions 51–55) | after v36 |
 | v38 | F-0 data gaps (items 41–47), then Finance F-1 screen designs | after v37 (decision 51) |
 
@@ -65,7 +65,7 @@
 - A11. Role is authoritative everywhere (decision 48): seiGEN checks the person's role on tills too (B2 moved here); Office seats show every menu the role allows except Sell, cash and EOD.
 - A12. The built-in Guest role (decision 49).
 - A13. Lock the RPN link and details in the shop app (decision 50).
-- A14. (owner 27 Oct, for v37; approved, not a logic change) The app must not depend on cdnjs at runtime: serve the database engine files (and any other cdnjs or third-party files the app loads at runtime, listed in the report) from our own app address, cached by the service worker as now. Measure first-load time on a throttled 2G profile before and after. (Found in the v36 full suite: sql-wasm.wasm took 12–48 s from cdnjs; the browser tests now use local copies, `test/local-cdn.js`.)
+- A14. (owner 27 Oct, for v37; approved, not a logic change) The app must not depend on cdnjs at runtime: serve the database engine files (and any other cdnjs or third-party files the app loads at runtime, listed in the report) from our own app address, cached by the service worker as now. Measure first-load time on a throttled 2G profile before and after. (Found in the v36 full suite: sql-wasm.wasm took 12–48 s from cdnjs; the browser tests now use local copies, `test/local-cdn.js`.) Files: sql.js 1.10.3 `sql-wasm.js` and `sql-wasm.wasm`, xlsx 0.18.5 `xlsx.full.min.js` (shop apps). Scope includes iTred's Google Fonts (Fraunces, Inter), served from our own address too (owner 27 Oct; weak signal, decision 13).
 
 **Security before production:**
 - B1. The secret phrase is shown in Settings and shared by every device → one phrase per device, hidden.
