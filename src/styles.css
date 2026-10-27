@@ -257,6 +257,9 @@
   .modal-card{background:var(--paper);border-radius:var(--modal-radius);width:min(148mm,92vw);max-width:148mm;max-height:min(210mm,90vh);overflow-y:auto;box-shadow:0 10px 28px rgba(0,0,0,.25);}
   .modal-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
   .modal-body{padding:14px;}
+  /* v36 A2: the closing buttons stay at the bottom edge of a long box (the card scrolls) */
+  .modal-card > .modal-head{position:sticky;top:0;z-index:2;background:var(--paper);}
+  .modal-body > .modal-foot{position:sticky;bottom:-14px;z-index:1;background:var(--paper);margin-bottom:-14px;padding-top:10px;padding-bottom:14px;box-shadow:0 -1px 0 var(--border);}
 
   /* sync reminder toast (sync.js) — slides in just below the header (POS fixes: never over it) */
   .sync-toast{

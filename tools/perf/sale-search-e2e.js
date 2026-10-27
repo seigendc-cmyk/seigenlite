@@ -110,7 +110,8 @@ const median = (a)=>{ const s = a.slice().sort((x,y)=>x-y); return s[Math.floor(
   }
   out.sale_commit_ms = sales;
   out.sale_commit_median_ms = median(sales);
-  if(process.env.B4==="1") out.b4_queued = await page.evaluate(()=>{ try{ return one("SELECT COUNT(*) n FROM b4_outbox").n; }catch(e){ return "n/a"; } });
+  // v36 A3: the obfuscated build has no global one(), so read the number from the Sell screen's sync line
+  if(process.env.B4==="1") out.b4_queued = await page.evaluate(()=>{ const el = document.getElementById("b4SyncText"); const m = el && /^(\d+) waiting to send/.exec(el.textContent); return m? Number(m[1]) : "no sync line"; });
   console.log(JSON.stringify(out));
   await browser.close();
 })().catch(e=>{ console.log(JSON.stringify(Object.assign(out, { error: e.message.split("\n")[0] }))); process.exit(1); });

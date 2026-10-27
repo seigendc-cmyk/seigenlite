@@ -104,11 +104,11 @@
     try{
       const ctrl = (typeof AbortController!=="undefined")? new AbortController() : null;
       if(ctrl) timer = setTimeout(()=>ctrl.abort(), DC_CHECKIN_TIMEOUT_MS);
-      const res = await fetch(DC_CHECKIN_URL, {
+      const post = (extra)=> fetch(DC_CHECKIN_URL, {
         method: "POST",
         headers: { "apikey": DC_ANON_KEY, "Content-Type": "application/json" },
         signal: ctrl? ctrl.signal : undefined,
-        body: JSON.stringify({
+        body: JSON.stringify(Object.assign({
           p_install_id: installId,
           p_shop_secret_phrase: getSetting("secret_phrase",""),
           p_device_code: currentDeviceCode(),
@@ -120,16 +120,33 @@
           p_rpn_hint_id: null,        // RPN linkage (rpn.js) is stored as free text, no UUID tracked locally — see summary
           p_device_key: (typeof deviceKey==="function")? deviceKey() : null,  // terminal.js: tells this device apart from another with the same install ID
           p_app_build: (typeof APP_BUILD!=="undefined")? APP_BUILD : null      // build.js (sw-pwa.js "build: vN"): shared stock waits until every till runs v7+
-        })
+        }, extra))
       });
+      // v36 A1 (decision 34): the vendor id this device last had, so seiGEN can tell a removed device from a new one.
+      // A seiGEN before 20261113180000 doesn't know the field: asked again without it.
+      const last = dcLastVendorId();
+      let res = await post(last? { p_last_vendor_id: last } : {});
+      let errText = null;
+      if(!res.ok){
+        try{ errText = await res.text(); }catch(e){ errText = ""; }
+        if(last && /p_last_vendor_id|PGRST202|Could not find the function|does not exist/i.test(errText||"") && !/DEVICE_REMOVED/.test(errText||"")){
+          res = await post({}); errText = null;
+          if(!res.ok){ try{ errText = await res.text(); }catch(e){ errText = ""; } }
+        }
+      }
       if(!res.ok){
         // e.g. "Shop secret phrase does not match this install" — kept so
         // Settings/Marketing can explain; lock state is left untouched.
         let message = "HTTP " + res.status;
-        try{ const t = await res.text(); try{ const j = JSON.parse(t); message = j.message || t || message; }catch(e){ message = t || message; } }catch(e){}
+        const t = errText||""; try{ const j = JSON.parse(t); message = j.message || t || message; }catch(e){ message = t || message; }
         setSetting("dc_checkin_error", String(message).slice(0, 200));
+        // v36 A1: seiGEN no longer has this device's business. Remembered (and shown) until a check-in goes through
+        // or the device is reset; nothing on the device is cleared here.
+        const removed = /DEVICE_REMOVED/.test(message);
+        if(removed) setSetting("dc_device_removed", "1");
         await persist();
-        return { ok:false, reason:"rejected", message: String(message).slice(0, 200) };
+        if(removed) dcRemovedNotice();
+        return { ok:false, reason: removed? "removed" : "rejected", message: String(message).slice(0, 200) };
       }
       const data = await res.json();
       if(!data || typeof data!=="object") return { ok:false, reason:"network" };
@@ -161,6 +178,7 @@
         try{ window.dispatchEvent(new CustomEvent("scl:minbuild", { detail:{ min_build: Number(data.min_build)||0 } })); }catch(e){}
       }
       setSetting("dc_checkin_error", "");
+      setSetting("dc_device_removed", "");   // v36 A1: seiGEN knows this device again
       setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);
       await persist();
@@ -190,6 +208,8 @@
       if(typeof itredAfterCheckin==="function") itredAfterCheckin();
       // sales sync (b4-sync.js, v35): the first check-in starts B4 (the 90 days of history), then this till's sales and money events.
       if(typeof b4AfterCheckin==="function") b4AfterCheckin().catch(()=>{});
+      // About (help.js, v36 A5): seiGEN's company details and contact numbers, kept for offline, at most once a day.
+      if(typeof aboutAfterCheckin==="function") aboutAfterCheckin();
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —
@@ -210,6 +230,7 @@
     r = r || {};
     if(r.reason==="no_phrase") return "Enter your activation secret phrase (from your RPN or Digital Commerce) in More → Settings.";
     if(r.reason==="offline" || r.reason==="network") return "Connect to the internet, then try again.";
+    if(r.reason==="removed" || /DEVICE_REMOVED/.test(r.message||"")) return DC_REMOVED_TEXT+" (More → About).";
     if(r.reason==="rejected") return /secret phrase does not match/i.test(r.message||"")
       ? "Digital Commerce has a different activation phrase for this device. Check the phrase with your RPN or Digital Commerce and save it again in More → Settings."
       : /registered to another device/i.test(r.message||"")
@@ -226,6 +247,80 @@
   function startDeviceCheckin(){
     deviceCheckin(); // fire-and-forget — boot() never awaits this, so it can never delay startup
     if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", deviceCheckin);
+    if(dcDeviceRemoved()) setTimeout(dcRemovedNotice, 1500);   // v36 A1: shown again at every launch, even offline
+  }
+
+  // ---- removed device (v36 A1, owner decision 34) ----
+  // seiGEN refused this device: the business it belonged to was deleted. The
+  // app says so and offers a reset, with a backup first. Nothing is ever
+  // cleared on its own: only the Reset button (Admin passcode when the till
+  // has one, then a confirmation) clears the device, which then starts setup
+  // as a new install. A new install isn't affected: it sends no vendor id.
+  const DC_REMOVED_TEXT = "This device belongs to a business that no longer exists on seiGEN. Reset this device";
+  function dcLastVendorId(){
+    const v = getSetting("dc_vendor_id","").trim();
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)? v : null;
+  }
+  function dcDeviceRemoved(){ return getSetting("dc_device_removed","")==="1"; }
+  let _dcRemovedShown = false;
+  // once per app session, never on top of another window (tried again shortly)
+  function dcRemovedNotice(){
+    if(!dcDeviceRemoved() || _dcRemovedShown) return;
+    if(typeof document==="undefined" || !document.body || typeof document.querySelector!=="function") return;
+    if(document.querySelector(".modalOverlay")){ setTimeout(dcRemovedNotice, 20000); return; }
+    _dcRemovedShown = true;
+    openDcResetModal();
+  }
+  function dcRemovedCardHtml(){
+    if(!dcDeviceRemoved()) return "";
+    return `<div class="card" id="dcRemovedCard" style="border:2px solid var(--danger,#c92a2a)">
+      <p style="margin:0 0 8px;font-weight:700">${escapeHtml(DC_REMOVED_TEXT)}.</p>
+      <button class="btn btn-primary" id="dcRemovedOpen">Reset this device…</button></div>`;
+  }
+  function wireDcRemovedCard(){
+    const b = document.getElementById("dcRemovedOpen");
+    if(b) b.onclick = ()=> openDcResetModal();
+  }
+  function openDcResetModal(){
+    const admin = typeof hasAdminPasscode==="function" && hasAdminPasscode();
+    let saved = false;
+    const wrap = openModal("This device", `
+      <p id="dcRmText" style="margin-top:0;font-weight:700">${escapeHtml(DC_REMOVED_TEXT)}.</p>
+      <p class="muted" style="font-size:12.5px">This device keeps what's on it, but seiGEN no longer answers it. Resetting clears everything on this device (products, stock, sales, customers, staff and settings) and starts setup again as a new device. Nothing is cleared until you reset.</p>
+      <button class="btn btn-primary" id="dcRmBackup">💾 Save a backup first</button>
+      <p class="muted" id="dcRmSaved" style="font-size:12.5px;margin:6px 0 0"></p>
+      ${admin? `<label for="dcRmPass">Admin passcode (to reset)</label><input class="field" id="dcRmPass" type="password" autocomplete="off">` : ""}
+      <div id="dcRmMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
+      <div class="row" style="margin-top:12px"><button class="btn btn-outline" id="dcRmLater">Not now</button><button class="btn btn-outline" id="dcRmReset">Reset this device</button></div>`);
+    wrap.querySelector("#dcRmLater").onclick = ()=> wrap.remove();
+    wrap.querySelector("#dcRmBackup").onclick = ()=>{
+      downloadDb(`seigen-backup-before-reset-${new Date().toISOString().replace(/[:.]/g,"-")}.sqlite`);
+      saved = true;
+      wrap.querySelector("#dcRmSaved").textContent = "Backup saved to this device's downloads. Keep it somewhere safe before you reset.";
+    };
+    wrap.querySelector("#dcRmReset").onclick = async (e)=>{
+      const btn = e.currentTarget, msg = wrap.querySelector("#dcRmMsg");
+      if(btn.disabled) return;
+      msg.textContent = "";
+      if(admin){
+        btn.disabled = true;
+        let ok = null;
+        try{ ok = await findAdminAsync(wrap.querySelector("#dcRmPass").value); }catch(err){ ok = null; }
+        btn.disabled = false;
+        if(!ok){ msg.textContent = "Incorrect Admin passcode."; return; }
+      }
+      if(!confirm(saved? "Reset this device? Everything on it is cleared and setup starts again."
+        : "You haven't saved a backup. Reset anyway? Everything on this device is cleared and setup starts again.")) return;
+      btn.disabled = true;
+      await dcResetDevice();
+    };
+    return wrap;
+  }
+  // As a new install: an empty database; setup then makes a new install ID.
+  async function dcResetDevice(){
+    db = new SQL.Database(); db.run(SCHEMA); migrate(db);
+    await persist();
+    if(typeof location!=="undefined" && typeof location.reload==="function") location.reload();
   }
 
   // ---- message-card banner (mobile drawer + desktop Sales screen, same

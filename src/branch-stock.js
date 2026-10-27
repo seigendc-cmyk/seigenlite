@@ -119,7 +119,9 @@
       db.run("BEGIN");
       try{
         run("DELETE FROM br_stock");
-        (d.branches||[]).forEach(b=> run("INSERT INTO br_stock(branch_id,name,is_main,json,pulled_ts) VALUES(?,?,?,?,?)",[b.id, b.name, b.is_main?1:0, JSON.stringify(b), ts]));
+        // v36 A12 (decision 49): each branch's selling prices, only for a person with "branch_prices" (the Guest)
+        (d.branches||[]).forEach(b=> run("INSERT INTO br_stock(branch_id,name,is_main,json,pulled_ts) VALUES(?,?,?,?,?)",[b.id, b.name, b.is_main?1:0,
+          JSON.stringify(d.prices && d.prices[b.id]? Object.assign({}, b, { prices:d.prices[b.id] }) : b), ts]));
         db.run("COMMIT");
       }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
       setSetting("bs_pulled_ts", ts);
@@ -402,9 +404,15 @@
       <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills.${main? "" : " Quantities only."}</p>`);
   }
 
+  // v36 A12: under a product, the branch's selling prices when seiGEN sent them (a Guest; never costs)
+  function bsPriceHtml(b, v){
+    if(!b.prices || !v.cat_uid || !b.prices[v.cat_uid]) return "";
+    const p = b.prices[v.cat_uid], m = (x)=> x==null || x===""? "—" : currency+Number(x).toFixed(2);
+    return `<div class="pmeta bs-price">${escapeHtml(m(p.price))} · ${escapeHtml(m(p.wholesale==null? p.price : p.wholesale))}</div>`;   // no wholesale price: retail applies
+  }
   function renderBranchStock(main){
-    const isMain = !isRemote();
-    let tab = getSetting("bs_tab","stock"), branchSel = getSetting("bs_branch",""), query = "", dquery = "", msg = "", gridItems = [];
+    const isMain = !isRemote(), guestSeat = getSetting("seat_guest","")==="1";
+    let tab = guestSeat? "stock" : getSetting("bs_tab","stock"), branchSel = getSetting("bs_branch",""), query = "", dquery = "", msg = "", gridItems = [];
     function stockHtml(){
       const mineId = bsMyBranchUuid();
       const list = isMain? bsBranches() : bsOtherBranches();
@@ -428,11 +436,11 @@
             const r = qtyOf(b, v);
             const t = r && r.t && Object.keys(r.t).length>1?   /* every branch since 20261106120000 (§R5) */ `<div class="pmeta bs-tills">${Object.keys(r.t).sort().map(k=>escapeHtml(k)+": "+escapeHtml(String(r.t[k]))).join(" · ")}</div>` : "";
             const low = r && r.qty<=(r.low||0);
-            return `<td class="bs-col${low? " stock-low" : ""}">${r? escapeHtml(String(r.qty)) : "—"}${t}</td>`; }).join("")}</tr>`).join("")
+            return `<td class="bs-col${low? " stock-low" : ""}">${r? escapeHtml(String(r.qty)) : "—"}${t}${bsPriceHtml(b, v)}</td>`; }).join("")}</tr>`).join("")
           : `<tr><td colspan="${shown.length+1}" class="muted">No products match.</td></tr>`}
         </table></div>
         ${shown.map(tillsLine).join("")}${value}
-        <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills' own figures; under it, each till's own count. Quantities only${isMain? "" : ": costs are kept on the main branch"}.</p>`;
+        <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills' own figures; under it, each till's own count. ${shown.some(b=>b.prices)? "Under it, that branch's selling prices (Retail · Wholesale) from seiGEN. Never costs" : "Quantities only"+(isMain? "" : ": costs are kept on the main branch")}.</p>`;
     }
     function dispatchesHtml(){
       const all_ = bsDispatches();
@@ -454,6 +462,7 @@
       const body = main.querySelector("#bsBody");
       if(!body || typeof bvOnOpen!=="function") return;
       body.querySelectorAll("[data-bvdn]").forEach(el=> bvOnOpen(el, ()=> openDnCard(el.dataset.bvdn)));
+      if(guestSeat) return;   // v36 A12: a Guest's seat has no documents (item ledger, DN cards)
       wireItemLedgerOpeners(body, (i)=>{ const v = gridItems[+i]; return v? { cat_uid:v.cat_uid, sku:v.code, name:v.name } : null; });
     }
     function draw(){
@@ -462,7 +471,7 @@
       main.innerHTML = `
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
           <button class="btn btn-sm ${tab==="stock"? "btn-primary" : "btn-outline"}" id="bsTabStock">Stock</button>
-          <button class="btn btn-sm ${tab==="dispatches"? "btn-primary" : "btn-outline"}" id="bsTabDisp">Dispatches</button>
+          <button class="btn btn-sm ${tab==="dispatches"? "btn-primary" : "btn-outline"}" id="bsTabDisp"${guestSeat? " hidden" : ""}>Dispatches</button>
           <button class="btn btn-sm btn-outline" id="bsRefresh">🔄 Refresh</button>
           <span class="muted" id="bsStatus" style="font-size:12px">${escapeHtml(msg || (pulled? (isOnline()? "Loaded " : "Offline: the copy from ")+new Date(pulled).toLocaleString() : "Not loaded yet"))}</span>
         </div>

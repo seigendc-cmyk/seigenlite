@@ -42,6 +42,9 @@ const OBFUSCATOR_OPTIONS = {
   renameGlobals: false, // false — avoid breaking anything that relies on global scope (e.g. window.XLSX, sql.js globals)
   selfDefending: true,
   sourceMap: false, // explicitly no source map — a source map would completely defeat the purpose
+  // Repeatable builds (v36 A7): a fixed seed, so the same source always gives
+  // byte-identical bundles. Without it every rebuild scrambles differently.
+  seed: 20261027,
 };
 // Code scrambling for iTred and the Console (owner decision 9): the same as
 // above, minus control-flow flattening, which slows hot code (search, list

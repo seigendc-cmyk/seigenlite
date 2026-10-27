@@ -572,7 +572,9 @@
       "ALTER TABLE sales ADD COLUMN credit_scope TEXT DEFAULT ''",
       "ALTER TABLE sales ADD COLUMN b4_hold_uid TEXT",
       "ALTER TABLE payouts ADD COLUMN staff_id TEXT DEFAULT ''",
-      "ALTER TABLE credit_payments ADD COLUMN staff_id TEXT DEFAULT ''"
+      "ALTER TABLE credit_payments ADD COLUMN staff_id TEXT DEFAULT ''",
+      // v36 A12 (decision 49): a Guest's end date, from seiGEN (empty: no end date)
+      "ALTER TABLE shop_staff ADD COLUMN guest_until TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}

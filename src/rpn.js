@@ -20,13 +20,20 @@
   registerSyncType("support_task", { table:"support_task", paused:true });
 
   function getRpnLink(){
-    return {
+    const r = {
       rpn_name: getSetting("rpn_name",""),
       rpn_code: getSetting("rpn_code",""),
       rpn_whatsapp: getSetting("rpn_whatsapp",""),
       city_area: getSetting("rpn_city_area",""),
     };
+    // v36 A13 (decision 50): once linked, seiGEN's details of the RPN are the ones used (read-only here)
+    if(rpnLocked()){
+      const n = getSetting("rpn_link_name",""), ff = getSetting("rpn_link_ff",""), ph = getSetting("rpn_link_phone","");
+      if(n) r.rpn_name = n; if(ff) r.rpn_code = ff; if(ph) r.rpn_whatsapp = ph;
+    }
+    return r;
   }
+  function rpnLocked(){ return getSetting("rpn_link_state","")==="linked"; }
   function hasRpnLink(){
     const r = getRpnLink();
     return !!(r.rpn_name || r.rpn_code || r.rpn_whatsapp || r.city_area);
@@ -148,9 +155,10 @@
     setSetting("rpn_status_ts", new Date().toISOString());
     if(r.data.linked){
       setSetting("rpn_link_state", "linked"); setSetting("rpn_link_name", r.data.rpn_name||""); setSetting("rpn_link_ff", r.data.field_force_no||"");
+      setSetting("rpn_link_phone", r.data.phone||"");   // v36 A13: seiGEN 20261114120000 on
       setSetting("rpn_link_pin", ""); setSetting("rpn_link_message", "");
     } else if(getSetting("rpn_link_state","")==="linked"){
-      setSetting("rpn_link_state", ""); setSetting("rpn_link_name", ""); setSetting("rpn_link_ff", "");
+      setSetting("rpn_link_state", ""); setSetting("rpn_link_name", ""); setSetting("rpn_link_ff", ""); setSetting("rpn_link_phone", "");
     }
     await persist();
   }
@@ -173,7 +181,7 @@
   function rpnLinkStatusHtml(){
     const s = rpnLinkState();
     if(s.state==="linked") return `<p id="rpnLinkStatus" data-state="linked"><b>✓ ${escapeHtml(rpnOnboardedByText())}</b></p>
-      <p class="muted">To change your RPN, ask Digital Commerce.</p>`;
+      <p class="muted">To change your RPN, contact Digital Commerce.</p>`;
     if(!s.state) return "";
     const bad = s.state==="error" || s.state==="conflict";
     return `<p id="rpnLinkStatus" data-state="${escapeHtml(s.state)}" class="${bad? "" : "muted"}" style="${bad? "color:#b42318" : ""}">${escapeHtml(s.message)}</p>`;
@@ -191,9 +199,11 @@
           ${rpnVerifyFieldsHtml("sRpnV")}
           <button class="btn btn-primary" id="linkRpnBtn" style="margin-top:12px">Link RPN</button>`}
         <h4 style="margin-top:18px">RPN contact (for Support)</h4>
+        ${linked? `<div id="rpnDetails" class="box" style="font-size:13px">${(()=>{ const r = getRpnLink(); return `<div><b>${escapeHtml(r.rpn_name||"")}</b>${r.rpn_code? " ("+escapeHtml(r.rpn_code)+")" : ""}</div>${r.rpn_whatsapp? `<div>WhatsApp: ${escapeHtml(r.rpn_whatsapp)}</div>` : ""}${r.city_area? `<div>${escapeHtml(r.city_area)}</div>` : ""}`; })()}
+          <p class="muted" style="margin:6px 0 0">From seiGEN. To change your RPN, contact Digital Commerce.</p></div>` : `
         <p class="muted">Your RPN's name and WhatsApp number, for the Support button. Stored on this device as entered.</p>
         ${rpnFieldsHtml("sRpn", getRpnLink())}
-        <button class="btn btn-outline" id="saveRpnLink" style="margin-top:12px">Save contact</button>
+        <button class="btn btn-outline" id="saveRpnLink" style="margin-top:12px">Save contact</button>`}
       </div>`;
   }
   function wireRpnSection(){

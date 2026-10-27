@@ -577,7 +577,7 @@
     const mine = t && t.serial===lic.serial && t.till_role ? t : null;
     const plan = (mine && mine.plan_name) || LICENCE_PLAN_NAMES[lic.plan];
     if(!plan) return "";   // a licence issued before price plans
-    let s = plan+" plan";
+    let s = plan;   // v36 A4: the name exactly as set in the Console ("Growth Plan"), no word added
     if(mine){
       s += " · "+(LICENCE_ROLE_TEXT[mine.till_role]||mine.till_role)+" · "+mine.currency+" "+Number(mine.unit_fee).toFixed(2)+" per 30 days";
       if(Number(mine.days)!==30) s += " (this licence: "+mine.currency+" "+Number(mine.amount).toFixed(2)+" for "+mine.days+" days)";

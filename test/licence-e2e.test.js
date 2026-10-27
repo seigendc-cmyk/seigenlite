@@ -461,7 +461,7 @@ async function trialByLink(d, issuedMs, untilMs){
       await openAbout(d);
       assert.match(await p.textContent("#licenceLine"), new RegExp("Licensed until .* \\(licence #"+first.serial+"\\)"));
       await p.waitForFunction(()=> /per 30 days/.test(document.getElementById("licencePlanLine").textContent), null, { timeout:20000 });
-      assert.strictEqual((await p.textContent("#licencePlanLine")).trim(), "Business plan · main till · USD 15.00 per 30 days.");
+      assert.strictEqual((await p.textContent("#licencePlanLine")).trim(), "Business · main till · USD 15.00 per 30 days.");
       await shot(d, "15-about-licensed");
       await p.click("#licenceRenew"); await p.waitForSelector(".modalOverlay #actCode");
       await shot(d, "16-about-enter-new-licence");
@@ -476,7 +476,7 @@ async function trialByLink(d, issuedMs, untilMs){
       await openAbout(d);
       assert.match(await p.textContent("#licenceLine"), new RegExp("\\(licence #"+third.serial+"\\)"));
       await p.waitForFunction(()=> /365 days/.test(document.getElementById("licencePlanLine").textContent), null, { timeout:20000 });
-      assert.strictEqual((await p.textContent("#licencePlanLine")).trim(), "Business plan · main till · USD 15.00 per 30 days (this licence: USD 182.50 for 365 days).");
+      assert.strictEqual((await p.textContent("#licencePlanLine")).trim(), "Business · main till · USD 15.00 per 30 days (this licence: USD 182.50 for 365 days).");
       await shot(d, "17-activated-short-code");
       assert.strictEqual((await sq("select status, redeemed_via from cl_licences where serial=$1", [third.serial]))[0].status, "redeemed");
       await p.click("#licenceRenew"); await p.waitForSelector(".modalOverlay #actCode");

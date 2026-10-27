@@ -519,14 +519,16 @@
   }
 
   // ---- the indicator ----
-  function b4WaitingCount(){ try{ return one("SELECT COUNT(*) AS n FROM b4_outbox WHERE status='queued'").n; }catch(e){ return 0; } }
+  function b4WaitingCount(){ try{ return Number(one("SELECT COUNT(*) AS n FROM b4_outbox WHERE status='queued'").n)||0; }catch(e){ return 0; } }
+  // v36 A3: always a number (0 included) and the last-sent time, so the line is never blank or "All sent".
   function b4StatusText(){
     const n = b4WaitingCount(), t = getSetting("b4_last_sent_ts","");
-    const when = t? new Date(t).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }) : "";
-    return (n? n+" waiting to send" : "All sent") + (when? " · last sent "+when : "");
+    const d = t? new Date(t) : null;
+    const when = d && !isNaN(d)? d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }) : "";
+    return n+" waiting to send · "+(when? "last sent "+when : "not sent yet");
   }
   function b4IndicatorHtml(){
-    if(!b4Started()) return "";
+    if(!b4Registered()) return "";   // a till not on seiGEN has no sales sync
     const n = b4WaitingCount();
     return `<button type="button" class="b4-sync${n? " b4-waiting" : ""}" id="b4SyncInd" title="Sales sync with seiGEN" style="display:block;width:100%;text-align:left;background:none;border:0;padding:2px 2px 6px;font-size:12px;color:var(--ink-soft,#667);cursor:pointer">
       <span aria-hidden="true">${n? "⏳" : "✓"}</span> <span id="b4SyncText">${escapeHtml(b4StatusText())}</span></button>`;

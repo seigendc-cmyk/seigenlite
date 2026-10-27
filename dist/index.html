@@ -272,6 +272,9 @@
   .modal-card{background:var(--paper);border-radius:var(--modal-radius);width:min(148mm,92vw);max-width:148mm;max-height:min(210mm,90vh);overflow-y:auto;box-shadow:0 10px 28px rgba(0,0,0,.25);}
   .modal-head{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
   .modal-body{padding:14px;}
+  /* v36 A2: the closing buttons stay at the bottom edge of a long box (the card scrolls) */
+  .modal-card > .modal-head{position:sticky;top:0;z-index:2;background:var(--paper);}
+  .modal-body > .modal-foot{position:sticky;bottom:-14px;z-index:1;background:var(--paper);margin-bottom:-14px;padding-top:10px;padding-bottom:14px;box-shadow:0 -1px 0 var(--border);}
 
   /* sync reminder toast (sync.js) — slides in just below the header (POS fixes: never over it) */
   .sync-toast{
@@ -417,7 +420,7 @@ input, textarea, select, [contenteditable], [contenteditable] *, .selectable, .s
 <script>
 !function(i){"use strict";var v=function(r){var t,n=new Float64Array(16);if(r)for(t=0;t<r.length;t++)n[t]=r[t];return n},h=function(){throw new Error("no PRNG")},o=new Uint8Array(16),n=new Uint8Array(32);n[0]=9;var s=v(),u=v([1]),p=v([56129,1]),c=v([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),y=v([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),e=v([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),a=v([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),l=v([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function f(r,t,n,e){r[t]=n>>24&255,r[t+1]=n>>16&255,r[t+2]=n>>8&255,r[t+3]=255&n,r[t+4]=e>>24&255,r[t+5]=e>>16&255,r[t+6]=e>>8&255,r[t+7]=255&e}function w(r,t,n,e,o){var i,h=0;for(i=0;i<o;i++)h|=r[t+i]^n[e+i];return(1&h-1>>>8)-1}function b(r,t,n,e){return w(r,t,n,e,16)}function g(r,t,n,e){return w(r,t,n,e,32)}function A(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=i,d=h,E=a,x=f,M=s,m=u,B=c,S=y,k=l,K=w,Y=v,L=p,T=b,z=g,R=A,P=_,N=0;N<20;N+=2)U^=(o=(T^=(o=(k^=(o=(M^=(o=U+T|0)<<7|o>>>25)+U|0)<<9|o>>>23)+M|0)<<13|o>>>19)+k|0)<<18|o>>>14,m^=(o=(d^=(o=(z^=(o=(K^=(o=m+d|0)<<7|o>>>25)+m|0)<<9|o>>>23)+K|0)<<13|o>>>19)+z|0)<<18|o>>>14,Y^=(o=(B^=(o=(E^=(o=(R^=(o=Y+B|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+R|0)<<13|o>>>19)+E|0)<<18|o>>>14,P^=(o=(L^=(o=(S^=(o=(x^=(o=P+L|0)<<7|o>>>25)+P|0)<<9|o>>>23)+x|0)<<13|o>>>19)+S|0)<<18|o>>>14,U^=(o=(x^=(o=(E^=(o=(d^=(o=U+x|0)<<7|o>>>25)+U|0)<<9|o>>>23)+d|0)<<13|o>>>19)+E|0)<<18|o>>>14,m^=(o=(M^=(o=(S^=(o=(B^=(o=m+M|0)<<7|o>>>25)+m|0)<<9|o>>>23)+B|0)<<13|o>>>19)+S|0)<<18|o>>>14,Y^=(o=(K^=(o=(k^=(o=(L^=(o=Y+K|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+L|0)<<13|o>>>19)+k|0)<<18|o>>>14,P^=(o=(R^=(o=(z^=(o=(T^=(o=P+R|0)<<7|o>>>25)+P|0)<<9|o>>>23)+T|0)<<13|o>>>19)+z|0)<<18|o>>>14;U=U+i|0,d=d+h|0,E=E+a|0,x=x+f|0,M=M+s|0,m=m+u|0,B=B+c|0,S=S+y|0,k=k+l|0,K=K+w|0,Y=Y+v|0,L=L+p|0,T=T+b|0,z=z+g|0,R=R+A|0,P=P+_|0,r[0]=U>>>0&255,r[1]=U>>>8&255,r[2]=U>>>16&255,r[3]=U>>>24&255,r[4]=d>>>0&255,r[5]=d>>>8&255,r[6]=d>>>16&255,r[7]=d>>>24&255,r[8]=E>>>0&255,r[9]=E>>>8&255,r[10]=E>>>16&255,r[11]=E>>>24&255,r[12]=x>>>0&255,r[13]=x>>>8&255,r[14]=x>>>16&255,r[15]=x>>>24&255,r[16]=M>>>0&255,r[17]=M>>>8&255,r[18]=M>>>16&255,r[19]=M>>>24&255,r[20]=m>>>0&255,r[21]=m>>>8&255,r[22]=m>>>16&255,r[23]=m>>>24&255,r[24]=B>>>0&255,r[25]=B>>>8&255,r[26]=B>>>16&255,r[27]=B>>>24&255,r[28]=S>>>0&255,r[29]=S>>>8&255,r[30]=S>>>16&255,r[31]=S>>>24&255,r[32]=k>>>0&255,r[33]=k>>>8&255,r[34]=k>>>16&255,r[35]=k>>>24&255,r[36]=K>>>0&255,r[37]=K>>>8&255,r[38]=K>>>16&255,r[39]=K>>>24&255,r[40]=Y>>>0&255,r[41]=Y>>>8&255,r[42]=Y>>>16&255,r[43]=Y>>>24&255,r[44]=L>>>0&255,r[45]=L>>>8&255,r[46]=L>>>16&255,r[47]=L>>>24&255,r[48]=T>>>0&255,r[49]=T>>>8&255,r[50]=T>>>16&255,r[51]=T>>>24&255,r[52]=z>>>0&255,r[53]=z>>>8&255,r[54]=z>>>16&255,r[55]=z>>>24&255,r[56]=R>>>0&255,r[57]=R>>>8&255,r[58]=R>>>16&255,r[59]=R>>>24&255,r[60]=P>>>0&255,r[61]=P>>>8&255,r[62]=P>>>16&255,r[63]=P>>>24&255}(r,t,n,e)}function _(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=0;U<20;U+=2)i^=(o=(b^=(o=(l^=(o=(s^=(o=i+b|0)<<7|o>>>25)+i|0)<<9|o>>>23)+s|0)<<13|o>>>19)+l|0)<<18|o>>>14,u^=(o=(h^=(o=(g^=(o=(w^=(o=u+h|0)<<7|o>>>25)+u|0)<<9|o>>>23)+w|0)<<13|o>>>19)+g|0)<<18|o>>>14,v^=(o=(c^=(o=(a^=(o=(A^=(o=v+c|0)<<7|o>>>25)+v|0)<<9|o>>>23)+A|0)<<13|o>>>19)+a|0)<<18|o>>>14,_^=(o=(p^=(o=(y^=(o=(f^=(o=_+p|0)<<7|o>>>25)+_|0)<<9|o>>>23)+f|0)<<13|o>>>19)+y|0)<<18|o>>>14,i^=(o=(f^=(o=(a^=(o=(h^=(o=i+f|0)<<7|o>>>25)+i|0)<<9|o>>>23)+h|0)<<13|o>>>19)+a|0)<<18|o>>>14,u^=(o=(s^=(o=(y^=(o=(c^=(o=u+s|0)<<7|o>>>25)+u|0)<<9|o>>>23)+c|0)<<13|o>>>19)+y|0)<<18|o>>>14,v^=(o=(w^=(o=(l^=(o=(p^=(o=v+w|0)<<7|o>>>25)+v|0)<<9|o>>>23)+p|0)<<13|o>>>19)+l|0)<<18|o>>>14,_^=(o=(A^=(o=(g^=(o=(b^=(o=_+A|0)<<7|o>>>25)+_|0)<<9|o>>>23)+b|0)<<13|o>>>19)+g|0)<<18|o>>>14;r[0]=i>>>0&255,r[1]=i>>>8&255,r[2]=i>>>16&255,r[3]=i>>>24&255,r[4]=u>>>0&255,r[5]=u>>>8&255,r[6]=u>>>16&255,r[7]=u>>>24&255,r[8]=v>>>0&255,r[9]=v>>>8&255,r[10]=v>>>16&255,r[11]=v>>>24&255,r[12]=_>>>0&255,r[13]=_>>>8&255,r[14]=_>>>16&255,r[15]=_>>>24&255,r[16]=c>>>0&255,r[17]=c>>>8&255,r[18]=c>>>16&255,r[19]=c>>>24&255,r[20]=y>>>0&255,r[21]=y>>>8&255,r[22]=y>>>16&255,r[23]=y>>>24&255,r[24]=l>>>0&255,r[25]=l>>>8&255,r[26]=l>>>16&255,r[27]=l>>>24&255,r[28]=w>>>0&255,r[29]=w>>>8&255,r[30]=w>>>16&255,r[31]=w>>>24&255}(r,t,n,e)}var U=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function d(r,t,n,e,o,i,h){var a,f,s=new Uint8Array(16),u=new Uint8Array(64);for(f=0;f<16;f++)s[f]=0;for(f=0;f<8;f++)s[f]=i[f];for(;64<=o;){for(A(u,s,h,U),f=0;f<64;f++)r[t+f]=n[e+f]^u[f];for(a=1,f=8;f<16;f++)a=a+(255&s[f])|0,s[f]=255&a,a>>>=8;o-=64,t+=64,e+=64}if(0<o)for(A(u,s,h,U),f=0;f<o;f++)r[t+f]=n[e+f]^u[f];return 0}function E(r,t,n,e,o){var i,h,a=new Uint8Array(16),f=new Uint8Array(64);for(h=0;h<16;h++)a[h]=0;for(h=0;h<8;h++)a[h]=e[h];for(;64<=n;){for(A(f,a,o,U),h=0;h<64;h++)r[t+h]=f[h];for(i=1,h=8;h<16;h++)i=i+(255&a[h])|0,a[h]=255&i,i>>>=8;n-=64,t+=64}if(0<n)for(A(f,a,o,U),h=0;h<n;h++)r[t+h]=f[h];return 0}function x(r,t,n,e,o){var i=new Uint8Array(32);_(i,e,o,U);for(var h=new Uint8Array(8),a=0;a<8;a++)h[a]=e[a+16];return E(r,t,n,h,i)}function M(r,t,n,e,o,i,h){var a=new Uint8Array(32);_(a,i,h,U);for(var f=new Uint8Array(8),s=0;s<8;s++)f[s]=i[s+16];return d(r,t,n,e,o,f,a)}var m=function(r){var t,n,e,o,i,h,a,f;this.buffer=new Uint8Array(16),this.r=new Uint16Array(10),this.h=new Uint16Array(10),this.pad=new Uint16Array(8),this.leftover=0,t=255&r[this.fin=0]|(255&r[1])<<8,this.r[0]=8191&t,n=255&r[2]|(255&r[3])<<8,this.r[1]=8191&(t>>>13|n<<3),e=255&r[4]|(255&r[5])<<8,this.r[2]=7939&(n>>>10|e<<6),o=255&r[6]|(255&r[7])<<8,this.r[3]=8191&(e>>>7|o<<9),i=255&r[8]|(255&r[9])<<8,this.r[4]=255&(o>>>4|i<<12),this.r[5]=i>>>1&8190,h=255&r[10]|(255&r[11])<<8,this.r[6]=8191&(i>>>14|h<<2),a=255&r[12]|(255&r[13])<<8,this.r[7]=8065&(h>>>11|a<<5),f=255&r[14]|(255&r[15])<<8,this.r[8]=8191&(a>>>8|f<<8),this.r[9]=f>>>5&127,this.pad[0]=255&r[16]|(255&r[17])<<8,this.pad[1]=255&r[18]|(255&r[19])<<8,this.pad[2]=255&r[20]|(255&r[21])<<8,this.pad[3]=255&r[22]|(255&r[23])<<8,this.pad[4]=255&r[24]|(255&r[25])<<8,this.pad[5]=255&r[26]|(255&r[27])<<8,this.pad[6]=255&r[28]|(255&r[29])<<8,this.pad[7]=255&r[30]|(255&r[31])<<8};function B(r,t,n,e,o,i){var h=new m(i);return h.update(n,e,o),h.finish(r,t),0}function S(r,t,n,e,o,i){var h=new Uint8Array(16);return B(h,0,n,e,o,i),b(r,t,h,0)}function k(r,t,n,e,o){var i;if(n<32)return-1;for(M(r,0,t,0,n,e,o),B(r,16,r,32,n-32,r),i=0;i<16;i++)r[i]=0;return 0}function K(r,t,n,e,o){var i,h=new Uint8Array(32);if(n<32)return-1;if(x(h,0,32,e,o),0!==S(t,16,t,32,n-32,h))return-1;for(M(r,0,t,0,n,e,o),i=0;i<32;i++)r[i]=0;return 0}function Y(r,t){var n;for(n=0;n<16;n++)r[n]=0|t[n]}function L(r){var t,n,e=1;for(t=0;t<16;t++)n=r[t]+e+65535,e=Math.floor(n/65536),r[t]=n-65536*e;r[0]+=e-1+37*(e-1)}function T(r,t,n){for(var e,o=~(n-1),i=0;i<16;i++)e=o&(r[i]^t[i]),r[i]^=e,t[i]^=e}function z(r,t){var n,e,o,i=v(),h=v();for(n=0;n<16;n++)h[n]=t[n];for(L(h),L(h),L(h),e=0;e<2;e++){for(i[0]=h[0]-65517,n=1;n<15;n++)i[n]=h[n]-65535-(i[n-1]>>16&1),i[n-1]&=65535;i[15]=h[15]-32767-(i[14]>>16&1),o=i[15]>>16&1,i[14]&=65535,T(h,i,1-o)}for(n=0;n<16;n++)r[2*n]=255&h[n],r[2*n+1]=h[n]>>8}function R(r,t){var n=new Uint8Array(32),e=new Uint8Array(32);return z(n,r),z(e,t),g(n,0,e,0)}function P(r){var t=new Uint8Array(32);return z(t,r),1&t[0]}function N(r,t){var n;for(n=0;n<16;n++)r[n]=t[2*n]+(t[2*n+1]<<8);r[15]&=32767}function O(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]+n[e]}function C(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]-n[e]}function F(r,t,n){var e,o,i=0,h=0,a=0,f=0,s=0,u=0,c=0,y=0,l=0,w=0,v=0,p=0,b=0,g=0,A=0,_=0,U=0,d=0,E=0,x=0,M=0,m=0,B=0,S=0,k=0,K=0,Y=0,L=0,T=0,z=0,R=0,P=n[0],N=n[1],O=n[2],C=n[3],F=n[4],I=n[5],Z=n[6],G=n[7],q=n[8],D=n[9],V=n[10],X=n[11],j=n[12],H=n[13],J=n[14],Q=n[15];i+=(e=t[0])*P,h+=e*N,a+=e*O,f+=e*C,s+=e*F,u+=e*I,c+=e*Z,y+=e*G,l+=e*q,w+=e*D,v+=e*V,p+=e*X,b+=e*j,g+=e*H,A+=e*J,_+=e*Q,h+=(e=t[1])*P,a+=e*N,f+=e*O,s+=e*C,u+=e*F,c+=e*I,y+=e*Z,l+=e*G,w+=e*q,v+=e*D,p+=e*V,b+=e*X,g+=e*j,A+=e*H,_+=e*J,U+=e*Q,a+=(e=t[2])*P,f+=e*N,s+=e*O,u+=e*C,c+=e*F,y+=e*I,l+=e*Z,w+=e*G,v+=e*q,p+=e*D,b+=e*V,g+=e*X,A+=e*j,_+=e*H,U+=e*J,d+=e*Q,f+=(e=t[3])*P,s+=e*N,u+=e*O,c+=e*C,y+=e*F,l+=e*I,w+=e*Z,v+=e*G,p+=e*q,b+=e*D,g+=e*V,A+=e*X,_+=e*j,U+=e*H,d+=e*J,E+=e*Q,s+=(e=t[4])*P,u+=e*N,c+=e*O,y+=e*C,l+=e*F,w+=e*I,v+=e*Z,p+=e*G,b+=e*q,g+=e*D,A+=e*V,_+=e*X,U+=e*j,d+=e*H,E+=e*J,x+=e*Q,u+=(e=t[5])*P,c+=e*N,y+=e*O,l+=e*C,w+=e*F,v+=e*I,p+=e*Z,b+=e*G,g+=e*q,A+=e*D,_+=e*V,U+=e*X,d+=e*j,E+=e*H,x+=e*J,M+=e*Q,c+=(e=t[6])*P,y+=e*N,l+=e*O,w+=e*C,v+=e*F,p+=e*I,b+=e*Z,g+=e*G,A+=e*q,_+=e*D,U+=e*V,d+=e*X,E+=e*j,x+=e*H,M+=e*J,m+=e*Q,y+=(e=t[7])*P,l+=e*N,w+=e*O,v+=e*C,p+=e*F,b+=e*I,g+=e*Z,A+=e*G,_+=e*q,U+=e*D,d+=e*V,E+=e*X,x+=e*j,M+=e*H,m+=e*J,B+=e*Q,l+=(e=t[8])*P,w+=e*N,v+=e*O,p+=e*C,b+=e*F,g+=e*I,A+=e*Z,_+=e*G,U+=e*q,d+=e*D,E+=e*V,x+=e*X,M+=e*j,m+=e*H,B+=e*J,S+=e*Q,w+=(e=t[9])*P,v+=e*N,p+=e*O,b+=e*C,g+=e*F,A+=e*I,_+=e*Z,U+=e*G,d+=e*q,E+=e*D,x+=e*V,M+=e*X,m+=e*j,B+=e*H,S+=e*J,k+=e*Q,v+=(e=t[10])*P,p+=e*N,b+=e*O,g+=e*C,A+=e*F,_+=e*I,U+=e*Z,d+=e*G,E+=e*q,x+=e*D,M+=e*V,m+=e*X,B+=e*j,S+=e*H,k+=e*J,K+=e*Q,p+=(e=t[11])*P,b+=e*N,g+=e*O,A+=e*C,_+=e*F,U+=e*I,d+=e*Z,E+=e*G,x+=e*q,M+=e*D,m+=e*V,B+=e*X,S+=e*j,k+=e*H,K+=e*J,Y+=e*Q,b+=(e=t[12])*P,g+=e*N,A+=e*O,_+=e*C,U+=e*F,d+=e*I,E+=e*Z,x+=e*G,M+=e*q,m+=e*D,B+=e*V,S+=e*X,k+=e*j,K+=e*H,Y+=e*J,L+=e*Q,g+=(e=t[13])*P,A+=e*N,_+=e*O,U+=e*C,d+=e*F,E+=e*I,x+=e*Z,M+=e*G,m+=e*q,B+=e*D,S+=e*V,k+=e*X,K+=e*j,Y+=e*H,L+=e*J,T+=e*Q,A+=(e=t[14])*P,_+=e*N,U+=e*O,d+=e*C,E+=e*F,x+=e*I,M+=e*Z,m+=e*G,B+=e*q,S+=e*D,k+=e*V,K+=e*X,Y+=e*j,L+=e*H,T+=e*J,z+=e*Q,_+=(e=t[15])*P,h+=38*(d+=e*O),a+=38*(E+=e*C),f+=38*(x+=e*F),s+=38*(M+=e*I),u+=38*(m+=e*Z),c+=38*(B+=e*G),y+=38*(S+=e*q),l+=38*(k+=e*D),w+=38*(K+=e*V),v+=38*(Y+=e*X),p+=38*(L+=e*j),b+=38*(T+=e*H),g+=38*(z+=e*J),A+=38*(R+=e*Q),i=(e=(i+=38*(U+=e*N))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i=(e=(i+=o-1+37*(o-1))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i+=o-1+37*(o-1),r[0]=i,r[1]=h,r[2]=a,r[3]=f,r[4]=s,r[5]=u,r[6]=c,r[7]=y,r[8]=l,r[9]=w,r[10]=v,r[11]=p,r[12]=b,r[13]=g,r[14]=A,r[15]=_}function I(r,t){F(r,t,t)}function Z(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=253;0<=n;n--)I(e,e),2!==n&&4!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function G(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=250;0<=n;n--)I(e,e),1!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function q(r,t,n){var e,o,i=new Uint8Array(32),h=new Float64Array(80),a=v(),f=v(),s=v(),u=v(),c=v(),y=v();for(o=0;o<31;o++)i[o]=t[o];for(i[31]=127&t[31]|64,i[0]&=248,N(h,n),o=0;o<16;o++)f[o]=h[o],u[o]=a[o]=s[o]=0;for(a[0]=u[0]=1,o=254;0<=o;--o)T(a,f,e=i[o>>>3]>>>(7&o)&1),T(s,u,e),O(c,a,s),C(a,a,s),O(s,f,u),C(f,f,u),I(u,c),I(y,a),F(a,s,a),F(s,f,c),O(c,a,s),C(a,a,s),I(f,a),C(s,u,y),F(a,s,p),O(a,a,u),F(s,s,a),F(a,u,y),F(u,f,h),I(f,c),T(a,f,e),T(s,u,e);for(o=0;o<16;o++)h[o+16]=a[o],h[o+32]=s[o],h[o+48]=f[o],h[o+64]=u[o];var l=h.subarray(32),w=h.subarray(16);return Z(l,l),F(w,w,l),z(r,w),0}function D(r,t){return q(r,t,n)}function V(r,t){return h(t,32),D(r,t)}function X(r,t,n){var e=new Uint8Array(32);return q(e,n,t),_(r,o,e,U)}m.prototype.blocks=function(r,t,n){for(var e,o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d=this.fin?0:2048,E=this.h[0],x=this.h[1],M=this.h[2],m=this.h[3],B=this.h[4],S=this.h[5],k=this.h[6],K=this.h[7],Y=this.h[8],L=this.h[9],T=this.r[0],z=this.r[1],R=this.r[2],P=this.r[3],N=this.r[4],O=this.r[5],C=this.r[6],F=this.r[7],I=this.r[8],Z=this.r[9];16<=n;)y=c=0,y+=(E+=8191&(e=255&r[t+0]|(255&r[t+1])<<8))*T,y+=(x+=8191&(e>>>13|(o=255&r[t+2]|(255&r[t+3])<<8)<<3))*(5*Z),y+=(M+=8191&(o>>>10|(i=255&r[t+4]|(255&r[t+5])<<8)<<6))*(5*I),y+=(m+=8191&(i>>>7|(h=255&r[t+6]|(255&r[t+7])<<8)<<9))*(5*F),c=(y+=(B+=8191&(h>>>4|(a=255&r[t+8]|(255&r[t+9])<<8)<<12))*(5*C))>>>13,y&=8191,y+=(S+=a>>>1&8191)*(5*O),y+=(k+=8191&(a>>>14|(f=255&r[t+10]|(255&r[t+11])<<8)<<2))*(5*N),y+=(K+=8191&(f>>>11|(s=255&r[t+12]|(255&r[t+13])<<8)<<5))*(5*P),y+=(Y+=8191&(s>>>8|(u=255&r[t+14]|(255&r[t+15])<<8)<<8))*(5*R),l=c+=(y+=(L+=u>>>5|d)*(5*z))>>>13,l+=E*z,l+=x*T,l+=M*(5*Z),l+=m*(5*I),c=(l+=B*(5*F))>>>13,l&=8191,l+=S*(5*C),l+=k*(5*O),l+=K*(5*N),l+=Y*(5*P),c+=(l+=L*(5*R))>>>13,l&=8191,w=c,w+=E*R,w+=x*z,w+=M*T,w+=m*(5*Z),c=(w+=B*(5*I))>>>13,w&=8191,w+=S*(5*F),w+=k*(5*C),w+=K*(5*O),w+=Y*(5*N),v=c+=(w+=L*(5*P))>>>13,v+=E*P,v+=x*R,v+=M*z,v+=m*T,c=(v+=B*(5*Z))>>>13,v&=8191,v+=S*(5*I),v+=k*(5*F),v+=K*(5*C),v+=Y*(5*O),p=c+=(v+=L*(5*N))>>>13,p+=E*N,p+=x*P,p+=M*R,p+=m*z,c=(p+=B*T)>>>13,p&=8191,p+=S*(5*Z),p+=k*(5*I),p+=K*(5*F),p+=Y*(5*C),b=c+=(p+=L*(5*O))>>>13,b+=E*O,b+=x*N,b+=M*P,b+=m*R,c=(b+=B*z)>>>13,b&=8191,b+=S*T,b+=k*(5*Z),b+=K*(5*I),b+=Y*(5*F),g=c+=(b+=L*(5*C))>>>13,g+=E*C,g+=x*O,g+=M*N,g+=m*P,c=(g+=B*R)>>>13,g&=8191,g+=S*z,g+=k*T,g+=K*(5*Z),g+=Y*(5*I),A=c+=(g+=L*(5*F))>>>13,A+=E*F,A+=x*C,A+=M*O,A+=m*N,c=(A+=B*P)>>>13,A&=8191,A+=S*R,A+=k*z,A+=K*T,A+=Y*(5*Z),_=c+=(A+=L*(5*I))>>>13,_+=E*I,_+=x*F,_+=M*C,_+=m*O,c=(_+=B*N)>>>13,_&=8191,_+=S*P,_+=k*R,_+=K*z,_+=Y*T,U=c+=(_+=L*(5*Z))>>>13,U+=E*Z,U+=x*I,U+=M*F,U+=m*C,c=(U+=B*O)>>>13,U&=8191,U+=S*N,U+=k*P,U+=K*R,U+=Y*z,E=y=8191&(c=(c=((c+=(U+=L*T)>>>13)<<2)+c|0)+(y&=8191)|0),x=l+=c>>>=13,M=w&=8191,m=v&=8191,B=p&=8191,S=b&=8191,k=g&=8191,K=A&=8191,Y=_&=8191,L=U&=8191,t+=16,n-=16;this.h[0]=E,this.h[1]=x,this.h[2]=M,this.h[3]=m,this.h[4]=B,this.h[5]=S,this.h[6]=k,this.h[7]=K,this.h[8]=Y,this.h[9]=L},m.prototype.finish=function(r,t){var n,e,o,i,h=new Uint16Array(10);if(this.leftover){for(i=this.leftover,this.buffer[i++]=1;i<16;i++)this.buffer[i]=0;this.fin=1,this.blocks(this.buffer,0,16)}for(n=this.h[1]>>>13,this.h[1]&=8191,i=2;i<10;i++)this.h[i]+=n,n=this.h[i]>>>13,this.h[i]&=8191;for(this.h[0]+=5*n,n=this.h[0]>>>13,this.h[0]&=8191,this.h[1]+=n,n=this.h[1]>>>13,this.h[1]&=8191,this.h[2]+=n,h[0]=this.h[0]+5,n=h[0]>>>13,h[0]&=8191,i=1;i<10;i++)h[i]=this.h[i]+n,n=h[i]>>>13,h[i]&=8191;for(h[9]-=8192,e=(1^n)-1,i=0;i<10;i++)h[i]&=e;for(e=~e,i=0;i<10;i++)this.h[i]=this.h[i]&e|h[i];for(this.h[0]=65535&(this.h[0]|this.h[1]<<13),this.h[1]=65535&(this.h[1]>>>3|this.h[2]<<10),this.h[2]=65535&(this.h[2]>>>6|this.h[3]<<7),this.h[3]=65535&(this.h[3]>>>9|this.h[4]<<4),this.h[4]=65535&(this.h[4]>>>12|this.h[5]<<1|this.h[6]<<14),this.h[5]=65535&(this.h[6]>>>2|this.h[7]<<11),this.h[6]=65535&(this.h[7]>>>5|this.h[8]<<8),this.h[7]=65535&(this.h[8]>>>8|this.h[9]<<5),o=this.h[0]+this.pad[0],this.h[0]=65535&o,i=1;i<8;i++)o=(this.h[i]+this.pad[i]|0)+(o>>>16)|0,this.h[i]=65535&o;r[t+0]=this.h[0]>>>0&255,r[t+1]=this.h[0]>>>8&255,r[t+2]=this.h[1]>>>0&255,r[t+3]=this.h[1]>>>8&255,r[t+4]=this.h[2]>>>0&255,r[t+5]=this.h[2]>>>8&255,r[t+6]=this.h[3]>>>0&255,r[t+7]=this.h[3]>>>8&255,r[t+8]=this.h[4]>>>0&255,r[t+9]=this.h[4]>>>8&255,r[t+10]=this.h[5]>>>0&255,r[t+11]=this.h[5]>>>8&255,r[t+12]=this.h[6]>>>0&255,r[t+13]=this.h[6]>>>8&255,r[t+14]=this.h[7]>>>0&255,r[t+15]=this.h[7]>>>8&255},m.prototype.update=function(r,t,n){var e,o;if(this.leftover){for(n<(o=16-this.leftover)&&(o=n),e=0;e<o;e++)this.buffer[this.leftover+e]=r[t+e];if(n-=o,t+=o,this.leftover+=o,this.leftover<16)return;this.blocks(this.buffer,0,16),this.leftover=0}if(16<=n&&(o=n-n%16,this.blocks(r,t,o),t+=o,n-=o),n){for(e=0;e<n;e++)this.buffer[this.leftover+e]=r[t+e];this.leftover+=n}};var j=k,H=K;var J=[1116352408,3609767458,1899447441,602891725,3049323471,3964484399,3921009573,2173295548,961987163,4081628472,1508970993,3053834265,2453635748,2937671579,2870763221,3664609560,3624381080,2734883394,310598401,1164996542,607225278,1323610764,1426881987,3590304994,1925078388,4068182383,2162078206,991336113,2614888103,633803317,3248222580,3479774868,3835390401,2666613458,4022224774,944711139,264347078,2341262773,604807628,2007800933,770255983,1495990901,1249150122,1856431235,1555081692,3175218132,1996064986,2198950837,2554220882,3999719339,2821834349,766784016,2952996808,2566594879,3210313671,3203337956,3336571891,1034457026,3584528711,2466948901,113926993,3758326383,338241895,168717936,666307205,1188179964,773529912,1546045734,1294757372,1522805485,1396182291,2643833823,1695183700,2343527390,1986661051,1014477480,2177026350,1206759142,2456956037,344077627,2730485921,1290863460,2820302411,3158454273,3259730800,3505952657,3345764771,106217008,3516065817,3606008344,3600352804,1432725776,4094571909,1467031594,275423344,851169720,430227734,3100823752,506948616,1363258195,659060556,3750685593,883997877,3785050280,958139571,3318307427,1322822218,3812723403,1537002063,2003034995,1747873779,3602036899,1955562222,1575990012,2024104815,1125592928,2227730452,2716904306,2361852424,442776044,2428436474,593698344,2756734187,3733110249,3204031479,2999351573,3329325298,3815920427,3391569614,3928383900,3515267271,566280711,3940187606,3454069534,4118630271,4000239992,116418474,1914138554,174292421,2731055270,289380356,3203993006,460393269,320620315,685471733,587496836,852142971,1086792851,1017036298,365543100,1126000580,2618297676,1288033470,3409855158,1501505948,4234509866,1607167915,987167468,1816402316,1246189591];function Q(r,t,n,e){for(var o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d,E,x,M,m,B,S=new Int32Array(16),k=new Int32Array(16),K=r[0],Y=r[1],L=r[2],T=r[3],z=r[4],R=r[5],P=r[6],N=r[7],O=t[0],C=t[1],F=t[2],I=t[3],Z=t[4],G=t[5],q=t[6],D=t[7],V=0;128<=e;){for(_=0;_<16;_++)U=8*_+V,S[_]=n[U+0]<<24|n[U+1]<<16|n[U+2]<<8|n[U+3],k[_]=n[U+4]<<24|n[U+5]<<16|n[U+6]<<8|n[U+7];for(_=0;_<80;_++)if(o=Y,i=L,h=T,c=C,y=F,l=I,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,x+=65535&(E=((w=Z)>>>14|(a=z)<<18)^(Z>>>18|z<<14)^(z>>>9|Z<<23)),M+=E>>>16,m+=65535&(d=(z>>>14|Z<<18)^(z>>>18|Z<<14)^(Z>>>9|z<<23)),B+=d>>>16,x+=65535&(E=Z&(v=G)^~Z&(p=q)),M+=E>>>16,m+=65535&(d=z&(f=R)^~z&(s=P)),B+=d>>>16,d=J[2*_],x+=65535&(E=J[2*_+1]),M+=E>>>16,m+=65535&d,B+=d>>>16,d=S[_%16],M+=(E=k[_%16])>>>16,m+=65535&d,B+=d>>>16,m+=(M+=(x+=65535&E)>>>16)>>>16,x=65535&(E=A=65535&x|M<<16),M=E>>>16,m=65535&(d=g=65535&m|(B+=m>>>16)<<16),B=d>>>16,x+=65535&(E=(O>>>28|K<<4)^(K>>>2|O<<30)^(K>>>7|O<<25)),M+=E>>>16,m+=65535&(d=(K>>>28|O<<4)^(O>>>2|K<<30)^(O>>>7|K<<25)),B+=d>>>16,M+=(E=O&C^O&F^C&F)>>>16,m+=65535&(d=K&Y^K&L^Y&L),B+=d>>>16,u=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,b=65535&x|M<<16,x=65535&(E=l),M=E>>>16,m=65535&(d=h),B=d>>>16,M+=(E=A)>>>16,m+=65535&(d=g),B+=d>>>16,Y=K,L=o,T=i,z=h=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,R=a,P=f,N=s,K=u,C=O,F=c,I=y,Z=l=65535&x|M<<16,G=w,q=v,D=p,O=b,_%16==15)for(U=0;U<16;U++)d=S[U],x=65535&(E=k[U]),M=E>>>16,m=65535&d,B=d>>>16,d=S[(U+9)%16],x+=65535&(E=k[(U+9)%16]),M+=E>>>16,m+=65535&d,B+=d>>>16,g=S[(U+1)%16],x+=65535&(E=((A=k[(U+1)%16])>>>1|g<<31)^(A>>>8|g<<24)^(A>>>7|g<<25)),M+=E>>>16,m+=65535&(d=(g>>>1|A<<31)^(g>>>8|A<<24)^g>>>7),B+=d>>>16,g=S[(U+14)%16],M+=(E=((A=k[(U+14)%16])>>>19|g<<13)^(g>>>29|A<<3)^(A>>>6|g<<26))>>>16,m+=65535&(d=(g>>>19|A<<13)^(A>>>29|g<<3)^g>>>6),B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,S[U]=65535&m|B<<16,k[U]=65535&x|M<<16;x=65535&(E=O),M=E>>>16,m=65535&(d=K),B=d>>>16,d=r[0],M+=(E=t[0])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[0]=K=65535&m|B<<16,t[0]=O=65535&x|M<<16,x=65535&(E=C),M=E>>>16,m=65535&(d=Y),B=d>>>16,d=r[1],M+=(E=t[1])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[1]=Y=65535&m|B<<16,t[1]=C=65535&x|M<<16,x=65535&(E=F),M=E>>>16,m=65535&(d=L),B=d>>>16,d=r[2],M+=(E=t[2])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[2]=L=65535&m|B<<16,t[2]=F=65535&x|M<<16,x=65535&(E=I),M=E>>>16,m=65535&(d=T),B=d>>>16,d=r[3],M+=(E=t[3])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[3]=T=65535&m|B<<16,t[3]=I=65535&x|M<<16,x=65535&(E=Z),M=E>>>16,m=65535&(d=z),B=d>>>16,d=r[4],M+=(E=t[4])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[4]=z=65535&m|B<<16,t[4]=Z=65535&x|M<<16,x=65535&(E=G),M=E>>>16,m=65535&(d=R),B=d>>>16,d=r[5],M+=(E=t[5])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[5]=R=65535&m|B<<16,t[5]=G=65535&x|M<<16,x=65535&(E=q),M=E>>>16,m=65535&(d=P),B=d>>>16,d=r[6],M+=(E=t[6])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[6]=P=65535&m|B<<16,t[6]=q=65535&x|M<<16,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,d=r[7],M+=(E=t[7])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[7]=N=65535&m|B<<16,t[7]=D=65535&x|M<<16,V+=128,e-=128}return e}function W(r,t,n){var e,o=new Int32Array(8),i=new Int32Array(8),h=new Uint8Array(256),a=n;for(o[0]=1779033703,o[1]=3144134277,o[2]=1013904242,o[3]=2773480762,o[4]=1359893119,o[5]=2600822924,o[6]=528734635,o[7]=1541459225,i[0]=4089235720,i[1]=2227873595,i[2]=4271175723,i[3]=1595750129,i[4]=2917565137,i[5]=725511199,i[6]=4215389547,i[7]=327033209,Q(o,i,t,n),n%=128,e=0;e<n;e++)h[e]=t[a-n+e];for(h[n]=128,h[(n=256-128*(n<112?1:0))-9]=0,f(h,n-8,a/536870912|0,a<<3),Q(o,i,h,n),e=0;e<8;e++)f(r,8*e,o[e],i[e]);return 0}function $(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v(),s=v(),u=v();C(n,r[1],r[0]),C(u,t[1],t[0]),F(n,n,u),O(e,r[0],r[1]),O(u,t[0],t[1]),F(e,e,u),F(o,r[3],t[3]),F(o,o,y),F(i,r[2],t[2]),O(i,i,i),C(h,e,n),C(a,i,o),O(f,i,o),O(s,e,n),F(r[0],h,a),F(r[1],s,f),F(r[2],f,a),F(r[3],h,s)}function rr(r,t,n){var e;for(e=0;e<4;e++)T(r[e],t[e],n)}function tr(r,t){var n=v(),e=v(),o=v();Z(o,t[2]),F(n,t[0],o),F(e,t[1],o),z(r,e),r[31]^=P(n)<<7}function nr(r,t,n){var e,o;for(Y(r[0],s),Y(r[1],u),Y(r[2],u),Y(r[3],s),o=255;0<=o;--o)rr(r,t,e=n[o/8|0]>>(7&o)&1),$(t,r),$(r,r),rr(r,t,e)}function er(r,t){var n=[v(),v(),v(),v()];Y(n[0],e),Y(n[1],a),Y(n[2],u),F(n[3],e,a),nr(r,n,t)}function or(r,t,n){var e,o=new Uint8Array(64),i=[v(),v(),v(),v()];for(n||h(t,32),W(o,t,32),o[0]&=248,o[31]&=127,o[31]|=64,er(i,o),tr(r,i),e=0;e<32;e++)t[e+32]=r[e];return 0}var ir=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function hr(r,t){var n,e,o,i;for(e=63;32<=e;--e){for(n=0,o=e-32,i=e-12;o<i;++o)t[o]+=n-16*t[e]*ir[o-(e-32)],n=Math.floor((t[o]+128)/256),t[o]-=256*n;t[o]+=n,t[e]=0}for(o=n=0;o<32;o++)t[o]+=n-(t[31]>>4)*ir[o],n=t[o]>>8,t[o]&=255;for(o=0;o<32;o++)t[o]-=n*ir[o];for(e=0;e<32;e++)t[e+1]+=t[e]>>8,r[e]=255&t[e]}function ar(r){var t,n=new Float64Array(64);for(t=0;t<64;t++)n[t]=r[t];for(t=0;t<64;t++)r[t]=0;hr(r,n)}function fr(r,t,n,e){var o,i,h=new Uint8Array(64),a=new Uint8Array(64),f=new Uint8Array(64),s=new Float64Array(64),u=[v(),v(),v(),v()];W(h,e,32),h[0]&=248,h[31]&=127,h[31]|=64;var c=n+64;for(o=0;o<n;o++)r[64+o]=t[o];for(o=0;o<32;o++)r[32+o]=h[32+o];for(W(f,r.subarray(32),n+32),ar(f),er(u,f),tr(r,u),o=32;o<64;o++)r[o]=e[o];for(W(a,r,n+64),ar(a),o=0;o<64;o++)s[o]=0;for(o=0;o<32;o++)s[o]=f[o];for(o=0;o<32;o++)for(i=0;i<32;i++)s[o+i]+=a[o]*h[i];return hr(r.subarray(32),s),c}function sr(r,t,n,e){var o,i=new Uint8Array(32),h=new Uint8Array(64),a=[v(),v(),v(),v()],f=[v(),v(),v(),v()];if(n<64)return-1;if(function(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v();if(Y(r[2],u),N(r[1],t),I(o,r[1]),F(i,o,c),C(o,o,r[2]),O(i,r[2],i),I(h,i),I(a,h),F(f,a,h),F(n,f,o),F(n,n,i),G(n,n),F(n,n,o),F(n,n,i),F(n,n,i),F(r[0],n,i),I(e,r[0]),F(e,e,i),R(e,o)&&F(r[0],r[0],l),I(e,r[0]),F(e,e,i),R(e,o))return 1;P(r[0])===t[31]>>7&&C(r[0],s,r[0]),F(r[3],r[0],r[1])}(f,e))return-1;for(o=0;o<n;o++)r[o]=t[o];for(o=0;o<32;o++)r[o+32]=e[o];if(W(h,r,n),ar(h),nr(a,f,h),er(f,t.subarray(32)),$(a,f),tr(i,a),n-=64,g(t,0,i,0)){for(o=0;o<n;o++)r[o]=0;return-1}for(o=0;o<n;o++)r[o]=t[o+64];return n}function ur(r,t){if(32!==r.length)throw new Error("bad key size");if(24!==t.length)throw new Error("bad nonce size")}function cr(){for(var r=0;r<arguments.length;r++)if(!(arguments[r]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function yr(r){for(var t=0;t<r.length;t++)r[t]=0}i.lowlevel={crypto_core_hsalsa20:_,crypto_stream_xor:M,crypto_stream:x,crypto_stream_salsa20_xor:d,crypto_stream_salsa20:E,crypto_onetimeauth:B,crypto_onetimeauth_verify:S,crypto_verify_16:b,crypto_verify_32:g,crypto_secretbox:k,crypto_secretbox_open:K,crypto_scalarmult:q,crypto_scalarmult_base:D,crypto_box_beforenm:X,crypto_box_afternm:j,crypto_box:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),j(r,t,n,e,h)},crypto_box_open:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),H(r,t,n,e,h)},crypto_box_keypair:V,crypto_hash:W,crypto_sign:fr,crypto_sign_keypair:or,crypto_sign_open:sr,crypto_secretbox_KEYBYTES:32,crypto_secretbox_NONCEBYTES:24,crypto_secretbox_ZEROBYTES:32,crypto_secretbox_BOXZEROBYTES:16,crypto_scalarmult_BYTES:32,crypto_scalarmult_SCALARBYTES:32,crypto_box_PUBLICKEYBYTES:32,crypto_box_SECRETKEYBYTES:32,crypto_box_BEFORENMBYTES:32,crypto_box_NONCEBYTES:24,crypto_box_ZEROBYTES:32,crypto_box_BOXZEROBYTES:16,crypto_sign_BYTES:64,crypto_sign_PUBLICKEYBYTES:32,crypto_sign_SECRETKEYBYTES:64,crypto_sign_SEEDBYTES:32,crypto_hash_BYTES:64,gf:v,D:c,L:ir,pack25519:z,unpack25519:N,M:F,A:O,S:I,Z:C,pow2523:G,add:$,set25519:Y,modL:hr,scalarmult:nr,scalarbase:er},i.randomBytes=function(r){var t=new Uint8Array(r);return h(t,r),t},i.secretbox=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(32+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+32]=r[i];return k(o,e,e.length,t,n),o.subarray(16)},i.secretbox.open=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(16+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+16]=r[i];return e.length<32||0!==K(o,e,e.length,t,n)?null:o.subarray(32)},i.secretbox.keyLength=32,i.secretbox.nonceLength=24,i.secretbox.overheadLength=16,i.scalarMult=function(r,t){if(cr(r,t),32!==r.length)throw new Error("bad n size");if(32!==t.length)throw new Error("bad p size");var n=new Uint8Array(32);return q(n,r,t),n},i.scalarMult.base=function(r){if(cr(r),32!==r.length)throw new Error("bad n size");var t=new Uint8Array(32);return D(t,r),t},i.scalarMult.scalarLength=32,i.scalarMult.groupElementLength=32,i.box=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox(r,t,o)},i.box.before=function(r,t){cr(r,t),function(r,t){if(32!==r.length)throw new Error("bad public key size");if(32!==t.length)throw new Error("bad secret key size")}(r,t);var n=new Uint8Array(32);return X(n,r,t),n},i.box.after=i.secretbox,i.box.open=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox.open(r,t,o)},i.box.open.after=i.secretbox.open,i.box.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(32);return V(r,t),{publicKey:r,secretKey:t}},i.box.keyPair.fromSecretKey=function(r){if(cr(r),32!==r.length)throw new Error("bad secret key size");var t=new Uint8Array(32);return D(t,r),{publicKey:t,secretKey:new Uint8Array(r)}},i.box.publicKeyLength=32,i.box.secretKeyLength=32,i.box.sharedKeyLength=32,i.box.nonceLength=24,i.box.overheadLength=i.secretbox.overheadLength,i.sign=function(r,t){if(cr(r,t),64!==t.length)throw new Error("bad secret key size");var n=new Uint8Array(64+r.length);return fr(n,r,r.length,t),n},i.sign.open=function(r,t){if(cr(r,t),32!==t.length)throw new Error("bad public key size");var n=new Uint8Array(r.length),e=sr(n,r,r.length,t);if(e<0)return null;for(var o=new Uint8Array(e),i=0;i<o.length;i++)o[i]=n[i];return o},i.sign.detached=function(r,t){for(var n=i.sign(r,t),e=new Uint8Array(64),o=0;o<e.length;o++)e[o]=n[o];return e},i.sign.detached.verify=function(r,t,n){if(cr(r,t,n),64!==t.length)throw new Error("bad signature size");if(32!==n.length)throw new Error("bad public key size");var e,o=new Uint8Array(64+r.length),i=new Uint8Array(64+r.length);for(e=0;e<64;e++)o[e]=t[e];for(e=0;e<r.length;e++)o[e+64]=r[e];return 0<=sr(i,o,o.length,n)},i.sign.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(64);return or(r,t),{publicKey:r,secretKey:t}},i.sign.keyPair.fromSecretKey=function(r){if(cr(r),64!==r.length)throw new Error("bad secret key size");for(var t=new Uint8Array(32),n=0;n<t.length;n++)t[n]=r[32+n];return{publicKey:t,secretKey:new Uint8Array(r)}},i.sign.keyPair.fromSeed=function(r){if(cr(r),32!==r.length)throw new Error("bad seed size");for(var t=new Uint8Array(32),n=new Uint8Array(64),e=0;e<32;e++)n[e]=r[e];return or(t,n,!0),{publicKey:t,secretKey:n}},i.sign.publicKeyLength=32,i.sign.secretKeyLength=64,i.sign.seedLength=32,i.sign.signatureLength=64,i.hash=function(r){cr(r);var t=new Uint8Array(64);return W(t,r,r.length),t},i.hash.hashLength=64,i.verify=function(r,t){return cr(r,t),0!==r.length&&0!==t.length&&(r.length===t.length&&0===w(r,0,t,0,r.length))},i.setPRNG=function(r){h=r},function(){var o="undefined"!=typeof self?self.crypto||self.msCrypto:null;if(o&&o.getRandomValues){i.setPRNG(function(r,t){var n,e=new Uint8Array(t);for(n=0;n<t;n+=65536)o.getRandomValues(e.subarray(n,n+Math.min(t-n,65536)));for(n=0;n<t;n++)r[n]=e[n];yr(e)})}else"undefined"!=typeof require&&(o=require("crypto"))&&o.randomBytes&&i.setPRNG(function(r,t){var n,e=o.randomBytes(t);for(n=0;n<t;n++)r[n]=e[n];yr(e)})}()}("undefined"!=typeof module&&module.exports?module.exports:self.nacl=self.nacl||{});
 const APP_VERSION = "1.09.01";
-const APP_BUILD = 35;
+const APP_BUILD = 36;
 /* =========================================================================
    seiGEN Commerce Lite — single-file offline POS
    Storage: SQLite via sql.js (WASM), persisted to IndexedDB as a blob.
@@ -1109,7 +1112,9 @@ const APP_BUILD = 35;
       "ALTER TABLE sales ADD COLUMN credit_scope TEXT DEFAULT ''",
       "ALTER TABLE sales ADD COLUMN b4_hold_uid TEXT",
       "ALTER TABLE payouts ADD COLUMN staff_id TEXT DEFAULT ''",
-      "ALTER TABLE credit_payments ADD COLUMN staff_id TEXT DEFAULT ''"
+      "ALTER TABLE credit_payments ADD COLUMN staff_id TEXT DEFAULT ''",
+      // v36 A12 (decision 49): a Guest's end date, from seiGEN (empty: no end date)
+      "ALTER TABLE shop_staff ADD COLUMN guest_until TEXT DEFAULT ''"
     ];
     alters.forEach(sql=>{ try{ t.run(sql); }catch(e){} });
     try{ t.run("UPDATE products SET created_ts=? WHERE created_ts IS NULL OR created_ts=''", [new Date().toISOString()]); }catch(e){}
@@ -1931,7 +1936,7 @@ const APP_BUILD = 35;
     const mine = t && t.serial===lic.serial && t.till_role ? t : null;
     const plan = (mine && mine.plan_name) || LICENCE_PLAN_NAMES[lic.plan];
     if(!plan) return "";   // a licence issued before price plans
-    let s = plan+" plan";
+    let s = plan;   // v36 A4: the name exactly as set in the Console ("Growth Plan"), no word added
     if(mine){
       s += " · "+(LICENCE_ROLE_TEXT[mine.till_role]||mine.till_role)+" · "+mine.currency+" "+Number(mine.unit_fee).toFixed(2)+" per 30 days";
       if(Number(mine.days)!==30) s += " (this licence: "+mine.currency+" "+Number(mine.amount).toFixed(2)+" for "+mine.days+" days)";
@@ -4173,6 +4178,10 @@ const APP_BUILD = 35;
     const wrap = document.createElement("div");
     wrap.className="modalOverlay";
     wrap.innerHTML = `<div class="modal-card"><div class="modal-head"><h3 style="margin:0">${escapeHtml(title)}</h3><button class="close-x" data-modal-close>✕</button></div><div class="modal-body">${bodyHtml}</div></div>`;
+    // v36 A2: a long box keeps its closing row of buttons (Save / Cancel) in view; the rest scrolls under it
+    const last = wrap.querySelector(".modal-body").lastElementChild;
+    if(last && last.tagName==="BUTTON"){ const foot = document.createElement("div"); foot.className = "modal-foot"; last.before(foot); foot.appendChild(last); }
+    else if(last && last.children.length && [...last.children].every(c=>c.tagName==="BUTTON")) last.classList.add("modal-foot");
     document.body.appendChild(wrap);
     const close = ()=>{ wrap.remove(); if(onClose) onClose(); };
     wrap.querySelector("[data-modal-close]").onclick=close;
@@ -13346,21 +13355,77 @@ ${readOnly? "" : `
 
   function renderAbout(main){
     main.innerHTML = `
+      ${typeof dcRemovedCardHtml==="function"? dcRemovedCardHtml() : ""}
       ${typeof licenceStatusCardHtml==="function"? licenceStatusCardHtml() : ""}
       <div class="card">
         <p>seiGEN Commerce Lite is for people who care about growth in business. It's built so any shop — one till or several — can run sales, track stock, and close the day properly, without needing the internet to work.</p>
         <div class="hr"></div>
-        <p><b>Digital Commerce</b><br>Commerce Valley Est, Marirangwe, Mhondoro<br>digitalcommerce.com</p>
-        <p><b>Call/WhatsApp:</b> +263789487287</p>
-        <button class="btn btn-primary" id="waAbout2">📲 WhatsApp +263789487287</button>
+        <div id="aboutContact">${aboutContactHtml()}</div>
         <div class="hr"></div>
         <p class="muted" style="font-size:11.5px">Distributed under license from seiGEN Commerce Infrastructure.</p>
         <p class="muted" style="font-size:11.5px" id="aboutVersion">Version ${escapeHtml(APP_VERSION)} · build ${escapeHtml(String(APP_BUILD))}</p>
       </div>
     `;
-    const intro = "Hi, I'm using seiGEN Commerce Lite and would like to get in touch.";
-    document.getElementById("waAbout2").onclick=()=> window.open("https://wa.me/263789487287?text="+encodeURIComponent(intro),"_blank");
+    wireAboutContact();
+    if(typeof wireDcRemovedCard==="function") wireDcRemovedCard();
     if(typeof wireLicenceStatusCard==="function") wireLicenceStatusCard();
+    refreshAboutInfo().then(info=>{
+      const el = document.getElementById("aboutContact");
+      if(info && el && el.isConnected){ el.innerHTML = aboutContactHtml(); wireAboutContact(); }
+    }).catch(()=>{});
+  }
+
+  // ---- About: who we are and how to reach us (v36 A5) ----
+  // Nothing hard-coded: the company name, address and website come from
+  // Console → Settings (cl_company_info), the numbers from the Contact
+  // directory managed in the Console (cl_contact_directory, decision 10).
+  // Kept on this device for offline use, with the time they were fetched.
+  const ABOUT_REFRESH_MS = 24*60*60*1000;
+  function aboutInfoCached(){ try{ return JSON.parse(getSetting("about_info","")||"null"); }catch(e){ return null; } }
+  async function refreshAboutInfo(){
+    if(!isOnline() || typeof terminalRpc!=="function") return null;
+    const [c, d] = await Promise.all([terminalRpc("cl_company_info", {}), terminalRpc("cl_contact_directory", {})]);
+    if(!c.ok && !d.ok) return null;
+    const old = aboutInfoCached() || {};
+    const info = { company: c.ok && c.data? c.data : (old.company||null), desks: d.ok && Array.isArray(d.data)? d.data : (old.desks||[]), ts: new Date().toISOString() };
+    setSetting("about_info", JSON.stringify(info));
+    await persist();
+    return info;
+  }
+  // after a check-in: at most once a day, so About has something to show offline
+  function aboutAfterCheckin(){
+    const c = aboutInfoCached();
+    if(c && Date.now() - Date.parse(c.ts||"") < ABOUT_REFRESH_MS) return;
+    refreshAboutInfo().catch(()=>{});
+  }
+  function aboutWhen(ts){
+    const d = new Date(ts||"");
+    if(isNaN(d)) return "";
+    const hm = d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+    return d.toDateString()===new Date().toDateString()? hm : d.toLocaleDateString([], { day:"numeric", month:"short" })+", "+hm;
+  }
+  function aboutDigits(phone){ return String(phone||"").replace(/[^0-9]/g, ""); }
+  function aboutContactHtml(){
+    const info = aboutInfoCached();
+    if(!info) return `<p class="muted" id="aboutNoInfo">seiGEN's address and contact numbers load the first time this device is online.</p>`;
+    const c = info.company || {};
+    const site = String(c.website||"").trim();
+    const desks = (info.desks||[]).filter(d=> d && Array.isArray(d.numbers) && d.numbers.length);
+    return `
+      ${c.name || c.address || site? `<p id="aboutCompany">${c.name? `<b>${escapeHtml(c.name)}</b>` : ""}${c.address? `<br>${escapeHtml(c.address)}` : ""}${site? `<br><a href="${escapeHtml(/^https?:\/\//i.test(site)? site : "https://"+site)}" target="_blank" rel="noopener">${escapeHtml(site)}</a>` : ""}</p>` : ""}
+      ${desks.map(d=>`<div class="about-desk" style="margin:8px 0"><div style="font-weight:600">${escapeHtml(d.desk)}</div>
+        ${d.numbers.map(n=>`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0">
+          <span>${escapeHtml(n.label? n.label+": " : "")}${escapeHtml(n.phone)}</span>
+          ${n.call? `<a class="btn btn-sm btn-outline" style="width:auto" href="tel:${escapeHtml(n.phone)}">📞 Call</a>` : ""}
+          ${n.whatsapp? `<button type="button" class="btn btn-sm btn-primary" style="width:auto" data-about-wa="${escapeHtml(aboutDigits(n.phone))}">📲 WhatsApp</button>` : ""}
+        </div>`).join("")}</div>`).join("")}
+      <p class="muted" id="aboutUpdated" style="font-size:11.5px">From seiGEN · updated ${escapeHtml(aboutWhen(info.ts))}</p>`;
+  }
+  function wireAboutContact(){
+    const intro = "Hi, I'm using seiGEN Commerce Lite and would like to get in touch.";
+    document.querySelectorAll("[data-about-wa]").forEach(b=>{
+      b.onclick = ()=> window.open("https://wa.me/"+b.dataset.aboutWa+"?text="+encodeURIComponent(intro), "_blank");
+    });
   }
 
   function renderHelp(main){
@@ -14454,11 +14519,11 @@ ${readOnly? "" : `
     try{
       const ctrl = (typeof AbortController!=="undefined")? new AbortController() : null;
       if(ctrl) timer = setTimeout(()=>ctrl.abort(), DC_CHECKIN_TIMEOUT_MS);
-      const res = await fetch(DC_CHECKIN_URL, {
+      const post = (extra)=> fetch(DC_CHECKIN_URL, {
         method: "POST",
         headers: { "apikey": DC_ANON_KEY, "Content-Type": "application/json" },
         signal: ctrl? ctrl.signal : undefined,
-        body: JSON.stringify({
+        body: JSON.stringify(Object.assign({
           p_install_id: installId,
           p_shop_secret_phrase: getSetting("secret_phrase",""),
           p_device_code: currentDeviceCode(),
@@ -14470,16 +14535,33 @@ ${readOnly? "" : `
           p_rpn_hint_id: null,        // RPN linkage (rpn.js) is stored as free text, no UUID tracked locally — see summary
           p_device_key: (typeof deviceKey==="function")? deviceKey() : null,  // terminal.js: tells this device apart from another with the same install ID
           p_app_build: (typeof APP_BUILD!=="undefined")? APP_BUILD : null      // build.js (sw-pwa.js "build: vN"): shared stock waits until every till runs v7+
-        })
+        }, extra))
       });
+      // v36 A1 (decision 34): the vendor id this device last had, so seiGEN can tell a removed device from a new one.
+      // A seiGEN before 20261113180000 doesn't know the field: asked again without it.
+      const last = dcLastVendorId();
+      let res = await post(last? { p_last_vendor_id: last } : {});
+      let errText = null;
+      if(!res.ok){
+        try{ errText = await res.text(); }catch(e){ errText = ""; }
+        if(last && /p_last_vendor_id|PGRST202|Could not find the function|does not exist/i.test(errText||"") && !/DEVICE_REMOVED/.test(errText||"")){
+          res = await post({}); errText = null;
+          if(!res.ok){ try{ errText = await res.text(); }catch(e){ errText = ""; } }
+        }
+      }
       if(!res.ok){
         // e.g. "Shop secret phrase does not match this install" — kept so
         // Settings/Marketing can explain; lock state is left untouched.
         let message = "HTTP " + res.status;
-        try{ const t = await res.text(); try{ const j = JSON.parse(t); message = j.message || t || message; }catch(e){ message = t || message; } }catch(e){}
+        const t = errText||""; try{ const j = JSON.parse(t); message = j.message || t || message; }catch(e){ message = t || message; }
         setSetting("dc_checkin_error", String(message).slice(0, 200));
+        // v36 A1: seiGEN no longer has this device's business. Remembered (and shown) until a check-in goes through
+        // or the device is reset; nothing on the device is cleared here.
+        const removed = /DEVICE_REMOVED/.test(message);
+        if(removed) setSetting("dc_device_removed", "1");
         await persist();
-        return { ok:false, reason:"rejected", message: String(message).slice(0, 200) };
+        if(removed) dcRemovedNotice();
+        return { ok:false, reason: removed? "removed" : "rejected", message: String(message).slice(0, 200) };
       }
       const data = await res.json();
       if(!data || typeof data!=="object") return { ok:false, reason:"network" };
@@ -14511,6 +14593,7 @@ ${readOnly? "" : `
         try{ window.dispatchEvent(new CustomEvent("scl:minbuild", { detail:{ min_build: Number(data.min_build)||0 } })); }catch(e){}
       }
       setSetting("dc_checkin_error", "");
+      setSetting("dc_device_removed", "");   // v36 A1: seiGEN knows this device again
       setSetting("dc_checkin_ok_ts", new Date().toISOString());
       dcMergeMessages(data.messages);
       await persist();
@@ -14540,6 +14623,8 @@ ${readOnly? "" : `
       if(typeof itredAfterCheckin==="function") itredAfterCheckin();
       // sales sync (b4-sync.js, v35): the first check-in starts B4 (the 90 days of history), then this till's sales and money events.
       if(typeof b4AfterCheckin==="function") b4AfterCheckin().catch(()=>{});
+      // About (help.js, v36 A5): seiGEN's company details and contact numbers, kept for offline, at most once a day.
+      if(typeof aboutAfterCheckin==="function") aboutAfterCheckin();
       return { ok:true, reason:"registered" };
       // Deliberately no render() here: this can land at any moment,
       // including mid-keystroke in a search box or a cart discount field —
@@ -14560,6 +14645,7 @@ ${readOnly? "" : `
     r = r || {};
     if(r.reason==="no_phrase") return "Enter your activation secret phrase (from your RPN or Digital Commerce) in More → Settings.";
     if(r.reason==="offline" || r.reason==="network") return "Connect to the internet, then try again.";
+    if(r.reason==="removed" || /DEVICE_REMOVED/.test(r.message||"")) return DC_REMOVED_TEXT+" (More → About).";
     if(r.reason==="rejected") return /secret phrase does not match/i.test(r.message||"")
       ? "Digital Commerce has a different activation phrase for this device. Check the phrase with your RPN or Digital Commerce and save it again in More → Settings."
       : /registered to another device/i.test(r.message||"")
@@ -14576,6 +14662,80 @@ ${readOnly? "" : `
   function startDeviceCheckin(){
     deviceCheckin(); // fire-and-forget — boot() never awaits this, so it can never delay startup
     if(typeof window!=="undefined" && window.addEventListener) window.addEventListener("online", deviceCheckin);
+    if(dcDeviceRemoved()) setTimeout(dcRemovedNotice, 1500);   // v36 A1: shown again at every launch, even offline
+  }
+
+  // ---- removed device (v36 A1, owner decision 34) ----
+  // seiGEN refused this device: the business it belonged to was deleted. The
+  // app says so and offers a reset, with a backup first. Nothing is ever
+  // cleared on its own: only the Reset button (Admin passcode when the till
+  // has one, then a confirmation) clears the device, which then starts setup
+  // as a new install. A new install isn't affected: it sends no vendor id.
+  const DC_REMOVED_TEXT = "This device belongs to a business that no longer exists on seiGEN. Reset this device";
+  function dcLastVendorId(){
+    const v = getSetting("dc_vendor_id","").trim();
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)? v : null;
+  }
+  function dcDeviceRemoved(){ return getSetting("dc_device_removed","")==="1"; }
+  let _dcRemovedShown = false;
+  // once per app session, never on top of another window (tried again shortly)
+  function dcRemovedNotice(){
+    if(!dcDeviceRemoved() || _dcRemovedShown) return;
+    if(typeof document==="undefined" || !document.body || typeof document.querySelector!=="function") return;
+    if(document.querySelector(".modalOverlay")){ setTimeout(dcRemovedNotice, 20000); return; }
+    _dcRemovedShown = true;
+    openDcResetModal();
+  }
+  function dcRemovedCardHtml(){
+    if(!dcDeviceRemoved()) return "";
+    return `<div class="card" id="dcRemovedCard" style="border:2px solid var(--danger,#c92a2a)">
+      <p style="margin:0 0 8px;font-weight:700">${escapeHtml(DC_REMOVED_TEXT)}.</p>
+      <button class="btn btn-primary" id="dcRemovedOpen">Reset this device…</button></div>`;
+  }
+  function wireDcRemovedCard(){
+    const b = document.getElementById("dcRemovedOpen");
+    if(b) b.onclick = ()=> openDcResetModal();
+  }
+  function openDcResetModal(){
+    const admin = typeof hasAdminPasscode==="function" && hasAdminPasscode();
+    let saved = false;
+    const wrap = openModal("This device", `
+      <p id="dcRmText" style="margin-top:0;font-weight:700">${escapeHtml(DC_REMOVED_TEXT)}.</p>
+      <p class="muted" style="font-size:12.5px">This device keeps what's on it, but seiGEN no longer answers it. Resetting clears everything on this device (products, stock, sales, customers, staff and settings) and starts setup again as a new device. Nothing is cleared until you reset.</p>
+      <button class="btn btn-primary" id="dcRmBackup">💾 Save a backup first</button>
+      <p class="muted" id="dcRmSaved" style="font-size:12.5px;margin:6px 0 0"></p>
+      ${admin? `<label for="dcRmPass">Admin passcode (to reset)</label><input class="field" id="dcRmPass" type="password" autocomplete="off">` : ""}
+      <div id="dcRmMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
+      <div class="row" style="margin-top:12px"><button class="btn btn-outline" id="dcRmLater">Not now</button><button class="btn btn-outline" id="dcRmReset">Reset this device</button></div>`);
+    wrap.querySelector("#dcRmLater").onclick = ()=> wrap.remove();
+    wrap.querySelector("#dcRmBackup").onclick = ()=>{
+      downloadDb(`seigen-backup-before-reset-${new Date().toISOString().replace(/[:.]/g,"-")}.sqlite`);
+      saved = true;
+      wrap.querySelector("#dcRmSaved").textContent = "Backup saved to this device's downloads. Keep it somewhere safe before you reset.";
+    };
+    wrap.querySelector("#dcRmReset").onclick = async (e)=>{
+      const btn = e.currentTarget, msg = wrap.querySelector("#dcRmMsg");
+      if(btn.disabled) return;
+      msg.textContent = "";
+      if(admin){
+        btn.disabled = true;
+        let ok = null;
+        try{ ok = await findAdminAsync(wrap.querySelector("#dcRmPass").value); }catch(err){ ok = null; }
+        btn.disabled = false;
+        if(!ok){ msg.textContent = "Incorrect Admin passcode."; return; }
+      }
+      if(!confirm(saved? "Reset this device? Everything on it is cleared and setup starts again."
+        : "You haven't saved a backup. Reset anyway? Everything on this device is cleared and setup starts again.")) return;
+      btn.disabled = true;
+      await dcResetDevice();
+    };
+    return wrap;
+  }
+  // As a new install: an empty database; setup then makes a new install ID.
+  async function dcResetDevice(){
+    db = new SQL.Database(); db.run(SCHEMA); migrate(db);
+    await persist();
+    if(typeof location!=="undefined" && typeof location.reload==="function") location.reload();
   }
 
   // ---- message-card banner (mobile drawer + desktop Sales screen, same
@@ -14663,8 +14823,21 @@ ${readOnly? "" : `
   // "refused" (server answered { error: CODE }, e.g. a used join code).
   const TERMINAL_RPC_TIMEOUT_MS = 10000;
   // opts.timeoutMs: a shorter limit for calls a cashier waits on (a sale, Phase 3b).
+  // v36 A12: what a Guest's Office seat never asks for (seiGEN refuses it: GUEST_SEAT); skipped quietly here
+  const GUEST_SEAT_SKIP = ["cl_device_customers_pull","cl_device_suppliers_pull","cl_device_supplier_invoice_check","cl_device_dispatch_pull",
+    "cl_device_dispatch_lookup","cl_device_business_dispatches","cl_device_dispatch_card","cl_device_item_ledger","cl_device_transfers_pull",
+    "cl_device_credit_balances","cl_device_itred_orders_pull","cl_device_itred_messages_read","cl_catalogue_pull","cl_catalogue_images_pull",
+    "cl_device_stock_levels_push","cl_device_b4_push","cl_device_dispatch_costs","cl_device_branch_report"];
   async function terminalRpc(name, body, opts){
     if(!isOnline()) return { ok:false, reason:"offline" };
+    if(getSetting("seat_guest","")==="1" && GUEST_SEAT_SKIP.includes(name)) return { ok:false, reason:"offline", code:"GUEST_SEAT" };
+    // v36 A11 (decision 48): a till in staff sign-in mode gets the signed-in person's seiGEN token first
+    // (signed in offline, or it ran out), so seiGEN checks that person's right
+    const till = typeof TILL_RIGHT!=="undefined" && TILL_RIGHT[name] && typeof tillSendsToken==="function" && tillSendsToken();
+    if(till && body && body.p_secret_phrase===getSetting("secret_phrase","") && typeof staffSession==="function" && staffSession() && !staffToken()){
+      const t = await staffEnsureToken().catch(()=>null);
+      if(t) body = Object.assign({}, body, { p_secret_phrase: body.p_secret_phrase+"|"+t });
+    }
     let timer = null;
     try{
       const ctrl = (typeof AbortController!=="undefined")? new AbortController() : null;
@@ -14675,8 +14848,15 @@ ${readOnly? "" : `
       });
       const text = await res.text();
       let data = null; try{ data = JSON.parse(text); }catch(e){}
-      if(!res.ok) return { ok:false, reason:"rejected", message: String((data && data.message) || text || ("HTTP "+res.status)).slice(0,200) };
+      if(!res.ok){
+        const message = String((data && data.message) || text || ("HTTP "+res.status)).slice(0,200);
+        // v36 A11: refused for the signed-in person's rights on a till: plain words, kept for managers
+        const k = /^(STAFF_NO_RIGHT|STAFF_SIGN_IN):\s*(.*)$/.exec(message);
+        if(k){ if(typeof noteRightsWaiting==="function" && TILL_RIGHT[name]) noteRightsWaiting(name, k[1], k[2]); return { ok:false, reason:"rejected", code:k[1], message:k[2] }; }
+        return { ok:false, reason:"rejected", message };
+      }
       if(data && data.error) return { ok:false, reason:"refused", code:data.error, data };
+      if(till && typeof clearRightsWaiting==="function") clearRightsWaiting(name);
       return { ok:true, data };
     }catch(e){ return { ok:false, reason:"network" }; }
     finally{ if(timer) clearTimeout(timer); }
@@ -14686,6 +14866,8 @@ ${readOnly? "" : `
     let ph = phrase==null? getSetting("secret_phrase","") : phrase;
     // v32 Office seats: a seat's calls carry the signed-in person's token after its own phrase (seiGEN checks their rights)
     if(phrase==null && typeof isSeat==="function" && isSeat() && typeof staffToken==="function"){ const t = staffToken(); if(t) ph += "|"+t; }
+    // v36 A11 (decision 48): a till in staff sign-in mode too, once seiGEN checks tills (it said so in the staff pull)
+    else if(phrase==null && typeof tillSendsToken==="function" && tillSendsToken() && typeof staffToken==="function"){ const t = staffToken(); if(t) ph += "|"+t; }
     return { p_install_id: getSetting("install_id",""), p_secret_phrase: ph, p_device_key: deviceKey() };
   }
 
@@ -15491,7 +15673,7 @@ ${readOnly? "" : `
     const b = businessBillCached();
     if(!b || !b.devices || !b.devices.length) return "";
     const cur = b.currency || "USD", money = (n)=> cur+" "+Number(n).toFixed(2);
-    return `<div class="business-bill" id="businessBillBox"><div style="font-weight:600;margin-bottom:4px">Your business's bill${b.plan_name? " ("+escapeHtml(b.plan_name)+" plan)" : ""}</div>
+    return `<div class="business-bill" id="businessBillBox"><div style="font-weight:600;margin-bottom:4px">Your business's bill${b.plan_name? " ("+escapeHtml(b.plan_name)+")" : ""}</div>
       ${b.devices.map(d=>`<div class="muted" style="font-size:12.5px">${escapeHtml(d.branch)} ${escapeHtml(seatTillLabel(d.till_code))} · ${d.unit_fee==null? escapeHtml(d.problem||"not billed") : escapeHtml(BILL_ROLE_TEXT[d.role]||d.role)+" "+escapeHtml(money(d.unit_fee))}</div>`).join("")}
       <div style="font-weight:700;margin-top:4px" id="businessBillTotal">Total ${escapeHtml(money(b.total))} per 30 days</div></div>`;
   }
@@ -17118,13 +17300,20 @@ ${readOnly? "" : `
   registerSyncType("support_task", { table:"support_task", paused:true });
 
   function getRpnLink(){
-    return {
+    const r = {
       rpn_name: getSetting("rpn_name",""),
       rpn_code: getSetting("rpn_code",""),
       rpn_whatsapp: getSetting("rpn_whatsapp",""),
       city_area: getSetting("rpn_city_area",""),
     };
+    // v36 A13 (decision 50): once linked, seiGEN's details of the RPN are the ones used (read-only here)
+    if(rpnLocked()){
+      const n = getSetting("rpn_link_name",""), ff = getSetting("rpn_link_ff",""), ph = getSetting("rpn_link_phone","");
+      if(n) r.rpn_name = n; if(ff) r.rpn_code = ff; if(ph) r.rpn_whatsapp = ph;
+    }
+    return r;
   }
+  function rpnLocked(){ return getSetting("rpn_link_state","")==="linked"; }
   function hasRpnLink(){
     const r = getRpnLink();
     return !!(r.rpn_name || r.rpn_code || r.rpn_whatsapp || r.city_area);
@@ -17246,9 +17435,10 @@ ${readOnly? "" : `
     setSetting("rpn_status_ts", new Date().toISOString());
     if(r.data.linked){
       setSetting("rpn_link_state", "linked"); setSetting("rpn_link_name", r.data.rpn_name||""); setSetting("rpn_link_ff", r.data.field_force_no||"");
+      setSetting("rpn_link_phone", r.data.phone||"");   // v36 A13: seiGEN 20261114120000 on
       setSetting("rpn_link_pin", ""); setSetting("rpn_link_message", "");
     } else if(getSetting("rpn_link_state","")==="linked"){
-      setSetting("rpn_link_state", ""); setSetting("rpn_link_name", ""); setSetting("rpn_link_ff", "");
+      setSetting("rpn_link_state", ""); setSetting("rpn_link_name", ""); setSetting("rpn_link_ff", ""); setSetting("rpn_link_phone", "");
     }
     await persist();
   }
@@ -17271,7 +17461,7 @@ ${readOnly? "" : `
   function rpnLinkStatusHtml(){
     const s = rpnLinkState();
     if(s.state==="linked") return `<p id="rpnLinkStatus" data-state="linked"><b>✓ ${escapeHtml(rpnOnboardedByText())}</b></p>
-      <p class="muted">To change your RPN, ask Digital Commerce.</p>`;
+      <p class="muted">To change your RPN, contact Digital Commerce.</p>`;
     if(!s.state) return "";
     const bad = s.state==="error" || s.state==="conflict";
     return `<p id="rpnLinkStatus" data-state="${escapeHtml(s.state)}" class="${bad? "" : "muted"}" style="${bad? "color:#b42318" : ""}">${escapeHtml(s.message)}</p>`;
@@ -17289,9 +17479,11 @@ ${readOnly? "" : `
           ${rpnVerifyFieldsHtml("sRpnV")}
           <button class="btn btn-primary" id="linkRpnBtn" style="margin-top:12px">Link RPN</button>`}
         <h4 style="margin-top:18px">RPN contact (for Support)</h4>
+        ${linked? `<div id="rpnDetails" class="box" style="font-size:13px">${(()=>{ const r = getRpnLink(); return `<div><b>${escapeHtml(r.rpn_name||"")}</b>${r.rpn_code? " ("+escapeHtml(r.rpn_code)+")" : ""}</div>${r.rpn_whatsapp? `<div>WhatsApp: ${escapeHtml(r.rpn_whatsapp)}</div>` : ""}${r.city_area? `<div>${escapeHtml(r.city_area)}</div>` : ""}`; })()}
+          <p class="muted" style="margin:6px 0 0">From seiGEN. To change your RPN, contact Digital Commerce.</p></div>` : `
         <p class="muted">Your RPN's name and WhatsApp number, for the Support button. Stored on this device as entered.</p>
         ${rpnFieldsHtml("sRpn", getRpnLink())}
-        <button class="btn btn-outline" id="saveRpnLink" style="margin-top:12px">Save contact</button>
+        <button class="btn btn-outline" id="saveRpnLink" style="margin-top:12px">Save contact</button>`}
       </div>`;
   }
   function wireRpnSection(){
@@ -18370,7 +18562,9 @@ ${readOnly? "" : `
       db.run("BEGIN");
       try{
         run("DELETE FROM br_stock");
-        (d.branches||[]).forEach(b=> run("INSERT INTO br_stock(branch_id,name,is_main,json,pulled_ts) VALUES(?,?,?,?,?)",[b.id, b.name, b.is_main?1:0, JSON.stringify(b), ts]));
+        // v36 A12 (decision 49): each branch's selling prices, only for a person with "branch_prices" (the Guest)
+        (d.branches||[]).forEach(b=> run("INSERT INTO br_stock(branch_id,name,is_main,json,pulled_ts) VALUES(?,?,?,?,?)",[b.id, b.name, b.is_main?1:0,
+          JSON.stringify(d.prices && d.prices[b.id]? Object.assign({}, b, { prices:d.prices[b.id] }) : b), ts]));
         db.run("COMMIT");
       }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
       setSetting("bs_pulled_ts", ts);
@@ -18653,9 +18847,15 @@ ${readOnly? "" : `
       <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills.${main? "" : " Quantities only."}</p>`);
   }
 
+  // v36 A12: under a product, the branch's selling prices when seiGEN sent them (a Guest; never costs)
+  function bsPriceHtml(b, v){
+    if(!b.prices || !v.cat_uid || !b.prices[v.cat_uid]) return "";
+    const p = b.prices[v.cat_uid], m = (x)=> x==null || x===""? "—" : currency+Number(x).toFixed(2);
+    return `<div class="pmeta bs-price">${escapeHtml(m(p.price))} · ${escapeHtml(m(p.wholesale==null? p.price : p.wholesale))}</div>`;   // no wholesale price: retail applies
+  }
   function renderBranchStock(main){
-    const isMain = !isRemote();
-    let tab = getSetting("bs_tab","stock"), branchSel = getSetting("bs_branch",""), query = "", dquery = "", msg = "", gridItems = [];
+    const isMain = !isRemote(), guestSeat = getSetting("seat_guest","")==="1";
+    let tab = guestSeat? "stock" : getSetting("bs_tab","stock"), branchSel = getSetting("bs_branch",""), query = "", dquery = "", msg = "", gridItems = [];
     function stockHtml(){
       const mineId = bsMyBranchUuid();
       const list = isMain? bsBranches() : bsOtherBranches();
@@ -18679,11 +18879,11 @@ ${readOnly? "" : `
             const r = qtyOf(b, v);
             const t = r && r.t && Object.keys(r.t).length>1?   /* every branch since 20261106120000 (§R5) */ `<div class="pmeta bs-tills">${Object.keys(r.t).sort().map(k=>escapeHtml(k)+": "+escapeHtml(String(r.t[k]))).join(" · ")}</div>` : "";
             const low = r && r.qty<=(r.low||0);
-            return `<td class="bs-col${low? " stock-low" : ""}">${r? escapeHtml(String(r.qty)) : "—"}${t}</td>`; }).join("")}</tr>`).join("")
+            return `<td class="bs-col${low? " stock-low" : ""}">${r? escapeHtml(String(r.qty)) : "—"}${t}${bsPriceHtml(b, v)}</td>`; }).join("")}</tr>`).join("")
           : `<tr><td colspan="${shown.length+1}" class="muted">No products match.</td></tr>`}
         </table></div>
         ${shown.map(tillsLine).join("")}${value}
-        <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills' own figures; under it, each till's own count. Quantities only${isMain? "" : ": costs are kept on the main branch"}.</p>`;
+        <p class="muted" style="font-size:12px">A branch's stock is the sum of its tills' own figures; under it, each till's own count. ${shown.some(b=>b.prices)? "Under it, that branch's selling prices (Retail · Wholesale) from seiGEN. Never costs" : "Quantities only"+(isMain? "" : ": costs are kept on the main branch")}.</p>`;
     }
     function dispatchesHtml(){
       const all_ = bsDispatches();
@@ -18705,6 +18905,7 @@ ${readOnly? "" : `
       const body = main.querySelector("#bsBody");
       if(!body || typeof bvOnOpen!=="function") return;
       body.querySelectorAll("[data-bvdn]").forEach(el=> bvOnOpen(el, ()=> openDnCard(el.dataset.bvdn)));
+      if(guestSeat) return;   // v36 A12: a Guest's seat has no documents (item ledger, DN cards)
       wireItemLedgerOpeners(body, (i)=>{ const v = gridItems[+i]; return v? { cat_uid:v.cat_uid, sku:v.code, name:v.name } : null; });
     }
     function draw(){
@@ -18713,7 +18914,7 @@ ${readOnly? "" : `
       main.innerHTML = `
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
           <button class="btn btn-sm ${tab==="stock"? "btn-primary" : "btn-outline"}" id="bsTabStock">Stock</button>
-          <button class="btn btn-sm ${tab==="dispatches"? "btn-primary" : "btn-outline"}" id="bsTabDisp">Dispatches</button>
+          <button class="btn btn-sm ${tab==="dispatches"? "btn-primary" : "btn-outline"}" id="bsTabDisp"${guestSeat? " hidden" : ""}>Dispatches</button>
           <button class="btn btn-sm btn-outline" id="bsRefresh">🔄 Refresh</button>
           <span class="muted" id="bsStatus" style="font-size:12px">${escapeHtml(msg || (pulled? (isOnline()? "Loaded " : "Offline: the copy from ")+new Date(pulled).toLocaleString() : "Not loaded yet"))}</span>
         </div>
@@ -19536,14 +19737,16 @@ ${readOnly? "" : `
   }
 
   // ---- the indicator ----
-  function b4WaitingCount(){ try{ return one("SELECT COUNT(*) AS n FROM b4_outbox WHERE status='queued'").n; }catch(e){ return 0; } }
+  function b4WaitingCount(){ try{ return Number(one("SELECT COUNT(*) AS n FROM b4_outbox WHERE status='queued'").n)||0; }catch(e){ return 0; } }
+  // v36 A3: always a number (0 included) and the last-sent time, so the line is never blank or "All sent".
   function b4StatusText(){
     const n = b4WaitingCount(), t = getSetting("b4_last_sent_ts","");
-    const when = t? new Date(t).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }) : "";
-    return (n? n+" waiting to send" : "All sent") + (when? " · last sent "+when : "");
+    const d = t? new Date(t) : null;
+    const when = d && !isNaN(d)? d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }) : "";
+    return n+" waiting to send · "+(when? "last sent "+when : "not sent yet");
   }
   function b4IndicatorHtml(){
-    if(!b4Started()) return "";
+    if(!b4Registered()) return "";   // a till not on seiGEN has no sales sync
     const n = b4WaitingCount();
     return `<button type="button" class="b4-sync${n? " b4-waiting" : ""}" id="b4SyncInd" title="Sales sync with seiGEN" style="display:block;width:100%;text-align:left;background:none;border:0;padding:2px 2px 6px;font-size:12px;color:var(--ink-soft,#667);cursor:pointer">
       <span aria-hidden="true">${n? "⏳" : "✓"}</span> <span id="b4SyncText">${escapeHtml(b4StatusText())}</span></button>`;
@@ -21601,9 +21804,20 @@ ${readOnly? "" : `
     admin: ROLE_ALL_RIGHTS.slice(),
     manager: ROLE_ALL_RIGHTS.filter(r=> !["m.settings","m.staff","m.terminals"].includes(r)),
     stores: ["m.products","m.dispatch","m.receive","m.adjust","m.incoming","m.productlist","m.stocktake","m.purchasing","m.reports","m.reportwriter"],
-    cashier: ["m.sell","m.credit","m.productlist","m.directory","m.requests","m.reports","m.eod","sales_reports"]
+    cashier: ["m.sell","m.credit","m.productlist","m.directory","m.requests","m.reports","m.eod","sales_reports"],
+    guest: ["m.productlist","branch_prices"]   // v36 A12 (decision 49): view only, on an Office seat
   };
-  const ROLE_ORDER = { owner:1, admin:2, manager:3, stores:4, cashier:5 };
+  const ROLE_ORDER = { owner:1, admin:2, manager:3, stores:4, cashier:5, guest:6 };
+  // ---- the Guest (v36 A12, owner decision 49) ----
+  // Built in, view only: stock and each branch's selling prices (Stock by branch). Signs in only on an
+  // Office seat, until an optional end date; seiGEN refuses anything else.
+  const GUEST_TEXT = "Stock and selling prices of every branch, view only. Signs in only on an Office seat.";
+  function staffIsGuest(st){ const r = st && shopRole(st.role_id); return !!r && r.builtin==="guest"; }
+  function guestEnded(st){ const u = st && Date.parse(st.guest_until||""); return !!u && u <= Date.now(); }
+  function guestUntilText(st){ const u = st && Date.parse(st.guest_until||""); return u? new Date(u).toLocaleDateString([], { day:"numeric", month:"short", year:"numeric" }) : ""; }
+  // the Guest role is given only by the Owner or an Admin (seiGEN checks it too)
+  function staffDateInput(iso){ const d = new Date(iso||""); if(isNaN(d)) return ""; const p = (n)=> String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+  function staffOwnerOrAdmin(){ const st = _staffSession && shopStaff(_staffSession.id), r = st && shopRole(st.role_id); return !!r && (r.builtin==="owner" || r.builtin==="admin"); }
 
   // ---- this till's copy ----
   function rolesSynced(){ try{ return !!one("SELECT 1 AS x FROM shop_roles LIMIT 1"); }catch(e){ return false; } }
@@ -21637,6 +21851,8 @@ ${readOnly? "" : `
     if(_staffSession){
       const st = shopStaff(_staffSession.id), r = st? shopRole(st.role_id) : null;
       if(!r) return new Set();
+      // v36 A12: a Guest's session ends at the end date (seiGEN ends it too)
+      if(r.builtin==="guest" && guestEnded(st)){ setTimeout(()=>{ if(_staffSession && _staffSession.id===st.id) staffEndSession("This Guest's access has ended."); }, 0); return new Set(); }
       const set = new Set(r.rights);
       if(r.builtin==="owner" || (r.builtin==="admin" && getSetting("shop_has_owner","")!=="1")) set.add("owner");   // Q2: Admins keep the Owner items until there is an Owner
       return set;
@@ -21716,6 +21932,9 @@ ${readOnly? "" : `
   function shopSigninBefore(id, pin){
     const st = one("SELECT * FROM shop_staff WHERE id=? AND active=1 AND here=1",[id]);
     if(!st) return { ok:false, message:"That person can't sign in at this branch." };
+    // v36 A12: a Guest only on an Office seat, until the end date (offline too)
+    if(staffIsGuest(st) && !(typeof isSeat==="function" && isSeat())) return { ok:false, message:"A Guest signs in only on an Office seat." };
+    if(staffIsGuest(st) && guestEnded(st)) return { ok:false, message:"This Guest's access has ended. Ask the Owner or an Admin." };
     if(st.locked_until && new Date(st.locked_until) > new Date()){
       const mins = Math.max(1, Math.ceil((new Date(st.locked_until) - new Date())/60000));
       return { ok:false, locked:true, message:`Too many incorrect PIN attempts. Try again in ${mins} minute(s).` };
@@ -21786,6 +22005,64 @@ ${readOnly? "" : `
     _staffSession = null;
     if(_staffIdleTimer){ clearInterval(_staffIdleTimer); _staffIdleTimer = null; }
     if(s && s.token) terminalRpc("cl_device_staff_signout", Object.assign(terminalAuth(), { p_staff_token:s.token })).catch(()=>{});
+  }
+
+  // ---- seiGEN checks the signed-in person on a till too (v36 A11, owner decision 48) ----
+  // Once seiGEN answers the staff pull with this till's mode (20261114120000), a till in staff sign-in
+  // mode sends the signed-in person's token with its calls, as a seat does; seiGEN then refuses a
+  // change the person's role doesn't allow. Single operator mode sends none and works as before
+  // (seiGEN logs it "single operator"). The mode is kept on seiGEN: sign-in mode can be turned on any
+  // time; single operator mode back on needs someone with Settings signed in (online).
+  function tillRightsOn(){ return !(typeof isSeat==="function" && isSeat()) && !!getSetting("srv_staff_mode",""); }
+  function tillSendsToken(){ return tillRightsOn() && getSetting("single_operator_mode","1")==="0"; }
+  let _modeSyncing = null;
+  function staffModeSync(){
+    if(_modeSyncing) return _modeSyncing;
+    _modeSyncing = (async ()=>{
+      if(!tillRightsOn() || !isOnline()) return null;
+      const want = singleOperatorMode()? "single" : "roles";
+      if(getSetting("srv_staff_mode","")===want){
+        if(getSetting("staff_mode_problem","")){ setSetting("staff_mode_problem", ""); await persist(); }
+        return want;
+      }
+      if(want==="single" && _staffSession) await staffEnsureToken().catch(()=>null);   // someone signed in to manage staff
+      const r = await terminalRpc("cl_device_staff_mode", Object.assign(terminalAuth(), { p_mode:want, p_staff_token:staffToken() }), { timeoutMs:20000 });
+      if(r.ok && r.data){ setSetting("srv_staff_mode", r.data.staff_mode||want); setSetting("staff_mode_problem", ""); }
+      else if(r.reason==="refused" || r.reason==="rejected") setSetting("staff_mode_problem", (r.data && r.data.message) || r.message || r.code || "");
+      await persist();
+      return getSetting("srv_staff_mode","");
+    })().finally(()=>{ _modeSyncing = null; });
+    return _modeSyncing;
+  }
+  // The calls seiGEN checks on a till, with the right each needs (the same as its cl_seat_need).
+  const TILL_RIGHT = { cl_device_grv_post:"m.receive", cl_device_dispatch_send:"m.dispatch", cl_device_dispatch_cancel:"m.dispatch",
+    cl_device_dispatch_resolve:"m.dispatch", cl_device_supplier_grv_post:"m.purchasing", cl_device_supplier_save:"m.purchasing",
+    cl_catalogue_push:"m.products", cl_branch_price_push:"edit_prices", cl_device_customer_save:"create_customers",
+    cl_terminal_set_active:"m.terminals", cl_terminal_admin_set:"m.terminals", cl_branch_issue_join_code:"m.terminals",
+    cl_branch_set_price_mode:"m.settings", cl_branch_set_business_day:"m.settings", cl_device_pack_submit:"m.marketing",
+    cl_device_transfer_send:"m.dispatch", cl_device_transfer_receive:"m.receive", cl_device_transfer_cancel:"m.dispatch", cl_device_transfer_resolve:"m.dispatch" };
+  const TILL_RIGHT_TEXT = { cl_device_grv_post:"Receiving (GRV)", cl_device_dispatch_send:"Sending a Delivery Note", cl_device_dispatch_cancel:"Cancelling a Delivery Note",
+    cl_device_dispatch_resolve:"A Delivery Note's shortage", cl_device_supplier_grv_post:"A supplier GRV", cl_device_supplier_save:"A supplier",
+    cl_catalogue_push:"Product changes", cl_branch_price_push:"Branch prices", cl_device_customer_save:"A customer", cl_terminal_set_active:"Switching a till on or off",
+    cl_terminal_admin_set:"A till's settings", cl_branch_issue_join_code:"A join code", cl_branch_set_price_mode:"The branch's price setting",
+    cl_branch_set_business_day:"The business day", cl_device_pack_submit:"A Marketing pack", cl_device_transfer_send:"An internal transfer",
+    cl_device_transfer_receive:"Receiving an internal transfer", cl_device_transfer_cancel:"Cancelling an internal transfer", cl_device_transfer_resolve:"An internal transfer's shortage" };
+  // Work seiGEN refused for the signed-in person's rights stays where it was (it is sent again later,
+  // never dropped) and is listed for managers in Settings → Staff & Roles until it goes through.
+  function rightsWaiting(){ return staffJson(getSetting("rights_waiting",""), []); }
+  function noteRightsWaiting(fn, code, message){
+    const old = rightsWaiting(), was = old.find(x=>x.fn===fn);
+    const list = old.filter(x=>x.fn!==fn).concat([{ fn, code, message:String(message||"").slice(0,200), ts:new Date().toISOString(), n:(was? was.n : 0)+1 }]).slice(-20);
+    setSetting("rights_waiting", JSON.stringify(list));
+    if(!was) logAudit("Refused by seiGEN (rights)", "", (TILL_RIGHT_TEXT[fn]||fn)+": "+String(message||""));
+  }
+  function clearRightsWaiting(fn){ const l = rightsWaiting(); if(l.some(x=>x.fn===fn)) setSetting("rights_waiting", JSON.stringify(l.filter(x=>x.fn!==fn))); }
+  function rightsWaitingHtml(){
+    const l = rightsWaiting();
+    if(!l.length) return "";
+    return `<div class="box" id="rightsWaiting" style="font-size:12.5px;margin:6px 0;border-color:#b54708">
+      <b>Waiting for someone with the right</b> (seiGEN refused it; it is kept and sent again):
+      ${l.map(x=>`<div>${escapeHtml(TILL_RIGHT_TEXT[x.fn]||x.fn)}: ${escapeHtml(x.message)}${x.n>1? " ("+x.n+" tries)" : ""} · ${escapeHtml(new Date(x.ts).toLocaleString())}</div>`).join("")}</div>`;
   }
 
   // ---- the signed-in person's own seiGEN PIN (v29) ----
@@ -21935,11 +22212,11 @@ ${readOnly? "" : `
   function staffSyncOn(){ return typeof isTerminalRegistered==="function" && isTerminalRegistered() && !(typeof isTerminalInactive==="function" && isTerminalInactive()); }
   function staffApplyOne(s){
     const old = one("SELECT fail_count, locked_until FROM shop_staff WHERE id=?",[s.id]);
-    run(`INSERT OR REPLACE INTO shop_staff(id,name,role_id,home_branch,home_branch_name,branches,active,here,pin_salt,pin_check,pin_rounds,legacy,pins_from_tills,has_pin,seq,fail_count,locked_until)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    run(`INSERT OR REPLACE INTO shop_staff(id,name,role_id,home_branch,home_branch_name,branches,active,here,pin_salt,pin_check,pin_rounds,legacy,pins_from_tills,has_pin,seq,fail_count,locked_until,guest_until)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [s.id, s.name, s.role_id, s.home_branch_id||"", s.home_branch||"", JSON.stringify(s.other_branches||[]), s.active?1:0, s.here?1:0,
        s.pin_salt||"", s.pin_check||"", Number(s.pin_rounds)||0, JSON.stringify(s.legacy||[]), Number(s.pins_from_tills)||0, s.has_pin?1:0, Number(s.seq)||0,
-       old? old.fail_count||0 : 0, old? old.locked_until||"" : ""]);
+       old? old.fail_count||0 : 0, old? old.locked_until||"" : "", s.guest_until||""]);
   }
   let _staffPulling = null;
   function staffPull(){
@@ -21964,9 +22241,14 @@ ${readOnly? "" : `
       // seiGEN 20261108120000 on: Owner, Admin and Staff holders may sign in at every branch (v31 words its guidance by it)
       setSetting("staff_everywhere_rule", (d.staff||[]).some(s=> s && "everywhere" in s)? "1" : "");
       setSetting("staff_pulled_ts", new Date().toISOString());
+      // v36 A11 (decision 48): seiGEN 20261114120000 on answers with this till's staff sign-in mode, and checks the
+      // signed-in person on a till too; A12: a Guest's Office seat
+      if("staff_mode" in d) setSetting("srv_staff_mode", d.staff_mode||"single");
+      setSetting("seat_guest", d.guest_seat? "1" : "");
       // switched off, or no longer at this branch: the session ends (they can't use this till's menus any more)
       if(_staffSession){ const st = shopStaff(_staffSession.id); if(!st || !st.active || !st.here) staffEndSession("Your access at this branch has changed. Sign in again."); }
       await persist();
+      staffModeSync().catch(()=>{});
       return { ok:true, roles:(d.roles||[]).length, staff:(d.staff||[]).length };
     })().then(staffNotePull).finally(()=>{ _staffPulling = null; });
     return _staffPulling;
@@ -22029,6 +22311,7 @@ ${readOnly? "" : `
   // o: { id?, name, role_id, home_branch_id, other_branches, active, pin? }
   async function saveShopStaff(o, adminPasscode){
     const p = { id:o.id||null, name:o.name, role_id:o.role_id, home_branch_id:o.home_branch_id, other_branches:o.other_branches||[], active:o.active!==false };
+    if("guest_until" in o) p.guest_until = o.guest_until||"";   // v36 A12: a Guest's end date (empty: none)
     const pin = String(o.pin||"").trim();
     if(pin){
       const bad = pinProblem(pin); if(bad) throw new Error(bad);
@@ -22089,6 +22372,8 @@ ${readOnly? "" : `
       ${typeof isSeat==="function" && isSeat()? `<p class="muted" id="seatNoSingle" style="margin-top:0">This is an Office seat: everyone signs in with their own PIN. Single operator mode is never used here.</p>` : ""}<label${typeof isSeat==="function" && isSeat()? " hidden" : ""} style="display:flex;gap:8px;align-items:flex-start;margin-top:0"><input type="checkbox" id="sSingleOperator" ${single? "checked" : ""} style="width:auto;margin-top:3px"><span>Single operator mode — skip staff sign-in, just type a name (today's behaviour)</span></label>
       <p class="muted" style="font-size:12px">Turn this off so everyone signs in with their own PIN. Menus then follow each person's role. Reports of other branches and costs at a remote need a signed-in person with the right.</p>
       <p class="muted" style="font-size:12px;margin:6px 0">Kept on seiGEN for every branch${pulled? " · updated "+escapeHtml(new Date(pulled).toLocaleString()) : ""}. <button type="button" class="btn btn-sm btn-ghost" id="staffRefresh">🔄 Refresh</button></p>
+      ${tillRightsOn() && getSetting("staff_mode_problem","")? `<p class="box" id="staffModeProblem" style="font-size:12.5px;border-color:#b54708">seiGEN still has this till in staff sign-in mode, so its changes wait: ${escapeHtml(getSetting("staff_mode_problem",""))} (Sign in to manage staff, then tick single operator mode again.)</p>` : ""}
+      ${rightsWaitingHtml()}
       ${edit? (who? `<p class="muted" style="font-size:12px">Signed in: ${escapeHtml(who)}${staffManaging()? ` · signed out after 5 minutes without use <button type="button" class="btn btn-sm btn-outline" id="staffMgrDone" style="width:auto">Done</button>` : ""}</p>`
                    : `<p class="box" style="font-size:12.5px">Nobody can manage staff yet. ${people.length? "Add the first person here with this till's Admin passcode (an Admin or Owner)." : "Add the first person here with this till's Admin passcode: the business's Owner, who then adds everyone else."}</p>`)
             : !staffManagersHere().length? `<p class="box" id="staffGuidance" style="font-size:12.5px">${escapeHtml(staffManageGuidance())}</p>`
@@ -22103,14 +22388,14 @@ ${readOnly? "" : `
         ${edit? `<button class="btn btn-primary btn-sm" id="addRole" style="width:auto;margin-bottom:8px">+ New role</button>` : ""}
         ${roles.map(r=>`<div class="product-row role-row">
             <div><div class="pname">${escapeHtml(r.name)}${r.builtin? ` <span class="pill">built in</span>` : ""}</div>
-              <div class="pmeta">${r.builtin==="owner"? "Every right, and the Owner-only items" : escapeHtml(rightsSummary(r.rights))} · ${people.filter(p=>p.role_id===r.id && p.active).length} active</div></div>
-            <button class="btn btn-sm btn-outline" data-edit-role="${escapeHtml(r.id)}" style="flex:none">${edit && r.builtin!=="owner"? "Edit" : "View"}</button>
+              <div class="pmeta">${r.builtin==="owner"? "Every right, and the Owner-only items" : r.builtin==="guest"? escapeHtml(GUEST_TEXT) : escapeHtml(rightsSummary(r.rights))} · ${people.filter(p=>p.role_id===r.id && p.active).length} active</div></div>
+            <button class="btn btn-sm btn-outline" data-edit-role="${escapeHtml(r.id)}" style="flex:none">${edit && r.builtin!=="owner" && r.builtin!=="guest"? "Edit" : "View"}</button>
           </div>`).join("")}`
       : `
         ${edit? `<button class="btn btn-primary btn-sm" id="addShopStaff" style="width:auto;margin-bottom:8px">+ Add person</button>` : ""}
         ${people.length? people.map(s=>{ const r = shopRole(s.role_id); const others = staffJson(s.branches, []).map(staffBranchName).filter(Boolean);
           return `<div class="product-row staff-row">
-            <div><div class="pname">${escapeHtml(s.name)}${s.active? "" : ` <span class="pill low">inactive</span>`}</div>
+            <div><div class="pname">${escapeHtml(s.name)}${s.active? "" : ` <span class="pill low">inactive</span>`}${r && r.builtin==="guest"? ` <span class="pill guest-tag">Guest${guestUntilText(s)? " · until "+escapeHtml(guestUntilText(s)) : ""}</span>${guestEnded(s)? ` <span class="pill low">ended</span>` : ""}` : ""}</div>
               <div class="pmeta">${escapeHtml(r? r.name : "?")} · ${escapeHtml(s.home_branch_name||"no branch")}${others.length? " + "+escapeHtml(others.join(", ")) : ""}${s.has_pin? "" : " · No PIN"}${s.pins_from_tills>1? ` · <span style="color:#b54708">Check: ${s.pins_from_tills} PINs from ${s.pins_from_tills} tills (each works on its own till until they sign in there)</span>` : ""}</div></div>
             ${edit? `<button class="btn btn-sm btn-outline" data-edit-shopstaff="${escapeHtml(s.id)}" style="flex:none">Edit</button>` : ""}
           </div>`; }).join("") : `<p class="muted">No staff on seiGEN yet.</p>`}`}
@@ -22128,6 +22413,7 @@ ${readOnly? "" : `
       if(!wantOn && !shopStaffHere().length && !activeStaffWithPin(currentBranch()).length){ alert("Add at least one active person with a PIN at this branch before turning this off.\n\n"+staffManageGuidance()); so.checked = true; return; }
       if(!wantOn && !confirm("Everyone will need to pick their name and enter a PIN to use this device. Continue?")){ so.checked = true; return; }
       setSetting("single_operator_mode", wantOn? "1" : "0"); persist(); redraw();
+      staffModeSync().then(()=>{ if(container.isConnected) redraw(); }).catch(()=>{});   // v36 A11: seiGEN keeps the mode
     };
     const mgr = $s("#staffMgrSignin"); if(mgr) mgr.onclick = ()=> openStaffManagerSignin(redraw);
     const mgrDone = $s("#staffMgrDone"); if(mgrDone) mgrDone.onclick = ()=> staffEndManage("done", redraw);
@@ -22151,24 +22437,38 @@ ${readOnly? "" : `
     const wrap = openModal(existing? "Edit person" : "Add person", `
       <label style="margin-top:0" for="ssName">Name</label><input class="field" id="ssName" maxlength="60" value="${escapeHtml(existing? existing.name : "")}">
       <label for="ssRole">Role</label>
-      <select class="field" id="ssRole">${roles.map(r=>`<option value="${escapeHtml(r.id)}" ${pick(r)? "selected" : ""} ${r.builtin==="owner" && !ownerOk? "disabled" : ""}>${escapeHtml(r.name)}</option>`).join("")}</select>
+      <select class="field" id="ssRole">${roles.map(r=>`<option value="${escapeHtml(r.id)}" ${pick(r)? "selected" : ""} ${(r.builtin==="owner" && !ownerOk) || (r.builtin==="guest" && !staffOwnerOrAdmin())? "disabled" : ""}>${escapeHtml(r.name)}</option>`).join("")}</select>
       ${firstPerson && ownerOk? `<p class="muted" id="ssFirstOwner" style="font-size:12px;margin-top:-4px">The first person is the business's Owner: they then add everyone else.</p>` : ""}
-      <label for="ssHome">Home branch</label>
+      <div id="ssGuestBox" hidden><label for="ssUntil">Guest until (optional)</label>
+        <input class="field" id="ssUntil" type="date" value="${existing && existing.guest_until? escapeHtml(staffDateInput(existing.guest_until)) : ""}">
+        <p class="muted" style="font-size:11.5px;margin-top:-4px">${escapeHtml(GUEST_TEXT)} After this day seiGEN refuses the sign-in and ends the session. Only the Owner or an Admin adds a Guest; their home branch is the main branch.</p></div>
+      <div id="ssBranchBox"><label for="ssHome">Home branch</label>
       <select class="field" id="ssHome">${brs.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===home? "selected" : ""}>${escapeHtml(b.name)}</option>`).join("")}</select>
-      ${brs.length>1? `<label>Also works at</label><div class="ss-others">${brs.map(b=>`<label style="display:flex;gap:8px;align-items:center;margin:4px 0;font-weight:500"><input type="checkbox" data-ss-branch="${escapeHtml(b.id)}" ${others.includes(b.id)? "checked" : ""} style="width:auto;margin:0"> ${escapeHtml(b.name)}</label>`).join("")}</div>` : ""}
+      ${brs.length>1? `<label>Also works at</label><div class="ss-others">${brs.map(b=>`<label style="display:flex;gap:8px;align-items:center;margin:4px 0;font-weight:500"><input type="checkbox" data-ss-branch="${escapeHtml(b.id)}" ${others.includes(b.id)? "checked" : ""} style="width:auto;margin:0"> ${escapeHtml(b.name)}</label>`).join("")}</div>` : ""}</div>
       <label for="ssPin">Sign-in PIN (4 to 6 digits)</label>
       <input class="field" id="ssPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="${existing? "Leave blank to keep the PIN" : "e.g. 4821"}">
       ${existing? `<label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input type="checkbox" id="ssActive" ${existing.active? "checked" : ""} style="width:auto;margin:0"> Active (switching someone off ends their sign-in on every till)</label>` : ""}
       ${boot? `<label for="ssAdminPass">This till's Admin passcode</label><input class="field" id="ssAdminPass" type="password" autocomplete="off">` : ""}
       <div id="ssMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
       <button class="btn btn-primary" id="ssSave" style="margin-top:12px">${existing? "Save" : "Add"}</button>`);
+    // v36 A12: a Guest has an optional end date and works at the main branch only
+    const guestPicked = ()=>{ const r = shopRole(wrap.querySelector("#ssRole").value); return !!r && r.builtin==="guest"; };
+    const mainId = (brs.find(b=>b.is_main)||{}).id || "";
+    const showGuest = ()=>{
+      const g = guestPicked();
+      wrap.querySelector("#ssGuestBox").hidden = !g; wrap.querySelector("#ssBranchBox").hidden = g;
+      if(g && mainId) wrap.querySelector("#ssHome").value = mainId;
+    };
+    wrap.querySelector("#ssRole").onchange = showGuest; showGuest();
     wrap.querySelector("#ssSave").onclick = async ()=>{
       const btn = wrap.querySelector("#ssSave"), msg = wrap.querySelector("#ssMsg");
       btn.disabled = true; msg.textContent = "";
       try{
-        await saveShopStaff({ id:existing? existing.id : null, name:wrap.querySelector("#ssName").value, role_id:wrap.querySelector("#ssRole").value,
-          home_branch_id:wrap.querySelector("#ssHome").value, other_branches:[...wrap.querySelectorAll("[data-ss-branch]:checked")].map(x=>x.dataset.ssBranch),
+        const g = guestPicked(), until = wrap.querySelector("#ssUntil").value;
+        await saveShopStaff(Object.assign({ id:existing? existing.id : null, name:wrap.querySelector("#ssName").value, role_id:wrap.querySelector("#ssRole").value,
+          home_branch_id:wrap.querySelector("#ssHome").value, other_branches: g? [] : [...wrap.querySelectorAll("[data-ss-branch]:checked")].map(x=>x.dataset.ssBranch),
           active: existing? wrap.querySelector("#ssActive").checked : true, pin:wrap.querySelector("#ssPin").value },
+          g? { guest_until: until? new Date(until+"T23:59:59").toISOString() : "" } : {}),
           wrap.querySelector("#ssAdminPass")? wrap.querySelector("#ssAdminPass").value : "");
       }catch(e){ msg.textContent = e.message||String(e); btn.disabled = false; return; }
       wrap.remove(); redraw();
@@ -22177,13 +22477,15 @@ ${readOnly? "" : `
   }
   function openRoleModal(existing, redraw){
     const fixed = existing && existing.builtin==="owner";
-    const edit = staffCanEdit() && !!_staffSession && !fixed;
+    const guest = existing && existing.builtin==="guest";   // v36 A12: view only, can't be changed
+    const edit = staffCanEdit() && !!_staffSession && !fixed && !guest;
     const rights = existing? existing.rights : [];
     const box = (r)=> `<label class="role-right" style="display:flex;gap:8px;align-items:center;margin:3px 0;font-weight:500"><input type="checkbox" data-right="${r[0]}" ${fixed || rights.includes(r[0])? "checked" : ""} ${edit? "" : "disabled"} style="width:auto;margin:0"> ${escapeHtml(r[1])}</label>`;
     const wrap = openModal(existing? (edit? "Edit role: " : "Role: ")+existing.name : "New role", `
       <label style="margin-top:0" for="rlName">Name</label>
       <input class="field" id="rlName" maxlength="40" value="${escapeHtml(existing? existing.name : "")}" ${edit && !(existing && existing.builtin)? "" : "readonly"}>
       ${fixed? `<p class="muted" style="font-size:12.5px">The Owner role always has every right, plus the Owner-only items: licence and billing, adding or removing Owners, deleting a role.</p>` : ""}
+      ${guest? `<p class="muted" id="rlGuestText" style="font-size:12.5px">${escapeHtml(GUEST_TEXT)} Never costs, margins, customers, suppliers, sales, money, documents or settings. It can't be changed or deleted: a role with more rights is a different role.</p>` : ""}
       <div class="role-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 16px;margin-top:8px">
         <div><h4 style="margin:6px 0">Menus</h4><p class="muted" style="font-size:11.5px;margin:0 0 4px">A menu without its right is hidden.</p>${ROLE_MENU_RIGHTS.map(box).join("")}</div>
         <div><h4 style="margin:6px 0">Actions</h4><p class="muted" style="font-size:11.5px;margin:0 0 4px">Approvals still take the Admin passcode, or this person's own PIN.</p>${ROLE_ACTION_RIGHTS.map(box).join("")}</div>

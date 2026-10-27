@@ -83,6 +83,7 @@ function makeApp(settings, opts){
   const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","roles.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","seat.js","transfers.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js","branch-stock.js","branch-views.js","credit.js","itred-orders.js"];
   // opts.b4 (v35): the sales sync too (b4-sync.js). Off by default: the other tests keep their exact RPC calls.
   if(opts && opts.b4) files.push("printing.js", "b4-sync.js");
+  if(opts && opts.extra) files.push(...opts.extra);   // e.g. ["help.js"] for the About page (v36)
   // db.js defines persist/uid4 itself; drop the prelude's copies by loading db.js FIRST is not possible
   // (prelude vars come first), so strip the duplicates from the prelude instead.
   const code = prelude.replace(/async function persist[^\n]*\n/, "").replace(/function uid4[^\n]*\n/, "")
@@ -167,7 +168,11 @@ function makeApp(settings, opts){
         b4CreditActive, b4BuildBatch, b4Backoff, renderPOS, completeSale, creditLimitCheck, printReceipt:typeof printReceipt==="function"? printReceipt : null,
         receiptSaleInfo, receiptCreditRows, custBalanceLineHtml, openCreditLimitModal, payoutModal, wireCreditCardHandlers, creditListHtml,
         getCreditAnswer:()=>b4CreditAnswer, setCreditLimitApproval:(v)=>{ creditLimitApproval=v; }, approveCreditLimit, rwRemoteTable,
-        B4_HISTORY_DAYS, B4_BATCH_MAX });` : "");
+        B4_HISTORY_DAYS, B4_BATCH_MAX });` : "")
+    // v36 Fix-A: removed devices (A1), the role everywhere (A11), Guest (A12), the RPN (A13)
+    + `;Object.assign(this.api, { dcDeviceRemoved, dcRemovedNotice, openDcResetModal, dcRemovedCardHtml, dcLastVendorId, dcResetDevice,
+        tillRightsOn, tillSendsToken, staffModeSync, rightsWaiting, noteRightsWaiting, rightsWaitingHtml, TILL_RIGHT, staffIsGuest, guestEnded, guestUntilText, rpnLocked });`
+    + ((opts && opts.extra && opts.extra.includes("help.js"))? `;Object.assign(this.api, { renderAbout, aboutContactHtml, refreshAboutInfo, aboutAfterCheckin, aboutInfoCached });` : "");
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.
   // Tests must never reach it, so every app instance instead reads the old
   // supabase_url/supabase_anon_key settings (blank = "not configured"),

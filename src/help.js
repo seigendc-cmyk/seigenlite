@@ -1,20 +1,76 @@
   function renderAbout(main){
     main.innerHTML = `
+      ${typeof dcRemovedCardHtml==="function"? dcRemovedCardHtml() : ""}
       ${typeof licenceStatusCardHtml==="function"? licenceStatusCardHtml() : ""}
       <div class="card">
         <p>seiGEN Commerce Lite is for people who care about growth in business. It's built so any shop — one till or several — can run sales, track stock, and close the day properly, without needing the internet to work.</p>
         <div class="hr"></div>
-        <p><b>Digital Commerce</b><br>Commerce Valley Est, Marirangwe, Mhondoro<br>digitalcommerce.com</p>
-        <p><b>Call/WhatsApp:</b> +263789487287</p>
-        <button class="btn btn-primary" id="waAbout2">📲 WhatsApp +263789487287</button>
+        <div id="aboutContact">${aboutContactHtml()}</div>
         <div class="hr"></div>
         <p class="muted" style="font-size:11.5px">Distributed under license from seiGEN Commerce Infrastructure.</p>
         <p class="muted" style="font-size:11.5px" id="aboutVersion">Version ${escapeHtml(APP_VERSION)} · build ${escapeHtml(String(APP_BUILD))}</p>
       </div>
     `;
-    const intro = "Hi, I'm using seiGEN Commerce Lite and would like to get in touch.";
-    document.getElementById("waAbout2").onclick=()=> window.open("https://wa.me/263789487287?text="+encodeURIComponent(intro),"_blank");
+    wireAboutContact();
+    if(typeof wireDcRemovedCard==="function") wireDcRemovedCard();
     if(typeof wireLicenceStatusCard==="function") wireLicenceStatusCard();
+    refreshAboutInfo().then(info=>{
+      const el = document.getElementById("aboutContact");
+      if(info && el && el.isConnected){ el.innerHTML = aboutContactHtml(); wireAboutContact(); }
+    }).catch(()=>{});
+  }
+
+  // ---- About: who we are and how to reach us (v36 A5) ----
+  // Nothing hard-coded: the company name, address and website come from
+  // Console → Settings (cl_company_info), the numbers from the Contact
+  // directory managed in the Console (cl_contact_directory, decision 10).
+  // Kept on this device for offline use, with the time they were fetched.
+  const ABOUT_REFRESH_MS = 24*60*60*1000;
+  function aboutInfoCached(){ try{ return JSON.parse(getSetting("about_info","")||"null"); }catch(e){ return null; } }
+  async function refreshAboutInfo(){
+    if(!isOnline() || typeof terminalRpc!=="function") return null;
+    const [c, d] = await Promise.all([terminalRpc("cl_company_info", {}), terminalRpc("cl_contact_directory", {})]);
+    if(!c.ok && !d.ok) return null;
+    const old = aboutInfoCached() || {};
+    const info = { company: c.ok && c.data? c.data : (old.company||null), desks: d.ok && Array.isArray(d.data)? d.data : (old.desks||[]), ts: new Date().toISOString() };
+    setSetting("about_info", JSON.stringify(info));
+    await persist();
+    return info;
+  }
+  // after a check-in: at most once a day, so About has something to show offline
+  function aboutAfterCheckin(){
+    const c = aboutInfoCached();
+    if(c && Date.now() - Date.parse(c.ts||"") < ABOUT_REFRESH_MS) return;
+    refreshAboutInfo().catch(()=>{});
+  }
+  function aboutWhen(ts){
+    const d = new Date(ts||"");
+    if(isNaN(d)) return "";
+    const hm = d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+    return d.toDateString()===new Date().toDateString()? hm : d.toLocaleDateString([], { day:"numeric", month:"short" })+", "+hm;
+  }
+  function aboutDigits(phone){ return String(phone||"").replace(/[^0-9]/g, ""); }
+  function aboutContactHtml(){
+    const info = aboutInfoCached();
+    if(!info) return `<p class="muted" id="aboutNoInfo">seiGEN's address and contact numbers load the first time this device is online.</p>`;
+    const c = info.company || {};
+    const site = String(c.website||"").trim();
+    const desks = (info.desks||[]).filter(d=> d && Array.isArray(d.numbers) && d.numbers.length);
+    return `
+      ${c.name || c.address || site? `<p id="aboutCompany">${c.name? `<b>${escapeHtml(c.name)}</b>` : ""}${c.address? `<br>${escapeHtml(c.address)}` : ""}${site? `<br><a href="${escapeHtml(/^https?:\/\//i.test(site)? site : "https://"+site)}" target="_blank" rel="noopener">${escapeHtml(site)}</a>` : ""}</p>` : ""}
+      ${desks.map(d=>`<div class="about-desk" style="margin:8px 0"><div style="font-weight:600">${escapeHtml(d.desk)}</div>
+        ${d.numbers.map(n=>`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0">
+          <span>${escapeHtml(n.label? n.label+": " : "")}${escapeHtml(n.phone)}</span>
+          ${n.call? `<a class="btn btn-sm btn-outline" style="width:auto" href="tel:${escapeHtml(n.phone)}">📞 Call</a>` : ""}
+          ${n.whatsapp? `<button type="button" class="btn btn-sm btn-primary" style="width:auto" data-about-wa="${escapeHtml(aboutDigits(n.phone))}">📲 WhatsApp</button>` : ""}
+        </div>`).join("")}</div>`).join("")}
+      <p class="muted" id="aboutUpdated" style="font-size:11.5px">From seiGEN · updated ${escapeHtml(aboutWhen(info.ts))}</p>`;
+  }
+  function wireAboutContact(){
+    const intro = "Hi, I'm using seiGEN Commerce Lite and would like to get in touch.";
+    document.querySelectorAll("[data-about-wa]").forEach(b=>{
+      b.onclick = ()=> window.open("https://wa.me/"+b.dataset.aboutWa+"?text="+encodeURIComponent(intro), "_blank");
+    });
   }
 
   function renderHelp(main){

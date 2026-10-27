@@ -35,9 +35,20 @@
     admin: ROLE_ALL_RIGHTS.slice(),
     manager: ROLE_ALL_RIGHTS.filter(r=> !["m.settings","m.staff","m.terminals"].includes(r)),
     stores: ["m.products","m.dispatch","m.receive","m.adjust","m.incoming","m.productlist","m.stocktake","m.purchasing","m.reports","m.reportwriter"],
-    cashier: ["m.sell","m.credit","m.productlist","m.directory","m.requests","m.reports","m.eod","sales_reports"]
+    cashier: ["m.sell","m.credit","m.productlist","m.directory","m.requests","m.reports","m.eod","sales_reports"],
+    guest: ["m.productlist","branch_prices"]   // v36 A12 (decision 49): view only, on an Office seat
   };
-  const ROLE_ORDER = { owner:1, admin:2, manager:3, stores:4, cashier:5 };
+  const ROLE_ORDER = { owner:1, admin:2, manager:3, stores:4, cashier:5, guest:6 };
+  // ---- the Guest (v36 A12, owner decision 49) ----
+  // Built in, view only: stock and each branch's selling prices (Stock by branch). Signs in only on an
+  // Office seat, until an optional end date; seiGEN refuses anything else.
+  const GUEST_TEXT = "Stock and selling prices of every branch, view only. Signs in only on an Office seat.";
+  function staffIsGuest(st){ const r = st && shopRole(st.role_id); return !!r && r.builtin==="guest"; }
+  function guestEnded(st){ const u = st && Date.parse(st.guest_until||""); return !!u && u <= Date.now(); }
+  function guestUntilText(st){ const u = st && Date.parse(st.guest_until||""); return u? new Date(u).toLocaleDateString([], { day:"numeric", month:"short", year:"numeric" }) : ""; }
+  // the Guest role is given only by the Owner or an Admin (seiGEN checks it too)
+  function staffDateInput(iso){ const d = new Date(iso||""); if(isNaN(d)) return ""; const p = (n)=> String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+  function staffOwnerOrAdmin(){ const st = _staffSession && shopStaff(_staffSession.id), r = st && shopRole(st.role_id); return !!r && (r.builtin==="owner" || r.builtin==="admin"); }
 
   // ---- this till's copy ----
   function rolesSynced(){ try{ return !!one("SELECT 1 AS x FROM shop_roles LIMIT 1"); }catch(e){ return false; } }
@@ -71,6 +82,8 @@
     if(_staffSession){
       const st = shopStaff(_staffSession.id), r = st? shopRole(st.role_id) : null;
       if(!r) return new Set();
+      // v36 A12: a Guest's session ends at the end date (seiGEN ends it too)
+      if(r.builtin==="guest" && guestEnded(st)){ setTimeout(()=>{ if(_staffSession && _staffSession.id===st.id) staffEndSession("This Guest's access has ended."); }, 0); return new Set(); }
       const set = new Set(r.rights);
       if(r.builtin==="owner" || (r.builtin==="admin" && getSetting("shop_has_owner","")!=="1")) set.add("owner");   // Q2: Admins keep the Owner items until there is an Owner
       return set;
@@ -150,6 +163,9 @@
   function shopSigninBefore(id, pin){
     const st = one("SELECT * FROM shop_staff WHERE id=? AND active=1 AND here=1",[id]);
     if(!st) return { ok:false, message:"That person can't sign in at this branch." };
+    // v36 A12: a Guest only on an Office seat, until the end date (offline too)
+    if(staffIsGuest(st) && !(typeof isSeat==="function" && isSeat())) return { ok:false, message:"A Guest signs in only on an Office seat." };
+    if(staffIsGuest(st) && guestEnded(st)) return { ok:false, message:"This Guest's access has ended. Ask the Owner or an Admin." };
     if(st.locked_until && new Date(st.locked_until) > new Date()){
       const mins = Math.max(1, Math.ceil((new Date(st.locked_until) - new Date())/60000));
       return { ok:false, locked:true, message:`Too many incorrect PIN attempts. Try again in ${mins} minute(s).` };
@@ -220,6 +236,64 @@
     _staffSession = null;
     if(_staffIdleTimer){ clearInterval(_staffIdleTimer); _staffIdleTimer = null; }
     if(s && s.token) terminalRpc("cl_device_staff_signout", Object.assign(terminalAuth(), { p_staff_token:s.token })).catch(()=>{});
+  }
+
+  // ---- seiGEN checks the signed-in person on a till too (v36 A11, owner decision 48) ----
+  // Once seiGEN answers the staff pull with this till's mode (20261114120000), a till in staff sign-in
+  // mode sends the signed-in person's token with its calls, as a seat does; seiGEN then refuses a
+  // change the person's role doesn't allow. Single operator mode sends none and works as before
+  // (seiGEN logs it "single operator"). The mode is kept on seiGEN: sign-in mode can be turned on any
+  // time; single operator mode back on needs someone with Settings signed in (online).
+  function tillRightsOn(){ return !(typeof isSeat==="function" && isSeat()) && !!getSetting("srv_staff_mode",""); }
+  function tillSendsToken(){ return tillRightsOn() && getSetting("single_operator_mode","1")==="0"; }
+  let _modeSyncing = null;
+  function staffModeSync(){
+    if(_modeSyncing) return _modeSyncing;
+    _modeSyncing = (async ()=>{
+      if(!tillRightsOn() || !isOnline()) return null;
+      const want = singleOperatorMode()? "single" : "roles";
+      if(getSetting("srv_staff_mode","")===want){
+        if(getSetting("staff_mode_problem","")){ setSetting("staff_mode_problem", ""); await persist(); }
+        return want;
+      }
+      if(want==="single" && _staffSession) await staffEnsureToken().catch(()=>null);   // someone signed in to manage staff
+      const r = await terminalRpc("cl_device_staff_mode", Object.assign(terminalAuth(), { p_mode:want, p_staff_token:staffToken() }), { timeoutMs:20000 });
+      if(r.ok && r.data){ setSetting("srv_staff_mode", r.data.staff_mode||want); setSetting("staff_mode_problem", ""); }
+      else if(r.reason==="refused" || r.reason==="rejected") setSetting("staff_mode_problem", (r.data && r.data.message) || r.message || r.code || "");
+      await persist();
+      return getSetting("srv_staff_mode","");
+    })().finally(()=>{ _modeSyncing = null; });
+    return _modeSyncing;
+  }
+  // The calls seiGEN checks on a till, with the right each needs (the same as its cl_seat_need).
+  const TILL_RIGHT = { cl_device_grv_post:"m.receive", cl_device_dispatch_send:"m.dispatch", cl_device_dispatch_cancel:"m.dispatch",
+    cl_device_dispatch_resolve:"m.dispatch", cl_device_supplier_grv_post:"m.purchasing", cl_device_supplier_save:"m.purchasing",
+    cl_catalogue_push:"m.products", cl_branch_price_push:"edit_prices", cl_device_customer_save:"create_customers",
+    cl_terminal_set_active:"m.terminals", cl_terminal_admin_set:"m.terminals", cl_branch_issue_join_code:"m.terminals",
+    cl_branch_set_price_mode:"m.settings", cl_branch_set_business_day:"m.settings", cl_device_pack_submit:"m.marketing",
+    cl_device_transfer_send:"m.dispatch", cl_device_transfer_receive:"m.receive", cl_device_transfer_cancel:"m.dispatch", cl_device_transfer_resolve:"m.dispatch" };
+  const TILL_RIGHT_TEXT = { cl_device_grv_post:"Receiving (GRV)", cl_device_dispatch_send:"Sending a Delivery Note", cl_device_dispatch_cancel:"Cancelling a Delivery Note",
+    cl_device_dispatch_resolve:"A Delivery Note's shortage", cl_device_supplier_grv_post:"A supplier GRV", cl_device_supplier_save:"A supplier",
+    cl_catalogue_push:"Product changes", cl_branch_price_push:"Branch prices", cl_device_customer_save:"A customer", cl_terminal_set_active:"Switching a till on or off",
+    cl_terminal_admin_set:"A till's settings", cl_branch_issue_join_code:"A join code", cl_branch_set_price_mode:"The branch's price setting",
+    cl_branch_set_business_day:"The business day", cl_device_pack_submit:"A Marketing pack", cl_device_transfer_send:"An internal transfer",
+    cl_device_transfer_receive:"Receiving an internal transfer", cl_device_transfer_cancel:"Cancelling an internal transfer", cl_device_transfer_resolve:"An internal transfer's shortage" };
+  // Work seiGEN refused for the signed-in person's rights stays where it was (it is sent again later,
+  // never dropped) and is listed for managers in Settings → Staff & Roles until it goes through.
+  function rightsWaiting(){ return staffJson(getSetting("rights_waiting",""), []); }
+  function noteRightsWaiting(fn, code, message){
+    const old = rightsWaiting(), was = old.find(x=>x.fn===fn);
+    const list = old.filter(x=>x.fn!==fn).concat([{ fn, code, message:String(message||"").slice(0,200), ts:new Date().toISOString(), n:(was? was.n : 0)+1 }]).slice(-20);
+    setSetting("rights_waiting", JSON.stringify(list));
+    if(!was) logAudit("Refused by seiGEN (rights)", "", (TILL_RIGHT_TEXT[fn]||fn)+": "+String(message||""));
+  }
+  function clearRightsWaiting(fn){ const l = rightsWaiting(); if(l.some(x=>x.fn===fn)) setSetting("rights_waiting", JSON.stringify(l.filter(x=>x.fn!==fn))); }
+  function rightsWaitingHtml(){
+    const l = rightsWaiting();
+    if(!l.length) return "";
+    return `<div class="box" id="rightsWaiting" style="font-size:12.5px;margin:6px 0;border-color:#b54708">
+      <b>Waiting for someone with the right</b> (seiGEN refused it; it is kept and sent again):
+      ${l.map(x=>`<div>${escapeHtml(TILL_RIGHT_TEXT[x.fn]||x.fn)}: ${escapeHtml(x.message)}${x.n>1? " ("+x.n+" tries)" : ""} · ${escapeHtml(new Date(x.ts).toLocaleString())}</div>`).join("")}</div>`;
   }
 
   // ---- the signed-in person's own seiGEN PIN (v29) ----
@@ -369,11 +443,11 @@
   function staffSyncOn(){ return typeof isTerminalRegistered==="function" && isTerminalRegistered() && !(typeof isTerminalInactive==="function" && isTerminalInactive()); }
   function staffApplyOne(s){
     const old = one("SELECT fail_count, locked_until FROM shop_staff WHERE id=?",[s.id]);
-    run(`INSERT OR REPLACE INTO shop_staff(id,name,role_id,home_branch,home_branch_name,branches,active,here,pin_salt,pin_check,pin_rounds,legacy,pins_from_tills,has_pin,seq,fail_count,locked_until)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    run(`INSERT OR REPLACE INTO shop_staff(id,name,role_id,home_branch,home_branch_name,branches,active,here,pin_salt,pin_check,pin_rounds,legacy,pins_from_tills,has_pin,seq,fail_count,locked_until,guest_until)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [s.id, s.name, s.role_id, s.home_branch_id||"", s.home_branch||"", JSON.stringify(s.other_branches||[]), s.active?1:0, s.here?1:0,
        s.pin_salt||"", s.pin_check||"", Number(s.pin_rounds)||0, JSON.stringify(s.legacy||[]), Number(s.pins_from_tills)||0, s.has_pin?1:0, Number(s.seq)||0,
-       old? old.fail_count||0 : 0, old? old.locked_until||"" : ""]);
+       old? old.fail_count||0 : 0, old? old.locked_until||"" : "", s.guest_until||""]);
   }
   let _staffPulling = null;
   function staffPull(){
@@ -398,9 +472,14 @@
       // seiGEN 20261108120000 on: Owner, Admin and Staff holders may sign in at every branch (v31 words its guidance by it)
       setSetting("staff_everywhere_rule", (d.staff||[]).some(s=> s && "everywhere" in s)? "1" : "");
       setSetting("staff_pulled_ts", new Date().toISOString());
+      // v36 A11 (decision 48): seiGEN 20261114120000 on answers with this till's staff sign-in mode, and checks the
+      // signed-in person on a till too; A12: a Guest's Office seat
+      if("staff_mode" in d) setSetting("srv_staff_mode", d.staff_mode||"single");
+      setSetting("seat_guest", d.guest_seat? "1" : "");
       // switched off, or no longer at this branch: the session ends (they can't use this till's menus any more)
       if(_staffSession){ const st = shopStaff(_staffSession.id); if(!st || !st.active || !st.here) staffEndSession("Your access at this branch has changed. Sign in again."); }
       await persist();
+      staffModeSync().catch(()=>{});
       return { ok:true, roles:(d.roles||[]).length, staff:(d.staff||[]).length };
     })().then(staffNotePull).finally(()=>{ _staffPulling = null; });
     return _staffPulling;
@@ -463,6 +542,7 @@
   // o: { id?, name, role_id, home_branch_id, other_branches, active, pin? }
   async function saveShopStaff(o, adminPasscode){
     const p = { id:o.id||null, name:o.name, role_id:o.role_id, home_branch_id:o.home_branch_id, other_branches:o.other_branches||[], active:o.active!==false };
+    if("guest_until" in o) p.guest_until = o.guest_until||"";   // v36 A12: a Guest's end date (empty: none)
     const pin = String(o.pin||"").trim();
     if(pin){
       const bad = pinProblem(pin); if(bad) throw new Error(bad);
@@ -523,6 +603,8 @@
       ${typeof isSeat==="function" && isSeat()? `<p class="muted" id="seatNoSingle" style="margin-top:0">This is an Office seat: everyone signs in with their own PIN. Single operator mode is never used here.</p>` : ""}<label${typeof isSeat==="function" && isSeat()? " hidden" : ""} style="display:flex;gap:8px;align-items:flex-start;margin-top:0"><input type="checkbox" id="sSingleOperator" ${single? "checked" : ""} style="width:auto;margin-top:3px"><span>Single operator mode — skip staff sign-in, just type a name (today's behaviour)</span></label>
       <p class="muted" style="font-size:12px">Turn this off so everyone signs in with their own PIN. Menus then follow each person's role. Reports of other branches and costs at a remote need a signed-in person with the right.</p>
       <p class="muted" style="font-size:12px;margin:6px 0">Kept on seiGEN for every branch${pulled? " · updated "+escapeHtml(new Date(pulled).toLocaleString()) : ""}. <button type="button" class="btn btn-sm btn-ghost" id="staffRefresh">🔄 Refresh</button></p>
+      ${tillRightsOn() && getSetting("staff_mode_problem","")? `<p class="box" id="staffModeProblem" style="font-size:12.5px;border-color:#b54708">seiGEN still has this till in staff sign-in mode, so its changes wait: ${escapeHtml(getSetting("staff_mode_problem",""))} (Sign in to manage staff, then tick single operator mode again.)</p>` : ""}
+      ${rightsWaitingHtml()}
       ${edit? (who? `<p class="muted" style="font-size:12px">Signed in: ${escapeHtml(who)}${staffManaging()? ` · signed out after 5 minutes without use <button type="button" class="btn btn-sm btn-outline" id="staffMgrDone" style="width:auto">Done</button>` : ""}</p>`
                    : `<p class="box" style="font-size:12.5px">Nobody can manage staff yet. ${people.length? "Add the first person here with this till's Admin passcode (an Admin or Owner)." : "Add the first person here with this till's Admin passcode: the business's Owner, who then adds everyone else."}</p>`)
             : !staffManagersHere().length? `<p class="box" id="staffGuidance" style="font-size:12.5px">${escapeHtml(staffManageGuidance())}</p>`
@@ -537,14 +619,14 @@
         ${edit? `<button class="btn btn-primary btn-sm" id="addRole" style="width:auto;margin-bottom:8px">+ New role</button>` : ""}
         ${roles.map(r=>`<div class="product-row role-row">
             <div><div class="pname">${escapeHtml(r.name)}${r.builtin? ` <span class="pill">built in</span>` : ""}</div>
-              <div class="pmeta">${r.builtin==="owner"? "Every right, and the Owner-only items" : escapeHtml(rightsSummary(r.rights))} · ${people.filter(p=>p.role_id===r.id && p.active).length} active</div></div>
-            <button class="btn btn-sm btn-outline" data-edit-role="${escapeHtml(r.id)}" style="flex:none">${edit && r.builtin!=="owner"? "Edit" : "View"}</button>
+              <div class="pmeta">${r.builtin==="owner"? "Every right, and the Owner-only items" : r.builtin==="guest"? escapeHtml(GUEST_TEXT) : escapeHtml(rightsSummary(r.rights))} · ${people.filter(p=>p.role_id===r.id && p.active).length} active</div></div>
+            <button class="btn btn-sm btn-outline" data-edit-role="${escapeHtml(r.id)}" style="flex:none">${edit && r.builtin!=="owner" && r.builtin!=="guest"? "Edit" : "View"}</button>
           </div>`).join("")}`
       : `
         ${edit? `<button class="btn btn-primary btn-sm" id="addShopStaff" style="width:auto;margin-bottom:8px">+ Add person</button>` : ""}
         ${people.length? people.map(s=>{ const r = shopRole(s.role_id); const others = staffJson(s.branches, []).map(staffBranchName).filter(Boolean);
           return `<div class="product-row staff-row">
-            <div><div class="pname">${escapeHtml(s.name)}${s.active? "" : ` <span class="pill low">inactive</span>`}</div>
+            <div><div class="pname">${escapeHtml(s.name)}${s.active? "" : ` <span class="pill low">inactive</span>`}${r && r.builtin==="guest"? ` <span class="pill guest-tag">Guest${guestUntilText(s)? " · until "+escapeHtml(guestUntilText(s)) : ""}</span>${guestEnded(s)? ` <span class="pill low">ended</span>` : ""}` : ""}</div>
               <div class="pmeta">${escapeHtml(r? r.name : "?")} · ${escapeHtml(s.home_branch_name||"no branch")}${others.length? " + "+escapeHtml(others.join(", ")) : ""}${s.has_pin? "" : " · No PIN"}${s.pins_from_tills>1? ` · <span style="color:#b54708">Check: ${s.pins_from_tills} PINs from ${s.pins_from_tills} tills (each works on its own till until they sign in there)</span>` : ""}</div></div>
             ${edit? `<button class="btn btn-sm btn-outline" data-edit-shopstaff="${escapeHtml(s.id)}" style="flex:none">Edit</button>` : ""}
           </div>`; }).join("") : `<p class="muted">No staff on seiGEN yet.</p>`}`}
@@ -562,6 +644,7 @@
       if(!wantOn && !shopStaffHere().length && !activeStaffWithPin(currentBranch()).length){ alert("Add at least one active person with a PIN at this branch before turning this off.\n\n"+staffManageGuidance()); so.checked = true; return; }
       if(!wantOn && !confirm("Everyone will need to pick their name and enter a PIN to use this device. Continue?")){ so.checked = true; return; }
       setSetting("single_operator_mode", wantOn? "1" : "0"); persist(); redraw();
+      staffModeSync().then(()=>{ if(container.isConnected) redraw(); }).catch(()=>{});   // v36 A11: seiGEN keeps the mode
     };
     const mgr = $s("#staffMgrSignin"); if(mgr) mgr.onclick = ()=> openStaffManagerSignin(redraw);
     const mgrDone = $s("#staffMgrDone"); if(mgrDone) mgrDone.onclick = ()=> staffEndManage("done", redraw);
@@ -585,24 +668,38 @@
     const wrap = openModal(existing? "Edit person" : "Add person", `
       <label style="margin-top:0" for="ssName">Name</label><input class="field" id="ssName" maxlength="60" value="${escapeHtml(existing? existing.name : "")}">
       <label for="ssRole">Role</label>
-      <select class="field" id="ssRole">${roles.map(r=>`<option value="${escapeHtml(r.id)}" ${pick(r)? "selected" : ""} ${r.builtin==="owner" && !ownerOk? "disabled" : ""}>${escapeHtml(r.name)}</option>`).join("")}</select>
+      <select class="field" id="ssRole">${roles.map(r=>`<option value="${escapeHtml(r.id)}" ${pick(r)? "selected" : ""} ${(r.builtin==="owner" && !ownerOk) || (r.builtin==="guest" && !staffOwnerOrAdmin())? "disabled" : ""}>${escapeHtml(r.name)}</option>`).join("")}</select>
       ${firstPerson && ownerOk? `<p class="muted" id="ssFirstOwner" style="font-size:12px;margin-top:-4px">The first person is the business's Owner: they then add everyone else.</p>` : ""}
-      <label for="ssHome">Home branch</label>
+      <div id="ssGuestBox" hidden><label for="ssUntil">Guest until (optional)</label>
+        <input class="field" id="ssUntil" type="date" value="${existing && existing.guest_until? escapeHtml(staffDateInput(existing.guest_until)) : ""}">
+        <p class="muted" style="font-size:11.5px;margin-top:-4px">${escapeHtml(GUEST_TEXT)} After this day seiGEN refuses the sign-in and ends the session. Only the Owner or an Admin adds a Guest; their home branch is the main branch.</p></div>
+      <div id="ssBranchBox"><label for="ssHome">Home branch</label>
       <select class="field" id="ssHome">${brs.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===home? "selected" : ""}>${escapeHtml(b.name)}</option>`).join("")}</select>
-      ${brs.length>1? `<label>Also works at</label><div class="ss-others">${brs.map(b=>`<label style="display:flex;gap:8px;align-items:center;margin:4px 0;font-weight:500"><input type="checkbox" data-ss-branch="${escapeHtml(b.id)}" ${others.includes(b.id)? "checked" : ""} style="width:auto;margin:0"> ${escapeHtml(b.name)}</label>`).join("")}</div>` : ""}
+      ${brs.length>1? `<label>Also works at</label><div class="ss-others">${brs.map(b=>`<label style="display:flex;gap:8px;align-items:center;margin:4px 0;font-weight:500"><input type="checkbox" data-ss-branch="${escapeHtml(b.id)}" ${others.includes(b.id)? "checked" : ""} style="width:auto;margin:0"> ${escapeHtml(b.name)}</label>`).join("")}</div>` : ""}</div>
       <label for="ssPin">Sign-in PIN (4 to 6 digits)</label>
       <input class="field" id="ssPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="${existing? "Leave blank to keep the PIN" : "e.g. 4821"}">
       ${existing? `<label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input type="checkbox" id="ssActive" ${existing.active? "checked" : ""} style="width:auto;margin:0"> Active (switching someone off ends their sign-in on every till)</label>` : ""}
       ${boot? `<label for="ssAdminPass">This till's Admin passcode</label><input class="field" id="ssAdminPass" type="password" autocomplete="off">` : ""}
       <div id="ssMsg" role="alert" style="color:var(--danger);font-weight:600;margin-top:8px"></div>
       <button class="btn btn-primary" id="ssSave" style="margin-top:12px">${existing? "Save" : "Add"}</button>`);
+    // v36 A12: a Guest has an optional end date and works at the main branch only
+    const guestPicked = ()=>{ const r = shopRole(wrap.querySelector("#ssRole").value); return !!r && r.builtin==="guest"; };
+    const mainId = (brs.find(b=>b.is_main)||{}).id || "";
+    const showGuest = ()=>{
+      const g = guestPicked();
+      wrap.querySelector("#ssGuestBox").hidden = !g; wrap.querySelector("#ssBranchBox").hidden = g;
+      if(g && mainId) wrap.querySelector("#ssHome").value = mainId;
+    };
+    wrap.querySelector("#ssRole").onchange = showGuest; showGuest();
     wrap.querySelector("#ssSave").onclick = async ()=>{
       const btn = wrap.querySelector("#ssSave"), msg = wrap.querySelector("#ssMsg");
       btn.disabled = true; msg.textContent = "";
       try{
-        await saveShopStaff({ id:existing? existing.id : null, name:wrap.querySelector("#ssName").value, role_id:wrap.querySelector("#ssRole").value,
-          home_branch_id:wrap.querySelector("#ssHome").value, other_branches:[...wrap.querySelectorAll("[data-ss-branch]:checked")].map(x=>x.dataset.ssBranch),
+        const g = guestPicked(), until = wrap.querySelector("#ssUntil").value;
+        await saveShopStaff(Object.assign({ id:existing? existing.id : null, name:wrap.querySelector("#ssName").value, role_id:wrap.querySelector("#ssRole").value,
+          home_branch_id:wrap.querySelector("#ssHome").value, other_branches: g? [] : [...wrap.querySelectorAll("[data-ss-branch]:checked")].map(x=>x.dataset.ssBranch),
           active: existing? wrap.querySelector("#ssActive").checked : true, pin:wrap.querySelector("#ssPin").value },
+          g? { guest_until: until? new Date(until+"T23:59:59").toISOString() : "" } : {}),
           wrap.querySelector("#ssAdminPass")? wrap.querySelector("#ssAdminPass").value : "");
       }catch(e){ msg.textContent = e.message||String(e); btn.disabled = false; return; }
       wrap.remove(); redraw();
@@ -611,13 +708,15 @@
   }
   function openRoleModal(existing, redraw){
     const fixed = existing && existing.builtin==="owner";
-    const edit = staffCanEdit() && !!_staffSession && !fixed;
+    const guest = existing && existing.builtin==="guest";   // v36 A12: view only, can't be changed
+    const edit = staffCanEdit() && !!_staffSession && !fixed && !guest;
     const rights = existing? existing.rights : [];
     const box = (r)=> `<label class="role-right" style="display:flex;gap:8px;align-items:center;margin:3px 0;font-weight:500"><input type="checkbox" data-right="${r[0]}" ${fixed || rights.includes(r[0])? "checked" : ""} ${edit? "" : "disabled"} style="width:auto;margin:0"> ${escapeHtml(r[1])}</label>`;
     const wrap = openModal(existing? (edit? "Edit role: " : "Role: ")+existing.name : "New role", `
       <label style="margin-top:0" for="rlName">Name</label>
       <input class="field" id="rlName" maxlength="40" value="${escapeHtml(existing? existing.name : "")}" ${edit && !(existing && existing.builtin)? "" : "readonly"}>
       ${fixed? `<p class="muted" style="font-size:12.5px">The Owner role always has every right, plus the Owner-only items: licence and billing, adding or removing Owners, deleting a role.</p>` : ""}
+      ${guest? `<p class="muted" id="rlGuestText" style="font-size:12.5px">${escapeHtml(GUEST_TEXT)} Never costs, margins, customers, suppliers, sales, money, documents or settings. It can't be changed or deleted: a role with more rights is a different role.</p>` : ""}
       <div class="role-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 16px;margin-top:8px">
         <div><h4 style="margin:6px 0">Menus</h4><p class="muted" style="font-size:11.5px;margin:0 0 4px">A menu without its right is hidden.</p>${ROLE_MENU_RIGHTS.map(box).join("")}</div>
         <div><h4 style="margin:6px 0">Actions</h4><p class="muted" style="font-size:11.5px;margin:0 0 4px">Approvals still take the Admin passcode, or this person's own PIN.</p>${ROLE_ACTION_RIGHTS.map(box).join("")}</div>

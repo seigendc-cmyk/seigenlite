@@ -97,7 +97,7 @@ async function moreTab(page, desktop, tab){
       await shot(page, "02-about-onboarded-by");
       await moreTab(page, desktop, "settings");
       await page.waitForSelector("#rpnCard");
-      assert.match(await page.textContent("#rpnCard"), /✓ Onboarded by: Tendai \(RPN-014\)[\s\S]*To change your RPN, ask Digital Commerce/);
+      assert.match(await page.textContent("#rpnCard"), /✓ Onboarded by: Tendai \(RPN-014\)[\s\S]*To change your RPN, contact Digital Commerce/);
       assert.strictEqual(await page.$("#linkRpnBtn"), null);
       await shot(page, "03-settings-linked");
       assert.deepStrictEqual(errors, []);

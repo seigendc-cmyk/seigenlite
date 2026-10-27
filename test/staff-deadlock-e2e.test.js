@@ -213,7 +213,7 @@ const gone = (d, sel)=> d.page.waitForSelector(sel, { state:"detached", timeout:
     assert.ok(await p.isChecked("#sSingleOperator"), "still on");
     await p.click("#staffRefresh");
     await waitFor(async()=> /Rumbidzai Cashier · Chitungwiza/.test(await cardText(C)), "Rumbidzai arrives", 30000);
-    assert.match(await cardText(C), /Roles \(6\)/);
+    assert.match(await cardText(C), /Roles \(7\)/);   // v36 A12 (decision 49): the built-in Guest makes 7 with Till Lead
     // v31 + seiGEN 20261108120000: Boss (Admin, home Mbare) has a seiGEN PIN, so he can manage staff here too
     await p.waitForSelector("#staffMgrSignin");
     await p.click("#staffMgrSignin"); await p.waitForSelector("#smPin");

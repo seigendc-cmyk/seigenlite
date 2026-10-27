@@ -78,7 +78,7 @@ function fakeServer(A, o){
     assert.strictEqual(st.state, "linked"); assert.strictEqual(st.name, "Tendai"); assert.strictEqual(st.pending, false, "the PIN is gone");
     assert.strictEqual(A.api.rpnOnboardedByText(), "Onboarded by: Tendai (RPN-014)");
     assert.match(A.api.licenceStatusCardHtml(), /id="rpnOnboardedLine"[^>]*>Onboarded by: Tendai \(RPN-014\)</);
-    assert.match(A.api.rpnSectionHtml(), /✓ Onboarded by: Tendai \(RPN-014\)[\s\S]*To change your RPN, ask Digital Commerce/);
+    assert.match(A.api.rpnSectionHtml(), /✓ Onboarded by: Tendai \(RPN-014\)[\s\S]*To change your RPN, contact Digital Commerce/);
     assert.doesNotMatch(A.api.rpnSectionHtml(), /linkRpnBtn/, "no form once linked");
   });
 

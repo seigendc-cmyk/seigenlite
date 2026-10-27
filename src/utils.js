@@ -356,6 +356,10 @@
     const wrap = document.createElement("div");
     wrap.className="modalOverlay";
     wrap.innerHTML = `<div class="modal-card"><div class="modal-head"><h3 style="margin:0">${escapeHtml(title)}</h3><button class="close-x" data-modal-close>✕</button></div><div class="modal-body">${bodyHtml}</div></div>`;
+    // v36 A2: a long box keeps its closing row of buttons (Save / Cancel) in view; the rest scrolls under it
+    const last = wrap.querySelector(".modal-body").lastElementChild;
+    if(last && last.tagName==="BUTTON"){ const foot = document.createElement("div"); foot.className = "modal-foot"; last.before(foot); foot.appendChild(last); }
+    else if(last && last.children.length && [...last.children].every(c=>c.tagName==="BUTTON")) last.classList.add("modal-foot");
     document.body.appendChild(wrap);
     const close = ()=>{ wrap.remove(); if(onClose) onClose(); };
     wrap.querySelector("[data-modal-close]").onclick=close;

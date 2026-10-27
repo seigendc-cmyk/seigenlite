@@ -245,6 +245,45 @@ async function addPerson(d, o){
     assert.deepStrictEqual(A.pageErrors, []);
   });
 
+  // v36 A2: on a laptop screen the New role box ran past the bottom edge, with Save out of sight.
+  await t("v36 A2: New role, Edit role and Add person keep Save in view at 1920×1080, 1366×768 and 390 px; Save works", async ()=>{
+    const inView = (sel)=> A.page.$eval(sel, (b)=>{
+      const r = b.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width/2, r.top + r.height/2);
+      return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight && !!hit && (hit===b || b.contains(hit));
+    });
+    const mgr = (await sq(`select id from cl_shop_roles where builtin = 'manager'`))[0].id;
+    // the full screens, plus what a browser window leaves of them: a 1366×768 laptop in Chrome (tabs, address bar,
+    // taskbar) and a 1920×1080 screen at Windows' 125 % scaling
+    const sizes = [[1920, 1080], [1366, 768], [1366, 657], [1536, 730], [390, 844]];
+    for(const [w, h] of sizes){
+      await A.page.setViewportSize({ width:w, height:h });
+      await A.page.click("#staffTabRoles");
+      await A.page.click("#addRole"); await A.page.waitForSelector(".modalOverlay #rlSave");
+      assert.ok(await inView(".modalOverlay #rlSave"), "New role: Save in view at "+w+"×"+h);
+      await shot(A.page, "a2-new-role-"+w+"x"+h+".png");
+      await A.page.click(".modalOverlay [data-modal-close]");
+      await A.page.click(`[data-edit-role="${mgr}"]`); await A.page.waitForSelector(".modalOverlay #rlSave");
+      assert.ok(await inView(".modalOverlay #rlSave"), "Edit role: Save in view at "+w+"×"+h);
+      await A.page.click(".modalOverlay [data-modal-close]");
+      await A.page.click("#staffTabPeople");
+      await A.page.click("#addShopStaff"); await A.page.waitForSelector(".modalOverlay #ssSave");
+      assert.ok(await inView(".modalOverlay #ssSave"), "Add person: Save in view at "+w+"×"+h);
+      await shot(A.page, "a2-add-person-"+w+"x"+h+".png");
+      await A.page.click(".modalOverlay [data-modal-close]");
+    }
+    // Save works where it used to be out of sight: a new role at 1366×768, without scrolling
+    await A.page.setViewportSize({ width:1366, height:768 });
+    await A.page.click("#staffTabRoles");
+    await A.page.click("#addRole"); await A.page.waitForSelector(".modalOverlay #rlSave");
+    await A.page.fill(".modalOverlay #rlName", "Night shift");
+    await A.page.check('.modalOverlay [data-right="m.sell"]');
+    await A.page.click(".modalOverlay #rlSave", { noWaitAfter:true });
+    await waitFor(async()=> !(await A.page.$(".modalOverlay #rlSave")), "the box closes after Save");
+    assert.strictEqual((await sq(`select count(*)::int n from cl_shop_roles where name = 'Night shift'`))[0].n, 1);
+    await A.page.setViewportSize({ width:1280, height:800 });
+    assert.deepStrictEqual(A.pageErrors, []);
+  });
+
   await t("Murehwa: Sipho (Cashier) signs in: Sell and Credit, no Products, no Report Writer in More", async ()=>{
     await activateForTest(C.page);                                  // a check-in brings Murehwa's staff
     await waitFor(async()=>{ await openSettings(C); return !!(await C.page.$("#shopStaffCard")) && /Sipho/.test(await C.page.textContent("#shopStaffCard")); }, "Murehwa has the staff", 30000);

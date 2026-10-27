@@ -61,8 +61,21 @@
   // "refused" (server answered { error: CODE }, e.g. a used join code).
   const TERMINAL_RPC_TIMEOUT_MS = 10000;
   // opts.timeoutMs: a shorter limit for calls a cashier waits on (a sale, Phase 3b).
+  // v36 A12: what a Guest's Office seat never asks for (seiGEN refuses it: GUEST_SEAT); skipped quietly here
+  const GUEST_SEAT_SKIP = ["cl_device_customers_pull","cl_device_suppliers_pull","cl_device_supplier_invoice_check","cl_device_dispatch_pull",
+    "cl_device_dispatch_lookup","cl_device_business_dispatches","cl_device_dispatch_card","cl_device_item_ledger","cl_device_transfers_pull",
+    "cl_device_credit_balances","cl_device_itred_orders_pull","cl_device_itred_messages_read","cl_catalogue_pull","cl_catalogue_images_pull",
+    "cl_device_stock_levels_push","cl_device_b4_push","cl_device_dispatch_costs","cl_device_branch_report"];
   async function terminalRpc(name, body, opts){
     if(!isOnline()) return { ok:false, reason:"offline" };
+    if(getSetting("seat_guest","")==="1" && GUEST_SEAT_SKIP.includes(name)) return { ok:false, reason:"offline", code:"GUEST_SEAT" };
+    // v36 A11 (decision 48): a till in staff sign-in mode gets the signed-in person's seiGEN token first
+    // (signed in offline, or it ran out), so seiGEN checks that person's right
+    const till = typeof TILL_RIGHT!=="undefined" && TILL_RIGHT[name] && typeof tillSendsToken==="function" && tillSendsToken();
+    if(till && body && body.p_secret_phrase===getSetting("secret_phrase","") && typeof staffSession==="function" && staffSession() && !staffToken()){
+      const t = await staffEnsureToken().catch(()=>null);
+      if(t) body = Object.assign({}, body, { p_secret_phrase: body.p_secret_phrase+"|"+t });
+    }
     let timer = null;
     try{
       const ctrl = (typeof AbortController!=="undefined")? new AbortController() : null;
@@ -73,8 +86,15 @@
       });
       const text = await res.text();
       let data = null; try{ data = JSON.parse(text); }catch(e){}
-      if(!res.ok) return { ok:false, reason:"rejected", message: String((data && data.message) || text || ("HTTP "+res.status)).slice(0,200) };
+      if(!res.ok){
+        const message = String((data && data.message) || text || ("HTTP "+res.status)).slice(0,200);
+        // v36 A11: refused for the signed-in person's rights on a till: plain words, kept for managers
+        const k = /^(STAFF_NO_RIGHT|STAFF_SIGN_IN):\s*(.*)$/.exec(message);
+        if(k){ if(typeof noteRightsWaiting==="function" && TILL_RIGHT[name]) noteRightsWaiting(name, k[1], k[2]); return { ok:false, reason:"rejected", code:k[1], message:k[2] }; }
+        return { ok:false, reason:"rejected", message };
+      }
       if(data && data.error) return { ok:false, reason:"refused", code:data.error, data };
+      if(till && typeof clearRightsWaiting==="function") clearRightsWaiting(name);
       return { ok:true, data };
     }catch(e){ return { ok:false, reason:"network" }; }
     finally{ if(timer) clearTimeout(timer); }
@@ -84,6 +104,8 @@
     let ph = phrase==null? getSetting("secret_phrase","") : phrase;
     // v32 Office seats: a seat's calls carry the signed-in person's token after its own phrase (seiGEN checks their rights)
     if(phrase==null && typeof isSeat==="function" && isSeat() && typeof staffToken==="function"){ const t = staffToken(); if(t) ph += "|"+t; }
+    // v36 A11 (decision 48): a till in staff sign-in mode too, once seiGEN checks tills (it said so in the staff pull)
+    else if(phrase==null && typeof tillSendsToken==="function" && tillSendsToken() && typeof staffToken==="function"){ const t = staffToken(); if(t) ph += "|"+t; }
     return { p_install_id: getSetting("install_id",""), p_secret_phrase: ph, p_device_key: deviceKey() };
   }
 

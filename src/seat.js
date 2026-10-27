@@ -471,7 +471,7 @@
     const b = businessBillCached();
     if(!b || !b.devices || !b.devices.length) return "";
     const cur = b.currency || "USD", money = (n)=> cur+" "+Number(n).toFixed(2);
-    return `<div class="business-bill" id="businessBillBox"><div style="font-weight:600;margin-bottom:4px">Your business's bill${b.plan_name? " ("+escapeHtml(b.plan_name)+" plan)" : ""}</div>
+    return `<div class="business-bill" id="businessBillBox"><div style="font-weight:600;margin-bottom:4px">Your business's bill${b.plan_name? " ("+escapeHtml(b.plan_name)+")" : ""}</div>
       ${b.devices.map(d=>`<div class="muted" style="font-size:12.5px">${escapeHtml(d.branch)} ${escapeHtml(seatTillLabel(d.till_code))} · ${d.unit_fee==null? escapeHtml(d.problem||"not billed") : escapeHtml(BILL_ROLE_TEXT[d.role]||d.role)+" "+escapeHtml(money(d.unit_fee))}</div>`).join("")}
       <div style="font-weight:700;margin-top:4px" id="businessBillTotal">Total ${escapeHtml(money(b.total))} per 30 days</div></div>`;
   }

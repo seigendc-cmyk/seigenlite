@@ -357,6 +357,8 @@ const DAY = 86400000;
   });
 
   await t("the sync line on the Sell screen: \"N waiting to send · last sent hh:mm\", tap for details", async ()=>{
+    await drain(M1);
+    assert.ok(/>0 waiting to send · last sent \d\d:\d\d(?: ?[AP]M)?/.test(M1.api.b4IndicatorHtml()), "v36 A3: 0 before the sale, never blank");
     M1.ctx.navigator.onLine = false;
     await sell(M1, 1, "Cash"); M1.api.b4ScanLive();
     const html = M1.api.b4IndicatorHtml();
@@ -365,7 +367,7 @@ const DAY = 86400000;
     assert.ok(/Sales/.test(wrap.textContent) && /You're offline: selling goes on/.test(wrap.textContent), wrap.textContent);
     wrap.remove();
     M1.ctx.navigator.onLine = true; await drain(M1);
-    assert.ok(/All sent · last sent \d\d:\d\d(?: ?[AP]M)?/.test(M1.api.b4IndicatorHtml()));
+    assert.ok(/>0 waiting to send · last sent \d\d:\d\d(?: ?[AP]M)?/.test(M1.api.b4IndicatorHtml()));   // v36 A3: the number, 0 included
   });
 
   await t("another branch's sales in Report Writer: from seiGEN, costs only when seiGEN sends them", async ()=>{
