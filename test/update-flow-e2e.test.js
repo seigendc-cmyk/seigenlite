@@ -26,6 +26,7 @@ const { activateForTest, writeSettings } = require("./test-activation");
 const { TEST_PHRASE } = require("./dc-fake");
 
 let chromium;
+require("./local-cdn");   // the cdnjs files from test/cdn/, not the internet
 try{ ({ chromium } = require("playwright")); }
 catch(e){ console.log("Playwright is not installed — skipping."); console.log("0 passed, 0 failed (skipped)"); process.exit(0); }
 

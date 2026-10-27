@@ -1,3 +1,5 @@
 # Vendored third-party files are kept byte for byte (their sha256 is checked by test/licence.test.js)
 src/vendor/tweetnacl-fast.min.js -text
 src/vendor/tweetnacl-LICENSE -text
+# Browser tests' local copies of the cdnjs files (test/local-cdn.js; sha256 checked by test/local-cdn.test.js)
+test/cdn/** -text

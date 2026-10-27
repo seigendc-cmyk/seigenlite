@@ -18,6 +18,7 @@ const { stubDigitalCommerce } = require("./dc-fake");
 const { activateForTest } = require("./test-activation");
 
 let chromium;
+require("./local-cdn");   // the cdnjs files from test/cdn/, not the internet
 try{ ({ chromium } = require("playwright")); }
 catch(e){
   console.log("Playwright is not installed (npm install --save-dev playwright) — skipping.");

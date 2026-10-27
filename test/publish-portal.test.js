@@ -882,6 +882,7 @@ const writes = (fake)=> fake.state.log.filter(r=> r.method!=="GET" && r.path!=="
 
   // ================= the page, in a real browser =================
   let chromium = null;
+  require("./local-cdn");   // the cdnjs files from test/cdn/, not the internet
   try{ ({ chromium } = require("playwright")); }catch(e){ console.log("  (Playwright not installed — skipping the browser test)"); }
   const fs = require("fs"), os = require("os"), path = require("path");
   async function browserPage(browser, P, o){
