@@ -1,6 +1,6 @@
 # Post–build 29 upgrade: owner decisions and roadmap
 
-**Source of truth for Claude Code.** Save it at `docs/decisions/post-build-29-decisions.md`. The owner (Lovemore) updates it. Where it conflicts with an older design doc, this file wins, unless the owner says otherwise in the task prompt. Last updated 23 Oct 2026.
+**Source of truth for Claude Code.** Save it at `docs/decisions/post-build-29-decisions.md`. The owner (Lovemore) updates it. Where it conflicts with an older design doc, this file wins, unless the owner says otherwise in the task prompt. Last updated 27 Oct 2026.
 
 ## Status
 | Build | What | State |
@@ -13,7 +13,9 @@
 | 6A | Content protection + Contact directory | applied 22 Oct (`20261111120000_contact_directory`), `d3e8ad8` / Console `fe68c6a`, on previews + sclconsole-preview |
 | v34 | Batch 2: credit limits, built-in customers, receipts, 4 reports, Sell speed (migration `20261112120000_builtin_customers`) | applied 22 Oct, done, `e541fc9`, on the 3 previews |
 | v35 | B4 sales sync (migration `20261113120000_sales_sync`) | built `77878d2`; applied 23 Oct, `d5ec497` (with decision 40); on the 3 previews |
-| next | F-0 data gaps (v36; items 41–44), then Finance F-1 screen designs | F-0 prompt ready |
+| v36 | Fix-A (open issues A1–A13, below) | in progress (27 Oct) |
+| v37 | Stock control + notification bell (decisions 51–55) | after v36 |
+| v38 | F-0 data gaps (items 41–47), then Finance F-1 screen designs | after v37 (decision 51) |
 
 ## Roadmap (in order)
 1. ~~Purge of the test data~~ (done 22 Oct).
@@ -26,7 +28,7 @@
    - the remaining ~25 Admin passcode checks moved off the screen thread;
    - Batch 2 reports (below).
 4. **B4:** sales sync (every sale, return, credit payment, payout, EOD cash; the cost at the time of sale; currency and exchange rate; payment method).
-5. **F-0, data gaps** (item 41), then **Books + Cash Flow, one engine** (items 17–29): **F-1** books and cash basics, **F-2** growth tools, **F-3** purchasing and control, **F-4** payroll (wages, no tax calculation).
+5. **Fix-A (v36)**, then **Stock control + notification bell** (v37, decisions 51–55), then **F-0, data gaps** (v38, item 41), then **Books + Cash Flow, one engine** (items 17–29): **F-1** books and cash basics, **F-2** growth tools, **F-3** purchasing and control, **F-4** payroll (wages, no tax calculation).
 6. **Batch 3:** orders checkout and supervisor verification (items 5 and 5b).
 7. **Batch 4, iTred:**
    - proof of payment (6), chat archive and delete-for-me (7);
@@ -34,19 +36,47 @@
    - a search icon on Your Orders and Vendors;
    - remove "49 Brechin Est." from the iTred UI;
    - weak-signal speed and offline queued orders (13).
-8. **Batch 5:** notifications (8), refresh at least every 60 s, the marketing-message flag (12).
+8. **Batch 5:** notifications (8), refresh at least every 60 s, the marketing-message flag (12). (The bell, the 60 s check and the Market feed come earlier, in v37: decision 55.)
 9. **Batch 6B:** privacy and legal notices; the rule-based Seith helper on iTred Contact Us (11).
 10. **Batch 7 (Console repo):** monthly document-review reminders.
 11. **Office / business brain:** Seith prices (14), market intelligence (15), activity logs (B5).
 12. Seith (after F-1 to F-4), then the **Qwen3 4B trial** (Windows .exe only).
 
 **Production** comes as its own step, only on "go production", after the purge and the production checklist:
-- the removed-devices fix (item 34);
+- the removed-devices fix (item 34; now built in Fix-A, A1);
 - a unique, hidden secret phrase per device;
 - dropping old-code acceptance;
 - a private repo;
 - Supabase Pro;
 - the domain.
+
+## Open issues before F-0 (27 Oct 2026)
+**Fix-A (one small build before F-0):**
+- A1. Deleted or old devices re-register and create stray businesses (decision 34: seiGEN refuses removed devices; the app shows "Reset this device", offering a backup first).
+- A2. "New role" box: the Save button isn't visible on a 1080p screen (to confirm).
+- A3. The "waiting to send" count came back blank during the v35 speed run (to confirm).
+- A4. About shows "Growth Plan plan" (the word repeated) and a plan name that isn't Business or Lite.
+- A5. About shows a hard-coded address, website and WhatsApp number; it should read from the Contact directory and business settings.
+- A6. Old destination branches that aren't on seiGEN (e.g. Norton "file only") stay in the till's local list.
+- A7. Builds aren't repeatable: give the code scrambler a fixed seed.
+- A8. Stray vendor rows on live from old devices ("Today and Tomorrow", "Romana Books" device AKFW): delete them once A1 is live (data fix, owner's "apply").
+- A9. Confirm v35 is deployed to the three previews and pushed, and that the decision-40 correction is in (the other-branch customer notice stays online; only the "this till's balance" sentence goes).
+- A10. Anything found in the owner's outstanding tests (below) is added here before Fix-A starts.
+- A11. Role is authoritative everywhere (decision 48): seiGEN checks the person's role on tills too (B2 moved here); Office seats show every menu the role allows except Sell, cash and EOD.
+- A12. The built-in Guest role (decision 49).
+- A13. Lock the RPN link and details in the shop app (decision 50).
+
+**Security before production:**
+- B1. The secret phrase is shown in Settings and shared by every device → one phrase per device, hidden.
+- B2. (moved into Fix-A as A11.)
+- B3. seiGEN checks the Admin passcode when the first Owner is created.
+- B4. Supabase Pro, a private repo, the domain.
+
+(These B1–B4 are security items; they are not the Branches requisition design "B3" or the B4 sales sync build.)
+
+**Owner tests outstanding:** v33/v34 combined test, the v35 two-till credit test, the Office seat test.
+
+**Prompt numbers:** the combined prompt `docs/prompts/next-builds-v36-v38.md` numbers the new decisions 45–52; here they are 48–55 (prompt 45 = 48, 46 = 49, 47 = 50, 48 = 51, 49 = 52, 50 = 53, 51 = 54, 52 = 55).
 
 ## Decisions (20 Oct 2026)
 | # | Topic | Decision |
@@ -99,6 +129,14 @@
 | 45 | Payout accounts (23 Oct) | A fixed built-in list, the same on every till, not editable until F-1 maps it to the chart of accounts: Transport & fuel · Stock bought with till cash · Wages & casual labour · Rent & utilities · Repairs & maintenance · Cleaning & shop supplies · Food & refreshments · Owner drawings · Other (reason required). The reason box stays; old payouts show "Unassigned". |
 | 46 | Base currency code for existing businesses (23 Oct) | Derived from the symbol: "$", "US$", "USD" → USD; "ZiG", "ZWG", "ZWL" → ZWG (shown as ZiG). Otherwise Owner/Admin picks it in Settings, and events send the code empty until then. New businesses pick it at setup. |
 | 47 | Credit payments at End of Day (23 Oct) | Unchanged in v36: expected cash still leaves out credit payments, whatever the method. The method is recorded, printed and synced only. Revisit in F-1. |
+| 48 | Role is authoritative (27 Oct) | For every person on every device (tills and Office seats), the **role decides** what they can see and do, and **seiGEN checks the signed-in person's role on the server** for every protected call, tills included (security item B2 moved into Fix-A). Office seats get **every menu the role allows** (Finance, reports, stock, dispatch, GRV, approvals, staff and so on), **except selling, cash and End of Day, which stay on tills** (decision 16 kept). |
+| 49 | Guest role | A new **built-in "Guest" role**: **view only** stock balances and **selling prices (retail and wholesale) at all branches**. Never costs, margins, customers, sales, money, documents or settings. **Signs in only on an Office seat** (refused on tills); each Guest device is an Office seat **billed $3 per 30 days**. Owner or Admin may set an **optional end date** when adding a Guest; access stops automatically then (no end date = until removed). Guests can't be given extra rights: a role with more rights is a different role. |
+| 50 | RPN link locked (27 Oct) | After onboarding, the shop **can't change** its RPN link or the RPN's details: Settings shows them read-only, with "To change your RPN, contact Digital Commerce". Only Console staff with a permission can change it; every change is logged; seiGEN enforces it. |
+| 51 | Stock control batch: order | Built **after Fix-A (v36) and before F-0**: Stock control = v37, F-0 = v38. |
+| 52 | Cycle stocktake | A **"Count now" tab** on Stocktake: a daily short list chosen by risk (A/B/C by value and speed: weekly / monthly / quarterly; red flags: negative stock, a past difference, many voids or returns, a sale while showing 0, big adjustments; not counted for too long). **Shelf/location per product per branch** (optional; lists group by shelf). **Blind counts** (the counter never sees the expected quantity). **Every difference needs Manager approval** before stock changes; the Manager may ask for a recount by another person. **Shrinkage report:** losses by item, shelf, branch, shift and staff on duty, with trends. |
+| 53 | Stock requests from branches | The Stock Requisition from the Branches plan (B3): a branch requests items from main; staff with **"Review stock requests"** get a notification, a list and a report; they approve all, part or reject with a reason; an approved request becomes a **draft DN at main**, then the normal DN → GRV flow, linked from request to DN to GRV. |
+| 54 | Recall from branches | Main issues a **recall** (items, quantities, reason, due date); the branch dispatches the stock back with a normal DN and main receives it with a GRV. The branch can mark items short, with a reason. Overdue recalls are flagged. **Main pays the transport.** New right **"Recall stock"** (Owner, Admin and Manager by default). |
+| 55 | Notification bell (27 Oct) | A **bell in the header** on every device, with an unread count **per person**. Shows, by role: **Market feed** (seiGEN broadcasts; replaces the separate marketing-message flag of decision 12), **iTred sales orders**, **stock requests**, **recalls**, **count differences waiting for approval**, and **incoming DN/GRV**. **A short chime** for each new notification (no repeats for the same event), with sound on/off per person and per category in Settings → Notifications. Titles only. New items checked at least every 60 s while the app is open and online. Phone/PC notifications while running (decision 8 Level 1); push when closed stays Level 2. Built in v37 with Stock control. |
 
 ### Books + Cash Flow rights (approved; journals and month-close added 22 Oct)
 | Right | Owner | Admin | Manager | Bookkeeper | Stores | Cashier |
