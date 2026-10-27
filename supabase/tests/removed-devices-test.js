@@ -35,7 +35,7 @@ const run = async (pg, sql) => { try { await pg.exec(sql); return { ok: true }; 
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });   // the live shape
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql']) });   // the live shape
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || crypto.randomBytes(16).toString('hex'));
   const anon = async (fn, args) => {

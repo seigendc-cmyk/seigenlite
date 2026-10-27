@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { NOT_ON_LIVE_FILES, newPglite, buildFromRepo, v21AdminSeed } = require('./rebuild-helpers');
+const { newPglite, buildFromRepo, v21AdminSeed } = require('./rebuild-helpers');
 
 const FIX = fs.readFileSync(path.join(__dirname, '..', 'data-fixes', '20261022_test_data_purge.sql'), 'utf8').replace(/\r\n/g, '\n');
 const KEEP = ['cl_staff', 'cl_staff_module_access', 'cl_modules', 'portal_staff', 'cl_rpn', 'cl_rpn_pins', 'cl_rpn_commission_rates', 'cl_app_settings',
@@ -29,7 +29,8 @@ const J = (x) => JSON.stringify(x);
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261111120000_contact_directory.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql']) });   // the live shape the purge ran on (22 Oct 05:42, before 6A)
+  await buildFromRepo(pg, { skip: ['20261111120000_contact_directory.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql',
+    '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql'] });   // the live shape the purge ran on (22 Oct 05:42, before 6A)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
   const PHRASE = { AA: 'Alpha Phrase', BB: 'Beta Phrase', NN: 'New Phrase' };

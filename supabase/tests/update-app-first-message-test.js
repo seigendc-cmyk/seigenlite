@@ -35,7 +35,7 @@ const run = async (pg, sql) => { try { await pg.exec(sql); return { ok: true }; 
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261024120000_branch_stock.sql', '20261106120000_branch_views.sql', '20261107120000_shop_roles.sql', '20261108120000_shop_managers_everywhere.sql', '20261109120000_office_seats.sql', '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql']) });   // the shape just before it (all are on live now)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261024120000_branch_stock.sql', '20261106120000_branch_views.sql', '20261107120000_shop_roles.sql', '20261108120000_shop_managers_everywhere.sql', '20261109120000_office_seats.sql', '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql', '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql']) });   // the shape just before it (all are on live now)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || crypto.randomBytes(16).toString('hex'));
@@ -77,7 +77,7 @@ const run = async (pg, sql) => { try { await pg.exec(sql); return { ok: true }; 
 
   // B1 comes after it
   const pg2 = await newPglite();
-  await buildFromRepo(pg2, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261024120000_branch_stock.sql', '20261106120000_branch_views.sql', '20261107120000_shop_roles.sql', '20261108120000_shop_managers_everywhere.sql', '20261109120000_office_seats.sql', '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql']) });
+  await buildFromRepo(pg2, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261024120000_branch_stock.sql', '20261106120000_branch_views.sql', '20261107120000_shop_roles.sql', '20261108120000_shop_managers_everywhere.sql', '20261109120000_office_seats.sql', '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql', '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql']) });
   r = await run(pg2, MIG);
   const r2 = await run(pg2, B1);
   ok('then 20261024120000_branch_stock applies on top of it', r.ok && r2.ok, (r.e || '') + (r2.e || ''));
