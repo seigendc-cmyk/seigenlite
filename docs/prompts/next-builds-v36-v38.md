@@ -338,6 +338,24 @@ The owner decided in October that stock is valued at **weighted average cost**. 
 - Verify how ZiG is handled today (file:line). Don't invent exchange rules: the rate the owner sets stays the rate used.
 - Every money event carries its currency code (B4).
 
+## 6. F-0 additions (owner update 27 Oct 2026 evening; repo decisions 58–62, `docs/decisions/owner-update-2026-10-27b.md`)
+F-0 = items 1–5 above **plus** these. All additive: old records stay readable with the new fields empty. The spec `docs/financial-engine/00_GROWTH_FINANCIAL_ENGINE_SPEC_v2.md` is the design reference; where it conflicts with the decisions doc, the decisions doc wins (report every conflict).
+
+**Build (decision 59):**
+1. **Dimensions on every money and stock event:** branch, till/seat, operator, product, category, customer, supplier, and **sales channel** (counter retail / wholesale / iTred order); an optional **cost centre** on payouts.
+2. **Exchange rate and its source** on every money event: the rate used, and whether it's the owner's street rate or the official rate.
+3. **Accounting policy record per business:** functional currency, **fiscal year start**, inventory method (weighted average, decided), rounding, reserve policy. Every change is audited and needs Owner approval.
+4. **Inventory integrity check** per till and seat: opening + received − sold − adjusted = closing, at both last cost and WAC. Mismatches are flagged.
+5. **Keep both costs** (last cost and WAC) on every sale line permanently (spec §30).
+6. **Inter-branch flag** on dispatch, GRV and internal transfer events (spec §18).
+
+**Report and propose, change nothing (decision 60):**
+7. **History-edit audit (spec §47):** every place the app lets someone edit or delete a sale, payout, payment, GRV, stock record or customer balance (file:line), each with a "reverse and redo" proposal. Each change is a logic change, approved case by case.
+8. **Tax check (spec §5, §43):** whether and how the app records VAT or tax today. Don't invent tax rules.
+9. **Other money in (spec §7, §14):** a proposal for capital introduced, loans received, other income, customer deposits: screens, rights and events. Proposal only.
+
+**Keep in mind for F-0's design (decision 58):** the same posting rules will run on the till (provisional) and on seiGEN (official), from the same synced events with the same ids, so the events F-0 adds must carry everything both need.
+
 ## Tests (at least)
 - WAC: GRV into stock, into zero and into negative stock; dispatch + transport into the receiver; internal transfer; sale, return, adjustment, write-off; both costs on the sale line; the comparison report totals.
 - Credit payment: method required; reference required for EcoCash and bank; shown on the receipt; synced.
@@ -345,13 +363,23 @@ The owner decided in October that stock is valued at **weighted average cost**. 
 - EOD: two currencies, differences per currency; a single-currency till unchanged.
 - Currency code on every synced money event.
 - **Reports and receipts unchanged in Step 1a** (the same figures as v35).
+- F-0 additions (section 6):
+  - every new event carries the dimensions and the rate source;
+  - a policy-record change needs Owner approval and is audited;
+  - the inventory check balances on the test data and flags a forced mismatch;
+  - both costs are kept;
+  - inter-branch events are flagged.
 - Full suite regression.
 
 ## Steps
-1. Inspect, then build Step 1a plus items 2–5. Migration + rollback + PGlite tests.
+1. Inspect, then build Step 1a plus items 2–5 and section 6 items 1–6. Migration + rollback + PGlite tests.
 2. Rebuild, full suite, commit by name. Back up live, show the final SQL → **STOP for "apply"**.
 3. After apply: post-checks, rebuild, full suite, commit, deploy **v38 to the three previews only**, push.
 4. **STOP** with the costing-comparison instructions for my test business. **Step 1b waits for my "approved".**
-5. Report: "Logic changes" (each tied to decisions 41–44), test results, and a short test checklist for me.
+5. Report: "Logic changes" (each tied to decisions 41–44 and 58–60), test results, and a short test checklist for me. The report has **items 7–9 as separate sections** (findings and proposals), plus any conflict between the spec and the decisions doc.
+
+Stops are unchanged: "apply", then the costing comparison for my approval before the WAC switch.
+
+**After F-0: Finance Phase 0 (decision 61)**, replacing "Finance F-1 screen designs": the source-of-truth documents of spec §60 (`docs/financial-engine/01_…` to `24_…`) plus the Finance screen designs, based on the real app and the decisions doc, saying what exists today and what's new. **I approve them before any F-1 code.** (The phase order after F-1 is pending my confirmation: decision 61.)
 
 Report saved: reports\latest-report.md
