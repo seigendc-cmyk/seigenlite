@@ -110,7 +110,7 @@ function main(argv) {
   fs.mkdirSync(dest, { recursive: true });
   const assets = t.itred ? path.join(dest, "site") : dest;
   fs.mkdirSync(assets, { recursive: true });
-  for (const f of fs.readdirSync(src)) fs.copyFileSync(path.join(src, f), path.join(assets, f));
+  fs.cpSync(src, assets, { recursive: true });   // A14 (v37): the hosted apps have a vendor/ folder
 
   const mi = argv.indexOf("--message");
   const message = mi !== -1 ? argv[mi + 1] : t.build;
