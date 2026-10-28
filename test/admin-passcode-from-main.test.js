@@ -42,7 +42,7 @@ async function waitFor(cond, what){
 (async ()=>{
   const MIG = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261023120000_admin_passcode_from_main.sql"), "utf8");
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261023120000_admin_passcode_from_main.sql", "20261023180000_update_app_first_message.sql", "20261024120000_branch_stock.sql", "20261025120000_min_app_build.sql", "20261106120000_branch_views.sql", "20261107120000_shop_roles.sql", "20261108120000_shop_managers_everywhere.sql", "20261109120000_office_seats.sql", "20261110120000_staff_first_owner.sql", "20261112120000_builtin_customers.sql", "20261113120000_sales_sync.sql", "20261113180000_removed_devices.sql", "20261114120000_roles_everywhere.sql"]) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261023120000_admin_passcode_from_main.sql", "20261023180000_update_app_first_message.sql", "20261024120000_branch_stock.sql", "20261025120000_min_app_build.sql", "20261106120000_branch_views.sql", "20261107120000_shop_roles.sql", "20261108120000_shop_managers_everywhere.sql", "20261109120000_office_seats.sql", "20261110120000_staff_first_owner.sql", "20261112120000_builtin_customers.sql", "20261113120000_sales_sync.sql", "20261113180000_removed_devices.sql", "20261114120000_roles_everywhere.sql", "20261115120000_stock_control.sql"]) });
   await pg.exec(MIG);
   await pg.exec(fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261023180000_update_app_first_message.sql"), "utf8"));
   // one database call at a time: an app's background call (role anon) must not overlap the test's own reads

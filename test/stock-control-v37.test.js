@@ -387,6 +387,28 @@ const FILE = "20261115120000_stock_control.sql";
     const row = (await q("select status, cancel_note from cl_stock_recalls where id=$1", [r.id]))[0];
     assert.strictEqual(row.status, "cancelled"); assert.strictEqual(row.cancel_note, "stock is fine at Murehwa");
     assert.strictEqual((await q("select count(*)::int n from cl_stock_ctl_log where doc_id=$1 and action='cancelled'", [r.id]))[0].n, 1, "logged");
+
+    // the offline gap (accepted): Murehwa still sees the recall open and sends its DN; the link is refused,
+    // and the person who cancelled gets a bell notice to receive it with a GRV
+    await M1.api.scPull();
+    const mq = Object.assign({}, M1.api.scRecall(r.id), { status:"open" });
+    M1.api.run("UPDATE sc_recalls SET json=?, status='open' WHERE id=?", [JSON.stringify(mq), r.id]);
+    const plan = M1.api.rclSendBackPlan(M1.api.scRecall(r.id), { 1:{ sent:1 } });
+    assert.ok(plan.ok, JSON.stringify(plan));
+    const hb = M1.api.dsBranchFor("Harare");
+    const dn = M1.api.dnCommitDispatch({ branch:"Murehwa", toBranch:"Harare", now:new Date(), internalRef:plan.pre.internalRef, lines:plan.pre.lines, link:plan.pre.link,
+      srv:{ toBranchId:hb.id, delivery:{ cost:0, currency:"USD", carrier:"", ref:"" } } });
+    await M1.api.dsSendPending(); await drain(M1);
+    const refused = M1.api.all("SELECT code FROM sc_outbox WHERE doc_id=? AND type='recall_link'", [r.id]);
+    assert.strictEqual(refused.map((x)=>x.code).join(","), "WRONG_STATUS", "the link to the cancelled recall is refused");
+    await H1.api.bellTick();
+    const note = H1.api.bellVisible().find((x)=> x.key.startsWith("rcl:dncx:"));
+    assert.ok(note, "a notice for the person who cancelled");
+    assert.match(note.title, new RegExp("^Stock from Murehwa arrived on DN-\\S+ for cancelled recall " + mq.rcl_no + "; receive it with a GRV$"), note.title);
+    assert.strictEqual(note.person, "device");
+    H1.api.run("UPDATE notices SET person='staff:someone-else' WHERE key=?", [note.key]);
+    assert.ok(!H1.api.bellVisible().some((x)=> x.key===note.key), "nobody else sees it");
+    H1.api.run("UPDATE notices SET hidden=1 WHERE key=?", [note.key]);   // kept (never added twice), out of the per-person counts below
   });
 
   // ---- the bell ----

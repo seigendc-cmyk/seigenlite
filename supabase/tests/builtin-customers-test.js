@@ -27,7 +27,7 @@ const CASH = 'b1170000000000000000000000000001', WHOLESALE = 'b11700000000000000
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql']) });   // live's shape, without this file
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql', '20261115120000_stock_control.sql']) });   // live's shape, without this file
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const before = fingerprint(await snapshot(q));
   async function as(sql, p) {

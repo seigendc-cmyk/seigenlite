@@ -345,7 +345,7 @@
     if(!q || q.status!=="open" || q.dispatch_id || q.dn_display) return { ok:false, message:"Only an open recall with no Delivery Note sent can be cancelled." };
     if(!rclCanCancel(q)) return { ok:false, message:"Only the person who made this recall, an Owner or an Admin can cancel it." };
     if(!String(note||"").trim()) return { ok:false, message:"Give the reason for cancelling the recall." };
-    Object.assign(q, { status:"cancelled", cancelled_by:scWho(), cancel_note:String(note).trim().slice(0, 200) });
+    Object.assign(q, { status:"cancelled", cancelled_by:scWho(), cancel_note:String(note).trim().slice(0, 200), cancelled_person:typeof bellPerson==="function"? bellPerson() : "" });
     db.run("BEGIN");
     try{ scSaveDoc("sc_recalls", q, q._local); scQueue("recall_cancel", { id, note:q.cancel_note }, id); db.run("COMMIT"); }
     catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }

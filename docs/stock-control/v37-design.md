@@ -191,6 +191,7 @@ Where the build differs from the notes above, this section wins.
   - The device saves only when something changed.
 - **Notifications settings** live in the bell (per person; no Settings right needed) and on the Settings page.
 - **Recall cancel (decision 56):** the maker (with `recall_stock`), or an Owner or Admin, cancels an open recall with a reason, only before any DN for it is sent (linked, or on seiGEN with the recall number as its internal ref). Logged with who, when and the reason. Single operator mode: the till that made it.
+- **A DN for a recall cancelled meanwhile** (the offline gap, accepted by the owner 28 Oct): the branch's link is refused (`WRONG_STATUS`); main's bell tells the person who cancelled: "Stock from <branch> arrived on DN … for cancelled recall RCL-…; receive it with a GRV". App only (bell.js: main's dispatch list carries the DN's internal ref, the recall number; a notice can be for one person, `notices.person`).
 - **A14:**
   - `assets/vendor/` holds byte-for-byte copies; build.js copies them to `dist-pwa/vendor/` and `dist-tauri/vendor/` and rewrites the cdnjs addresses there (the build fails if any is left).
   - `dist/` (one file, opened from disk) keeps cdnjs, because a browser can't fetch a wasm next to a file it opened from disk.

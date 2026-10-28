@@ -42,7 +42,7 @@ const exec = async (pg, sql) => { try { await pg.exec(sql); return { ok: true };
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql', '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql']) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql', '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql', '20261115120000_stock_control.sql']) });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
   const PHRASE = {};                                    // a seat's own phrase, from cl_seat_join
@@ -344,7 +344,7 @@ const exec = async (pg, sql) => { try { await pg.exec(sql); return { ok: true };
 
   // the rollback on a database without seats
   const pg2 = await newPglite();
-  await buildFromRepo(pg2, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql', '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql']) });
+  await buildFromRepo(pg2, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261110120000_staff_first_owner.sql', '20261112120000_builtin_customers.sql', '20261113120000_sales_sync.sql', '20261113180000_removed_devices.sql', '20261114120000_roles_everywhere.sql', '20261115120000_stock_control.sql']) });
   const q2 = async (sql, p) => (await pg2.query(sql, p)).rows;
   const b2 = fingerprint(await snapshot(q2));
   ok('(a second database: the migration applies)', (await exec(pg2, MIG)).ok);

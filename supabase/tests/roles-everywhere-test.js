@@ -50,7 +50,7 @@ const CHANGED = ['cl_install_vendor', 'cl_seat_need', 'cl_shop_session', 'cl_sho
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f) => f !== '20261113180000_removed_devices.sql').concat([FILE]) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.filter((f) => f !== '20261113180000_removed_devices.sql').concat([FILE, '20261115120000_stock_control.sql']) });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
   const PHRASE = {};

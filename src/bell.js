@@ -30,6 +30,7 @@
       key TEXT PRIMARY KEY, category TEXT NOT NULL, title TEXT NOT NULL, route TEXT DEFAULT '', ts TEXT NOT NULL,
       right TEXT DEFAULT '', read_by TEXT DEFAULT '[]', chimed INTEGER DEFAULT 0, hidden INTEGER DEFAULT 0, body TEXT DEFAULT '')`); }catch(e){}
     try{ t.run("CREATE INDEX IF NOT EXISTS ix_notices_ts ON notices(ts)"); }catch(e){}
+    try{ t.run("ALTER TABLE notices ADD COLUMN person TEXT DEFAULT ''"); }catch(e){}   // a notice for one person only (bellPerson key), e.g. a cancelled recall's DN
   }
 
   // ---- who is looking ----
@@ -42,6 +43,7 @@
   // A Guest's seat sees the Market feed only (decision 49)
   function bellCanSee(n){
     if(scGuest() && n.category!=="market") return false;
+    if(n.person && n.person!==bellPerson()) return false;
     if(n.right && n.right.split("|").every(r=> typeof can==="function" && !can(r))) return false;
     return !bellCatsOff().includes(n.category);
   }
@@ -57,8 +59,8 @@
     o = o || {};
     const before = one("SELECT key FROM notices WHERE key=?",[key]);
     if(before) return false;
-    run("INSERT INTO notices(key,category,title,route,ts,right,read_by,chimed,hidden,body) VALUES(?,?,?,?,?,?,?,?,?,?)",
-      [key, category, String(title).slice(0,140), o.route||"", o.ts||new Date().toISOString(), o.right||"", o.seed? JSON.stringify(["*"]) : "[]", o.seed? 1 : 0, o.seed? 1 : 0, String(o.body||"").slice(0,2000)]);
+    run("INSERT INTO notices(key,category,title,route,ts,right,read_by,chimed,hidden,body,person) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+      [key, category, String(title).slice(0,140), o.route||"", o.ts||new Date().toISOString(), o.right||"", o.seed? JSON.stringify(["*"]) : "[]", o.seed? 1 : 0, o.seed? 1 : 0, String(o.body||"").slice(0,2000), o.person||""]);
     return !o.seed;
   }
   // The notices a pull brings (stock-ctl.js scPull's changes). -> how many are new
@@ -116,6 +118,38 @@
     try{ all("SELECT * FROM sc_counts WHERE status='waiting' AND mine=1").forEach(c=>{ if(bellAdd("cc:wait:"+c.id, "counts", "Count difference to approve: "+c.name, { route:"counts", right:"approve_counts" })) n++; }); }catch(e){}
     return n;
   }
+  // A DN from a branch for a recall that was cancelled meanwhile (the offline gap, decision 56): its link is refused,
+  // but the stock is on its way. The person who cancelled is told to receive it with a GRV. Main's dispatch list
+  // (srv_dispatches, dispatch-srv.js) carries the DN's internal ref, which is the recall number.
+  function rclCancelPerson(q){
+    if(q.cancelled_person) return q.cancelled_person;
+    const g = (q.log||[]).filter(x=> x.action==="cancelled").pop();
+    return g && g.detail && g.detail.staff_id? "staff:"+g.detail.staff_id : "device";
+  }
+  function bellCancelledRecallDns(){
+    let n = 0;
+    try{
+      const me = scMyBranch();
+      const cancelled = scRecalls().filter(q=> q.status==="cancelled" && q.to_branch_id===me);
+      if(!cancelled.length) return 0;
+      const ins = all("SELECT json FROM srv_dispatches WHERE dir='in'").map(r=> scJson(r.json, {}));
+      cancelled.forEach(q=> ins.filter(d=> d.status==="sent" && d.internal_ref===q.rcl_no && d.from_branch_id===q.branch_id).forEach(d=>{
+        if(bellAdd("rcl:dncx:"+d.id, "recalls", "Stock from "+(d.from_branch||q.branch||"a branch")+" arrived on "+(d.dn_display||"a DN")+" for cancelled recall "+q.rcl_no+"; receive it with a GRV",
+          { route:"incoming", person:rclCancelPerson(q), ts:d.sent_at })) n++;
+      }));
+    }catch(e){}
+    return n;
+  }
+  // a new incoming DN from a branch with a cancelled recall: refresh main's dispatch list first (rare; it saves the database)
+  async function bellRecallDnCheck(ch){
+    try{
+      const me = scMyBranch();
+      const from = new Set(scRecalls().filter(q=> q.status==="cancelled" && q.to_branch_id===me).map(q=> q.branch_id));
+      const fresh = ((ch && ch.dispatches)||[]).some(d=> d.to_branch_id===me && d.status==="sent" && from.has(d.from_branch_id) && !one("SELECT id FROM srv_dispatches WHERE id=?",[d.id]));
+      if(fresh && typeof dsPull==="function" && typeof dsEnabled==="function" && dsEnabled()) await dsPull();
+    }catch(e){}
+    return bellCancelledRecallDns();
+  }
   function bellPrune(){ run("DELETE FROM notices WHERE ts<?",[new Date(Date.now()-BELL_KEEP_DAYS*86400000).toISOString()]); }
 
   // ---- reading ----
@@ -171,6 +205,7 @@
       const r = await scTick();
       let fresh = bellLocal();
       if(r.pull && r.pull.ok) fresh += bellFromChanges(r.pull.changes);
+      fresh += await bellRecallDnCheck(r.pull && r.pull.ok? r.pull.changes : null);
       bellPrune();
       const a = bellAnnounce();
       if(fresh || a.count) await persist();
