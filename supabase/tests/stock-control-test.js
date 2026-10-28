@@ -14,7 +14,8 @@
 //     with the GRV; a cancelled DN puts it back to approved; main can't
 //     request; a reject needs a reason.
 //   recalls: only main; the branch sends back with short lines (partly sent),
-//     received with main's GRV; overdue in the pull; cancel while open.
+//     received with main's GRV; overdue in the pull; cancel (decision 56): the maker or an
+//     Owner/Admin, with a reason, before any DN; anyone else refused.
 //   shelves per branch; idempotent by uid; the pull cursor; a Guest seat gets
 //   the market feed only; the Console's market feed needs its module.
 //   Only the two listed functions change; a second run is refused; the
@@ -247,10 +248,44 @@ const NEW = ['request_stock', 'recall_stock', 'count_stock', 'approve_counts'];
   ok('main\'s GRV marks the recall received; the short line and reason are kept', !r.error && rk.status === 'received' && rk.lines[0].short_qty === 2 && rk.lines[0].short_reason, J([r, rk]));
   const charge = (await q(`select owed_by_branch_id from cl_interbranch_charges where dispatch_id = $1`, [D3]))[0];
   ok('transport on the recall DN is owed by main (the receiver), as every DN today', charge && charge.owed_by_branch_id === HARARE, J(charge));
-  const K2 = uuid();
-  await one('HA01', Object.assign({}, rcl, { id: K2, rcl_no: 'RCL-T1-0002', due_date: '2099-01-01' }), bossT);
-  r = await one('HA01', { type: 'recall_cancel', id: K2, by: 'Boss', note: 'sold out at main' }, bossT);
-  ok('an open recall can be cancelled by its maker', r.status === 'stored' && (await q(`select status from cl_stock_recalls where id = $1`, [K2]))[0].status === 'cancelled');
+  // cancelling a recall (decision 56): its maker, or an Owner or Admin; a reason; only before a DN for it is sent
+  for (const [n, role, pin] of [['Nyasha', roles.manager.id, '6666'], ['Kuda', roles.manager.id, '7777'], ['Ama', roles.owner.id, '8888']]) {
+    r = await call('HA01', 'cl_device_staff_save', { p_staff_token: bossT, p_staff: { name: n, role_id: role, home_branch_id: HARARE, pin, ...staffCheck() } });
+    ID[n] = r.staff && r.staff.id;
+  }
+  ok('(setup: Nyasha and Kuda, Managers; Ama, the Owner)', !!(ID.Nyasha && ID.Kuda && ID.Ama), J(r));
+  const nyaT = await signin('HA01', 'Nyasha', '6666'), kudaT = await signin('HA01', 'Kuda', '7777'), amaT = await signin('HA01', 'Ama', '8888');
+  const recall = async (no, tok) => { const id = uuid(); await one('HA01', Object.assign({}, rcl, { id, rcl_no: no, due_date: '2099-01-01', by: 'Nyasha' }), tok); return id; };
+  const cancel = (id, tok, by, note) => one('HA01', { type: 'recall_cancel', id, by, ...(note === undefined ? {} : { note }) }, tok);
+  const status = async (id) => (await q(`select status from cl_stock_recalls where id = $1`, [id]))[0].status;
+  const K2 = await recall('RCL-T1-0002', nyaT);
+  ok('the recall keeps its maker (the signed-in person, from seiGEN\'s sign-in)', (await q(`select created_staff_id from cl_stock_recalls where id = $1`, [K2]))[0].created_staff_id === ID.Nyasha);
+  r = await cancel(K2, kudaT, 'Kuda', 'not needed');
+  ok('another Manager (Recall stock, not the maker) is refused by seiGEN', r.code === 'NOT_MAKER' && await status(K2) === 'open', J(r));
+  r = await cancel(K2, rudoT, 'Rudo', 'not needed');
+  ok('a Cashier is refused by seiGEN', r.code === 'STAFF_NO_RIGHT' && await status(K2) === 'open', J(r));
+  r = await cancel(K2, nyaT, 'Nyasha');
+  ok('no reason: refused', r.code === 'BAD_EVENT' && await status(K2) === 'open', J(r));
+  r = await cancel(K2, nyaT, 'Nyasha', '   ');
+  ok('a blank reason: refused', r.code === 'BAD_EVENT' && await status(K2) === 'open', J(r));
+  r = await cancel(K2, nyaT, 'Nyasha', 'sold out at main');
+  ok('the maker cancels, with a reason', r.status === 'stored' && await status(K2) === 'cancelled', J(r));
+  const lg = (await q(`select by_name, action, detail, at from cl_stock_ctl_log where doc_id = $1 and action = 'cancelled'`, [K2]))[0];
+  ok('... logged: who, when and the reason', lg && lg.by_name === 'Nyasha' && lg.at && lg.detail.note === 'sold out at main' && lg.detail.staff_id === ID.Nyasha, J(lg));
+  r = await cancel(K2, nyaT, 'Nyasha', 'sold out at main');
+  ok('... the same cancel again: duplicate', r.status === 'duplicate');
+  const K3 = await recall('RCL-T1-0003', nyaT), K4 = await recall('RCL-T1-0004', nyaT);
+  r = await cancel(K3, bossT, 'Boss', 'wrong branch');
+  ok('an Admin cancels someone else\'s recall', r.status === 'stored' && await status(K3) === 'cancelled', J(r));
+  r = await cancel(K4, amaT, 'Ama', 'stock is fine');
+  ok('the Owner cancels someone else\'s recall', r.status === 'stored' && await status(K4) === 'cancelled', J(r));
+  r = await cancel(K1, bossT, 'Boss', 'too late');
+  ok('after its DN is sent (linked): refused', r.code === 'DN_SENT' && await status(K1) === 'received', J(r));
+  const K5 = await recall('RCL-T1-0005', nyaT);
+  await send('MU01', { id: uuid(), to_branch_id: HARARE, dn_no: 2, dn_display: 'DN-T1-0002', internal_ref: 'RCL-T1-0005', sent_by: 'Tafara',
+    lines: [{ cat_uid: 'cat-sugar', code: 'SUG2', name: 'Sugar 2kg', qty: 1 }] });
+  r = await cancel(K5, nyaT, 'Nyasha', 'changed my mind');
+  ok('after its DN is sent but before the link reaches seiGEN: refused', r.code === 'DN_SENT' && await status(K5) === 'open', J(r));
 
   // ---- the pull cursor ----
   const p1 = await pull('MU01');

@@ -305,7 +305,7 @@
       no = reserveDocNumber("RCL");
       const ls = lines.map((l,i)=>({ line_no:i+1, product_key:scProductKey(l.product), code:l.product.sku||"", name:l.product.name, qty:l.all? 0 : Number(l.qty), all_on_hand:!!l.all }));
       const doc = { id, rcl_no:no.text, branch_id:branchId, branch:scBranchName(branchId), to_branch_id:scMainBranch()||scMyBranch(), to_branch:currentBranch(), terminal_id:scMyTerminal(),
-        created_by:scWho(), reason_kind:kind, reason:String(reason||"").trim()||null, due_date:due, status:"open", created_ts:ts, lines:ls, log:[{ at:ts, by:scWho(), action:"recalled" }] };
+        created_by:scWho(), created_staff_id:scStaffId(), reason_kind:kind, reason:String(reason||"").trim()||null, due_date:due, status:"open", created_ts:ts, lines:ls, log:[{ at:ts, by:scWho(), action:"recalled" }] };
       scSaveDoc("sc_recalls", doc, true);
       scQueue("recall_create", { id, rcl_no:no.text, branch_id:branchId, reason_kind:kind, reason:doc.reason, due_date:due, staff_id:scStaffId(), lines:ls.map(l=>({ product_key:l.product_key, code:l.code, name:l.name, qty:l.qty, all_on_hand:l.all_on_hand })) }, id);
       logAudit("Recall", "", no.text+": "+ls.length+" item"+(ls.length===1? "" : "s")+" from "+doc.branch+", due "+due);
@@ -332,10 +332,20 @@
     return { ok:true, pre:{ toBranch:q.to_branch || scBranchName(q.to_branch_id), lines, link:{ type:"recall", id:q.id, lines:link }, title:"Send back "+q.rcl_no, internalRef:q.rcl_no,
       note:"Recall "+q.rcl_no+": sending back to "+(q.to_branch||"main")+". Transport is paid by the receiver (main)." } };
   }
+  // Decision 56: its maker, or an Owner or Admin, may cancel an open recall, with a reason, before any DN for it is sent (seiGEN checks the same)
+  function rclCanCancel(q){
+    if(!q || q.status!=="open" || q.dispatch_id || q.dn_display) return false;
+    if(typeof staffOwnerOrAdmin==="function" && staffOwnerOrAdmin()) return true;
+    if(!srqCan("recall_stock")) return false;
+    const me = scStaffId();
+    return me? q.created_staff_id===me : (!q.created_staff_id && q.terminal_id===scMyTerminal());
+  }
   function rclCancel(id, note){
     const q = scRecall(id);
-    if(!q || q.status!=="open") return { ok:false, message:"Only an open recall can be cancelled." };
-    Object.assign(q, { status:"cancelled", cancelled_by:scWho(), cancel_note:String(note||"").trim()||null });
+    if(!q || q.status!=="open" || q.dispatch_id || q.dn_display) return { ok:false, message:"Only an open recall with no Delivery Note sent can be cancelled." };
+    if(!rclCanCancel(q)) return { ok:false, message:"Only the person who made this recall, an Owner or an Admin can cancel it." };
+    if(!String(note||"").trim()) return { ok:false, message:"Give the reason for cancelling the recall." };
+    Object.assign(q, { status:"cancelled", cancelled_by:scWho(), cancel_note:String(note).trim().slice(0, 200) });
     db.run("BEGIN");
     try{ scSaveDoc("sc_recalls", q, q._local); scQueue("recall_cancel", { id, note:q.cancel_note }, id); db.run("COMMIT"); }
     catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
@@ -359,7 +369,7 @@
       <div style="font-size:12.5px">${(q.log||[]).map(g=>`<div>${escapeHtml(new Date(g.at).toLocaleString())} · ${escapeHtml(g.by||"")} · ${escapeHtml(g.action)}</div>`).join("")}</div>
       ${sendable? `<button class="btn btn-primary" id="rclSend" style="margin-top:10px">Send back (Delivery Note to main)</button>` : ""}
       ${atBranch && q.status==="open" && q._local? `<p class="muted">Waiting for seiGEN before it can be sent back.</p>` : ""}
-      ${scIsMain() && q.status==="open" && srqCan("recall_stock")? `<button class="btn btn-outline" id="rclCancel" style="margin-top:10px">Cancel the recall</button>` : ""}
+      ${scIsMain() && rclCanCancel(q)? `<button class="btn btn-outline" id="rclCancel" style="margin-top:10px">Cancel the recall</button>` : ""}
       <div id="rclErr" style="color:#b42318;font-size:12.5px"></div>`);
     const send = wrap.querySelector("#rclSend");
     if(send) send.onclick = ()=>{

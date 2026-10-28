@@ -177,7 +177,7 @@ function makeApp(settings, opts){
     + `;Object.assign(this.api, { scQueue, scSendNow, scPull, scTick, scApplyApproved, scRequests, scRecalls, scRequest, scRecall, scQueueLink, scProductKey, scProductByKey, scAvailable, scIsMain,
         scWaitingCount, scWaitingFor, cycleClasses, cycleFlags, cycleChoose, cycleSoldAtZero, cycleGroupByShelf, cycleShrinkage, cycleFacts, cycleList, cycleAdd, cycleSaveCount, cycleDecide,
         cycleWaiting, cycleShrinkRows, cycleSettings, renderCountNow, renderCountApprovals, renderShrinkage, shrinkageReport, renderStocktakeFull, cycleTabs, setCycleTab:(t)=>{ cycleTab=t; },
-        srqCreate, srqDecide, srqDispatchPrefill, rclCreate, rclSendBackPlan, rclCancel, rclOverdue, srqReport, rclReport, renderStockCtl, srqAvailable, openRequestHistory, openRecallHistory,
+        srqCreate, srqDecide, srqDispatchPrefill, rclCreate, rclSendBackPlan, rclCancel, rclCanCancel, rclOverdue, srqReport, rclReport, renderStockCtl, srqAvailable, openRequestHistory, openRecallHistory,
         bellAdd, bellFromChanges, bellLocal, bellVisible, bellUnread, bellMarkRead, bellMarkAllRead, bellAnnounce, bellTick, bellPerson, bellCanSee, bellButtonHtml, bellSettingsHtml,
         bellSettingsWire, openBell, startBell, BELL_CATEGORIES, openDispatchScreen, catApplyProduct, setSrqTab:(t)=>{ srqTab=t; } });`
     + ((opts && opts.extra && opts.extra.includes("help.js"))? `;Object.assign(this.api, { renderAbout, aboutContactHtml, refreshAboutInfo, aboutAfterCheckin, aboutInfoCached });` : "");

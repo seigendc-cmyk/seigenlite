@@ -372,6 +372,22 @@ const FILE = "20261115120000_stock_control.sql";
     assert.strictEqual(k.status, "received"); assert.strictEqual(k.lines[0].short_qty, 2);
     assert.match(H1.api.rclReport().footer, /0 open · 0 overdue · 1 with shortages/);
   });
+  await t("cancelling a recall (decision 56): a reason is required; the maker cancels; not someone else's; never after its DN is sent", async ()=>{
+    assert.match(H1.api.rclCancel(K1, "too late").message, /no Delivery Note sent/, "received: its DN was sent");
+    const r = H1.api.rclCreate(M1.api.getSetting("branch_uuid",""), "overstock", "", "2099-01-01", [{ product:P(H1,"BOT1"), qty:"1" }]);
+    assert.ok(r.ok, JSON.stringify(r));
+    await drain(H1);
+    assert.match(H1.api.rclCancel(r.id, "   ").message, /reason/, "a blank reason is refused");
+    const other = Object.assign({}, H1.api.scRecall(r.id), { created_staff_id:"00000000-0000-4000-8000-000000000001" });
+    assert.strictEqual(H1.api.rclCanCancel(other), false, "someone else's recall: no Cancel for a single operator till");
+    assert.strictEqual(H1.api.rclCanCancel(Object.assign({}, other, { created_staff_id:null, terminal_id:"another-till" })), false, "made on another till");
+    const c = H1.api.rclCancel(r.id, "stock is fine at Murehwa");
+    assert.ok(c.ok, JSON.stringify(c));
+    await drain(H1);
+    const row = (await q("select status, cancel_note from cl_stock_recalls where id=$1", [r.id]))[0];
+    assert.strictEqual(row.status, "cancelled"); assert.strictEqual(row.cancel_note, "stock is fine at Murehwa");
+    assert.strictEqual((await q("select count(*)::int n from cl_stock_ctl_log where doc_id=$1 and action='cancelled'", [r.id]))[0].n, 1, "logged");
+  });
 
   // ---- the bell ----
   await t("bell: no duplicates after repeated syncs; the chime once per new event, and only when on", async ()=>{

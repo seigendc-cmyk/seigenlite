@@ -190,7 +190,7 @@ Where the build differs from the notes above, this section wins.
   - The pull carries a title-only list of this branch's DNs (14 days) and new iTred order ids, so the 60 s check is one call. The dispatch and iTred pulls are not run every minute (each saves the whole database).
   - The device saves only when something changed.
 - **Notifications settings** live in the bell (per person; no Settings right needed) and on the Settings page.
-- **Recall cancel:** the maker (`recall_stock`) can cancel an open recall.
+- **Recall cancel (decision 56):** the maker (with `recall_stock`), or an Owner or Admin, cancels an open recall with a reason, only before any DN for it is sent (linked, or on seiGEN with the recall number as its internal ref). Logged with who, when and the reason. Single operator mode: the till that made it.
 - **A14:**
   - `assets/vendor/` holds byte-for-byte copies; build.js copies them to `dist-pwa/vendor/` and `dist-tauri/vendor/` and rewrites the cdnjs addresses there (the build fails if any is left).
   - `dist/` (one file, opened from disk) keeps cdnjs, because a browser can't fetch a wasm next to a file it opened from disk.

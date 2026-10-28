@@ -17,7 +17,7 @@
   const SC_PUSH_TIMEOUT_MS = 20000;
   const SC_BASE_DELAY_MS = 5000, SC_MAX_DELAY_MS = 15*60*1000;
   // refusals that never get better by trying again (a missing DN, a sign-in or a right can come later)
-  const SC_FINAL_CODES = ["BAD_EVENT","ALREADY_DECIDED","WRONG_STATUS","IS_MAIN","NOT_MAIN","WRONG_BRANCH","WRONG_DEVICE","SAME_COUNTER","INVALID","NO_MAIN","GUEST_SEAT"];
+  const SC_FINAL_CODES = ["BAD_EVENT","ALREADY_DECIDED","WRONG_STATUS","IS_MAIN","NOT_MAIN","WRONG_BRANCH","WRONG_DEVICE","SAME_COUNTER","INVALID","NO_MAIN","GUEST_SEAT","NOT_MAKER","DN_SENT"];   // NOT_MAKER, DN_SENT: a recall cancel (decision 56)
 
   function migrateStockCtl(t){
     try{ t.run(`CREATE TABLE IF NOT EXISTS sc_outbox(

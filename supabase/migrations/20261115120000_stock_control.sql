@@ -306,7 +306,7 @@ $$;
 create function public.cl_stock_recall_json(p_id uuid) returns jsonb
 language sql stable security definer set search_path = public as $$
   select jsonb_build_object('id', c.id, 'rcl_no', c.rcl_no, 'branch_id', c.branch_id, 'branch', fb.name, 'to_branch_id', c.to_branch_id, 'to_branch', tb.name,
-    'terminal_id', c.terminal_id, 'created_by', c.created_by, 'reason_kind', c.reason_kind, 'reason', c.reason, 'due_date', c.due_date,
+    'terminal_id', c.terminal_id, 'created_by', c.created_by, 'created_staff_id', c.created_staff_id, 'reason_kind', c.reason_kind, 'reason', c.reason, 'due_date', c.due_date,
     'status', c.status, 'overdue', c.status = 'open' and c.due_date < (now() at time zone 'Africa/Harare')::date,
     'dispatch_id', c.dispatch_id, 'dn_display', d.dn_display, 'dn_status', d.status, 'grv_display', d.grv_display, 'received_at', d.received_at,
     'sent_by', c.sent_by, 'cancelled_by', c.cancelled_by, 'cancel_note', c.cancel_note,
@@ -346,6 +346,8 @@ declare v_type text := coalesce(e->>'type', ''); v_id uuid; v_main uuid := cl_st
         c cl_cycle_counts%rowtype; old cl_cycle_counts%rowtype; rq cl_stock_requests%rowtype; rc cl_stock_recalls%rowtype; d cl_dispatches%rowtype;
         l jsonb; n integer := 0; v_short boolean := false; v_action text; v_status text; v_part boolean := false; v_any boolean := false;
         v_qty integer; v_line record; v_ts timestamptz;
+        -- the person signed in on the calling seat or till (set by cl_install_vendor), or null in single operator mode
+        v_staff uuid := nullif(coalesce(nullif(current_setting('cl.seat_staff', true), ''), current_setting('cl.till_staff', true)), '')::uuid;
 begin
   if v_type <> 'shelf' then
     begin v_id := (e->>'id')::uuid; exception when others then raise exception 'BAD_EVENT: The event has no id.'; end;
@@ -502,7 +504,7 @@ begin
     if jsonb_typeof(e->'lines') <> 'array' or jsonb_array_length(e->'lines') not between 1 and 200 then raise exception 'BAD_EVENT: Add 1 to 200 lines.'; end if;
     if cl_stock_ctl_date(e->>'due_date') is null then raise exception 'BAD_EVENT: Give a due date.'; end if;
     insert into cl_stock_recalls (id, business_id, rcl_no, branch_id, to_branch_id, terminal_id, created_by, created_staff_id, reason_kind, reason, due_date, created_ts)
-    values (v_id, me.business_id, coalesce(cl_stock_ctl_text(e->>'rcl_no', 40), 'RCL'), (e->>'branch_id')::uuid, v_main, me.id, v_by, nullif(e->>'staff_id', '')::uuid,
+    values (v_id, me.business_id, coalesce(cl_stock_ctl_text(e->>'rcl_no', 40), 'RCL'), (e->>'branch_id')::uuid, v_main, me.id, v_by, coalesce(v_staff, nullif(e->>'staff_id', '')::uuid),
             coalesce(e->>'reason_kind', ''), cl_stock_ctl_text(e->>'reason', 200), cl_stock_ctl_date(e->>'due_date'), coalesce(nullif(e->>'ts', '')::timestamptz, now()));
     for l in select x from jsonb_array_elements(e->'lines') x loop
       n := n + 1;
@@ -542,15 +544,29 @@ begin
     return 'stored';
   end if;
 
-  -- the maker cancels an open recall (recall_stock)
+  -- cancelling an open recall (decision 56): its maker, or an Owner or Admin; a reason; only before any DN for it is sent
   if v_type = 'recall_cancel' then
-    perform cl_seat_need('recall_stock');
     select * into rc from cl_stock_recalls where id = v_id and business_id = me.business_id for update;
     if rc.id is null then raise exception 'NOT_FOUND: That recall isn''t on seiGEN.'; end if;
     if rc.status = 'cancelled' then return 'duplicate'; end if;
-    if rc.status <> 'open' then raise exception 'WRONG_STATUS: The recall is already %.', rc.status; end if;
+    -- an Owner or Admin signed in on this seat or till may cancel any open recall; anyone else needs Recall stock and to be its maker
+    if not (v_staff is not null and exists (select 1 from cl_shop_staff s join cl_shop_roles r on r.id = s.role_id
+                                             where s.id = v_staff and s.active and s.business_id = me.business_id and r.builtin in ('owner', 'admin'))) then
+      perform cl_seat_need('recall_stock');
+      -- the maker: the same person, or (single operator mode, no one signed in) the till that made it
+      if not (case when v_staff is not null then rc.created_staff_id is not distinct from v_staff
+                   else rc.created_staff_id is null and rc.terminal_id = me.id end) then
+        raise exception 'NOT_MAKER: Only the person who made this recall, an Owner or an Admin can cancel it.';
+      end if;
+    end if;
+    if v_note is null then raise exception 'BAD_EVENT: Give the reason for cancelling the recall.'; end if;
+    if rc.status <> 'open' or rc.dispatch_id is not null
+       or exists (select 1 from cl_dispatches x where x.business_id = me.business_id and x.from_branch_id = rc.branch_id and x.to_branch_id = rc.to_branch_id
+                     and x.internal_ref = rc.rcl_no and x.status <> 'cancelled') then
+      raise exception 'DN_SENT: A Delivery Note for this recall has been sent, so it can''t be cancelled now.';
+    end if;
     update cl_stock_recalls set status = 'cancelled', cancelled_by = v_by, cancel_note = v_note, change_seq = nextval('cl_stock_ctl_seq'), updated_at = now() where id = rc.id;
-    perform cl_stock_ctl_log_add('recall', rc.id, me.id, v_by, 'cancelled', jsonb_strip_nulls(jsonb_build_object('note', v_note)));
+    perform cl_stock_ctl_log_add('recall', rc.id, me.id, v_by, 'cancelled', jsonb_strip_nulls(jsonb_build_object('note', v_note, 'staff_id', v_staff)));
     return 'stored';
   end if;
 
