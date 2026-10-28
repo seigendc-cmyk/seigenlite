@@ -23,6 +23,7 @@
     startCatalogueSync(); // Phase 3a: main's catalogue to every registered till, in the background — see catalogue-sync.js. Never blocks boot or a sale.
     startDeviceCheckin(); // Digital Commerce device check-in: silent, best-effort phone-home — see devicecheckin.js. Never blocks boot.
     if(typeof staffEnsureRoles==="function") staffEnsureRoles(); // v33: a registered till with no roles fetches them now (roles.js). Never blocks boot.
+    if(typeof startBell==="function") startBell(); // v37: the notification bell's 60 s check (stock control, market feed, DN/GRV, iTred), see bell.js. Never blocks boot.
     if(typeof startB4Worker==="function") startB4Worker(); // v35 B4: this till's sales and money events to seiGEN in the background, see b4-sync.js. Never blocks boot or a sale.
     if(typeof startBranchStock==="function") startBranchStock(); // Branches B1: this till's stock figures to seiGEN every 5 minutes when they changed, see branch-stock.js. Never blocks boot.
     businessDateToday(); // Shift/EOD control: establish the anti-rollback high-water-mark as early as possible each session — see eod.js.

@@ -10,13 +10,13 @@
 
   // DN files are self-contained JSON (see dnfile.js). GRV files (Phase 3) share it.
   const DOC_FILE_EXT = ".json";
-  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT","RCT","CN","IT"];   // IT = internal transfer (v32, Office seats)
+  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT","RCT","CN","IT","SRQ","RCL"];   // IT = internal transfer (v32, Office seats); SRQ stock request, RCL recall (v37)
   // Multi-terminal Phase 2: documents numbered per till once the device has a
   // till code (Settings → Business & Terminals). The counter itself stays per
   // device (doc_counters, keyed by getBranchId(), which is already per
   // device), so (dispatch_branch_id, dn_no) stays unique; only the displayed
   // number gains the till code. Export file numbers (EXP/LOG/ITM/MKT) don't.
-  const TILL_DOC_TYPES = ["DN","GRV","ADJ","CXL","RCT","CN","IT"];   // CN = credit note (Phase 3c): CN-T1-0001, CN0001 unregistered
+  const TILL_DOC_TYPES = ["DN","GRV","ADJ","CXL","RCT","CN","IT","SRQ","RCL"];   // CN = credit note (Phase 3c): CN-T1-0001, CN0001 unregistered
   const TILL_CODE_RE = /^[TS][0-9]{1,3}$/;   // v32: S<n> = an Office seat (GRV-S1-0001)
   const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 

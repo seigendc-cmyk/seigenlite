@@ -49,7 +49,7 @@ async function openBuild(browser, build){
   page.on("dialog", d=>{ alerts.push(d.message()); d.accept(); });
   page.on("pageerror", e=>errors.push(e.message));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-start-"));
-  for(const f of fs.readdirSync(path.join(ROOT, build))) fs.copyFileSync(path.join(ROOT, build, f), path.join(dir, f));
+  fs.cpSync(path.join(ROOT, build), dir, { recursive: true });   // v37 (A14): the hosted builds have a vendor/ folder
   const url = fileUrl(path.join(dir, "index.html"));
   await page.goto(url);
   await page.waitForSelector("#setShop", { timeout: 20000 });

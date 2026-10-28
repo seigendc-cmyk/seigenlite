@@ -45,7 +45,7 @@ async function t(name, fn){
 // A copy of a build folder plus market.html, served as static files.
 function deploy(buildDir, withMarket=true){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-hosted-"));
-  for(const f of fs.readdirSync(path.join(ROOT, buildDir))) fs.copyFileSync(path.join(ROOT, buildDir, f), path.join(dir, f));
+  fs.cpSync(path.join(ROOT, buildDir), dir, { recursive: true });   // v37 (A14): the hosted builds have a vendor/ folder
   // the builds carry market.html themselves now; "not deployed" takes it out
   if(withMarket) fs.copyFileSync(MARKET, path.join(dir, "market.html"));
   else fs.rmSync(path.join(dir, "market.html"), { force: true });

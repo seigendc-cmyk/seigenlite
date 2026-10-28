@@ -67,6 +67,7 @@
           <div class="shop">${escapeHtml(getSetting("shop_name","Shop"))}</div>
           <div class="branch">${escapeHtml(getSetting("branch_name",""))} · <span id="userChip" style="text-decoration:underline;cursor:pointer">${escapeHtml(sessionUser||"set name")}</span></div>
         </div>
+        ${typeof bellButtonHtml==="function"? bellButtonHtml() : ""}
         <button class="logout-btn" id="logoutBtn" aria-label="Log out" title="Log out">${ICON_LOGOUT}</button>
         <button class="cart-btn" id="cartBtn" ${navItems.some(n=>n.id==="pos")? "" : `hidden style="display:none"`}>🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
       </div>
@@ -95,6 +96,7 @@
     document.getElementById("reqOverlay").onclick = ()=>{ reqDrawerOpen=false; render(); };
     document.getElementById("userChip").onclick = changeSessionUser;
     document.getElementById("logoutBtn").onclick = logoutSession;
+    if(typeof bellWire==="function") bellWire();   // v37 notification bell (bell.js)
     if(desktop){
       document.getElementById("hamburgerBtn").onclick = ()=>{ navDrawerOpen=true; render(); };
       document.getElementById("navOverlay").onclick = ()=>{ navDrawerOpen=false; render(); };
@@ -355,6 +357,7 @@
     { id:"transfers", label:"Transfers (store room)", needs:()=> typeof itAvailable==="function" && itAvailable() && (typeof can!=="function" || can("m.dispatch") || can("m.receive")) },   // v32 Office seats (transfers.js)
     { id:"stocktake", label:"Stocktake" },   // every branch counts its own stock (Branches addendum §R7)
     { id:"requests", label:"Requests" },
+    { id:"stockctl", label:"Stock requests & recalls", needs:()=> typeof srqAvailable==="function" && srqAvailable() },   // v37 (srq.js, decisions 53-54); the customer notepad above stays separate
     { id:"itredorders", label:"Orders Fulfillment", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },      // iTred orders (itred-orders.js)
     { id:"itredfeedback", label:"Marketplace Feedback", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },
     { id:"purchasing", label:"Purchasing", remoteHidden:true },
@@ -396,6 +399,7 @@
     else if(moreTab==="stocktake") renderStocktake(body);
     else if(moreTab==="transfers") renderTransfers(body);
     else if(moreTab==="requests") renderStockRequests(body);
+    else if(moreTab==="stockctl") renderStockCtl(body);
     else if(moreTab==="itredorders" || moreTab==="itredfeedback"){ if(typeof itredAvailable==="function" && itredAvailable()) renderItredMoreTab(moreTab, body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="purchasing"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderPurchasing(body); }
     else if(moreTab==="reportwriter") renderReportWriter(body);

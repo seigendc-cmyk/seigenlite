@@ -35,7 +35,8 @@ const COPIED = [
   ["dist/sw.js", "sw.js"], ["dist/manifest.json", "manifest.json"],
   ["dist-pwa/sw.js", "sw-pwa.js"], ["dist-pwa/manifest.json", "manifest.json"],
   ["dist-tauri/sw.js", "sw-pwa.js"], ["dist-tauri/manifest.json", "manifest.json"],
-].concat(...["dist", "dist-pwa", "dist-tauri"].map((d) => BRAND.map((f) => [d + "/" + f, "assets/brand/generated/" + f])));
+].concat(...["dist", "dist-pwa", "dist-tauri"].map((d) => BRAND.map((f) => [d + "/" + f, "assets/brand/generated/" + f])),
+  ...["dist-pwa", "dist-tauri"].map((d) => ["sql-wasm.js", "sql-wasm.wasm", "xlsx.full.min.js"].map((f) => [d + "/vendor/" + f, "assets/vendor/" + f])));   // A14
 
 // Everything the pages are built from (a little more than needed is harmless).
 const SKIP_DIRS = new Set(["src/itred", "src/fieldguide"]);

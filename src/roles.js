@@ -24,9 +24,11 @@
     ["m.purchasing","Purchasing / Supplier GRV"], ["m.reportwriter","Report Writer"], ["m.directory","Directory"],
     ["m.eod","End of Day"], ["m.settings","Settings"], ["m.staff","Staff (people and roles)"], ["m.terminals","Business & Terminals"]];
   const ROLE_ACTION_RIGHTS = [
-    ["costs","View costs"], ["edit_prices","Edit prices"], ["create_customers","Create customers"], ["review_requisitions","Review stock requisitions"],
+    ["costs","View costs"], ["edit_prices","Edit prices"], ["create_customers","Create customers"], ["review_requisitions","Review stock requests"],
     ["other_branches","View other branches' reports"], ["approve_writeoffs","Approve write-offs"], ["void_return","Void/return"],
-    ["credit_over_limit","Credit sales over limit"], ["sales_reports","Sales and money reports"]];
+    ["credit_over_limit","Credit sales over limit"], ["sales_reports","Sales and money reports"],
+    // v37 Stock control (owner decisions 52-54); seiGEN checks each (decision 48)
+    ["request_stock","Request stock"], ["recall_stock","Recall stock"], ["count_stock","Count stock (cycle)"], ["approve_counts","Approve count differences"]];
   const ROLE_ALL_RIGHTS = ROLE_MENU_RIGHTS.concat(ROLE_ACTION_RIGHTS).map(r=>r[0]);
   // The built-in roles' rights, as seiGEN makes them (cl_shop_default_rights): used for an
   // old local staff sign-in before this till has the roles from seiGEN.
@@ -34,8 +36,9 @@
     owner: ROLE_ALL_RIGHTS.concat("owner"),
     admin: ROLE_ALL_RIGHTS.slice(),
     manager: ROLE_ALL_RIGHTS.filter(r=> !["m.settings","m.staff","m.terminals"].includes(r)),
-    stores: ["m.products","m.dispatch","m.receive","m.adjust","m.incoming","m.productlist","m.stocktake","m.purchasing","m.reports","m.reportwriter"],
-    cashier: ["m.sell","m.credit","m.productlist","m.directory","m.requests","m.reports","m.eod","sales_reports"],
+    stores: ["m.products","m.dispatch","m.receive","m.adjust","m.incoming","m.productlist","m.stocktake","m.purchasing","m.reports","m.reportwriter",
+      "request_stock","count_stock"],                 // v37
+    cashier: ["m.sell","m.credit","m.productlist","m.directory","m.requests","m.reports","m.eod","sales_reports","request_stock"],   // v37
     guest: ["m.productlist","branch_prices"]   // v36 A12 (decision 49): view only, on an Office seat
   };
   const ROLE_ORDER = { owner:1, admin:2, manager:3, stores:4, cashier:5, guest:6 };
@@ -271,13 +274,15 @@
     cl_catalogue_push:"m.products", cl_branch_price_push:"edit_prices", cl_device_customer_save:"create_customers",
     cl_terminal_set_active:"m.terminals", cl_terminal_admin_set:"m.terminals", cl_branch_issue_join_code:"m.terminals",
     cl_branch_set_price_mode:"m.settings", cl_branch_set_business_day:"m.settings", cl_device_pack_submit:"m.marketing",
-    cl_device_transfer_send:"m.dispatch", cl_device_transfer_receive:"m.receive", cl_device_transfer_cancel:"m.dispatch", cl_device_transfer_resolve:"m.dispatch" };
+    cl_device_transfer_send:"m.dispatch", cl_device_transfer_receive:"m.receive", cl_device_transfer_cancel:"m.dispatch", cl_device_transfer_resolve:"m.dispatch",
+    cl_device_stock_ctl_push:"m.stocktake" };   // v37: each event's own right is checked by seiGEN (stock-ctl.js); the token is sent first
   const TILL_RIGHT_TEXT = { cl_device_grv_post:"Receiving (GRV)", cl_device_dispatch_send:"Sending a Delivery Note", cl_device_dispatch_cancel:"Cancelling a Delivery Note",
     cl_device_dispatch_resolve:"A Delivery Note's shortage", cl_device_supplier_grv_post:"A supplier GRV", cl_device_supplier_save:"A supplier",
     cl_catalogue_push:"Product changes", cl_branch_price_push:"Branch prices", cl_device_customer_save:"A customer", cl_terminal_set_active:"Switching a till on or off",
     cl_terminal_admin_set:"A till's settings", cl_branch_issue_join_code:"A join code", cl_branch_set_price_mode:"The branch's price setting",
     cl_branch_set_business_day:"The business day", cl_device_pack_submit:"A Marketing pack", cl_device_transfer_send:"An internal transfer",
-    cl_device_transfer_receive:"Receiving an internal transfer", cl_device_transfer_cancel:"Cancelling an internal transfer", cl_device_transfer_resolve:"An internal transfer's shortage" };
+    cl_device_transfer_receive:"Receiving an internal transfer", cl_device_transfer_cancel:"Cancelling an internal transfer", cl_device_transfer_resolve:"An internal transfer's shortage",
+    cl_device_stock_ctl_push:"Stock control (counts, requests, recalls)" };
   // Work seiGEN refused for the signed-in person's rights stays where it was (it is sent again later,
   // never dropped) and is listed for managers in Settings → Staff & Roles until it goes through.
   function rightsWaiting(){ return staffJson(getSetting("rights_waiting",""), []); }

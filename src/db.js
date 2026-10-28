@@ -622,6 +622,8 @@
     migratePriceChanges(t);
     ensureBuiltinCustomers(t);
     if(typeof migrateB4==="function") migrateB4(t);                 // b4-sync.js; absent in partial test loads
+    if(typeof migrateStockCtl==="function") migrateStockCtl(t);     // v37 stock-ctl.js; absent in partial test loads
+    if(typeof migrateBell==="function") migrateBell(t);             // v37 bell.js
     if(typeof pauseSyncBacklog==="function") pauseSyncBacklog(t);   // sync.js; absent in partial test loads
   }
   // Catalogue sync (Phase 3a): a change to a catalogue field of a linked
@@ -800,8 +802,16 @@
     });
   }
 
+  // A14 (v37): the hosted apps (APP_OWN_VENDOR, set by build.js) take the database engine from their own
+  // address. Opened from a file, a browser can't fetch the wasm next to it, so the single file (and a
+  // hosted build opened from disk) still uses cdnjs.
+  const SQLJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/";
+  function sqlEngineBase(){
+    const own = typeof APP_OWN_VENDOR!=="undefined" && APP_OWN_VENDOR;
+    return own && !(typeof location!=="undefined" && location.protocol==="file:")? "vendor/" : SQLJS_CDN;
+  }
   async function initDB(){
-    SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+    SQL = await initSqlJs({ locateFile: f => sqlEngineBase()+f });
     const existing = await idbGet();
     if(existing){ db = new SQL.Database(new Uint8Array(existing)); }
     else { db = new SQL.Database(); db.run(SCHEMA); await persist(); }

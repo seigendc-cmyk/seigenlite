@@ -107,7 +107,7 @@ async function device(browser, kind, o){
   page.on("pageerror", e=> d.pageErrors.push(e.message));
   page.on("dialog", async x=>{ d.dialogs.push(x.message()); await x.accept(); });
   if(PREVIEW) d.url = URLS[kind];
-  else { const dir = o.dir || fs.mkdtempSync(path.join(os.tmpdir(), "seigen-seat-")); fs.copyFileSync(BUILDS[kind], path.join(dir, "index.html")); d.dir = dir; d.url = fileUrl(path.join(dir, "index.html")); }
+  else { const dir = o.dir || fs.mkdtempSync(path.join(os.tmpdir(), "seigen-seat-")); fs.copyFileSync(BUILDS[kind], path.join(dir, "index.html")); if(fs.existsSync(path.join(path.dirname(BUILDS[kind]), "vendor"))) fs.cpSync(path.join(path.dirname(BUILDS[kind]), "vendor"), path.join(dir, "vendor"), { recursive: true });   /* v37 (A14): the hosted builds load the engine from vendor/ */ d.dir = dir; d.url = fileUrl(path.join(dir, "index.html")); }
   await page.goto(d.url + (o.hash || ""));
   return d;
 }

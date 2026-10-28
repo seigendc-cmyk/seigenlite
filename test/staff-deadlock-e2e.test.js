@@ -97,7 +97,7 @@ async function device(browser, kind){
   if(PREVIEW) await page.goto(URLS[kind]);
   else {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-sd-"));
-    fs.copyFileSync(BUILDS[kind], path.join(dir, "index.html"));
+    fs.copyFileSync(BUILDS[kind], path.join(dir, "index.html")); if(fs.existsSync(path.join(path.dirname(BUILDS[kind]), "vendor"))) fs.cpSync(path.join(path.dirname(BUILDS[kind]), "vendor"), path.join(dir, "vendor"), { recursive: true });   // v37 (A14): the hosted builds load the engine from vendor/
     await page.goto(fileUrl(path.join(dir, "index.html")));
   }
   await page.waitForSelector("#setShop", { timeout: 60000 });

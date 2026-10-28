@@ -254,7 +254,9 @@ async function addProduct(page, name, price, stock){
   // ================= Settings → Cloud sync: built in, status only =================
   await t("Settings → Cloud sync has no URL/key fields and shows status, in a REAL browser", async ()=>{
     const browser2 = await chromium.launch();
-    const ctx = await browser2.newContext();
+    // 1280x900: at the default 720 px the More menu's last entry (Settings) sits half under the
+    // fixed bottom bar, and the click raced Playwright's scroll (failed now and then on v36's build too)
+    const ctx = await browser2.newContext({ viewport: { width: 1280, height: 900 } });
     // The app now talks to Digital Commerce's live project on its own;
     // never let a test reach it.
     await ctx.route(/urbopdsubwawtybwrxjd\.supabase\.co/, route => route.abort());

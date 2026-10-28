@@ -183,6 +183,11 @@ const SCRIPT_ORDER = [
   "branch-stock.js",
   "branch-views.js",
   "b4-sync.js",
+  "stock-ctl.js",     // v37 stock control sync
+  "cycle.js",
+  "cycle-ui.js",
+  "srq.js",
+  "bell.js",
   "itred-orders.js",
   "supplier-grv.js",
   "marketing.js",
@@ -224,10 +229,31 @@ const DESKTOP_EXTRA_CSS = ["desktop/desktop-sales.css"];
 // happen first and are untouched; only the in-memory string handed to
 // fs.writeFileSync ever gets transformed. Returns the JS byte lengths
 // before/after so callers can report the size cost.
+// A14 (owner 27 Oct): the hosted apps (dist-pwa, dist-tauri) load the database engine and the
+// spreadsheet library from their own address, never cdnjs at runtime: the page's script tag
+// is rewritten here (ownAddress) and APP_OWN_VENDOR tells db.js and import.js. The single
+// file (dist/) keeps cdnjs: opened from a file, a browser can't fetch a wasm next to it (a
+// hosted build opened from disk falls back to cdnjs for the wasm alone, as before).
+// Byte-for-byte copies (test/local-cdn.test.js checks their sha256).
+const VENDOR_DIR = path.join(ROOT, "assets", "vendor");
+const VENDOR_FILES = ["sql-wasm.js", "sql-wasm.wasm", "xlsx.full.min.js"];
+const CDN_SQLJS = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/";
+const CDN_XLSX = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+function ownAddress(text) {
+  if (!text.includes(CDN_SQLJS) && !text.includes(CDN_XLSX)) return text;
+  return text.split(CDN_SQLJS).join("vendor/").split(CDN_XLSX).join("vendor/xlsx.full.min.js");
+}
+function copyVendor(destDir) {
+  fs.mkdirSync(path.join(destDir, "vendor"), { recursive: true });
+  for (const f of VENDOR_FILES) fs.copyFileSync(path.join(VENDOR_DIR, f), path.join(destDir, "vendor", f));
+}
+
 function buildHTML(scriptOrder, extraCssFiles, opts) {
   const obfuscate = !!(opts && opts.obfuscate);
+  const own = !!(opts && opts.ownAddress);
   const headTop = fs.readFileSync(path.join(SHELL, "head-top.html"), "utf8");
-  const headMid = fs.readFileSync(path.join(SHELL, "head-mid.html"), "utf8");
+  const headMid0 = fs.readFileSync(path.join(SHELL, "head-mid.html"), "utf8");
+  const headMid = own ? ownAddress(headMid0) : headMid0;
   const foot = fs.readFileSync(path.join(SHELL, "foot.html"), "utf8");
   const css = fs.readFileSync(path.join(SRC, "styles.css"), "utf8");
   const extraCss = (extraCssFiles || [])
@@ -244,9 +270,11 @@ function buildHTML(scriptOrder, extraCssFiles, opts) {
   // every function inside that IIFE (renderAbout, renderSettings, ...)
   // can read it as a normal outer-scope variable.
   const versionDecl = "const APP_VERSION = " + JSON.stringify(readVersion()) + ";\n" +
-    "const APP_BUILD = " + readBuild() + ";\n";
+    "const APP_BUILD = " + readBuild() + ";\n" +
+    "const APP_OWN_VENDOR = " + own + ";\n";   // A14: the engine and xlsx from vendor/ (db.js sqlEngineBase, import.js loadXLSX)
 
   let appJS = versionDecl + scriptParts.join("\n");
+  if (own && headMid.includes("cdnjs.cloudflare.com")) throw new Error("A14: a cdnjs address is left in the hosted app's page");
   const jsBytesBefore = Buffer.byteLength(appJS, "utf8");
   let jsBytesAfter = jsBytesBefore;
   if (obfuscate) {
@@ -300,7 +328,7 @@ function buildSingleFile() {
 // visible Install button and an update-available banner.
 function buildPWA() {
   const scriptOrder = SCRIPT_ORDER.concat(PWA_EXTRA_SCRIPTS);
-  const built = buildHTML(scriptOrder, null, { obfuscate: true });
+  const built = buildHTML(scriptOrder, null, { obfuscate: true, ownAddress: true });
   const { jsBytesBefore, jsBytesAfter } = built, html = protectPage(built.html, "dist-pwa");
 
   fs.mkdirSync(DIST_PWA, { recursive: true });
@@ -309,6 +337,7 @@ function buildPWA() {
   fs.copyFileSync(path.join(ROOT, "manifest.json"), path.join(DIST_PWA, "manifest.json"));
   copyBrand(DIST_PWA);
   fs.copyFileSync(path.join(ROOT, "sw-pwa.js"), path.join(DIST_PWA, "sw.js"));
+  copyVendor(DIST_PWA);
   addMarket(DIST_PWA);
 
   console.log("Built dist-pwa/index.html (" + html.length + " bytes) from " + scriptOrder.length + " src files.");
@@ -342,7 +371,7 @@ function tauriScriptOrder() {
 }
 function buildTauri() {
   const scriptOrder = tauriScriptOrder();
-  const built = buildHTML(scriptOrder, DESKTOP_EXTRA_CSS, { obfuscate: true });
+  const built = buildHTML(scriptOrder, DESKTOP_EXTRA_CSS, { obfuscate: true, ownAddress: true });
   const { jsBytesBefore, jsBytesAfter } = built, html = protectPage(built.html, "dist-tauri");
 
   fs.mkdirSync(DIST_TAURI, { recursive: true });
@@ -351,6 +380,7 @@ function buildTauri() {
   fs.copyFileSync(path.join(ROOT, "manifest.json"), path.join(DIST_TAURI, "manifest.json"));
   copyBrand(DIST_TAURI);
   fs.copyFileSync(path.join(ROOT, "sw-pwa.js"), path.join(DIST_TAURI, "sw.js"));
+  copyVendor(DIST_TAURI);
   addMarket(DIST_TAURI);
 
   console.log("Built dist-tauri/index.html (" + html.length + " bytes) from " + scriptOrder.length + " src files.");
@@ -417,7 +447,8 @@ function addMarket(destDir) {
 const ITRED_DIR = path.join(SRC, "itred");
 const ITRED_SRC = path.join(ITRED_DIR, "index.html");
 const ITRED_FILES = ["sw.js", "manifest.webmanifest", "apps.json", "itred-icon-192.png", "itred-icon-512.png", "itred-maskable-512.png",
-  "apple-touch-icon.png", "og-image.png", "vendor/supabase-2.117.1.js", "vendor/jspdf-4.2.1.umd.min.js"];
+  "apple-touch-icon.png", "og-image.png", "vendor/supabase-2.117.1.js", "vendor/jspdf-4.2.1.umd.min.js",
+  "fonts/fraunces-latin.woff2", "fonts/fraunces-latin-ext.woff2", "fonts/inter-latin.woff2", "fonts/inter-latin-ext.woff2"];   // A14: the fonts from iTred's own address
 const ITRED_DEFAULT_BASE = "https://itred-preview.seigendc.workers.dev/";
 function itredSharedSearch() {
   const utils = fs.readFileSync(path.join(SRC, "utils.js"), "utf8").replace(/\r\n/g, "\n");

@@ -26,7 +26,7 @@ async function t(name, fn){
 function serve(dir){
   const types = { ".html":"text/html", ".js":"text/javascript", ".json":"application/json", ".png":"image/png", ".svg":"image/svg+xml", ".ico":"image/x-icon" };
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-swto-"));
-  for(const f of fs.readdirSync(dir)) fs.copyFileSync(path.join(dir, f), path.join(tmp, f));
+  fs.cpSync(dir, tmp, { recursive: true });   // v37 (A14): the hosted builds have a vendor/ folder
   const server = http.createServer((req, res)=>{
     const rel = decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html";
     const file = path.join(tmp, rel);

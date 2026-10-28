@@ -240,7 +240,9 @@
           [ts,o.branch,o.toBranch,l.product.name,l.product.sku||"",qty,dn.text,sessionUser||"",dn.n,branchId]);
       });
       // to a branch of this business on seiGEN: queued to send, in this same transaction (dispatch-srv.js)
-      if(o.srv) dsQueueDispatch(dnUid, dn, o.srv, o.lines, localIso(o.now), internalRef);
+      const srvId = o.srv? dsQueueDispatch(dnUid, dn, o.srv, o.lines, localIso(o.now), internalRef) : null;
+      // v37: a DN made from a stock request or a recall is linked to it, in this same transaction (stock-ctl.js)
+      if(o.link && srvId && typeof scQueueLink==="function") scQueueLink(o.link, srvId);
       recordDnEvent({ dnBranchId:branchId, dnNo:dn.n, type:"dispatched", actorBranchId:branchId, actorName:o.branch, fromName:o.branch, toName:o.toBranch, ts,
         detail:{ dn_created_iso:localIso(o.now), lines:o.lines.length, units }, dnTill:dn.till||null });
       logAudit("Dispatch Stock", "", `${dn.text}: ${o.lines.length} item${o.lines.length===1?"":"s"} to ${o.toBranch}`);
@@ -253,17 +255,19 @@
   }
 
   // ---- dispatch screen ----
-  function openDispatchScreen(){
+  // pre (v37, stock-ctl.js): a DN made from a stock request or a recall: { toBranch, lines:[{ product, qty }], link, title, note }.
+  // Without it the screen is exactly as before.
+  function openDispatchScreen(pre){
     if(typeof pretrialBlocked==="function" && pretrialBlocked()) return;   // trial rules: waits for the free trial or a licence
     const branch = currentBranch();
     const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
     if(products.length===0){ alert("No products in this branch to dispatch."); return; }
     let dests = branchDestinations();
-    let lines = [];            // { product, qty:"" }
+    let lines = pre && pre.lines? pre.lines.map(l=>({ product:l.product, qty:String(l.qty) })) : [];            // { product, qty:"" }
     let query = "";
     let stage = "edit";
 
-    const wrap = openModal("Dispatch Stock", "");
+    const wrap = openModal((pre && pre.title) || "Dispatch Stock", "");
     // seiGEN's branch list, fetched now; when it lands while this window is
     // open, the choices follow it at once (a branch that joined a minute ago
     // moves to "Through seiGEN"; v20/v21 could show File only until the next
@@ -280,8 +284,8 @@
         }
       }).catch(()=>{});
     const body = wrap.querySelector(".modal-body");
-    let toName = "";
-    let internalRef = "";                    // Phase 2: the shop's own optional reference ("Internal ref.")
+    let toName = (pre && pre.toBranch) || "";
+    let internalRef = (pre && pre.internalRef) || "";                    // Phase 2: the shop's own optional reference ("Internal ref.")
     // To a branch of this business on seiGEN, the dispatch also goes through seiGEN, with an optional delivery cost.
     const delivery = { cost:"", currency:getSetting("ds_currency","USD"), carrier:"", ref:"" };
     const srvFor = ()=> typeof dsBranchFor==="function"? dsBranchFor(toName) : null;
@@ -315,6 +319,7 @@
       else if(!dnDestinationAllowed(toName)) errs.push("Choose a branch from the list.");
       if(lines.length===0) errs.push("Add at least one product.");
       if(deliveryProblem()) errs.push(deliveryProblem());
+      if(pre && pre.link && toName.trim() && !srvFor()) errs.push("This Delivery Note must go through seiGEN (it is linked to "+(pre.link.type==="recall"? "the recall" : "the stock request")+"). "+(fileOnly(true)||""));
       lines.forEach((l,i)=>{
         const codeErr = dnProductCodeProblem(l.product);
         if(codeErr) errs.push(codeErr);
@@ -330,6 +335,7 @@
       stage = "edit";
       const matches = query.trim()? searchProducts(query, branch).slice(0,6) : [];
       body.innerHTML = `
+        ${pre && pre.note? `<div class="box" id="doPreNote" style="margin:0 0 8px;font-size:12.5px">${escapeHtml(pre.note)}</div>` : ""}
         <label style="margin-top:0">Destination branch</label>
         <select class="field" id="doDest">
           <option value="">Choose a branch…</option>
@@ -403,6 +409,7 @@
         ${lines.map(l=>`<div class="product-row" style="align-items:center"><div style="display:flex;gap:8px;align-items:center">${thumbImg(l.product)}<div><div class="pname">${escapeHtml(l.product.name)}</div><div class="pmeta">${escapeHtml(l.product.sku||"no SKU")}</div></div></div><b style="flex:none">${Number(l.qty)}</b></div>`).join("")}
         <p style="margin:10px 0"><b>${lines.length}</b> line${lines.length===1?"":"s"} · <b>${units}</b> unit${units===1?"":"s"}. Stock is deducted as soon as you confirm.</p>
         ${srvFor()? `<p class="muted" id="doSrvReview" style="margin:-4px 0 10px;font-size:12.5px">Goes through seiGEN to ${escapeHtml(srvFor().name)}${Number(delivery.cost)>0? " · delivery cost "+escapeHtml(String(delivery.currency).toUpperCase()+" "+Number(delivery.cost).toFixed(2)) : ""}.</p>` : ""}
+        ${srvFor() && pre && pre.link && pre.link.type==="recall"? `<p id="doRecallTransport" style="margin:-4px 0 10px;font-size:12.5px"><b>Transport paid by receiver: ${escapeHtml(srvFor().name)}</b> (a recall: main pays, decision 54).</p>` : ""}
         ${fileOnly()? `<p id="doFileOnlyReview" style="margin:-4px 0 10px;font-size:12.5px;color:#b54708"><b>File only: not through seiGEN.</b> ${escapeHtml(fileOnly(true))}</p>` : ""}
         <div style="display:flex;gap:8px"><button class="btn btn-outline" id="doBack">Back</button><button class="btn btn-primary" id="doConfirm" style="flex:1">Dispatch</button></div>`;
       body.querySelector("#doBack").onclick=()=>renderEdit();
@@ -434,7 +441,7 @@
       try{
         const sb = srvFor();
         if(sb && Number(delivery.cost)>0) setSetting("ds_currency", String(delivery.currency).trim().toUpperCase());
-        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })),
+        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })), link:(pre && pre.link) || undefined,
           srv: sb? { toBranchId:sb.id, delivery:{ cost:Number(delivery.cost)||0, currency:String(delivery.currency).trim().toUpperCase(), carrier:delivery.carrier, ref:delivery.ref } } : undefined });
         if(pre) sharedStockDone(pre);
       }catch(e){
@@ -491,6 +498,7 @@
       };
       body.querySelector("#doPrint").onclick=()=>printDNVoucher(r.doc);
       body.querySelector("#doDone").onclick=()=>{ wrap.remove(); render(); };
+      if(r.header.srv_id && pre && pre.link && typeof scSoon==="function") dsSendPending().then(()=> scSoon()).catch(()=>{});   // v37: the link after the DN
       if(r.header.srv_id) dsSendPending().then(()=>{
         const h = dnHeaderFor(r.header.dn_no), el = body.querySelector("#doSrvStatus");
         if(h && el) el.textContent = "seiGEN: "+dsStatusText(h.srv_status)+(h.srv_status==="queued"? " (when online)" : "")+(h.srv_error? ": "+h.srv_error : "");

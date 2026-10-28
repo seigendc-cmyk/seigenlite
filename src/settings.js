@@ -121,6 +121,8 @@
         <button class="btn btn-primary" id="saveFreqSettings" style="margin-top:12px">Save</button>
       </div>`}
       ${adminPasscodeSettingShown()? adminPasscodeCardHtml() : ""}
+      ${typeof bellSettingsHtml==="function"? bellSettingsHtml() : ""}
+      ${typeof cycleSettingsCardHtml==="function"? cycleSettingsCardHtml() : ""}
       ${settingsStaffCardHtml()}
       ${isRemote() || !(typeof can!=="function" || can("m.terminals"))? "" : branchRegisterCardHtml()}
       ${backupMergeSectionHtml()}
@@ -207,6 +209,8 @@
     wireRpnSection();
     wireCurrenciesSection();
     wireAdminPasscodeCard(main);
+    if(typeof bellSettingsWire==="function") bellSettingsWire(main);   // v37
+    if(typeof cycleSettingsWire==="function") cycleSettingsWire(main);
     wireSettingsStaffCard(main);
     if(!isRemote() && (typeof can!=="function" || can("m.terminals"))) wireBranchRegisterCard();
     wireBackupMergeSection();

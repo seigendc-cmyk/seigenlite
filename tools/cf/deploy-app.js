@@ -34,9 +34,11 @@ const TARGETS = {
   "preview:itred": { worker: "itred-preview", build: "dist-itred", compat: "2026-10-14", itred: true },
   "production:itred": { worker: "itredvpd", build: "dist-itred", compat: "2026-10-14", itred: true },
 };
-const REQUIRED = ["index.html", "sw.js", "manifest.json", "market.html", "icon-192.png", "icon-512.png"];
+const REQUIRED = ["index.html", "sw.js", "manifest.json", "market.html", "icon-192.png", "icon-512.png",
+  "vendor/sql-wasm.js", "vendor/sql-wasm.wasm", "vendor/xlsx.full.min.js"];   // A14: the engine from the app's own address
 const ITRED_REQUIRED = ["index.html", "sw.js", "manifest.webmanifest", "apps.json", "itred-icon-192.png", "itred-icon-512.png",
-  "itred-maskable-512.png", "apple-touch-icon.png", "og-image.png", "supabase-2.117.1.js", "jspdf-4.2.1.umd.min.js"];
+  "itred-maskable-512.png", "apple-touch-icon.png", "og-image.png", "supabase-2.117.1.js", "jspdf-4.2.1.umd.min.js",
+  "fraunces-latin.woff2", "fraunces-latin-ext.woff2", "inter-latin.woff2", "inter-latin-ext.woff2"];   // A14: iTred's fonts from its own address
 const BASE = (worker) => "https://" + worker + ".seigendc.workers.dev/";
 
 // iTred: every file there, page and sw.js from one build, and the link

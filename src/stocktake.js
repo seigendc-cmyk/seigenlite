@@ -4,7 +4,8 @@
   // cash count) so staff aren't biased toward matching what the system
   // expects. Cutting off closes the count and produces a variance report;
   // applying the counts to live stock is a separate, explicitly-confirmed step.
-  function renderStocktake(main){
+  // v37: shown under the "Full stocktake" tab (cycle-ui.js renderStocktake draws the tabs); unchanged otherwise.
+  function renderStocktakeFull(main){
     if(stocktakeReportId) return renderStocktakeReport(main, stocktakeReportId);
     // Stocktakes are per-branch, and a device can have more than one open at
     // once (e.g. for two branches whose data has been merged onto it). Only

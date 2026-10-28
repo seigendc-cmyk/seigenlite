@@ -81,7 +81,7 @@ async function device(browser, kind){
   page.on("load", ()=>loads.push(Date.now()));
   page.on("dialog", d=>{ dialogs.push(d.message()); d.accept(); });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-ss-"));
-  fs.copyFileSync(BUILDS[desktop? "desktop" : "phone"], path.join(dir, "index.html"));
+  fs.copyFileSync(BUILDS[desktop? "desktop" : "phone"], path.join(dir, "index.html")); if(fs.existsSync(path.join(path.dirname(BUILDS[desktop? "desktop" : "phone"]), "vendor"))) fs.cpSync(path.join(path.dirname(BUILDS[desktop? "desktop" : "phone"]), "vendor"), path.join(dir, "vendor"), { recursive: true });   // v37 (A14): the hosted builds load the engine from vendor/
   await page.goto(fileUrl(path.join(dir, "index.html")));
   await page.waitForSelector("#setShop", { timeout: 30000 });
   return { ctx, page, pageErrors, dialogs, desktop, calls, loads };

@@ -21,7 +21,7 @@ function t(name, fn){
 }
 function copyOf(dir){
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-deploy-"));
-  for(const f of fs.readdirSync(path.join(ROOT, dir))) fs.copyFileSync(path.join(ROOT, dir, f), path.join(tmp, f));
+  fs.cpSync(path.join(ROOT, dir), tmp, { recursive: true });   // v37 (A14): the hosted builds have a vendor/ folder
   return tmp;
 }
 

@@ -86,7 +86,7 @@ async function runFor(browser, build){
   page.on("dialog", d=> d.accept());
   page.on("pageerror", e=> errors.push(e.message));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-dbl-"));
-  for(const f of fs.readdirSync(path.join(ROOT, build))) fs.copyFileSync(path.join(ROOT, build, f), path.join(dir, f));
+  fs.cpSync(path.join(ROOT, build), dir, { recursive: true });   // v37 (A14): the hosted builds have a vendor/ folder
   await page.goto(fileUrl(path.join(dir, "index.html")));
   await page.waitForSelector("#setShop", { timeout: 20000 });
   await page.fill("#setShop", "IVO Motor Spares"); await page.fill("#setBranch", "Warehouse"); await page.fill("#setSecret", TEST_PHRASE);

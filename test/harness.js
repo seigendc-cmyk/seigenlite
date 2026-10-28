@@ -80,7 +80,8 @@ function makeApp(settings, opts){
     function uid4(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
     function printNow(){}
   `;
-  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","roles.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","seat.js","transfers.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js","branch-stock.js","branch-views.js","credit.js","itred-orders.js"];
+  const files = ["db.js","activation.js","utils.js","pos.js","customers.js","products.js","dispatch.js","backup.js","docnum.js","dnstatus.js","dnfile.js","dn-browser.js","dispatch-out.js","catalogue.js","catalogue-app.js","grvfile.js","dnreceive.js","dncancel.js","receive-in.js","grv-import.js","adjust.js","dn-cancel.js","staff.js","roles.js","report-writer.js","sync.js","devicecheckin.js","terminal.js","seat.js","transfers.js","catalogue-sync.js","shared-stock.js","rpn.js","trial.js","dispatch-srv.js","supplier-grv.js","purchasing.js","currencies.js","eod.js","returns.js","stocktake.js","import.js","marketing.js","passcode-check.js","settings.js","branch-stock.js","branch-views.js","credit.js","itred-orders.js",
+    "stock-ctl.js","cycle.js","cycle-ui.js","srq.js","bell.js"];   // v37 (stock control, the bell): renderStocktake is in cycle-ui.js
   // opts.b4 (v35): the sales sync too (b4-sync.js). Off by default: the other tests keep their exact RPC calls.
   if(opts && opts.b4) files.push("printing.js", "b4-sync.js");
   if(opts && opts.extra) files.push(...opts.extra);   // e.g. ["help.js"] for the About page (v36)
@@ -172,6 +173,13 @@ function makeApp(settings, opts){
     // v36 Fix-A: removed devices (A1), the role everywhere (A11), Guest (A12), the RPN (A13)
     + `;Object.assign(this.api, { dcDeviceRemoved, dcRemovedNotice, openDcResetModal, dcRemovedCardHtml, dcLastVendorId, dcResetDevice,
         tillRightsOn, tillSendsToken, staffModeSync, rightsWaiting, noteRightsWaiting, rightsWaitingHtml, TILL_RIGHT, staffIsGuest, guestEnded, guestUntilText, rpnLocked });`
+    // v37 stock control and the bell (decisions 52-55)
+    + `;Object.assign(this.api, { scQueue, scSendNow, scPull, scTick, scApplyApproved, scRequests, scRecalls, scRequest, scRecall, scQueueLink, scProductKey, scProductByKey, scAvailable, scIsMain,
+        scWaitingCount, scWaitingFor, cycleClasses, cycleFlags, cycleChoose, cycleSoldAtZero, cycleGroupByShelf, cycleShrinkage, cycleFacts, cycleList, cycleAdd, cycleSaveCount, cycleDecide,
+        cycleWaiting, cycleShrinkRows, cycleSettings, renderCountNow, renderCountApprovals, renderShrinkage, shrinkageReport, renderStocktakeFull, cycleTabs, setCycleTab:(t)=>{ cycleTab=t; },
+        srqCreate, srqDecide, srqDispatchPrefill, rclCreate, rclSendBackPlan, rclCancel, rclOverdue, srqReport, rclReport, renderStockCtl, srqAvailable, openRequestHistory, openRecallHistory,
+        bellAdd, bellFromChanges, bellLocal, bellVisible, bellUnread, bellMarkRead, bellMarkAllRead, bellAnnounce, bellTick, bellPerson, bellCanSee, bellButtonHtml, bellSettingsHtml,
+        bellSettingsWire, openBell, startBell, BELL_CATEGORIES, openDispatchScreen, catApplyProduct, setSrqTab:(t)=>{ srqTab=t; } });`
     + ((opts && opts.extra && opts.extra.includes("help.js"))? `;Object.assign(this.api, { renderAbout, aboutContactHtml, refreshAboutInfo, aboutAfterCheckin, aboutInfoCached });` : "");
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.
   // Tests must never reach it, so every app instance instead reads the old

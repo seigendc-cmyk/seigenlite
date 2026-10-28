@@ -87,6 +87,11 @@
     }
     return p;
   }
+  // v37 (decision 52): a shelf this branch set itself (sc_shelves, stock-ctl.js) stays; otherwise main's, as before.
+  function catShelfFor(r, p){
+    const own = typeof scProductKey==="function"? one("SELECT shelf FROM sc_shelves WHERE product_key=?",[r.uid]) : null;
+    return own? (own.shelf||"") : (r.shelf||"");
+  }
   function catApplyProduct(r, mainTill){
     const p = catFindLocal(r);
     if(p && mainTill && p.cat_dirty===1) return "kept";     // a local edit waits to be pushed; the later arrival wins on the server
@@ -98,14 +103,14 @@
              cat_uid,cat_seq,active,image_hash,image_bytes,cat_main_price)
            VALUES(?,?,0,?,?,?,'',?,?,?,?,?,?,?,1,?,?,?)`,
         [r.name, price, r.low_threshold==null?5:r.low_threshold, r.code||"", catBranch(), cost||0, new Date().toISOString(),
-         r.description||"", r.shelf||"", r.category||"", r.uid, r.seq, r.image_hash||null, r.image_bytes||0, catRound(Number(r.price)||0)]);
+         r.description||"", catShelfFor(r), r.category||"", r.uid, r.seq, r.image_hash||null, r.image_bytes||0, catRound(Number(r.price)||0)]);
       catApplyWholesale(r, one("SELECT last_insert_rowid() AS id").id);
       return "added";
     }
     const price = catPricePending(r.uid)? p.price : catEffectivePrice(r.price, r.uid);
     run(`UPDATE products SET name=?, sku=?, description=?, category=?, shelf=?, low_threshold=?, price=?, cost=COALESCE(?,cost),
            active=?, image_hash=?, image_bytes=?, cat_uid=?, cat_seq=?, cat_main_price=? WHERE id=?`,
-      [r.name, r.code||"", r.description||"", r.category||"", r.shelf||"", r.low_threshold==null?5:r.low_threshold, price, cost,
+      [r.name, r.code||"", r.description||"", r.category||"", catShelfFor(r, p), r.low_threshold==null?5:r.low_threshold, price, cost,
        r.active?1:0, r.image_hash||null, r.image_bytes||0, r.uid, r.seq, catRound(Number(r.price)||0), p.id]);
     catApplyWholesale(r, p.id);
     return "updated";

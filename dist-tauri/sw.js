@@ -11,7 +11,8 @@
 // are hosted — CACHE_NAME below isn't scoped per-build, so two builds
 // sharing one origin would share Cache Storage entries too.
 
-// build: v36 — Fix-A (owner decisions 34, 48-50; seiGEN 20261113180000, 20261114120000): a device whose business no longer exists on seiGEN is refused and says "Reset this device" (backup first, nothing cleared on its own); a till in staff sign-in mode sends the signed-in person's token and seiGEN refuses what their role doesn't allow (single operator mode as before, logged; refused work stays queued and is listed for managers); the built-in Guest role (stock and each branch's selling prices, on an Office seat only, until an optional end date); a linked RPN shown read-only from seiGEN; long boxes keep Save in view; the sync line always shows a number; the plan name as set in the Console; About from seiGEN's company settings and Contact directory; repeatable builds
+// build: v37 — Stock control and the notification bell (owner decisions 8, 12, 48, 52-55; seiGEN 20261115120000): Stocktake → Count now, a short daily list chosen by risk (A/B/C by value sold, red flags first), counted blind, every difference approved by someone with "Approve count differences" (or a recount by someone else) before stock moves, by the difference found at the count, so selling never stops; shrinkage by item, shelf, week and staff on duty; a shelf per product per branch; More → Stock requests & recalls: a branch asks main for stock, main approves all, part or rejects with a reason and makes the Delivery Note from it; main recalls stock, the branch sends it back with a Delivery Note (short lines with a reason); a bell in the header with an unread count per person (Market feed, iTred orders, stock requests, recalls, counts to approve, incoming and received DNs), checked every minute while open, a chime once per notification and phone/PC notifications while the app runs; the database engine and spreadsheet library from the app's own address (A14), never cdnjs
+// v36: Fix-A (owner decisions 34, 48-50; seiGEN 20261113180000, 20261114120000): a device whose business no longer exists on seiGEN is refused and says "Reset this device" (backup first, nothing cleared on its own); a till in staff sign-in mode sends the signed-in person's token and seiGEN refuses what their role doesn't allow (single operator mode as before, logged; refused work stays queued and is listed for managers); the built-in Guest role (stock and each branch's selling prices, on an Office seat only, until an optional end date); a linked RPN shown read-only from seiGEN; long boxes keep Save in view; the sync line always shows a number; the plan name as set in the Console; About from seiGEN's company settings and Contact directory; repeatable builds
 // v35: B4, sales sync (owner decisions 3, 35-38; seiGEN 20261113120000): every sale, return, credit payment, payout, End of Day, credit override, price change and voucher of this till goes to seiGEN in the background (one per uid, money first, small batches that shrink on a weak line, back-off with jitter); the first check-in sends the last 90 days as history and each customer's older balance brought forward; credit limits use the business balance (seiGEN checks before a credit sale, two tills can't use the same credit; offline: the balance at the last sync plus this till's credit sales since), shown as "Balance (business)" or "(as of last sync)"; other branches' sales and payouts in Report Writer with "View other branches' reports" (costs with "View costs"); a sync line on the Sell screen
 // v34: Batch 2, selling and credit (owner decisions 1-4, 30-33; seiGEN 20261112120000): the phone Sell list shows each product's category; the Sell list is held in memory and search waits for a pause in typing; over the credit limit a sale is blocked, overridden only by someone holding "Credit sales over limit" with the Admin passcode (single operator: the Admin passcode alone, logged so), against the balance at this till, marked when checked offline; built-in Cash Sale and Wholesale customers on every till (locked, no credit); receipts carry the address, phones, logo (screen and PDF), customer, who served, payment reference, credit before and after, a receipt message and "powered by seiGEN Commerce"; the remaining Admin passcode checks run off the screen thread; reports: credit limit overrides, offline credit sales, sales by customer type, price changes
 // v32: Office seats by invite (owner 2026-10-20; seiGEN 20261109120000): a device on the main branch with no till for the bookkeeper, the stores clerk or the owner (no selling, payments or End of Day; never single operator mode; its own phrase, never the business's); the Owner or an Admin invites a named person with a code and a link (one use, 24 hours, revocable), the person installs the app and joins inside it, sets or enters their PIN, and the Owner or an Admin approves the device by comparing the device check; the install page adjusts to Android, PC, iPhone and in-app browsers and always shows the code; internal transfers between the seat and the main branch's tills (sent, then confirmed; shortages written off or kept); the business's bill on the licence card and the lock screen, seats at $3
@@ -45,11 +46,11 @@
 // v2: marble-globe icons (tools/icons/build-icons.js) — new name so installed apps fetch them.
 const CACHE_NAME = "seigen-lite-pwa-v2";
 
-// App shell: everything dist-pwa/ ships. CDN deps: the exact files the app
-// loads at runtime — sql.js's loader script + its wasm binary (initDB's
-// locateFile always resolves to this fixed 1.10.3 URL), and the XLSX
-// library used by Import/Download Template. Keep these version pins in
-// sync with shell/head-mid.html and src/import.js's loadXLSX().
+// App shell: everything dist-pwa/ ships, including the libraries the app
+// loads at runtime: sql.js 1.10.3's loader script + its wasm binary (initDB's
+// locateFile) and XLSX 0.18.5 (Import/Download Template). Since v37 (A14)
+// build.js serves them from vendor/ next to index.html (assets/vendor/), and
+// rewrites the cdnjs addresses in shell/head-mid.html and src/ to match.
 const PRECACHE_URLS = [
   "./",
   "./index.html",
@@ -70,9 +71,10 @@ const PRECACHE_URLS = [
   // deployed next to index.html; if not, the best-effort add below just
   // skips it and the Marketing tab shows "not installed" as it should.
   "./market.html",
-  "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.wasm",
-  "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+  // A14 (v37): from the app's own address (build.js copies assets/vendor/ here), never cdnjs
+  "./vendor/sql-wasm.js",
+  "./vendor/sql-wasm.wasm",
+  "./vendor/xlsx.full.min.js",
 ];
 
 const PRECACHE_TIMEOUT_MS = 20000;
@@ -132,7 +134,7 @@ self.addEventListener("activate", (event) => {
 // ever takes over a page that isn't mid-sale.
 // "GET_BUILD" (v23): the banner asks a waiting worker which build it brings.
 // SW_BUILD must equal the "// build: vN" line above (build.js checks).
-const SW_BUILD = 36;
+const SW_BUILD = 37;
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
   else if (event.data === "GET_BUILD" && event.ports && event.ports[0]) event.ports[0].postMessage({ build: SW_BUILD });

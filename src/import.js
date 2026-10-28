@@ -5,7 +5,8 @@
     if(_xlsxLoading) return _xlsxLoading;
     _xlsxLoading = new Promise((resolve, reject)=>{
       const s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      // A14 (v37): the hosted apps load it from their own address (a script loads from a file too)
+      s.src = typeof APP_OWN_VENDOR!=="undefined" && APP_OWN_VENDOR? "vendor/xlsx.full.min.js" : "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
       s.onload = ()=> resolve();
       s.onerror = ()=> reject(new Error("Could not load the Excel import library — check your internet connection."));
       document.head.appendChild(s);

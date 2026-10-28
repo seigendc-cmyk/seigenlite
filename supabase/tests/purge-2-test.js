@@ -20,7 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { newPglite, buildFromRepo, v21AdminSeed } = require('./rebuild-helpers');
+const { newPglite, buildFromRepo, v21AdminSeed, NOT_ON_LIVE_FILES } = require('./rebuild-helpers');
 
 const FIX = fs.readFileSync(path.join(__dirname, '..', 'data-fixes', '20261027_purge_2.sql'), 'utf8').replace(/\r\n/g, '\n');
 const KEEP = ['cl_staff', 'cl_staff_module_access', 'portal_staff', 'cl_rpn', 'cl_rpn_pins', 'cl_rpn_commission_rates', 'cl_price_plans',
@@ -36,7 +36,7 @@ const J = (x) => JSON.stringify(x);
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg);   // the live shape on 27 Oct (every file is on live)
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES });   // the live shape on 27 Oct (later files, e.g. v37's, are not on live yet)
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
   const PHRASE = { AA: 'Alpha Phrase', BB: 'Beta Phrase', NN: 'New Phrase' };

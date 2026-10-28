@@ -49,7 +49,7 @@ async function device(browser, kind){
   page.on("dialog", d=>{ dialogs.push(d.message()); d.type()==="prompt"? d.accept("Tendai") : d.accept(); });
   await page.addInitScript(()=>{ window.print = ()=>{}; window.open = ()=>null; });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "seigen-rt-"));
-  fs.copyFileSync(BUILDS[kind], path.join(dir, "index.html"));
+  fs.copyFileSync(BUILDS[kind], path.join(dir, "index.html")); if(fs.existsSync(path.join(path.dirname(BUILDS[kind]), "vendor"))) fs.cpSync(path.join(path.dirname(BUILDS[kind]), "vendor"), path.join(dir, "vendor"), { recursive: true });   // v37 (A14): the hosted builds load the engine from vendor/
   await page.goto(fileUrl(path.join(dir, "index.html")));
   await page.waitForSelector("#setShop", { timeout:30000 });
   return { ctx, page, pageErrors, dialogs, desktop, kind };

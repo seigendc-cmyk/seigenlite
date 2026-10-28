@@ -79,6 +79,19 @@
     display:flex;align-items:center;justify-content:center;
   }
   .topbar .logout-btn:hover,.topbar .logout-btn:focus-visible{background:var(--orange-light);color:var(--orange-dark);border-color:var(--orange);}
+  /* Notification bell (v37, bell.js): the same outline button, with an unread count */
+  .topbar .bell-btn{
+    position:relative;width:40px;height:40px;border-radius:50%;flex:none;padding:0;
+    background:none;border:1px solid var(--border);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .topbar .bell-btn:hover,.topbar .bell-btn:focus-visible{background:var(--orange-light);color:var(--orange-dark);border-color:var(--orange);}
+  .bell-badge{
+    position:absolute;top:-4px;right:-4px;background:var(--orange);color:#fff;
+    font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;padding:0 4px;
+  }
+  .bell-badge[hidden]{display:none;}
   /* Start screen (staff.js renderStart): the brand globe, square so it never distorts */
   .start-globe{display:block;width:180px;height:180px;object-fit:contain;margin:0 auto 14px;}
   @media (min-width:900px){ .start-globe{width:240px;height:240px;} }
@@ -420,7 +433,8 @@ input, textarea, select, [contenteditable], [contenteditable] *, .selectable, .s
 <script>
 !function(i){"use strict";var v=function(r){var t,n=new Float64Array(16);if(r)for(t=0;t<r.length;t++)n[t]=r[t];return n},h=function(){throw new Error("no PRNG")},o=new Uint8Array(16),n=new Uint8Array(32);n[0]=9;var s=v(),u=v([1]),p=v([56129,1]),c=v([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),y=v([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),e=v([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),a=v([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),l=v([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function f(r,t,n,e){r[t]=n>>24&255,r[t+1]=n>>16&255,r[t+2]=n>>8&255,r[t+3]=255&n,r[t+4]=e>>24&255,r[t+5]=e>>16&255,r[t+6]=e>>8&255,r[t+7]=255&e}function w(r,t,n,e,o){var i,h=0;for(i=0;i<o;i++)h|=r[t+i]^n[e+i];return(1&h-1>>>8)-1}function b(r,t,n,e){return w(r,t,n,e,16)}function g(r,t,n,e){return w(r,t,n,e,32)}function A(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=i,d=h,E=a,x=f,M=s,m=u,B=c,S=y,k=l,K=w,Y=v,L=p,T=b,z=g,R=A,P=_,N=0;N<20;N+=2)U^=(o=(T^=(o=(k^=(o=(M^=(o=U+T|0)<<7|o>>>25)+U|0)<<9|o>>>23)+M|0)<<13|o>>>19)+k|0)<<18|o>>>14,m^=(o=(d^=(o=(z^=(o=(K^=(o=m+d|0)<<7|o>>>25)+m|0)<<9|o>>>23)+K|0)<<13|o>>>19)+z|0)<<18|o>>>14,Y^=(o=(B^=(o=(E^=(o=(R^=(o=Y+B|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+R|0)<<13|o>>>19)+E|0)<<18|o>>>14,P^=(o=(L^=(o=(S^=(o=(x^=(o=P+L|0)<<7|o>>>25)+P|0)<<9|o>>>23)+x|0)<<13|o>>>19)+S|0)<<18|o>>>14,U^=(o=(x^=(o=(E^=(o=(d^=(o=U+x|0)<<7|o>>>25)+U|0)<<9|o>>>23)+d|0)<<13|o>>>19)+E|0)<<18|o>>>14,m^=(o=(M^=(o=(S^=(o=(B^=(o=m+M|0)<<7|o>>>25)+m|0)<<9|o>>>23)+B|0)<<13|o>>>19)+S|0)<<18|o>>>14,Y^=(o=(K^=(o=(k^=(o=(L^=(o=Y+K|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+L|0)<<13|o>>>19)+k|0)<<18|o>>>14,P^=(o=(R^=(o=(z^=(o=(T^=(o=P+R|0)<<7|o>>>25)+P|0)<<9|o>>>23)+T|0)<<13|o>>>19)+z|0)<<18|o>>>14;U=U+i|0,d=d+h|0,E=E+a|0,x=x+f|0,M=M+s|0,m=m+u|0,B=B+c|0,S=S+y|0,k=k+l|0,K=K+w|0,Y=Y+v|0,L=L+p|0,T=T+b|0,z=z+g|0,R=R+A|0,P=P+_|0,r[0]=U>>>0&255,r[1]=U>>>8&255,r[2]=U>>>16&255,r[3]=U>>>24&255,r[4]=d>>>0&255,r[5]=d>>>8&255,r[6]=d>>>16&255,r[7]=d>>>24&255,r[8]=E>>>0&255,r[9]=E>>>8&255,r[10]=E>>>16&255,r[11]=E>>>24&255,r[12]=x>>>0&255,r[13]=x>>>8&255,r[14]=x>>>16&255,r[15]=x>>>24&255,r[16]=M>>>0&255,r[17]=M>>>8&255,r[18]=M>>>16&255,r[19]=M>>>24&255,r[20]=m>>>0&255,r[21]=m>>>8&255,r[22]=m>>>16&255,r[23]=m>>>24&255,r[24]=B>>>0&255,r[25]=B>>>8&255,r[26]=B>>>16&255,r[27]=B>>>24&255,r[28]=S>>>0&255,r[29]=S>>>8&255,r[30]=S>>>16&255,r[31]=S>>>24&255,r[32]=k>>>0&255,r[33]=k>>>8&255,r[34]=k>>>16&255,r[35]=k>>>24&255,r[36]=K>>>0&255,r[37]=K>>>8&255,r[38]=K>>>16&255,r[39]=K>>>24&255,r[40]=Y>>>0&255,r[41]=Y>>>8&255,r[42]=Y>>>16&255,r[43]=Y>>>24&255,r[44]=L>>>0&255,r[45]=L>>>8&255,r[46]=L>>>16&255,r[47]=L>>>24&255,r[48]=T>>>0&255,r[49]=T>>>8&255,r[50]=T>>>16&255,r[51]=T>>>24&255,r[52]=z>>>0&255,r[53]=z>>>8&255,r[54]=z>>>16&255,r[55]=z>>>24&255,r[56]=R>>>0&255,r[57]=R>>>8&255,r[58]=R>>>16&255,r[59]=R>>>24&255,r[60]=P>>>0&255,r[61]=P>>>8&255,r[62]=P>>>16&255,r[63]=P>>>24&255}(r,t,n,e)}function _(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=0;U<20;U+=2)i^=(o=(b^=(o=(l^=(o=(s^=(o=i+b|0)<<7|o>>>25)+i|0)<<9|o>>>23)+s|0)<<13|o>>>19)+l|0)<<18|o>>>14,u^=(o=(h^=(o=(g^=(o=(w^=(o=u+h|0)<<7|o>>>25)+u|0)<<9|o>>>23)+w|0)<<13|o>>>19)+g|0)<<18|o>>>14,v^=(o=(c^=(o=(a^=(o=(A^=(o=v+c|0)<<7|o>>>25)+v|0)<<9|o>>>23)+A|0)<<13|o>>>19)+a|0)<<18|o>>>14,_^=(o=(p^=(o=(y^=(o=(f^=(o=_+p|0)<<7|o>>>25)+_|0)<<9|o>>>23)+f|0)<<13|o>>>19)+y|0)<<18|o>>>14,i^=(o=(f^=(o=(a^=(o=(h^=(o=i+f|0)<<7|o>>>25)+i|0)<<9|o>>>23)+h|0)<<13|o>>>19)+a|0)<<18|o>>>14,u^=(o=(s^=(o=(y^=(o=(c^=(o=u+s|0)<<7|o>>>25)+u|0)<<9|o>>>23)+c|0)<<13|o>>>19)+y|0)<<18|o>>>14,v^=(o=(w^=(o=(l^=(o=(p^=(o=v+w|0)<<7|o>>>25)+v|0)<<9|o>>>23)+p|0)<<13|o>>>19)+l|0)<<18|o>>>14,_^=(o=(A^=(o=(g^=(o=(b^=(o=_+A|0)<<7|o>>>25)+_|0)<<9|o>>>23)+b|0)<<13|o>>>19)+g|0)<<18|o>>>14;r[0]=i>>>0&255,r[1]=i>>>8&255,r[2]=i>>>16&255,r[3]=i>>>24&255,r[4]=u>>>0&255,r[5]=u>>>8&255,r[6]=u>>>16&255,r[7]=u>>>24&255,r[8]=v>>>0&255,r[9]=v>>>8&255,r[10]=v>>>16&255,r[11]=v>>>24&255,r[12]=_>>>0&255,r[13]=_>>>8&255,r[14]=_>>>16&255,r[15]=_>>>24&255,r[16]=c>>>0&255,r[17]=c>>>8&255,r[18]=c>>>16&255,r[19]=c>>>24&255,r[20]=y>>>0&255,r[21]=y>>>8&255,r[22]=y>>>16&255,r[23]=y>>>24&255,r[24]=l>>>0&255,r[25]=l>>>8&255,r[26]=l>>>16&255,r[27]=l>>>24&255,r[28]=w>>>0&255,r[29]=w>>>8&255,r[30]=w>>>16&255,r[31]=w>>>24&255}(r,t,n,e)}var U=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function d(r,t,n,e,o,i,h){var a,f,s=new Uint8Array(16),u=new Uint8Array(64);for(f=0;f<16;f++)s[f]=0;for(f=0;f<8;f++)s[f]=i[f];for(;64<=o;){for(A(u,s,h,U),f=0;f<64;f++)r[t+f]=n[e+f]^u[f];for(a=1,f=8;f<16;f++)a=a+(255&s[f])|0,s[f]=255&a,a>>>=8;o-=64,t+=64,e+=64}if(0<o)for(A(u,s,h,U),f=0;f<o;f++)r[t+f]=n[e+f]^u[f];return 0}function E(r,t,n,e,o){var i,h,a=new Uint8Array(16),f=new Uint8Array(64);for(h=0;h<16;h++)a[h]=0;for(h=0;h<8;h++)a[h]=e[h];for(;64<=n;){for(A(f,a,o,U),h=0;h<64;h++)r[t+h]=f[h];for(i=1,h=8;h<16;h++)i=i+(255&a[h])|0,a[h]=255&i,i>>>=8;n-=64,t+=64}if(0<n)for(A(f,a,o,U),h=0;h<n;h++)r[t+h]=f[h];return 0}function x(r,t,n,e,o){var i=new Uint8Array(32);_(i,e,o,U);for(var h=new Uint8Array(8),a=0;a<8;a++)h[a]=e[a+16];return E(r,t,n,h,i)}function M(r,t,n,e,o,i,h){var a=new Uint8Array(32);_(a,i,h,U);for(var f=new Uint8Array(8),s=0;s<8;s++)f[s]=i[s+16];return d(r,t,n,e,o,f,a)}var m=function(r){var t,n,e,o,i,h,a,f;this.buffer=new Uint8Array(16),this.r=new Uint16Array(10),this.h=new Uint16Array(10),this.pad=new Uint16Array(8),this.leftover=0,t=255&r[this.fin=0]|(255&r[1])<<8,this.r[0]=8191&t,n=255&r[2]|(255&r[3])<<8,this.r[1]=8191&(t>>>13|n<<3),e=255&r[4]|(255&r[5])<<8,this.r[2]=7939&(n>>>10|e<<6),o=255&r[6]|(255&r[7])<<8,this.r[3]=8191&(e>>>7|o<<9),i=255&r[8]|(255&r[9])<<8,this.r[4]=255&(o>>>4|i<<12),this.r[5]=i>>>1&8190,h=255&r[10]|(255&r[11])<<8,this.r[6]=8191&(i>>>14|h<<2),a=255&r[12]|(255&r[13])<<8,this.r[7]=8065&(h>>>11|a<<5),f=255&r[14]|(255&r[15])<<8,this.r[8]=8191&(a>>>8|f<<8),this.r[9]=f>>>5&127,this.pad[0]=255&r[16]|(255&r[17])<<8,this.pad[1]=255&r[18]|(255&r[19])<<8,this.pad[2]=255&r[20]|(255&r[21])<<8,this.pad[3]=255&r[22]|(255&r[23])<<8,this.pad[4]=255&r[24]|(255&r[25])<<8,this.pad[5]=255&r[26]|(255&r[27])<<8,this.pad[6]=255&r[28]|(255&r[29])<<8,this.pad[7]=255&r[30]|(255&r[31])<<8};function B(r,t,n,e,o,i){var h=new m(i);return h.update(n,e,o),h.finish(r,t),0}function S(r,t,n,e,o,i){var h=new Uint8Array(16);return B(h,0,n,e,o,i),b(r,t,h,0)}function k(r,t,n,e,o){var i;if(n<32)return-1;for(M(r,0,t,0,n,e,o),B(r,16,r,32,n-32,r),i=0;i<16;i++)r[i]=0;return 0}function K(r,t,n,e,o){var i,h=new Uint8Array(32);if(n<32)return-1;if(x(h,0,32,e,o),0!==S(t,16,t,32,n-32,h))return-1;for(M(r,0,t,0,n,e,o),i=0;i<32;i++)r[i]=0;return 0}function Y(r,t){var n;for(n=0;n<16;n++)r[n]=0|t[n]}function L(r){var t,n,e=1;for(t=0;t<16;t++)n=r[t]+e+65535,e=Math.floor(n/65536),r[t]=n-65536*e;r[0]+=e-1+37*(e-1)}function T(r,t,n){for(var e,o=~(n-1),i=0;i<16;i++)e=o&(r[i]^t[i]),r[i]^=e,t[i]^=e}function z(r,t){var n,e,o,i=v(),h=v();for(n=0;n<16;n++)h[n]=t[n];for(L(h),L(h),L(h),e=0;e<2;e++){for(i[0]=h[0]-65517,n=1;n<15;n++)i[n]=h[n]-65535-(i[n-1]>>16&1),i[n-1]&=65535;i[15]=h[15]-32767-(i[14]>>16&1),o=i[15]>>16&1,i[14]&=65535,T(h,i,1-o)}for(n=0;n<16;n++)r[2*n]=255&h[n],r[2*n+1]=h[n]>>8}function R(r,t){var n=new Uint8Array(32),e=new Uint8Array(32);return z(n,r),z(e,t),g(n,0,e,0)}function P(r){var t=new Uint8Array(32);return z(t,r),1&t[0]}function N(r,t){var n;for(n=0;n<16;n++)r[n]=t[2*n]+(t[2*n+1]<<8);r[15]&=32767}function O(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]+n[e]}function C(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]-n[e]}function F(r,t,n){var e,o,i=0,h=0,a=0,f=0,s=0,u=0,c=0,y=0,l=0,w=0,v=0,p=0,b=0,g=0,A=0,_=0,U=0,d=0,E=0,x=0,M=0,m=0,B=0,S=0,k=0,K=0,Y=0,L=0,T=0,z=0,R=0,P=n[0],N=n[1],O=n[2],C=n[3],F=n[4],I=n[5],Z=n[6],G=n[7],q=n[8],D=n[9],V=n[10],X=n[11],j=n[12],H=n[13],J=n[14],Q=n[15];i+=(e=t[0])*P,h+=e*N,a+=e*O,f+=e*C,s+=e*F,u+=e*I,c+=e*Z,y+=e*G,l+=e*q,w+=e*D,v+=e*V,p+=e*X,b+=e*j,g+=e*H,A+=e*J,_+=e*Q,h+=(e=t[1])*P,a+=e*N,f+=e*O,s+=e*C,u+=e*F,c+=e*I,y+=e*Z,l+=e*G,w+=e*q,v+=e*D,p+=e*V,b+=e*X,g+=e*j,A+=e*H,_+=e*J,U+=e*Q,a+=(e=t[2])*P,f+=e*N,s+=e*O,u+=e*C,c+=e*F,y+=e*I,l+=e*Z,w+=e*G,v+=e*q,p+=e*D,b+=e*V,g+=e*X,A+=e*j,_+=e*H,U+=e*J,d+=e*Q,f+=(e=t[3])*P,s+=e*N,u+=e*O,c+=e*C,y+=e*F,l+=e*I,w+=e*Z,v+=e*G,p+=e*q,b+=e*D,g+=e*V,A+=e*X,_+=e*j,U+=e*H,d+=e*J,E+=e*Q,s+=(e=t[4])*P,u+=e*N,c+=e*O,y+=e*C,l+=e*F,w+=e*I,v+=e*Z,p+=e*G,b+=e*q,g+=e*D,A+=e*V,_+=e*X,U+=e*j,d+=e*H,E+=e*J,x+=e*Q,u+=(e=t[5])*P,c+=e*N,y+=e*O,l+=e*C,w+=e*F,v+=e*I,p+=e*Z,b+=e*G,g+=e*q,A+=e*D,_+=e*V,U+=e*X,d+=e*j,E+=e*H,x+=e*J,M+=e*Q,c+=(e=t[6])*P,y+=e*N,l+=e*O,w+=e*C,v+=e*F,p+=e*I,b+=e*Z,g+=e*G,A+=e*q,_+=e*D,U+=e*V,d+=e*X,E+=e*j,x+=e*H,M+=e*J,m+=e*Q,y+=(e=t[7])*P,l+=e*N,w+=e*O,v+=e*C,p+=e*F,b+=e*I,g+=e*Z,A+=e*G,_+=e*q,U+=e*D,d+=e*V,E+=e*X,x+=e*j,M+=e*H,m+=e*J,B+=e*Q,l+=(e=t[8])*P,w+=e*N,v+=e*O,p+=e*C,b+=e*F,g+=e*I,A+=e*Z,_+=e*G,U+=e*q,d+=e*D,E+=e*V,x+=e*X,M+=e*j,m+=e*H,B+=e*J,S+=e*Q,w+=(e=t[9])*P,v+=e*N,p+=e*O,b+=e*C,g+=e*F,A+=e*I,_+=e*Z,U+=e*G,d+=e*q,E+=e*D,x+=e*V,M+=e*X,m+=e*j,B+=e*H,S+=e*J,k+=e*Q,v+=(e=t[10])*P,p+=e*N,b+=e*O,g+=e*C,A+=e*F,_+=e*I,U+=e*Z,d+=e*G,E+=e*q,x+=e*D,M+=e*V,m+=e*X,B+=e*j,S+=e*H,k+=e*J,K+=e*Q,p+=(e=t[11])*P,b+=e*N,g+=e*O,A+=e*C,_+=e*F,U+=e*I,d+=e*Z,E+=e*G,x+=e*q,M+=e*D,m+=e*V,B+=e*X,S+=e*j,k+=e*H,K+=e*J,Y+=e*Q,b+=(e=t[12])*P,g+=e*N,A+=e*O,_+=e*C,U+=e*F,d+=e*I,E+=e*Z,x+=e*G,M+=e*q,m+=e*D,B+=e*V,S+=e*X,k+=e*j,K+=e*H,Y+=e*J,L+=e*Q,g+=(e=t[13])*P,A+=e*N,_+=e*O,U+=e*C,d+=e*F,E+=e*I,x+=e*Z,M+=e*G,m+=e*q,B+=e*D,S+=e*V,k+=e*X,K+=e*j,Y+=e*H,L+=e*J,T+=e*Q,A+=(e=t[14])*P,_+=e*N,U+=e*O,d+=e*C,E+=e*F,x+=e*I,M+=e*Z,m+=e*G,B+=e*q,S+=e*D,k+=e*V,K+=e*X,Y+=e*j,L+=e*H,T+=e*J,z+=e*Q,_+=(e=t[15])*P,h+=38*(d+=e*O),a+=38*(E+=e*C),f+=38*(x+=e*F),s+=38*(M+=e*I),u+=38*(m+=e*Z),c+=38*(B+=e*G),y+=38*(S+=e*q),l+=38*(k+=e*D),w+=38*(K+=e*V),v+=38*(Y+=e*X),p+=38*(L+=e*j),b+=38*(T+=e*H),g+=38*(z+=e*J),A+=38*(R+=e*Q),i=(e=(i+=38*(U+=e*N))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i=(e=(i+=o-1+37*(o-1))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i+=o-1+37*(o-1),r[0]=i,r[1]=h,r[2]=a,r[3]=f,r[4]=s,r[5]=u,r[6]=c,r[7]=y,r[8]=l,r[9]=w,r[10]=v,r[11]=p,r[12]=b,r[13]=g,r[14]=A,r[15]=_}function I(r,t){F(r,t,t)}function Z(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=253;0<=n;n--)I(e,e),2!==n&&4!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function G(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=250;0<=n;n--)I(e,e),1!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function q(r,t,n){var e,o,i=new Uint8Array(32),h=new Float64Array(80),a=v(),f=v(),s=v(),u=v(),c=v(),y=v();for(o=0;o<31;o++)i[o]=t[o];for(i[31]=127&t[31]|64,i[0]&=248,N(h,n),o=0;o<16;o++)f[o]=h[o],u[o]=a[o]=s[o]=0;for(a[0]=u[0]=1,o=254;0<=o;--o)T(a,f,e=i[o>>>3]>>>(7&o)&1),T(s,u,e),O(c,a,s),C(a,a,s),O(s,f,u),C(f,f,u),I(u,c),I(y,a),F(a,s,a),F(s,f,c),O(c,a,s),C(a,a,s),I(f,a),C(s,u,y),F(a,s,p),O(a,a,u),F(s,s,a),F(a,u,y),F(u,f,h),I(f,c),T(a,f,e),T(s,u,e);for(o=0;o<16;o++)h[o+16]=a[o],h[o+32]=s[o],h[o+48]=f[o],h[o+64]=u[o];var l=h.subarray(32),w=h.subarray(16);return Z(l,l),F(w,w,l),z(r,w),0}function D(r,t){return q(r,t,n)}function V(r,t){return h(t,32),D(r,t)}function X(r,t,n){var e=new Uint8Array(32);return q(e,n,t),_(r,o,e,U)}m.prototype.blocks=function(r,t,n){for(var e,o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d=this.fin?0:2048,E=this.h[0],x=this.h[1],M=this.h[2],m=this.h[3],B=this.h[4],S=this.h[5],k=this.h[6],K=this.h[7],Y=this.h[8],L=this.h[9],T=this.r[0],z=this.r[1],R=this.r[2],P=this.r[3],N=this.r[4],O=this.r[5],C=this.r[6],F=this.r[7],I=this.r[8],Z=this.r[9];16<=n;)y=c=0,y+=(E+=8191&(e=255&r[t+0]|(255&r[t+1])<<8))*T,y+=(x+=8191&(e>>>13|(o=255&r[t+2]|(255&r[t+3])<<8)<<3))*(5*Z),y+=(M+=8191&(o>>>10|(i=255&r[t+4]|(255&r[t+5])<<8)<<6))*(5*I),y+=(m+=8191&(i>>>7|(h=255&r[t+6]|(255&r[t+7])<<8)<<9))*(5*F),c=(y+=(B+=8191&(h>>>4|(a=255&r[t+8]|(255&r[t+9])<<8)<<12))*(5*C))>>>13,y&=8191,y+=(S+=a>>>1&8191)*(5*O),y+=(k+=8191&(a>>>14|(f=255&r[t+10]|(255&r[t+11])<<8)<<2))*(5*N),y+=(K+=8191&(f>>>11|(s=255&r[t+12]|(255&r[t+13])<<8)<<5))*(5*P),y+=(Y+=8191&(s>>>8|(u=255&r[t+14]|(255&r[t+15])<<8)<<8))*(5*R),l=c+=(y+=(L+=u>>>5|d)*(5*z))>>>13,l+=E*z,l+=x*T,l+=M*(5*Z),l+=m*(5*I),c=(l+=B*(5*F))>>>13,l&=8191,l+=S*(5*C),l+=k*(5*O),l+=K*(5*N),l+=Y*(5*P),c+=(l+=L*(5*R))>>>13,l&=8191,w=c,w+=E*R,w+=x*z,w+=M*T,w+=m*(5*Z),c=(w+=B*(5*I))>>>13,w&=8191,w+=S*(5*F),w+=k*(5*C),w+=K*(5*O),w+=Y*(5*N),v=c+=(w+=L*(5*P))>>>13,v+=E*P,v+=x*R,v+=M*z,v+=m*T,c=(v+=B*(5*Z))>>>13,v&=8191,v+=S*(5*I),v+=k*(5*F),v+=K*(5*C),v+=Y*(5*O),p=c+=(v+=L*(5*N))>>>13,p+=E*N,p+=x*P,p+=M*R,p+=m*z,c=(p+=B*T)>>>13,p&=8191,p+=S*(5*Z),p+=k*(5*I),p+=K*(5*F),p+=Y*(5*C),b=c+=(p+=L*(5*O))>>>13,b+=E*O,b+=x*N,b+=M*P,b+=m*R,c=(b+=B*z)>>>13,b&=8191,b+=S*T,b+=k*(5*Z),b+=K*(5*I),b+=Y*(5*F),g=c+=(b+=L*(5*C))>>>13,g+=E*C,g+=x*O,g+=M*N,g+=m*P,c=(g+=B*R)>>>13,g&=8191,g+=S*z,g+=k*T,g+=K*(5*Z),g+=Y*(5*I),A=c+=(g+=L*(5*F))>>>13,A+=E*F,A+=x*C,A+=M*O,A+=m*N,c=(A+=B*P)>>>13,A&=8191,A+=S*R,A+=k*z,A+=K*T,A+=Y*(5*Z),_=c+=(A+=L*(5*I))>>>13,_+=E*I,_+=x*F,_+=M*C,_+=m*O,c=(_+=B*N)>>>13,_&=8191,_+=S*P,_+=k*R,_+=K*z,_+=Y*T,U=c+=(_+=L*(5*Z))>>>13,U+=E*Z,U+=x*I,U+=M*F,U+=m*C,c=(U+=B*O)>>>13,U&=8191,U+=S*N,U+=k*P,U+=K*R,U+=Y*z,E=y=8191&(c=(c=((c+=(U+=L*T)>>>13)<<2)+c|0)+(y&=8191)|0),x=l+=c>>>=13,M=w&=8191,m=v&=8191,B=p&=8191,S=b&=8191,k=g&=8191,K=A&=8191,Y=_&=8191,L=U&=8191,t+=16,n-=16;this.h[0]=E,this.h[1]=x,this.h[2]=M,this.h[3]=m,this.h[4]=B,this.h[5]=S,this.h[6]=k,this.h[7]=K,this.h[8]=Y,this.h[9]=L},m.prototype.finish=function(r,t){var n,e,o,i,h=new Uint16Array(10);if(this.leftover){for(i=this.leftover,this.buffer[i++]=1;i<16;i++)this.buffer[i]=0;this.fin=1,this.blocks(this.buffer,0,16)}for(n=this.h[1]>>>13,this.h[1]&=8191,i=2;i<10;i++)this.h[i]+=n,n=this.h[i]>>>13,this.h[i]&=8191;for(this.h[0]+=5*n,n=this.h[0]>>>13,this.h[0]&=8191,this.h[1]+=n,n=this.h[1]>>>13,this.h[1]&=8191,this.h[2]+=n,h[0]=this.h[0]+5,n=h[0]>>>13,h[0]&=8191,i=1;i<10;i++)h[i]=this.h[i]+n,n=h[i]>>>13,h[i]&=8191;for(h[9]-=8192,e=(1^n)-1,i=0;i<10;i++)h[i]&=e;for(e=~e,i=0;i<10;i++)this.h[i]=this.h[i]&e|h[i];for(this.h[0]=65535&(this.h[0]|this.h[1]<<13),this.h[1]=65535&(this.h[1]>>>3|this.h[2]<<10),this.h[2]=65535&(this.h[2]>>>6|this.h[3]<<7),this.h[3]=65535&(this.h[3]>>>9|this.h[4]<<4),this.h[4]=65535&(this.h[4]>>>12|this.h[5]<<1|this.h[6]<<14),this.h[5]=65535&(this.h[6]>>>2|this.h[7]<<11),this.h[6]=65535&(this.h[7]>>>5|this.h[8]<<8),this.h[7]=65535&(this.h[8]>>>8|this.h[9]<<5),o=this.h[0]+this.pad[0],this.h[0]=65535&o,i=1;i<8;i++)o=(this.h[i]+this.pad[i]|0)+(o>>>16)|0,this.h[i]=65535&o;r[t+0]=this.h[0]>>>0&255,r[t+1]=this.h[0]>>>8&255,r[t+2]=this.h[1]>>>0&255,r[t+3]=this.h[1]>>>8&255,r[t+4]=this.h[2]>>>0&255,r[t+5]=this.h[2]>>>8&255,r[t+6]=this.h[3]>>>0&255,r[t+7]=this.h[3]>>>8&255,r[t+8]=this.h[4]>>>0&255,r[t+9]=this.h[4]>>>8&255,r[t+10]=this.h[5]>>>0&255,r[t+11]=this.h[5]>>>8&255,r[t+12]=this.h[6]>>>0&255,r[t+13]=this.h[6]>>>8&255,r[t+14]=this.h[7]>>>0&255,r[t+15]=this.h[7]>>>8&255},m.prototype.update=function(r,t,n){var e,o;if(this.leftover){for(n<(o=16-this.leftover)&&(o=n),e=0;e<o;e++)this.buffer[this.leftover+e]=r[t+e];if(n-=o,t+=o,this.leftover+=o,this.leftover<16)return;this.blocks(this.buffer,0,16),this.leftover=0}if(16<=n&&(o=n-n%16,this.blocks(r,t,o),t+=o,n-=o),n){for(e=0;e<n;e++)this.buffer[this.leftover+e]=r[t+e];this.leftover+=n}};var j=k,H=K;var J=[1116352408,3609767458,1899447441,602891725,3049323471,3964484399,3921009573,2173295548,961987163,4081628472,1508970993,3053834265,2453635748,2937671579,2870763221,3664609560,3624381080,2734883394,310598401,1164996542,607225278,1323610764,1426881987,3590304994,1925078388,4068182383,2162078206,991336113,2614888103,633803317,3248222580,3479774868,3835390401,2666613458,4022224774,944711139,264347078,2341262773,604807628,2007800933,770255983,1495990901,1249150122,1856431235,1555081692,3175218132,1996064986,2198950837,2554220882,3999719339,2821834349,766784016,2952996808,2566594879,3210313671,3203337956,3336571891,1034457026,3584528711,2466948901,113926993,3758326383,338241895,168717936,666307205,1188179964,773529912,1546045734,1294757372,1522805485,1396182291,2643833823,1695183700,2343527390,1986661051,1014477480,2177026350,1206759142,2456956037,344077627,2730485921,1290863460,2820302411,3158454273,3259730800,3505952657,3345764771,106217008,3516065817,3606008344,3600352804,1432725776,4094571909,1467031594,275423344,851169720,430227734,3100823752,506948616,1363258195,659060556,3750685593,883997877,3785050280,958139571,3318307427,1322822218,3812723403,1537002063,2003034995,1747873779,3602036899,1955562222,1575990012,2024104815,1125592928,2227730452,2716904306,2361852424,442776044,2428436474,593698344,2756734187,3733110249,3204031479,2999351573,3329325298,3815920427,3391569614,3928383900,3515267271,566280711,3940187606,3454069534,4118630271,4000239992,116418474,1914138554,174292421,2731055270,289380356,3203993006,460393269,320620315,685471733,587496836,852142971,1086792851,1017036298,365543100,1126000580,2618297676,1288033470,3409855158,1501505948,4234509866,1607167915,987167468,1816402316,1246189591];function Q(r,t,n,e){for(var o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d,E,x,M,m,B,S=new Int32Array(16),k=new Int32Array(16),K=r[0],Y=r[1],L=r[2],T=r[3],z=r[4],R=r[5],P=r[6],N=r[7],O=t[0],C=t[1],F=t[2],I=t[3],Z=t[4],G=t[5],q=t[6],D=t[7],V=0;128<=e;){for(_=0;_<16;_++)U=8*_+V,S[_]=n[U+0]<<24|n[U+1]<<16|n[U+2]<<8|n[U+3],k[_]=n[U+4]<<24|n[U+5]<<16|n[U+6]<<8|n[U+7];for(_=0;_<80;_++)if(o=Y,i=L,h=T,c=C,y=F,l=I,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,x+=65535&(E=((w=Z)>>>14|(a=z)<<18)^(Z>>>18|z<<14)^(z>>>9|Z<<23)),M+=E>>>16,m+=65535&(d=(z>>>14|Z<<18)^(z>>>18|Z<<14)^(Z>>>9|z<<23)),B+=d>>>16,x+=65535&(E=Z&(v=G)^~Z&(p=q)),M+=E>>>16,m+=65535&(d=z&(f=R)^~z&(s=P)),B+=d>>>16,d=J[2*_],x+=65535&(E=J[2*_+1]),M+=E>>>16,m+=65535&d,B+=d>>>16,d=S[_%16],M+=(E=k[_%16])>>>16,m+=65535&d,B+=d>>>16,m+=(M+=(x+=65535&E)>>>16)>>>16,x=65535&(E=A=65535&x|M<<16),M=E>>>16,m=65535&(d=g=65535&m|(B+=m>>>16)<<16),B=d>>>16,x+=65535&(E=(O>>>28|K<<4)^(K>>>2|O<<30)^(K>>>7|O<<25)),M+=E>>>16,m+=65535&(d=(K>>>28|O<<4)^(O>>>2|K<<30)^(O>>>7|K<<25)),B+=d>>>16,M+=(E=O&C^O&F^C&F)>>>16,m+=65535&(d=K&Y^K&L^Y&L),B+=d>>>16,u=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,b=65535&x|M<<16,x=65535&(E=l),M=E>>>16,m=65535&(d=h),B=d>>>16,M+=(E=A)>>>16,m+=65535&(d=g),B+=d>>>16,Y=K,L=o,T=i,z=h=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,R=a,P=f,N=s,K=u,C=O,F=c,I=y,Z=l=65535&x|M<<16,G=w,q=v,D=p,O=b,_%16==15)for(U=0;U<16;U++)d=S[U],x=65535&(E=k[U]),M=E>>>16,m=65535&d,B=d>>>16,d=S[(U+9)%16],x+=65535&(E=k[(U+9)%16]),M+=E>>>16,m+=65535&d,B+=d>>>16,g=S[(U+1)%16],x+=65535&(E=((A=k[(U+1)%16])>>>1|g<<31)^(A>>>8|g<<24)^(A>>>7|g<<25)),M+=E>>>16,m+=65535&(d=(g>>>1|A<<31)^(g>>>8|A<<24)^g>>>7),B+=d>>>16,g=S[(U+14)%16],M+=(E=((A=k[(U+14)%16])>>>19|g<<13)^(g>>>29|A<<3)^(A>>>6|g<<26))>>>16,m+=65535&(d=(g>>>19|A<<13)^(A>>>29|g<<3)^g>>>6),B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,S[U]=65535&m|B<<16,k[U]=65535&x|M<<16;x=65535&(E=O),M=E>>>16,m=65535&(d=K),B=d>>>16,d=r[0],M+=(E=t[0])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[0]=K=65535&m|B<<16,t[0]=O=65535&x|M<<16,x=65535&(E=C),M=E>>>16,m=65535&(d=Y),B=d>>>16,d=r[1],M+=(E=t[1])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[1]=Y=65535&m|B<<16,t[1]=C=65535&x|M<<16,x=65535&(E=F),M=E>>>16,m=65535&(d=L),B=d>>>16,d=r[2],M+=(E=t[2])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[2]=L=65535&m|B<<16,t[2]=F=65535&x|M<<16,x=65535&(E=I),M=E>>>16,m=65535&(d=T),B=d>>>16,d=r[3],M+=(E=t[3])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[3]=T=65535&m|B<<16,t[3]=I=65535&x|M<<16,x=65535&(E=Z),M=E>>>16,m=65535&(d=z),B=d>>>16,d=r[4],M+=(E=t[4])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[4]=z=65535&m|B<<16,t[4]=Z=65535&x|M<<16,x=65535&(E=G),M=E>>>16,m=65535&(d=R),B=d>>>16,d=r[5],M+=(E=t[5])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[5]=R=65535&m|B<<16,t[5]=G=65535&x|M<<16,x=65535&(E=q),M=E>>>16,m=65535&(d=P),B=d>>>16,d=r[6],M+=(E=t[6])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[6]=P=65535&m|B<<16,t[6]=q=65535&x|M<<16,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,d=r[7],M+=(E=t[7])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[7]=N=65535&m|B<<16,t[7]=D=65535&x|M<<16,V+=128,e-=128}return e}function W(r,t,n){var e,o=new Int32Array(8),i=new Int32Array(8),h=new Uint8Array(256),a=n;for(o[0]=1779033703,o[1]=3144134277,o[2]=1013904242,o[3]=2773480762,o[4]=1359893119,o[5]=2600822924,o[6]=528734635,o[7]=1541459225,i[0]=4089235720,i[1]=2227873595,i[2]=4271175723,i[3]=1595750129,i[4]=2917565137,i[5]=725511199,i[6]=4215389547,i[7]=327033209,Q(o,i,t,n),n%=128,e=0;e<n;e++)h[e]=t[a-n+e];for(h[n]=128,h[(n=256-128*(n<112?1:0))-9]=0,f(h,n-8,a/536870912|0,a<<3),Q(o,i,h,n),e=0;e<8;e++)f(r,8*e,o[e],i[e]);return 0}function $(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v(),s=v(),u=v();C(n,r[1],r[0]),C(u,t[1],t[0]),F(n,n,u),O(e,r[0],r[1]),O(u,t[0],t[1]),F(e,e,u),F(o,r[3],t[3]),F(o,o,y),F(i,r[2],t[2]),O(i,i,i),C(h,e,n),C(a,i,o),O(f,i,o),O(s,e,n),F(r[0],h,a),F(r[1],s,f),F(r[2],f,a),F(r[3],h,s)}function rr(r,t,n){var e;for(e=0;e<4;e++)T(r[e],t[e],n)}function tr(r,t){var n=v(),e=v(),o=v();Z(o,t[2]),F(n,t[0],o),F(e,t[1],o),z(r,e),r[31]^=P(n)<<7}function nr(r,t,n){var e,o;for(Y(r[0],s),Y(r[1],u),Y(r[2],u),Y(r[3],s),o=255;0<=o;--o)rr(r,t,e=n[o/8|0]>>(7&o)&1),$(t,r),$(r,r),rr(r,t,e)}function er(r,t){var n=[v(),v(),v(),v()];Y(n[0],e),Y(n[1],a),Y(n[2],u),F(n[3],e,a),nr(r,n,t)}function or(r,t,n){var e,o=new Uint8Array(64),i=[v(),v(),v(),v()];for(n||h(t,32),W(o,t,32),o[0]&=248,o[31]&=127,o[31]|=64,er(i,o),tr(r,i),e=0;e<32;e++)t[e+32]=r[e];return 0}var ir=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function hr(r,t){var n,e,o,i;for(e=63;32<=e;--e){for(n=0,o=e-32,i=e-12;o<i;++o)t[o]+=n-16*t[e]*ir[o-(e-32)],n=Math.floor((t[o]+128)/256),t[o]-=256*n;t[o]+=n,t[e]=0}for(o=n=0;o<32;o++)t[o]+=n-(t[31]>>4)*ir[o],n=t[o]>>8,t[o]&=255;for(o=0;o<32;o++)t[o]-=n*ir[o];for(e=0;e<32;e++)t[e+1]+=t[e]>>8,r[e]=255&t[e]}function ar(r){var t,n=new Float64Array(64);for(t=0;t<64;t++)n[t]=r[t];for(t=0;t<64;t++)r[t]=0;hr(r,n)}function fr(r,t,n,e){var o,i,h=new Uint8Array(64),a=new Uint8Array(64),f=new Uint8Array(64),s=new Float64Array(64),u=[v(),v(),v(),v()];W(h,e,32),h[0]&=248,h[31]&=127,h[31]|=64;var c=n+64;for(o=0;o<n;o++)r[64+o]=t[o];for(o=0;o<32;o++)r[32+o]=h[32+o];for(W(f,r.subarray(32),n+32),ar(f),er(u,f),tr(r,u),o=32;o<64;o++)r[o]=e[o];for(W(a,r,n+64),ar(a),o=0;o<64;o++)s[o]=0;for(o=0;o<32;o++)s[o]=f[o];for(o=0;o<32;o++)for(i=0;i<32;i++)s[o+i]+=a[o]*h[i];return hr(r.subarray(32),s),c}function sr(r,t,n,e){var o,i=new Uint8Array(32),h=new Uint8Array(64),a=[v(),v(),v(),v()],f=[v(),v(),v(),v()];if(n<64)return-1;if(function(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v();if(Y(r[2],u),N(r[1],t),I(o,r[1]),F(i,o,c),C(o,o,r[2]),O(i,r[2],i),I(h,i),I(a,h),F(f,a,h),F(n,f,o),F(n,n,i),G(n,n),F(n,n,o),F(n,n,i),F(n,n,i),F(r[0],n,i),I(e,r[0]),F(e,e,i),R(e,o)&&F(r[0],r[0],l),I(e,r[0]),F(e,e,i),R(e,o))return 1;P(r[0])===t[31]>>7&&C(r[0],s,r[0]),F(r[3],r[0],r[1])}(f,e))return-1;for(o=0;o<n;o++)r[o]=t[o];for(o=0;o<32;o++)r[o+32]=e[o];if(W(h,r,n),ar(h),nr(a,f,h),er(f,t.subarray(32)),$(a,f),tr(i,a),n-=64,g(t,0,i,0)){for(o=0;o<n;o++)r[o]=0;return-1}for(o=0;o<n;o++)r[o]=t[o+64];return n}function ur(r,t){if(32!==r.length)throw new Error("bad key size");if(24!==t.length)throw new Error("bad nonce size")}function cr(){for(var r=0;r<arguments.length;r++)if(!(arguments[r]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function yr(r){for(var t=0;t<r.length;t++)r[t]=0}i.lowlevel={crypto_core_hsalsa20:_,crypto_stream_xor:M,crypto_stream:x,crypto_stream_salsa20_xor:d,crypto_stream_salsa20:E,crypto_onetimeauth:B,crypto_onetimeauth_verify:S,crypto_verify_16:b,crypto_verify_32:g,crypto_secretbox:k,crypto_secretbox_open:K,crypto_scalarmult:q,crypto_scalarmult_base:D,crypto_box_beforenm:X,crypto_box_afternm:j,crypto_box:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),j(r,t,n,e,h)},crypto_box_open:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),H(r,t,n,e,h)},crypto_box_keypair:V,crypto_hash:W,crypto_sign:fr,crypto_sign_keypair:or,crypto_sign_open:sr,crypto_secretbox_KEYBYTES:32,crypto_secretbox_NONCEBYTES:24,crypto_secretbox_ZEROBYTES:32,crypto_secretbox_BOXZEROBYTES:16,crypto_scalarmult_BYTES:32,crypto_scalarmult_SCALARBYTES:32,crypto_box_PUBLICKEYBYTES:32,crypto_box_SECRETKEYBYTES:32,crypto_box_BEFORENMBYTES:32,crypto_box_NONCEBYTES:24,crypto_box_ZEROBYTES:32,crypto_box_BOXZEROBYTES:16,crypto_sign_BYTES:64,crypto_sign_PUBLICKEYBYTES:32,crypto_sign_SECRETKEYBYTES:64,crypto_sign_SEEDBYTES:32,crypto_hash_BYTES:64,gf:v,D:c,L:ir,pack25519:z,unpack25519:N,M:F,A:O,S:I,Z:C,pow2523:G,add:$,set25519:Y,modL:hr,scalarmult:nr,scalarbase:er},i.randomBytes=function(r){var t=new Uint8Array(r);return h(t,r),t},i.secretbox=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(32+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+32]=r[i];return k(o,e,e.length,t,n),o.subarray(16)},i.secretbox.open=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(16+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+16]=r[i];return e.length<32||0!==K(o,e,e.length,t,n)?null:o.subarray(32)},i.secretbox.keyLength=32,i.secretbox.nonceLength=24,i.secretbox.overheadLength=16,i.scalarMult=function(r,t){if(cr(r,t),32!==r.length)throw new Error("bad n size");if(32!==t.length)throw new Error("bad p size");var n=new Uint8Array(32);return q(n,r,t),n},i.scalarMult.base=function(r){if(cr(r),32!==r.length)throw new Error("bad n size");var t=new Uint8Array(32);return D(t,r),t},i.scalarMult.scalarLength=32,i.scalarMult.groupElementLength=32,i.box=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox(r,t,o)},i.box.before=function(r,t){cr(r,t),function(r,t){if(32!==r.length)throw new Error("bad public key size");if(32!==t.length)throw new Error("bad secret key size")}(r,t);var n=new Uint8Array(32);return X(n,r,t),n},i.box.after=i.secretbox,i.box.open=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox.open(r,t,o)},i.box.open.after=i.secretbox.open,i.box.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(32);return V(r,t),{publicKey:r,secretKey:t}},i.box.keyPair.fromSecretKey=function(r){if(cr(r),32!==r.length)throw new Error("bad secret key size");var t=new Uint8Array(32);return D(t,r),{publicKey:t,secretKey:new Uint8Array(r)}},i.box.publicKeyLength=32,i.box.secretKeyLength=32,i.box.sharedKeyLength=32,i.box.nonceLength=24,i.box.overheadLength=i.secretbox.overheadLength,i.sign=function(r,t){if(cr(r,t),64!==t.length)throw new Error("bad secret key size");var n=new Uint8Array(64+r.length);return fr(n,r,r.length,t),n},i.sign.open=function(r,t){if(cr(r,t),32!==t.length)throw new Error("bad public key size");var n=new Uint8Array(r.length),e=sr(n,r,r.length,t);if(e<0)return null;for(var o=new Uint8Array(e),i=0;i<o.length;i++)o[i]=n[i];return o},i.sign.detached=function(r,t){for(var n=i.sign(r,t),e=new Uint8Array(64),o=0;o<e.length;o++)e[o]=n[o];return e},i.sign.detached.verify=function(r,t,n){if(cr(r,t,n),64!==t.length)throw new Error("bad signature size");if(32!==n.length)throw new Error("bad public key size");var e,o=new Uint8Array(64+r.length),i=new Uint8Array(64+r.length);for(e=0;e<64;e++)o[e]=t[e];for(e=0;e<r.length;e++)o[e+64]=r[e];return 0<=sr(i,o,o.length,n)},i.sign.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(64);return or(r,t),{publicKey:r,secretKey:t}},i.sign.keyPair.fromSecretKey=function(r){if(cr(r),64!==r.length)throw new Error("bad secret key size");for(var t=new Uint8Array(32),n=0;n<t.length;n++)t[n]=r[32+n];return{publicKey:t,secretKey:new Uint8Array(r)}},i.sign.keyPair.fromSeed=function(r){if(cr(r),32!==r.length)throw new Error("bad seed size");for(var t=new Uint8Array(32),n=new Uint8Array(64),e=0;e<32;e++)n[e]=r[e];return or(t,n,!0),{publicKey:t,secretKey:n}},i.sign.publicKeyLength=32,i.sign.secretKeyLength=64,i.sign.seedLength=32,i.sign.signatureLength=64,i.hash=function(r){cr(r);var t=new Uint8Array(64);return W(t,r,r.length),t},i.hash.hashLength=64,i.verify=function(r,t){return cr(r,t),0!==r.length&&0!==t.length&&(r.length===t.length&&0===w(r,0,t,0,r.length))},i.setPRNG=function(r){h=r},function(){var o="undefined"!=typeof self?self.crypto||self.msCrypto:null;if(o&&o.getRandomValues){i.setPRNG(function(r,t){var n,e=new Uint8Array(t);for(n=0;n<t;n+=65536)o.getRandomValues(e.subarray(n,n+Math.min(t-n,65536)));for(n=0;n<t;n++)r[n]=e[n];yr(e)})}else"undefined"!=typeof require&&(o=require("crypto"))&&o.randomBytes&&i.setPRNG(function(r,t){var n,e=o.randomBytes(t);for(n=0;n<t;n++)r[n]=e[n];yr(e)})}()}("undefined"!=typeof module&&module.exports?module.exports:self.nacl=self.nacl||{});
 const APP_VERSION = "1.09.01";
-const APP_BUILD = 36;
+const APP_BUILD = 37;
+const APP_OWN_VENDOR = false;
 /* =========================================================================
    seiGEN Commerce Lite — single-file offline POS
    Storage: SQLite via sql.js (WASM), persisted to IndexedDB as a blob.
@@ -1162,6 +1176,8 @@ const APP_BUILD = 36;
     migratePriceChanges(t);
     ensureBuiltinCustomers(t);
     if(typeof migrateB4==="function") migrateB4(t);                 // b4-sync.js; absent in partial test loads
+    if(typeof migrateStockCtl==="function") migrateStockCtl(t);     // v37 stock-ctl.js; absent in partial test loads
+    if(typeof migrateBell==="function") migrateBell(t);             // v37 bell.js
     if(typeof pauseSyncBacklog==="function") pauseSyncBacklog(t);   // sync.js; absent in partial test loads
   }
   // Catalogue sync (Phase 3a): a change to a catalogue field of a linked
@@ -1340,8 +1356,16 @@ const APP_BUILD = 36;
     });
   }
 
+  // A14 (v37): the hosted apps (APP_OWN_VENDOR, set by build.js) take the database engine from their own
+  // address. Opened from a file, a browser can't fetch the wasm next to it, so the single file (and a
+  // hosted build opened from disk) still uses cdnjs.
+  const SQLJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/";
+  function sqlEngineBase(){
+    const own = typeof APP_OWN_VENDOR!=="undefined" && APP_OWN_VENDOR;
+    return own && !(typeof location!=="undefined" && location.protocol==="file:")? "vendor/" : SQLJS_CDN;
+  }
   async function initDB(){
-    SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+    SQL = await initSqlJs({ locateFile: f => sqlEngineBase()+f });
     const existing = await idbGet();
     if(existing){ db = new SQL.Database(new Uint8Array(existing)); }
     else { db = new SQL.Database(); db.run(SCHEMA); await persist(); }
@@ -4259,6 +4283,7 @@ const APP_BUILD = 36;
           <div class="shop">${escapeHtml(getSetting("shop_name","Shop"))}</div>
           <div class="branch">${escapeHtml(getSetting("branch_name",""))} · <span id="userChip" style="text-decoration:underline;cursor:pointer">${escapeHtml(sessionUser||"set name")}</span></div>
         </div>
+        ${typeof bellButtonHtml==="function"? bellButtonHtml() : ""}
         <button class="logout-btn" id="logoutBtn" aria-label="Log out" title="Log out">${ICON_LOGOUT}</button>
         <button class="cart-btn" id="cartBtn" ${navItems.some(n=>n.id==="pos")? "" : `hidden style="display:none"`}>🛒${cart.length?`<span class="cart-badge">${cart.reduce((s,c)=>s+c.qty,0)}</span>`:""}</button>
       </div>
@@ -4287,6 +4312,7 @@ const APP_BUILD = 36;
     document.getElementById("reqOverlay").onclick = ()=>{ reqDrawerOpen=false; render(); };
     document.getElementById("userChip").onclick = changeSessionUser;
     document.getElementById("logoutBtn").onclick = logoutSession;
+    if(typeof bellWire==="function") bellWire();   // v37 notification bell (bell.js)
     if(desktop){
       document.getElementById("hamburgerBtn").onclick = ()=>{ navDrawerOpen=true; render(); };
       document.getElementById("navOverlay").onclick = ()=>{ navDrawerOpen=false; render(); };
@@ -4547,6 +4573,7 @@ const APP_BUILD = 36;
     { id:"transfers", label:"Transfers (store room)", needs:()=> typeof itAvailable==="function" && itAvailable() && (typeof can!=="function" || can("m.dispatch") || can("m.receive")) },   // v32 Office seats (transfers.js)
     { id:"stocktake", label:"Stocktake" },   // every branch counts its own stock (Branches addendum §R7)
     { id:"requests", label:"Requests" },
+    { id:"stockctl", label:"Stock requests & recalls", needs:()=> typeof srqAvailable==="function" && srqAvailable() },   // v37 (srq.js, decisions 53-54); the customer notepad above stays separate
     { id:"itredorders", label:"Orders Fulfillment", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },      // iTred orders (itred-orders.js)
     { id:"itredfeedback", label:"Marketplace Feedback", needs:()=> typeof itredAvailable==="function" && itredAvailable(), dynLabel:true },
     { id:"purchasing", label:"Purchasing", remoteHidden:true },
@@ -4588,6 +4615,7 @@ const APP_BUILD = 36;
     else if(moreTab==="stocktake") renderStocktake(body);
     else if(moreTab==="transfers") renderTransfers(body);
     else if(moreTab==="requests") renderStockRequests(body);
+    else if(moreTab==="stockctl") renderStockCtl(body);
     else if(moreTab==="itredorders" || moreTab==="itredfeedback"){ if(typeof itredAvailable==="function" && itredAvailable()) renderItredMoreTab(moreTab, body); else { moreTab="help"; renderHelp(body); } }
     else if(moreTab==="purchasing"){ if(isRemote()){ moreTab="help"; renderHelp(body); } else renderPurchasing(body); }
     else if(moreTab==="reportwriter") renderReportWriter(body);
@@ -5101,13 +5129,13 @@ const APP_BUILD = 36;
 
   // DN files are self-contained JSON (see dnfile.js). GRV files (Phase 3) share it.
   const DOC_FILE_EXT = ".json";
-  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT","RCT","CN","IT"];   // IT = internal transfer (v32, Office seats)
+  const DOC_TYPES = ["DN","GRV","ADJ","CXL","EXP","LOG","ITM","MKT","RCT","CN","IT","SRQ","RCL"];   // IT = internal transfer (v32, Office seats); SRQ stock request, RCL recall (v37)
   // Multi-terminal Phase 2: documents numbered per till once the device has a
   // till code (Settings → Business & Terminals). The counter itself stays per
   // device (doc_counters, keyed by getBranchId(), which is already per
   // device), so (dispatch_branch_id, dn_no) stays unique; only the displayed
   // number gains the till code. Export file numbers (EXP/LOG/ITM/MKT) don't.
-  const TILL_DOC_TYPES = ["DN","GRV","ADJ","CXL","RCT","CN","IT"];   // CN = credit note (Phase 3c): CN-T1-0001, CN0001 unregistered
+  const TILL_DOC_TYPES = ["DN","GRV","ADJ","CXL","RCT","CN","IT","SRQ","RCL"];   // CN = credit note (Phase 3c): CN-T1-0001, CN0001 unregistered
   const TILL_CODE_RE = /^[TS][0-9]{1,3}$/;   // v32: S<n> = an Office seat (GRV-S1-0001)
   const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -6131,7 +6159,9 @@ const APP_BUILD = 36;
           [ts,o.branch,o.toBranch,l.product.name,l.product.sku||"",qty,dn.text,sessionUser||"",dn.n,branchId]);
       });
       // to a branch of this business on seiGEN: queued to send, in this same transaction (dispatch-srv.js)
-      if(o.srv) dsQueueDispatch(dnUid, dn, o.srv, o.lines, localIso(o.now), internalRef);
+      const srvId = o.srv? dsQueueDispatch(dnUid, dn, o.srv, o.lines, localIso(o.now), internalRef) : null;
+      // v37: a DN made from a stock request or a recall is linked to it, in this same transaction (stock-ctl.js)
+      if(o.link && srvId && typeof scQueueLink==="function") scQueueLink(o.link, srvId);
       recordDnEvent({ dnBranchId:branchId, dnNo:dn.n, type:"dispatched", actorBranchId:branchId, actorName:o.branch, fromName:o.branch, toName:o.toBranch, ts,
         detail:{ dn_created_iso:localIso(o.now), lines:o.lines.length, units }, dnTill:dn.till||null });
       logAudit("Dispatch Stock", "", `${dn.text}: ${o.lines.length} item${o.lines.length===1?"":"s"} to ${o.toBranch}`);
@@ -6144,17 +6174,19 @@ const APP_BUILD = 36;
   }
 
   // ---- dispatch screen ----
-  function openDispatchScreen(){
+  // pre (v37, stock-ctl.js): a DN made from a stock request or a recall: { toBranch, lines:[{ product, qty }], link, title, note }.
+  // Without it the screen is exactly as before.
+  function openDispatchScreen(pre){
     if(typeof pretrialBlocked==="function" && pretrialBlocked()) return;   // trial rules: waits for the free trial or a licence
     const branch = currentBranch();
     const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
     if(products.length===0){ alert("No products in this branch to dispatch."); return; }
     let dests = branchDestinations();
-    let lines = [];            // { product, qty:"" }
+    let lines = pre && pre.lines? pre.lines.map(l=>({ product:l.product, qty:String(l.qty) })) : [];            // { product, qty:"" }
     let query = "";
     let stage = "edit";
 
-    const wrap = openModal("Dispatch Stock", "");
+    const wrap = openModal((pre && pre.title) || "Dispatch Stock", "");
     // seiGEN's branch list, fetched now; when it lands while this window is
     // open, the choices follow it at once (a branch that joined a minute ago
     // moves to "Through seiGEN"; v20/v21 could show File only until the next
@@ -6171,8 +6203,8 @@ const APP_BUILD = 36;
         }
       }).catch(()=>{});
     const body = wrap.querySelector(".modal-body");
-    let toName = "";
-    let internalRef = "";                    // Phase 2: the shop's own optional reference ("Internal ref.")
+    let toName = (pre && pre.toBranch) || "";
+    let internalRef = (pre && pre.internalRef) || "";                    // Phase 2: the shop's own optional reference ("Internal ref.")
     // To a branch of this business on seiGEN, the dispatch also goes through seiGEN, with an optional delivery cost.
     const delivery = { cost:"", currency:getSetting("ds_currency","USD"), carrier:"", ref:"" };
     const srvFor = ()=> typeof dsBranchFor==="function"? dsBranchFor(toName) : null;
@@ -6206,6 +6238,7 @@ const APP_BUILD = 36;
       else if(!dnDestinationAllowed(toName)) errs.push("Choose a branch from the list.");
       if(lines.length===0) errs.push("Add at least one product.");
       if(deliveryProblem()) errs.push(deliveryProblem());
+      if(pre && pre.link && toName.trim() && !srvFor()) errs.push("This Delivery Note must go through seiGEN (it is linked to "+(pre.link.type==="recall"? "the recall" : "the stock request")+"). "+(fileOnly(true)||""));
       lines.forEach((l,i)=>{
         const codeErr = dnProductCodeProblem(l.product);
         if(codeErr) errs.push(codeErr);
@@ -6221,6 +6254,7 @@ const APP_BUILD = 36;
       stage = "edit";
       const matches = query.trim()? searchProducts(query, branch).slice(0,6) : [];
       body.innerHTML = `
+        ${pre && pre.note? `<div class="box" id="doPreNote" style="margin:0 0 8px;font-size:12.5px">${escapeHtml(pre.note)}</div>` : ""}
         <label style="margin-top:0">Destination branch</label>
         <select class="field" id="doDest">
           <option value="">Choose a branch…</option>
@@ -6294,6 +6328,7 @@ const APP_BUILD = 36;
         ${lines.map(l=>`<div class="product-row" style="align-items:center"><div style="display:flex;gap:8px;align-items:center">${thumbImg(l.product)}<div><div class="pname">${escapeHtml(l.product.name)}</div><div class="pmeta">${escapeHtml(l.product.sku||"no SKU")}</div></div></div><b style="flex:none">${Number(l.qty)}</b></div>`).join("")}
         <p style="margin:10px 0"><b>${lines.length}</b> line${lines.length===1?"":"s"} · <b>${units}</b> unit${units===1?"":"s"}. Stock is deducted as soon as you confirm.</p>
         ${srvFor()? `<p class="muted" id="doSrvReview" style="margin:-4px 0 10px;font-size:12.5px">Goes through seiGEN to ${escapeHtml(srvFor().name)}${Number(delivery.cost)>0? " · delivery cost "+escapeHtml(String(delivery.currency).toUpperCase()+" "+Number(delivery.cost).toFixed(2)) : ""}.</p>` : ""}
+        ${srvFor() && pre && pre.link && pre.link.type==="recall"? `<p id="doRecallTransport" style="margin:-4px 0 10px;font-size:12.5px"><b>Transport paid by receiver: ${escapeHtml(srvFor().name)}</b> (a recall: main pays, decision 54).</p>` : ""}
         ${fileOnly()? `<p id="doFileOnlyReview" style="margin:-4px 0 10px;font-size:12.5px;color:#b54708"><b>File only: not through seiGEN.</b> ${escapeHtml(fileOnly(true))}</p>` : ""}
         <div style="display:flex;gap:8px"><button class="btn btn-outline" id="doBack">Back</button><button class="btn btn-primary" id="doConfirm" style="flex:1">Dispatch</button></div>`;
       body.querySelector("#doBack").onclick=()=>renderEdit();
@@ -6325,7 +6360,7 @@ const APP_BUILD = 36;
       try{
         const sb = srvFor();
         if(sb && Number(delivery.cost)>0) setSetting("ds_currency", String(delivery.currency).trim().toUpperCase());
-        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })),
+        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })), link:(pre && pre.link) || undefined,
           srv: sb? { toBranchId:sb.id, delivery:{ cost:Number(delivery.cost)||0, currency:String(delivery.currency).trim().toUpperCase(), carrier:delivery.carrier, ref:delivery.ref } } : undefined });
         if(pre) sharedStockDone(pre);
       }catch(e){
@@ -6382,6 +6417,7 @@ const APP_BUILD = 36;
       };
       body.querySelector("#doPrint").onclick=()=>printDNVoucher(r.doc);
       body.querySelector("#doDone").onclick=()=>{ wrap.remove(); render(); };
+      if(r.header.srv_id && pre && pre.link && typeof scSoon==="function") dsSendPending().then(()=> scSoon()).catch(()=>{});   // v37: the link after the DN
       if(r.header.srv_id) dsSendPending().then(()=>{
         const h = dnHeaderFor(r.header.dn_no), el = body.querySelector("#doSrvStatus");
         if(h && el) el.textContent = "seiGEN: "+dsStatusText(h.srv_status)+(h.srv_status==="queued"? " (when online)" : "")+(h.srv_error? ": "+h.srv_error : "");
@@ -9097,7 +9133,8 @@ const APP_BUILD = 36;
     if(_xlsxLoading) return _xlsxLoading;
     _xlsxLoading = new Promise((resolve, reject)=>{
       const s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      // A14 (v37): the hosted apps load it from their own address (a script loads from a file too)
+      s.src = typeof APP_OWN_VENDOR!=="undefined" && APP_OWN_VENDOR? "vendor/xlsx.full.min.js" : "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
       s.onload = ()=> resolve();
       s.onerror = ()=> reject(new Error("Could not load the Excel import library — check your internet connection."));
       document.head.appendChild(s);
@@ -12095,7 +12132,8 @@ ${readOnly? "" : `
   // cash count) so staff aren't biased toward matching what the system
   // expects. Cutting off closes the count and produces a variance report;
   // applying the counts to live stock is a separate, explicitly-confirmed step.
-  function renderStocktake(main){
+  // v37: shown under the "Full stocktake" tab (cycle-ui.js renderStocktake draws the tabs); unchanged otherwise.
+  function renderStocktakeFull(main){
     if(stocktakeReportId) return renderStocktakeReport(main, stocktakeReportId);
     // Stocktakes are per-branch, and a device can have more than one open at
     // once (e.g. for two branches whose data has been merged onto it). Only
@@ -16134,6 +16172,11 @@ ${readOnly? "" : `
     }
     return p;
   }
+  // v37 (decision 52): a shelf this branch set itself (sc_shelves, stock-ctl.js) stays; otherwise main's, as before.
+  function catShelfFor(r, p){
+    const own = typeof scProductKey==="function"? one("SELECT shelf FROM sc_shelves WHERE product_key=?",[r.uid]) : null;
+    return own? (own.shelf||"") : (r.shelf||"");
+  }
   function catApplyProduct(r, mainTill){
     const p = catFindLocal(r);
     if(p && mainTill && p.cat_dirty===1) return "kept";     // a local edit waits to be pushed; the later arrival wins on the server
@@ -16145,14 +16188,14 @@ ${readOnly? "" : `
              cat_uid,cat_seq,active,image_hash,image_bytes,cat_main_price)
            VALUES(?,?,0,?,?,?,'',?,?,?,?,?,?,?,1,?,?,?)`,
         [r.name, price, r.low_threshold==null?5:r.low_threshold, r.code||"", catBranch(), cost||0, new Date().toISOString(),
-         r.description||"", r.shelf||"", r.category||"", r.uid, r.seq, r.image_hash||null, r.image_bytes||0, catRound(Number(r.price)||0)]);
+         r.description||"", catShelfFor(r), r.category||"", r.uid, r.seq, r.image_hash||null, r.image_bytes||0, catRound(Number(r.price)||0)]);
       catApplyWholesale(r, one("SELECT last_insert_rowid() AS id").id);
       return "added";
     }
     const price = catPricePending(r.uid)? p.price : catEffectivePrice(r.price, r.uid);
     run(`UPDATE products SET name=?, sku=?, description=?, category=?, shelf=?, low_threshold=?, price=?, cost=COALESCE(?,cost),
            active=?, image_hash=?, image_bytes=?, cat_uid=?, cat_seq=?, cat_main_price=? WHERE id=?`,
-      [r.name, r.code||"", r.description||"", r.category||"", r.shelf||"", r.low_threshold==null?5:r.low_threshold, price, cost,
+      [r.name, r.code||"", r.description||"", r.category||"", catShelfFor(r, p), r.low_threshold==null?5:r.low_threshold, price, cost,
        r.active?1:0, r.image_hash||null, r.image_bytes||0, r.uid, r.seq, catRound(Number(r.price)||0), p.id]);
     catApplyWholesale(r, p.id);
     return "updated";
@@ -19788,6 +19831,1468 @@ ${readOnly? "" : `
     return `<p class="muted" id="b4SettingsLine" style="font-size:12px;margin-top:6px">Sales sync: ${escapeHtml(b4StatusText())}</p>`;
   }
 
+  // ================== Stock control: sync with seiGEN (v37) ==================
+  // docs/stock-control/v37-design.md (owner decisions 48, 52-55);
+  // seiGEN: supabase/migrations/20261115120000_stock_control.sql.
+  //   * Counts, decisions, stock requests, recalls and this branch's shelves are
+  //     queued in sc_outbox and sent in the background (cl_device_stock_ctl_push),
+  //     one answer per uid, so a retry never stores anything twice. Offline they
+  //     wait. seiGEN checks the right of each one (decision 48).
+  //   * One pull (cl_device_stock_ctl_pull) with a cursor brings what changed:
+  //     shelves, counts, requests, recalls, the market feed, plus a title-only
+  //     list of this branch's DNs and new iTred orders for the bell (bell.js).
+  //   * A count approved anywhere moves stock only on the till that counted, once
+  //     (sc_counts.applied_local, in the same transaction as the ADJ), by the
+  //     difference fixed when it was counted (moveStock delta, never "set to").
+  // Local only: mergeDatabase never reads these tables.
+
+  const SC_BATCH_MAX = 25;
+  const SC_PUSH_TIMEOUT_MS = 20000;
+  const SC_BASE_DELAY_MS = 5000, SC_MAX_DELAY_MS = 15*60*1000;
+  // refusals that never get better by trying again (a missing DN, a sign-in or a right can come later)
+  const SC_FINAL_CODES = ["BAD_EVENT","ALREADY_DECIDED","WRONG_STATUS","IS_MAIN","NOT_MAIN","WRONG_BRANCH","WRONG_DEVICE","SAME_COUNTER","INVALID","NO_MAIN","GUEST_SEAT"];
+
+  function migrateStockCtl(t){
+    try{ t.run(`CREATE TABLE IF NOT EXISTS sc_outbox(
+      uid TEXT PRIMARY KEY, type TEXT NOT NULL, doc_id TEXT DEFAULT '', payload_json TEXT NOT NULL, created_ts TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_ts TEXT DEFAULT '', sent_ts TEXT DEFAULT '',
+      code TEXT DEFAULT '', error TEXT DEFAULT '')`); }catch(e){}
+    try{ t.run("CREATE INDEX IF NOT EXISTS ix_sc_outbox_due ON sc_outbox(status, created_ts)"); }catch(e){}
+    try{ t.run(`CREATE TABLE IF NOT EXISTS sc_counts(
+      id TEXT PRIMARY KEY, branch_id TEXT DEFAULT '', terminal_id TEXT DEFAULT '', product_key TEXT NOT NULL, product_id INTEGER,
+      code TEXT DEFAULT '', name TEXT DEFAULT '', shelf TEXT DEFAULT '', reason TEXT DEFAULT '', recount_of TEXT DEFAULT '', recount_not_by TEXT DEFAULT '',
+      counted_qty INTEGER, system_qty INTEGER, diff INTEGER, counted_ts TEXT, counted_by TEXT DEFAULT '', staff_id TEXT DEFAULT '',
+      status TEXT NOT NULL, decided_by TEXT DEFAULT '', decided_at TEXT DEFAULT '', decision_note TEXT DEFAULT '',
+      applied_at TEXT DEFAULT '', adj_display TEXT DEFAULT '', unit_cost REAL, mine INTEGER DEFAULT 0, applied_local INTEGER DEFAULT 0,
+      conflict TEXT DEFAULT '', seq INTEGER DEFAULT 0)`); }catch(e){}
+    try{ t.run("CREATE INDEX IF NOT EXISTS ix_sc_counts_product ON sc_counts(product_key, counted_ts)"); }catch(e){}
+    try{ t.run(`CREATE TABLE IF NOT EXISTS sc_requests(id TEXT PRIMARY KEY, json TEXT NOT NULL, status TEXT, from_branch_id TEXT, created_ts TEXT, seq INTEGER DEFAULT 0, local INTEGER DEFAULT 0)`); }catch(e){}
+    try{ t.run(`CREATE TABLE IF NOT EXISTS sc_recalls(id TEXT PRIMARY KEY, json TEXT NOT NULL, status TEXT, branch_id TEXT, created_ts TEXT, seq INTEGER DEFAULT 0, local INTEGER DEFAULT 0)`); }catch(e){}
+    // this branch's own shelves (decision 52): set here or pulled; the catalogue never overwrites them
+    try{ t.run(`CREATE TABLE IF NOT EXISTS sc_shelves(product_key TEXT PRIMARY KEY, shelf TEXT DEFAULT '', set_ts TEXT, sent INTEGER DEFAULT 0)`); }catch(e){}
+    // a shelf typed in Products or brought by an import, on this branch's own products (not a catalogue apply, not a pulled shelf)
+    const notApplying = `COALESCE((SELECT value FROM settings WHERE key='cat_applying'),'')<>'1' AND COALESCE((SELECT value FROM settings WHERE key='sc_applying'),'')<>'1'
+      AND COALESCE(NEW.branch,'')=COALESCE(NULLIF((SELECT value FROM settings WHERE key='branch_name'),''),(SELECT value FROM settings WHERE key='shop_name'),'Main')`;
+    try{ t.run(`CREATE TRIGGER IF NOT EXISTS products_sc_shelf_upd AFTER UPDATE OF shelf ON products
+      WHEN COALESCE(OLD.shelf,'') IS NOT COALESCE(NEW.shelf,'') AND COALESCE(NEW.cat_uid,NEW.uid) IS NOT NULL AND ${notApplying}
+      BEGIN INSERT OR REPLACE INTO sc_shelves(product_key, shelf, set_ts, sent) VALUES(COALESCE(NEW.cat_uid,NEW.uid), COALESCE(NEW.shelf,''), strftime('%Y-%m-%dT%H:%M:%fZ','now'), 0); END`); }catch(e){}
+    try{ t.run(`CREATE TRIGGER IF NOT EXISTS products_sc_shelf_ins AFTER INSERT ON products
+      WHEN COALESCE(NEW.shelf,'')<>'' AND ${notApplying}
+      BEGIN INSERT OR REPLACE INTO sc_shelves(product_key, shelf, set_ts, sent)
+        SELECT COALESCE(cat_uid,uid), shelf, strftime('%Y-%m-%dT%H:%M:%fZ','now'), 0 FROM products WHERE id=NEW.id AND COALESCE(cat_uid,uid) IS NOT NULL; END`); }catch(e){}
+  }
+
+  // ---- state ----
+  function scRegistered(){ return typeof isTerminalRegistered==="function" && isTerminalRegistered() && typeof terminalRpc==="function"; }
+  function scGuest(){ return getSetting("seat_guest","")==="1"; }
+  // Requests, recalls and counts need a till or seat on seiGEN (never a Guest's seat)
+  function scAvailable(){ return scRegistered() && !scGuest() && !(typeof isTerminalInactive==="function" && isTerminalInactive()); }
+  function scMyTerminal(){ return getSetting("terminal_id",""); }
+  function scMyBranch(){ return getSetting("branch_uuid",""); }
+  function scMainBranch(){ return getSetting("sc_main_branch_id",""); }
+  function scIsMain(){ return scMainBranch()? scMainBranch()===scMyBranch() : !isRemote(); }
+  function scBranches(){ try{ return JSON.parse(getSetting("sc_branches","[]"))||[]; }catch(e){ return []; } }
+  function scBranchName(id){ const b = scBranches().find(x=>x.id===id); return b? b.name : ""; }
+  function scJson(s, d){ try{ const v = JSON.parse(s||""); return v==null? d : v; }catch(e){ return d; } }
+  function scNewUid(){
+    if(typeof crypto!=="undefined" && crypto.randomUUID) return crypto.randomUUID();
+    const b = new Uint8Array(16); crypto.getRandomValues(b); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+    const h = Array.from(b, x=> x.toString(16).padStart(2,"0")).join("");
+    return h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20);
+  }
+  // Who did it: the signed-in person, else the session name, else "single operator".
+  function scWho(){
+    const s = typeof staffSession==="function"? staffSession() : null;
+    return (s && s.name) || String(sessionUser||"").trim() || "single operator";
+  }
+  function scStaffId(){
+    const s = typeof staffSession==="function"? staffSession() : null;
+    return s && /^[0-9a-f-]{36}$/i.test(String(s.id||""))? String(s.id) : null;
+  }
+  // A product's key across tills of a branch: its catalogue uid, or a branch-only product's own uid.
+  function scProductKey(p){ return (p && (p.cat_uid || p.uid)) || ""; }
+  function scProductByKey(key){
+    if(!key) return null;
+    return one("SELECT * FROM products WHERE branch=? AND (cat_uid=? OR (cat_uid IS NULL AND uid=?)) ORDER BY id LIMIT 1",[currentBranch(), key, key]);
+  }
+
+  // ---- the outbox ----
+  function scQueue(type, payload, docId){
+    const uid = type+":"+(payload.id || scNewUid())+":"+scNewUid().slice(0,8);
+    run("INSERT INTO sc_outbox(uid,type,doc_id,payload_json,created_ts) VALUES(?,?,?,?,?)",
+      [uid, type, docId || payload.id || "", JSON.stringify(Object.assign({ uid, type, ts:new Date().toISOString(), by:scWho() }, payload)), new Date().toISOString()]);
+    return uid;
+  }
+  function scWaitingCount(){ try{ return Number(one("SELECT COUNT(*) AS n FROM sc_outbox WHERE status='queued'").n)||0; }catch(e){ return 0; }}
+  // Events of a document still waiting to send (its screen shows "Waiting to send").
+  function scWaitingFor(docId){ try{ return all("SELECT * FROM sc_outbox WHERE status='queued' AND doc_id=? ORDER BY created_ts",[docId]); }catch(e){ return []; } }
+  function scRefusedFor(docId){ try{ return all("SELECT * FROM sc_outbox WHERE status='refused' AND doc_id=? ORDER BY created_ts",[docId]); }catch(e){ return []; } }
+  function scBackoff(attempts){
+    const full = Math.min(SC_MAX_DELAY_MS, SC_BASE_DELAY_MS * Math.pow(2, Math.max(0, attempts-1)));
+    return Math.round(full * (0.5 + Math.random()*0.5));
+  }
+  // the shelves this branch set and hasn't sent yet go as events (newest wins on seiGEN)
+  function scQueueShelves(){
+    const rows = all("SELECT * FROM sc_shelves WHERE sent=0 LIMIT 200");
+    rows.forEach(r=>{
+      run("DELETE FROM sc_outbox WHERE status='queued' AND type='shelf' AND doc_id=?",[r.product_key]);   // only the latest of a product goes
+      scQueue("shelf", { product_key:r.product_key, shelf:r.shelf||"", ts:r.set_ts }, r.product_key);
+      run("UPDATE sc_shelves SET sent=1 WHERE product_key=?",[r.product_key]);
+    });
+    return rows.length;
+  }
+  let _scSending = null;
+  function scSendNow(){
+    if(_scSending) return _scSending;
+    _scSending = (async ()=>{
+      const res = { sent:0, refused:0, reason:"" };
+      if(!scAvailable()){ res.reason = "not registered"; return res; }
+      if(scRegistered() && typeof isSeat==="function" && !isSeat()) scQueueShelves();
+      for(let i=0; i<20; i++){
+        if(!isOnline()){ res.reason = "offline"; break; }
+        const now = new Date().toISOString();
+        const due = all("SELECT * FROM sc_outbox WHERE status='queued' AND (next_ts='' OR next_ts<=?) ORDER BY created_ts, uid LIMIT ?",[now, SC_BATCH_MAX]);
+        if(!due.length) break;
+        const r = await terminalRpc("cl_device_stock_ctl_push", Object.assign(terminalAuth(), { p_events: due.map(d=>JSON.parse(d.payload_json)) }), { timeoutMs:SC_PUSH_TIMEOUT_MS });
+        if(!r.ok || !r.data || !Array.isArray(r.data.results)){
+          const msg = String((r.data && r.data.message) || r.message || r.code || r.reason || "").slice(0,200);
+          due.forEach(d=>{ const a = (d.attempts||0)+1; run("UPDATE sc_outbox SET attempts=?, next_ts=?, error=?, code=? WHERE uid=?",[a, new Date(Date.now()+scBackoff(a)).toISOString(), msg, r.code||r.reason||"", d.uid]); });
+          res.reason = r.reason || "error";
+          break;
+        }
+        const byUid = {}; r.data.results.forEach(x=>{ byUid[x.uid] = x; });
+        let moved = 0;
+        due.forEach(d=>{
+          const x = byUid[d.uid];
+          if(x && (x.status==="stored" || x.status==="duplicate")){ run("UPDATE sc_outbox SET status='sent', sent_ts=?, code=?, error='' WHERE uid=?",[now, x.status, d.uid]); res.sent++; moved++; scAfterSent(d); }
+          else if(x && x.status==="refused" && SC_FINAL_CODES.includes(x.code)){
+            run("UPDATE sc_outbox SET status='refused', sent_ts=?, code=?, error=? WHERE uid=?",[now, x.code, String(x.message||"").slice(0,200), d.uid]); res.refused++; moved++;
+            scAfterRefused(d, x);
+          } else {
+            const a = (d.attempts||0)+1;
+            run("UPDATE sc_outbox SET attempts=?, next_ts=?, error=?, code=? WHERE uid=?",[a, new Date(Date.now()+scBackoff(a)).toISOString(), String((x&&x.message)||"not answered").slice(0,200), (x&&x.code)||"", d.uid]);
+          }
+        });
+        if(!moved) break;
+      }
+      return res;
+    })().finally(()=>{ _scSending = null; });
+    return _scSending;
+  }
+  // a document made here is on seiGEN now: no longer "local"
+  function scAfterSent(d){
+    if(d.type==="request_create") run("UPDATE sc_requests SET local=0 WHERE id=?",[d.doc_id]);
+    if(d.type==="recall_create") run("UPDATE sc_recalls SET local=0 WHERE id=?",[d.doc_id]);
+  }
+  // A decision someone else made first: seiGEN's wins at the next pull. A count approved and applied
+  // here meanwhile keeps its ADJ and is flagged for a manager (design: two approvers at once).
+  function scAfterRefused(d, x){
+    if(d.type==="count_decide" && x.code==="ALREADY_DECIDED") run("UPDATE sc_counts SET conflict=? WHERE id=?",[String(x.message||"Decided on another device first.").slice(0,200), d.doc_id]);
+  }
+
+  // ---- the pull ----
+  let _scPulling = null;
+  function scPull(){
+    if(_scPulling) return _scPulling;
+    _scPulling = (async ()=>{
+      if(!scRegistered() || !isOnline()) return { ok:false, offline:!isOnline() };
+      const r = await terminalRpc("cl_device_stock_ctl_pull", Object.assign(terminalAuth(),
+        { p_cursor:Number(getSetting("sc_cursor","0"))||0, p_itred_after:Number(getSetting("sc_itred_cursor","0"))||0 }), { timeoutMs:20000 });
+      if(!r.ok) return { ok:false, message:(r.data && r.data.message) || r.message || r.code || r.reason };
+      const d = r.data || {};
+      const changes = { requests:[], recalls:[], counts:[], dispatches:d.dispatches||[], itred:d.itred||null, market:d.market||[], guest:!!d.guest, first:!getSetting("sc_cursor","") };
+      db.run("BEGIN");
+      try{
+        if(!d.guest){
+          setSetting("sc_main_branch_id", d.main_branch_id||"");
+          setSetting("sc_sees_diff", d.sees_diff? "1" : "0");
+          if(Array.isArray(d.branches)) setSetting("sc_branches", JSON.stringify(d.branches.map(b=>({ id:b.id, name:b.name, is_main:!!b.is_main }))));
+          scApplyShelves(d.shelves||[]);
+          (d.counts||[]).forEach(c=>{ const was = one("SELECT status FROM sc_counts WHERE id=?",[c.id]); scStoreCount(c); changes.counts.push({ c, was:was? was.status : null }); });
+          (d.requests||[]).forEach(q=>{ const was = one("SELECT status FROM sc_requests WHERE id=?",[q.id]); scStoreDoc("sc_requests", q, q.from_branch_id); changes.requests.push({ q, was:was? was.status : null }); });
+          (d.recalls||[]).forEach(q=>{ const was = one("SELECT json FROM sc_recalls WHERE id=?",[q.id]); scStoreDoc("sc_recalls", q, q.branch_id); changes.recalls.push({ q, was:was? scJson(was.json, {}) : null }); });
+          setSetting("sc_cursor", String(d.cursor||0));
+          if(d.itred_cursor!=null) setSetting("sc_itred_cursor", String(d.itred_cursor||0));
+        }
+        setSetting("sc_pulled_ts", new Date().toISOString());
+        db.run("COMMIT");
+      }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
+      const applied = scApplyApproved();
+      const something = changes.requests.length || changes.recalls.length || changes.counts.length || applied.length;
+      return { ok:true, changes, applied, something:!!something };
+    })().finally(()=>{ _scPulling = null; });
+    return _scPulling;
+  }
+  function scApplyShelves(rows){
+    if(!rows.length) return;
+    setSetting("sc_applying","1");
+    try{
+      rows.forEach(s=>{
+        const mine = one("SELECT * FROM sc_shelves WHERE product_key=?",[s.product_key]);
+        if(mine && mine.sent===0 && String(mine.set_ts||"") > String(s.set_ts||"")) return;   // a newer local edit waits to be sent
+        run("INSERT OR REPLACE INTO sc_shelves(product_key, shelf, set_ts, sent) VALUES(?,?,?,1)",[s.product_key, s.shelf||"", s.set_ts||""]);
+        run("UPDATE products SET shelf=? WHERE branch=? AND (cat_uid=? OR (cat_uid IS NULL AND uid=?))",[s.shelf||"", currentBranch(), s.product_key, s.product_key]);
+      });
+    } finally { setSetting("sc_applying",""); }
+  }
+  // seiGEN's copy of a count; this till's own figures stay (seiGEN hides them from a counter)
+  function scStoreCount(c){
+    const cur = one("SELECT * FROM sc_counts WHERE id=?",[c.id]);
+    const pendingDecision = cur && one("SELECT 1 AS x FROM sc_outbox WHERE status='queued' AND type='count_decide' AND doc_id=?",[c.id]);
+    const sys = c.system_qty!=null? c.system_qty : (cur? cur.system_qty : null), dif = c.diff!=null? c.diff : (cur? cur.diff : null);
+    if(!cur){
+      run(`INSERT INTO sc_counts(id,branch_id,terminal_id,product_key,code,name,shelf,reason,recount_of,counted_qty,system_qty,diff,counted_ts,counted_by,
+             status,decided_by,decided_at,decision_note,applied_at,adj_display,unit_cost,mine,seq) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [c.id, c.branch_id||"", c.terminal_id||"", c.product_key, c.code||"", c.name||"", c.shelf||"", c.reason||"", c.recount_of||"", c.counted_qty, sys, dif,
+         c.counted_ts||"", c.counted_by||"", c.status, c.decided_by||"", c.decided_at||"", c.decision_note||"", c.applied_at||"", c.adj_display||"",
+         c.unit_cost==null? null : c.unit_cost, c.terminal_id===scMyTerminal()? 1 : 0, c.change_seq||0]);
+      return;
+    }
+    run(`UPDATE sc_counts SET status=?, decided_by=?, decided_at=?, decision_note=?, applied_at=?, adj_display=CASE WHEN ?<>'' THEN ? ELSE adj_display END,
+           unit_cost=COALESCE(?,unit_cost), system_qty=?, diff=?, seq=? WHERE id=?`,
+      [pendingDecision? cur.status : c.status, pendingDecision? cur.decided_by : (c.decided_by||""), pendingDecision? cur.decided_at : (c.decided_at||""),
+       pendingDecision? cur.decision_note : (c.decision_note||""), c.applied_at||cur.applied_at||"", c.adj_display||"", c.adj_display||"",
+       c.unit_cost==null? null : c.unit_cost, sys, dif, c.change_seq||0, c.id]);
+  }
+  function scStoreDoc(table, q, branchId){
+    const cur = one(`SELECT * FROM ${table} WHERE id=?`,[q.id]);
+    // a decision made here and not sent yet keeps the local status until seiGEN has it
+    if(cur && one("SELECT 1 AS x FROM sc_outbox WHERE status='queued' AND doc_id=? AND type IN ('request_decide','request_link','recall_link','recall_cancel')",[q.id])) return;
+    run(`INSERT OR REPLACE INTO ${table}(id,json,status,${table==="sc_requests"? "from_branch_id" : "branch_id"},created_ts,seq,local) VALUES(?,?,?,?,?,?,0)`,
+      [q.id, JSON.stringify(q), q.status, branchId||"", q.created_ts||q.created_at||"", q.change_seq||0]);
+  }
+  function scRequests(){ return all("SELECT * FROM sc_requests ORDER BY created_ts DESC").map(r=> Object.assign(scJson(r.json, {}), { _local:r.local===1 })); }
+  function scRecalls(){ return all("SELECT * FROM sc_recalls ORDER BY created_ts DESC").map(r=> Object.assign(scJson(r.json, {}), { _local:r.local===1 })); }
+  function scRequest(id){ const r = one("SELECT * FROM sc_requests WHERE id=?",[id]); return r? Object.assign(scJson(r.json, {}), { _local:r.local===1 }) : null; }
+  function scRecall(id){ const r = one("SELECT * FROM sc_recalls WHERE id=?",[id]); return r? Object.assign(scJson(r.json, {}), { _local:r.local===1 }) : null; }
+  function scSaveDoc(table, doc, local){
+    run(`INSERT OR REPLACE INTO ${table}(id,json,status,${table==="sc_requests"? "from_branch_id" : "branch_id"},created_ts,seq,local) VALUES(?,?,?,?,?,COALESCE((SELECT seq FROM ${table} WHERE id=?),0),?)`,
+      [doc.id, JSON.stringify(doc), doc.status, (table==="sc_requests"? doc.from_branch_id : doc.branch_id)||"", doc.created_ts||"", doc.id, local? 1 : 0]);
+  }
+
+  // ---- an approved count moves this till's stock, once (decision 52) ----
+  // By the difference fixed at the count, so sales and receipts since the count stay in the stock.
+  function scApplyApproved(){
+    const me = scMyTerminal(), done = [];
+    // this till's own counts (a till not on seiGEN too), or one seiGEN says this terminal counted
+    const rows = all("SELECT * FROM sc_counts WHERE status='approved' AND applied_local=0 AND applied_at='' AND (mine=1 OR (terminal_id<>'' AND terminal_id=?))",[me]);
+    rows.forEach(c=>{
+      try{ const a = scApplyOne(c); if(a) done.push(a); }catch(e){ run("UPDATE sc_counts SET conflict=? WHERE id=?",["Not applied: "+String(e.message||e).slice(0,160), c.id]); }
+    });
+    return done;
+  }
+  function scApplyOne(c){
+    const p = (c.product_id && one("SELECT * FROM products WHERE id=? AND branch=?",[c.product_id, currentBranch()])) || scProductByKey(c.product_key);
+    if(!p) throw new Error("the product isn't on this till");
+    if(c.diff==null) throw new Error("the counted difference isn't on this till");
+    const ts = new Date().toISOString(), note = "Cycle count, counted by "+(c.counted_by||"?")+", approved by "+(c.decided_by||"?");
+    db.run("BEGIN");
+    try{
+      const again = one("SELECT applied_local FROM sc_counts WHERE id=?",[c.id]);
+      if(!again || again.applied_local){ db.run("COMMIT"); return null; }
+      let adj = null;
+      if(c.diff!==0){
+        adj = writeAdjustment({ product:p, delta:c.diff, reason:"Miscount correction", note, admin:c.decided_by||"?", ts });
+        logAudit("Cycle count applied", p.name, (p.sku||"no code")+": "+(c.diff>0?"+":"")+c.diff+" ("+adj.text+"), "+note);
+      }
+      const cost = Number(p.cost)||0;   // the current cost (last cost today; WAC after F-0)
+      run("UPDATE sc_counts SET applied_local=1, adj_display=?, unit_cost=?, product_id=? WHERE id=?",[adj? adj.text : "", cost, p.id, c.id]);
+      if(scRegistered()) scQueue("count_applied", { id:c.id, adj_display:adj? adj.text : "", unit_cost:cost }, c.id);
+      db.run("COMMIT");
+      return { id:c.id, adj:adj? adj.text : "", product:p.name, diff:c.diff };
+    }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
+  }
+
+  // ---- one round: send, pull, apply (bell.js runs it every 60 s while open and online) ----
+  async function scTick(){
+    if(!scRegistered()) return { skipped:"not registered" };
+    const s = await scSendNow().catch(()=>({}));
+    const p = await scPull().catch((e)=>({ ok:false, message:String(e && e.message || e) }));
+    if(p.ok && p.applied && p.applied.length) await scSendNow().catch(()=>{});
+    if((s && (s.sent || s.refused)) || (p && p.something)) await persist();
+    return { send:s, pull:p };
+  }
+  // Pushes what was just queued (a screen's Save), in the background; offline it waits.
+  function scSoon(){ setTimeout(()=>{ scSendNow().then((r)=>{ if(r && (r.sent || r.refused)) persist(); }).catch(()=>{}); }, 50); }
+
+  // ---- the DN made from a request or a recall (dispatch-out.js, inside its transaction) ----
+  // link: { type:"request"|"recall", id, lines?:[{line_no, sent_qty, short_qty, short_reason}] }
+  function scQueueLink(link, dispatchId){
+    if(!link || !dispatchId) return;
+    if(link.type==="request"){
+      scQueue("request_link", { id:link.id, dispatch_id:dispatchId }, link.id);
+      const q = scRequest(link.id);
+      if(q){ q.status = "dispatched"; q.dispatch_id = dispatchId; scSaveDoc("sc_requests", q, q._local); }
+    } else if(link.type==="recall"){
+      scQueue("recall_link", { id:link.id, dispatch_id:dispatchId, lines:link.lines||[] }, link.id);
+      const q = scRecall(link.id);
+      if(q){
+        const short = (link.lines||[]).some(l=>(l.short_qty||0)>0);
+        q.status = short? "partly_sent" : "sent"; q.dispatch_id = dispatchId;
+        (q.lines||[]).forEach(l=>{ const x = (link.lines||[]).find(y=>y.line_no===l.line_no); if(x){ l.sent_qty = x.sent_qty; l.short_qty = x.short_qty; l.short_reason = x.short_reason||null; } });
+        scSaveDoc("sc_recalls", q, q._local);
+      }
+    }
+  }
+
+  // ================== Cycle stocktake: "Count now" (v37, owner decision 52) ==================
+  // docs/stock-control/v37-design.md §1. A short daily list chosen by risk, counted
+  // blind, every difference approved before stock moves (stock-ctl.js applies it).
+  //   * class: value sold at cost over 90 days (sales minus returns, qty × cost now):
+  //     the top 80% of value = A, the next 15% = B, the rest (and nothing sold) = C.
+  //     Due every 7 / 30 / 90 days (Settings → Count now).
+  //   * red flags, counted first: negative stock; a difference at the last count;
+  //     3+ units returned in 30 days; a sale while the stock showed 0 or less;
+  //     an adjustment or write-off of 10+ units or over 10% of stock in 30 days;
+  //     received in the last 60 days and not sold since.
+  //   * the list: red flags, then the most overdue (A first), about 20 a day;
+  //     a manager adds items or a whole shelf. Fixed for the business day.
+  //   * the difference is fixed when counted (counted − stock at that moment), so
+  //     selling never stops: approval moves stock by that difference.
+
+  const CYCLE_DEFAULTS = { a:7, b:30, c:90, size:20 };
+  const CYCLE_DAY = 86400000;
+
+  // ---- pure part (test/cycle-count.test.js) ----
+  // values: { key: value sold at cost } -> { key: "A"|"B"|"C" }
+  function cycleClasses(values){
+    const keys = Object.keys(values), out = {};
+    const pos = keys.filter(k=> Number(values[k])>0).sort((a,b)=> values[b]-values[a] || String(a).localeCompare(String(b)));
+    const total = pos.reduce((s,k)=> s+Number(values[k]), 0);
+    let before = 0;
+    pos.forEach(k=>{
+      const share = before/total;              // the share of value ranked above this item
+      out[k] = share < 0.80? "A" : share < 0.95? "B" : "C";
+      before += Number(values[k]);
+    });
+    keys.forEach(k=>{ if(!out[k]) out[k] = "C"; });
+    return out;
+  }
+  function cycleSettings(get){
+    get = get || ((k, d)=> getSetting(k, d));
+    const n = (k, d)=>{ const v = parseInt(get(k, ""), 10); return v>0? v : d; };
+    return { a:n("cycle_days_a", CYCLE_DEFAULTS.a), b:n("cycle_days_b", CYCLE_DEFAULTS.b), c:n("cycle_days_c", CYCLE_DEFAULTS.c), size:n("cycle_size", CYCLE_DEFAULTS.size) };
+  }
+  // f: the facts of one product (see cycleFacts) -> the red flags, in plain words
+  function cycleFlags(f){
+    const out = [];
+    if(f.stock<0) out.push("Negative stock");
+    if(f.lastDiff) out.push("Difference at the last count");
+    if(f.returned30>=3) out.push(f.returned30+" returned in 30 days");
+    if(f.soldAtZero) out.push("Sold while showing 0");
+    if(f.bigAdjust) out.push("Large adjustment or write-off");
+    if(f.receivedNotSold) out.push("Received, not sold since");
+    return out;
+  }
+  // products: [{ key, ... }], facts: { key: facts }, classes: { key: A|B|C }, now: ms, set: cycleSettings()
+  // -> [{ key, cls, flags, overdueDays, reason }], red flags first, then the most overdue (A first); at most set.size
+  function cycleChoose(products, facts, classes, now, set){
+    const due = { A:set.a, B:set.b, C:set.c }, rows = [];
+    products.forEach(p=>{
+      const f = facts[p.key] || {}, cls = classes[p.key] || "C", flags = cycleFlags(f);
+      const last = f.lastCountMs || null;
+      const overdueDays = last==null? Infinity : Math.floor((now - last)/CYCLE_DAY) - due[cls];
+      if(!flags.length && overdueDays<0) return;
+      const reason = flags.length? flags.join(", ") : last==null? "Class "+cls+", never counted" : "Class "+cls+", not counted for "+Math.floor((now-last)/CYCLE_DAY)+" days";
+      rows.push({ key:p.key, cls, flags, overdueDays, reason });
+    });
+    const rank = { A:0, B:1, C:2 };
+    rows.sort((x,y)=> (y.flags.length>0) - (x.flags.length>0)
+      || (x.flags.length && y.flags.length? y.flags.length - x.flags.length : 0)
+      || (y.overdueDays===x.overdueDays? 0 : y.overdueDays===Infinity? 1 : x.overdueDays===Infinity? -1 : y.overdueDays - x.overdueDays)
+      || rank[x.cls] - rank[y.cls] || String(x.key).localeCompare(String(y.key)));
+    return rows.slice(0, set.size);
+  }
+  // movements of one product, oldest first ({ qty_delta, kind, ts }), and its stock now ->
+  // true when a sale took the running figure below 0 since sinceMs
+  function cycleSoldAtZero(moves, stockNow, sinceMs){
+    let bal = stockNow;
+    for(let i=moves.length-1; i>=0; i--){
+      const m = moves[i];
+      if(Date.parse(m.ts) < sinceMs) break;
+      if(m.kind==="sale" && bal<0) return true;   // the balance right after this sale
+      bal -= m.qty_delta;
+    }
+    return false;
+  }
+  // Group a list by shelf (no shelf: by name, at the end)
+  function cycleGroupByShelf(items){
+    const groups = new Map();
+    items.slice().sort((a,b)=> (a.shelf? 0 : 1) - (b.shelf? 0 : 1) || String(a.shelf||"").localeCompare(String(b.shelf||""), undefined, { numeric:true }) || String(a.name).localeCompare(String(b.name)))
+      .forEach(i=>{ const k = i.shelf || ""; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(i); });
+    return [...groups.entries()].map(([shelf, rows])=>({ shelf, rows }));
+  }
+  // Shrinkage (decision 52): approved differences -> totals by item, shelf, week; units, and value when costs show
+  function cycleShrinkage(rows, withValue){
+    const by = (keyOf)=>{ const m = new Map(); rows.forEach(r=>{ const k = keyOf(r); const x = m.get(k) || { key:k, units:0, value:0, counts:0 }; x.units += r.diff; x.value += r.diff*(r.unit_cost||0); x.counts++; m.set(k, x); }); return [...m.values()]; };
+    const weekOf = (ts)=>{ const d = new Date(ts); const day = (d.getDay()+6)%7; d.setDate(d.getDate()-day); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+    const strip = (xs)=> xs.map(x=> withValue? Object.assign(x, { value:Math.round(x.value*100)/100 }) : Object.assign({}, x, { value:undefined }));
+    const items = strip(by(r=> r.name)).sort((a,b)=> a.units - b.units || (b.value||0) - (a.value||0));
+    return { items, top10:items.filter(x=>x.units<0).slice(0,10), shelves:strip(by(r=> r.shelf||"(no shelf)")).sort((a,b)=> a.units-b.units),
+      weeks:strip(by(r=> weekOf(r.counted_ts))).sort((a,b)=> a.key<b.key? -1 : 1),
+      staff:strip(by(r=> r.staff||"")).filter(x=>x.key).sort((a,b)=> a.units-b.units),
+      units:rows.reduce((s,r)=>s+r.diff,0), value:withValue? Math.round(rows.reduce((s,r)=>s+r.diff*(r.unit_cost||0),0)*100)/100 : undefined };
+  }
+
+  // ---- this branch's facts ----
+  function cycleFacts(now){
+    now = now || Date.now();
+    const branch = currentBranch(), since90 = new Date(now-90*CYCLE_DAY).toISOString(), since60 = new Date(now-60*CYCLE_DAY).toISOString(), since30 = new Date(now-30*CYCLE_DAY).toISOString();
+    const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
+    const byId = {}; products.forEach(p=>{ byId[p.id] = p; });
+    const keyOf = (p)=> scProductKey(p) || ("id:"+p.id);
+    const values = {}, facts = {};
+    products.forEach(p=>{ values[keyOf(p)] = 0; facts[keyOf(p)] = { stock:p.stock }; });
+    all(`SELECT si.product_id AS id, SUM(si.qty) AS q FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE s.ts>=? GROUP BY si.product_id`,[since90])
+      .forEach(r=>{ const p = byId[r.id]; if(p) values[keyOf(p)] += (Number(r.q)||0)*(Number(p.cost)||0); });
+    try{ all(`SELECT ci.product_id AS id, SUM(ci.qty) AS q FROM credit_note_items ci JOIN credit_notes c ON c.id=ci.cn_id WHERE c.ts>=? GROUP BY ci.product_id`,[since90])
+      .forEach(r=>{ const p = byId[r.id]; if(p) values[keyOf(p)] -= (Number(r.q)||0)*(Number(p.cost)||0); }); }catch(e){}
+    try{ all(`SELECT ci.product_id AS id, SUM(ci.qty) AS q FROM credit_note_items ci JOIN credit_notes c ON c.id=ci.cn_id WHERE c.ts>=? GROUP BY ci.product_id`,[since30])
+      .forEach(r=>{ const p = byId[r.id]; if(p) facts[keyOf(p)].returned30 = Number(r.q)||0; }); }catch(e){}
+    // the last count: a cycle count (any till of the branch) or a full stocktake on this till
+    all("SELECT product_key, counted_ts, diff, status FROM sc_counts WHERE status<>'recount' ORDER BY counted_ts").forEach(c=>{
+      const f = facts[c.product_key]; if(!f) return;
+      f.lastCountMs = Date.parse(c.counted_ts); f.lastDiff = c.diff!=null && c.diff!==0;
+    });
+    try{ all(`SELECT sc.product_id AS id, MAX(sc.counted_ts) AS ts FROM stocktake_counts sc JOIN stocktakes s ON s.id=sc.stocktake_id WHERE s.branch=? GROUP BY sc.product_id`,[branch])
+      .forEach(r=>{ const p = byId[r.id]; if(!p) return; const f = facts[keyOf(p)], ms = Date.parse(r.ts); if(ms && !(f.lastCountMs>=ms)){ f.lastCountMs = ms; f.lastDiff = false; } }); }catch(e){}
+    // the ledger: sales at or below 0, big adjustments, received and not sold since (60 days)
+    const moves = all(`SELECT product_id, qty_delta, kind, ts FROM stock_movements WHERE branch=? AND ts>=? ORDER BY id`,[branch, since60]);
+    const per = {}; moves.forEach(m=>{ (per[m.product_id] = per[m.product_id] || []).push(m); });
+    Object.keys(per).forEach(id=>{
+      const p = byId[id]; if(!p) return;
+      const f = facts[keyOf(p)], ms = per[id];
+      f.soldAtZero = cycleSoldAtZero(ms, p.stock, now-30*CYCLE_DAY);
+      f.bigAdjust = ms.some(m=> (m.kind==="adjustment" || m.kind==="write_off") && m.ts>=since30 && (Math.abs(m.qty_delta)>=10 || Math.abs(m.qty_delta) > 0.1*Math.max(1, Math.abs(p.stock))));
+      const lastIn = ms.filter(m=> m.kind==="receive" || m.kind==="supplier_grv").map(m=>m.ts).sort().pop();
+      f.receivedNotSold = !!lastIn && !ms.some(m=> m.kind==="sale" && m.ts>lastIn);
+    });
+    return { products:products.map(p=> Object.assign({}, p, { key:keyOf(p) })), values, facts };
+  }
+
+  // ---- today's list (fixed for the business day; a manager's additions kept) ----
+  function cycleToday(){ return businessDateOf(); }
+  function cycleListState(){ return scJson(getSetting("cycle_list",""), null); }
+  function cycleList(){
+    const today = cycleToday();
+    let st = cycleListState();
+    if(!st || st.day!==today){
+      const { products, values, facts } = cycleFacts();
+      const chosen = cycleChoose(products, facts, cycleClasses(values), Date.now(), cycleSettings());
+      st = { day:today, items:chosen.map(c=>({ key:c.key, cls:c.cls, reason:c.reason, flags:c.flags.length })) };
+      setSetting("cycle_list", JSON.stringify(st));
+    }
+    // recounts asked for (by anyone) come first, flagged with who must not count them
+    const recounts = all(`SELECT * FROM sc_counts c WHERE c.status='recount' AND NOT EXISTS (SELECT 1 FROM sc_counts n WHERE n.recount_of=c.id)`)
+      .map(c=>({ key:c.product_key, reason:"Recount: not by "+(c.counted_by||"the first counter"), recountOf:c.id, notBy:c.counted_by||"" }));
+    const seen = new Set(recounts.map(r=>r.key));
+    const items = recounts.concat(st.items.filter(i=>!seen.has(i.key)));
+    return items.map(i=>{
+      const p = scProductByKey(i.key) || (String(i.key).startsWith("id:")? one("SELECT * FROM products WHERE id=?",[Number(String(i.key).slice(3))]) : null);
+      if(!p) return null;
+      const done = one("SELECT * FROM sc_counts WHERE product_key=? AND mine=1 AND counted_ts>=? ORDER BY counted_ts DESC LIMIT 1",[i.key, new Date(businessDayStartMs(today)).toISOString()]);
+      return Object.assign({}, i, { product:p, name:p.name, code:p.sku||"", shelf:p.shelf||"", done:i.recountOf? one("SELECT * FROM sc_counts WHERE recount_of=?",[i.recountOf]) : done });
+    }).filter(Boolean);
+  }
+  function cycleAdd(keys, why){
+    const st = cycleListState() || { day:cycleToday(), items:[] };
+    if(st.day!==cycleToday()){ cycleList(); return cycleAdd(keys, why); }
+    keys.forEach(k=>{ if(!st.items.some(i=>i.key===k)) st.items.push({ key:k, cls:"", reason:why||"Added by a manager", flags:0 }); });
+    setSetting("cycle_list", JSON.stringify(st));
+  }
+
+  // ---- counting (blind) ----
+  // -> { ok, id, status } | { ok:false, message }
+  function cycleSaveCount(item, raw, countedBy){
+    const s = String(raw==null? "" : raw).trim();
+    if(!/^\d+$/.test(s)) return { ok:false, message:"Type the number you counted (a whole number, 0 or more)." };
+    const qty = Number(s), who = String(countedBy||"").trim() || scWho();
+    if(item.recountOf && item.notBy && who.toLowerCase()===String(item.notBy).toLowerCase() && who!=="single operator")
+      return { ok:false, message:"This recount must be by someone other than "+item.notBy+"." };
+    const p = one("SELECT * FROM products WHERE id=?",[item.product.id]);
+    if(!p) return { ok:false, message:"That product isn't on this till." };
+    const id = scNewUid(), ts = new Date().toISOString(), sys = p.stock, diff = qty - sys;
+    const status = diff===0? "closed" : "waiting";
+    db.run("BEGIN");
+    try{
+      run(`INSERT INTO sc_counts(id,branch_id,terminal_id,product_key,product_id,code,name,shelf,reason,recount_of,recount_not_by,counted_qty,system_qty,diff,counted_ts,counted_by,staff_id,status,mine)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+        [id, scMyBranch(), scMyTerminal(), item.key, p.id, p.sku||"", p.name, p.shelf||"", item.reason||"", item.recountOf||"", item.notBy||"", qty, sys, diff, ts, who, scStaffId()||"", status]);
+      if(scRegistered()) scQueue("count", { id, product_key:item.key, code:p.sku||"", name:p.name, shelf:p.shelf||"", reason:item.reason||"", recount_of:item.recountOf||null,
+        counted_qty:qty, system_qty:sys, counted_ts:ts, counted_by:who, staff_id:scStaffId() }, id);
+      logAudit("Cycle count", p.name, (p.sku||"no code")+": counted "+qty+(item.recountOf? " (recount)" : "")+" by "+who);
+      db.run("COMMIT");
+    }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
+    return { ok:true, id, status };
+  }
+
+  // ---- approval (approve_counts: the Admin passcode, or the signed-in holder's own PIN) ----
+  function cycleWaiting(){ return all("SELECT * FROM sc_counts WHERE status='waiting' ORDER BY counted_ts"); }
+  // action: approve | recount | reject -> { ok, adj? } | { ok:false, message }
+  function cycleDecide(id, action, passcode, note){
+    if(!["approve","recount","reject"].includes(action)) return { ok:false, message:"Approve, recount or reject." };
+    const c = one("SELECT * FROM sc_counts WHERE id=?",[id]);
+    if(!c || c.status!=="waiting") return { ok:false, message:"That count isn't waiting for approval any more." };
+    if(typeof hasAdminPasscode==="function" && !hasAdminPasscode()) return { ok:false, message:NO_ADMIN_PASSCODE_MSG };
+    const approver = findApprover(passcode, "approve_counts");
+    if(!approver) return { ok:false, message:"Incorrect Admin passcode (or your PIN, when you hold Approve count differences)." };
+    if(action==="reject" && !String(note||"").trim()) return { ok:false, message:"Say why it's rejected." };
+    const by = approver.name || scWho(), status = action==="approve"? "approved" : action==="recount"? "recount" : "rejected", ts = new Date().toISOString();
+    db.run("BEGIN");
+    try{
+      run("UPDATE sc_counts SET status=?, decided_by=?, decided_at=?, decision_note=? WHERE id=?",[status, by, ts, String(note||"").trim(), id]);
+      if(scRegistered()) scQueue("count_decide", { id, action, note:String(note||"").trim(), by }, id);
+      logAudit("Cycle count "+status, c.name, (c.code||"no code")+": difference "+(c.diff>0?"+":"")+c.diff+", counted by "+(c.counted_by||"?")+", "+status+" by "+by);
+      db.run("COMMIT");
+    }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
+    // this till's own count moves its stock now; another till's moves when that till pulls the decision
+    const applied = action==="approve"? scApplyApproved() : [];
+    return { ok:true, applied };
+  }
+
+  // ---- shrinkage rows (approved differences on this branch + full stocktakes on this device) ----
+  function cycleShrinkRows(fromTs, toTs){
+    const rows = all(`SELECT * FROM sc_counts WHERE status='approved' AND diff<>0 AND counted_ts>=? AND counted_ts<=? ORDER BY counted_ts`,[fromTs, toTs]).map(c=>{
+      const p = scProductByKey(c.product_key);
+      return { name:c.name, code:c.code, shelf:c.shelf || (p && p.shelf) || "", diff:c.diff, unit_cost:c.unit_cost!=null? c.unit_cost : Number(p && p.cost)||0,
+        counted_ts:c.counted_ts, counted_by:c.counted_by, staff:cycleOnDuty(c.counted_ts, c.counted_by), how:"Cycle count" };
+    });
+    try{ all(`SELECT m.*, p.cost AS cost, p.shelf AS shelf FROM stock_movements m LEFT JOIN products p ON p.id=m.product_id
+               WHERE m.kind='stocktake' AND m.branch=? AND m.ts>=? AND m.ts<=? ORDER BY m.ts`,[currentBranch(), fromTs, toTs])
+      .forEach(m=> rows.push({ name:m.product_name, code:m.product_code, shelf:m.shelf||"", diff:m.qty_delta, unit_cost:Number(m.cost)||0, counted_ts:m.ts,
+        counted_by:m.user||"", staff:cycleOnDuty(m.ts, m.user), how:"Full stocktake" })); }catch(e){}
+    return rows;
+  }
+  // Staff on duty: who sold on this till that business day, plus the counter
+  function cycleOnDuty(ts, counter){
+    const day = businessDateOf(ts), t = Date.parse(ts), names = new Set();
+    try{ all("SELECT user, ts FROM sales WHERE ts>=? AND ts<=?",[new Date(t-2*CYCLE_DAY).toISOString(), new Date(t+2*CYCLE_DAY).toISOString()])
+      .forEach(r=>{ if(String(r.user||"").trim() && businessDateOf(r.ts)===day) names.add(String(r.user).trim()); }); }catch(e){}
+    if(String(counter||"").trim()) names.add(String(counter).trim());
+    return [...names].sort().join(", ");
+  }
+  // Counts done vs due (this branch, the period)
+  function cycleDoneVsDue(fromTs, toTs){
+    const done = Number(one("SELECT COUNT(*) AS n FROM sc_counts WHERE counted_ts>=? AND counted_ts<=? AND status<>'recount'",[fromTs, toTs]).n)||0;
+    const days = Math.max(1, Math.round((Date.parse(toTs) - Date.parse(fromTs))/CYCLE_DAY));
+    return { done, due:days*cycleSettings().size };
+  }
+
+  // ================== Stocktake tabs: Count now, Approvals, Shrinkage (v37, decision 52) ==================
+  // The full stocktake (stocktake.js) is unchanged under "Full stocktake".
+  let cycleTab = "full";
+  let cycleShrinkFrom = "", cycleShrinkTo = "";
+  function cycleCanCount(){ return typeof can!=="function" || can("count_stock"); }
+  function cycleCanApprove(){ return typeof can!=="function" || can("approve_counts"); }
+  function cycleTabs(){
+    const t = [{ id:"full", label:"Full stocktake" }];
+    if(cycleCanCount()) t.push({ id:"count", label:"Count now" });
+    if(cycleCanApprove()){ const n = cycleWaiting().length; t.push({ id:"approve", label:"Approvals"+(n? " ("+n+")" : "") }); }
+    if(cycleCanApprove() || (typeof can!=="function" || can("m.reportwriter"))) t.push({ id:"shrink", label:"Shrinkage" });
+    return t;
+  }
+  // -> true when it drew the screen (the tabs and the chosen one)
+  function renderStocktake(main){
+    const tabs = cycleTabs();
+    if(!tabs.some(t=>t.id===cycleTab)) cycleTab = "full";
+    main.innerHTML = `<div class="tabs cycle-tabs" id="cycleTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${tabs.map(t=>
+      `<button class="btn btn-sm ${t.id===cycleTab? "btn-primary" : "btn-outline"}" data-cycle-tab="${t.id}">${escapeHtml(t.label)}</button>`).join("")}</div><div id="cycleBody"></div>`;
+    main.querySelectorAll("[data-cycle-tab]").forEach(b=> b.onclick = ()=>{ cycleTab = b.dataset.cycleTab; stocktakeReportId = null; render(); });
+    const body = main.querySelector("#cycleBody");
+    if(cycleTab==="count") return renderCountNow(body);
+    if(cycleTab==="approve") return renderCountApprovals(body);
+    if(cycleTab==="shrink") return renderShrinkage(body);
+    return renderStocktakeFull(body);
+  }
+
+  // ---- Count now (blind) ----
+  function cycleSharedStockNote(){
+    return typeof sharedStockTill==="function" && sharedStockTill()?
+      `<div class="box" id="cycleShared" style="border-color:#b54708">Count now isn't available on a shared-stock branch yet (this till holds an allowance, not the shelf). Use the full stocktake.</div>` : "";
+  }
+  function renderCountNow(main){
+    const shared = cycleSharedStockNote();
+    if(shared){ main.innerHTML = shared; return; }
+    const items = cycleList(), left = items.filter(i=>!i.done).length;
+    const single = !(typeof staffSession==="function" && staffSession());
+    const groups = cycleGroupByShelf(items);
+    main.innerHTML = `
+      <p class="muted" style="margin:0 0 6px">Today's short count, chosen by risk. Count what is on the shelf: the expected figure is never shown while you count.</p>
+      <div class="box" id="cycleSummary" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <b>${escapeHtml(cycleToday())}</b><span><b id="cycleLeft">${left}</b> to count</span><span>${items.length-left} done</span>
+        ${cycleCanApprove()? `<button class="btn btn-sm btn-outline" id="cycleAdd" style="margin-left:auto">+ Add items or a shelf</button>` : ""}
+      </div>
+      ${single? `<label style="margin-top:0">Counted by</label><input class="field" id="cycleBy" maxlength="80" value="${escapeHtml(getSetting("cycle_by","") || String(sessionUser||""))}" placeholder="Your name" style="max-width:260px">` : ""}
+      ${items.length? groups.map(g=>`
+        <h4 class="cycle-shelf" style="margin:12px 0 4px">${g.shelf? "Shelf "+escapeHtml(g.shelf) : "No shelf"}</h4>
+        ${g.rows.map(i=>`
+          <div class="card cycle-item${i.done? " cycle-done" : ""}" data-key="${escapeHtml(i.key)}" style="padding:8px;margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div style="flex:1;min-width:160px"><div style="font-weight:600">${escapeHtml(i.name)}</div>
+              <div class="muted" style="font-size:11.5px">${escapeHtml(i.code||"no code")}${i.shelf? " · "+escapeHtml(i.shelf) : ""}</div>
+              <div class="cycle-reason" style="font-size:11.5px;color:${i.recountOf? "#b42318" : "#b54708"}">${escapeHtml(i.reason||"")}</div></div>
+            ${i.done? `<div class="cycle-status" style="font-size:12.5px">✓ Counted${i.done.counted_by? " by "+escapeHtml(i.done.counted_by) : ""}: sent for checking</div>`
+              : `<input class="field cycle-qty" data-qty="${escapeHtml(i.key)}" inputmode="numeric" placeholder="Counted" style="width:90px;margin:0">
+                 <button class="btn btn-sm btn-primary" data-save="${escapeHtml(i.key)}">Save</button>`}
+          </div>`).join("")}`).join("")
+        : `<p class="muted" id="cycleNone">Nothing to count today: every item is within its count interval and has no red flags.</p>`}
+      <div id="cycleErr" style="color:#b42318;font-size:12.5px;margin-top:6px"></div>
+      <p class="muted" style="font-size:12px;margin-top:8px">Selling goes on while you count: the difference is fixed at the moment you save, and stock changes only when a manager approves it.</p>`;
+    const by = main.querySelector("#cycleBy");
+    if(by) by.oninput = ()=> setSetting("cycle_by", by.value);
+    const save = (key)=>{
+      const it = items.find(i=>i.key===key), inp = [...main.querySelectorAll("[data-qty]")].find(x=> x.dataset.qty===key);
+      if(single && by && !by.value.trim()){ main.querySelector("#cycleErr").textContent = "Type who is counting."; return; }
+      const r = cycleSaveCount(it, inp.value, single && by? by.value : "");
+      if(!r.ok){ main.querySelector("#cycleErr").textContent = r.message; return; }
+      persist(); scSoon(); render();
+    };
+    main.querySelectorAll("[data-save]").forEach(b=> b.onclick = ()=> save(b.dataset.save));
+    main.querySelectorAll("[data-qty]").forEach(inp=> inp.onkeydown = (e)=>{ if(e.key==="Enter"){ e.preventDefault(); save(inp.dataset.qty); } });
+    const add = main.querySelector("#cycleAdd");
+    if(add) add.onclick = ()=> openCycleAddModal();
+  }
+  function openCycleAddModal(){
+    const branch = currentBranch();
+    const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
+    const shelves = [...new Set(products.map(p=>String(p.shelf||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b, undefined, { numeric:true }));
+    let q = "";
+    const wrap = openModal("Add to today's count", `
+      <label style="margin-top:0">A whole shelf</label>
+      <div style="display:flex;gap:6px"><select class="field" id="caShelf" style="margin:0"><option value="">Choose a shelf…</option>${shelves.map(s=>`<option>${escapeHtml(s)}</option>`).join("")}</select>
+        <button class="btn btn-outline" id="caShelfAdd">Add shelf</button></div>
+      <label>Or items</label><input class="field" id="caSearch" placeholder="Search by name or code" autocomplete="off">
+      <div id="caList" style="max-height:40vh;overflow:auto"></div>
+      <button class="btn btn-primary" id="caDone">Done</button>`);
+    const list = wrap.querySelector("#caList");
+    const draw = ()=>{
+      const rows = q.trim()? productSearch(products, q).slice(0,30) : [];
+      list.innerHTML = rows.map(p=>`<button type="button" class="card" data-add="${p.id}" style="display:block;width:100%;text-align:left;padding:6px;margin:4px 0">${escapeHtml(p.name)} <span class="muted">${escapeHtml(p.sku||"")}${p.shelf? " · "+escapeHtml(p.shelf) : ""}</span></button>`).join("");
+      list.querySelectorAll("[data-add]").forEach(b=> b.onclick = ()=>{ const p = products.find(x=>x.id===+b.dataset.add); cycleAdd([scProductKey(p) || "id:"+p.id], "Added by "+scWho()); b.textContent = "✓ "+p.name+" added"; b.disabled = true; persist(); });
+    };
+    wrap.querySelector("#caSearch").oninput = (e)=>{ q = e.target.value; draw(); };
+    wrap.querySelector("#caShelfAdd").onclick = ()=>{
+      const s = wrap.querySelector("#caShelf").value; if(!s) return;
+      cycleAdd(products.filter(p=>String(p.shelf||"").trim()===s).map(p=> scProductKey(p) || "id:"+p.id), "Shelf "+s+", added by "+scWho());
+      persist(); wrap.remove(); render();
+    };
+    wrap.querySelector("#caDone").onclick = ()=>{ wrap.remove(); render(); };
+  }
+
+  // ---- Approvals (approve_counts) ----
+  function cycleShowCosts(){ return typeof can!=="function" || can("costs"); }
+  function renderCountApprovals(main){
+    const rows = cycleWaiting(), costs = cycleShowCosts();
+    const recent = all("SELECT * FROM sc_counts WHERE status IN ('approved','rejected','recount') ORDER BY decided_at DESC LIMIT 20");
+    const conflicts = all("SELECT * FROM sc_counts WHERE COALESCE(conflict,'')<>'' ORDER BY counted_ts DESC LIMIT 10");
+    main.innerHTML = `
+      <p class="muted" style="margin:0 0 6px">Every difference waits here. No approval, no stock change. Approving moves the counting till's stock by the difference found when it was counted.</p>
+      ${conflicts.length? `<div class="box" id="ccConflicts" style="border-color:#b42318;font-size:12.5px">${conflicts.map(c=>`<div><b>${escapeHtml(c.name)}</b>: ${escapeHtml(c.conflict)}</div>`).join("")}</div>` : ""}
+      ${rows.length? `<div class="card" style="overflow-x:auto"><table class="simple" id="ccTable">
+        <tr><th>Item</th><th>Shelf</th><th>Counted</th><th>System at count</th><th>Difference</th>${costs? "<th>Value</th>" : ""}<th>Counted by</th><th>When</th><th>Why listed</th><th></th></tr>
+        ${rows.map(c=>{ const p = scProductByKey(c.product_key), v = c.diff==null? null : c.diff*(Number(p && p.cost)||0);
+          return `<tr data-cc="${escapeHtml(c.id)}"><td>${skuNameCellScreen(c.code, c.name)}</td><td>${escapeHtml(c.shelf||"—")}</td><td>${c.counted_qty}</td>
+            <td>${c.system_qty==null? "—" : c.system_qty}</td><td><b>${c.diff==null? "—" : (c.diff>0? "+" : "")+c.diff}</b></td>
+            ${costs? `<td>${v==null? "—" : currency+v.toFixed(2)}</td>` : ""}<td>${escapeHtml(c.counted_by||"")}</td><td>${escapeHtml(new Date(c.counted_ts).toLocaleString())}</td>
+            <td style="font-size:11.5px">${escapeHtml(c.reason||"")}</td>
+            <td style="white-space:nowrap"><button class="btn btn-sm btn-primary" data-act="approve">Approve</button> <button class="btn btn-sm btn-outline" data-act="recount">Recount</button> <button class="btn btn-sm btn-outline" data-act="reject">Reject</button></td></tr>`; }).join("")}
+      </table></div>` : `<p class="muted" id="ccNone">Nothing waiting for approval.</p>`}
+      ${recent.length? `<h4 style="margin:14px 0 4px">Recent decisions</h4><table class="simple">${recent.map(c=>`<tr><td>${escapeHtml(c.name)}</td><td>${c.diff==null? "" : (c.diff>0? "+" : "")+c.diff}</td><td>${escapeHtml(c.status)}</td><td>${escapeHtml(c.decided_by||"")}</td><td>${escapeHtml(c.adj_display||"")}</td></tr>`).join("")}</table>` : ""}`;
+    main.querySelectorAll("[data-cc] [data-act]").forEach(b=> b.onclick = ()=> openCountDecision(b.closest("[data-cc]").dataset.cc, b.dataset.act));
+  }
+  function openCountDecision(id, action){
+    const c = one("SELECT * FROM sc_counts WHERE id=?",[id]);
+    if(!c) return;
+    const title = action==="approve"? "Approve the difference" : action==="recount"? "Ask for a recount" : "Reject the count";
+    const wrap = openModal(title, `
+      <p style="margin:0 0 6px"><b>${escapeHtml(c.name)}</b>: counted ${c.counted_qty}${c.diff==null? "" : ", difference "+(c.diff>0? "+" : "")+c.diff} (by ${escapeHtml(c.counted_by||"?")}).</p>
+      ${action==="approve"? `<p class="muted" style="font-size:12.5px">An ADJ "Miscount correction" moves the counting till's stock by ${c.diff==null? "the difference" : (c.diff>0? "+" : "")+c.diff}, at the current cost.</p>` : ""}
+      ${action==="recount"? `<p class="muted" style="font-size:12.5px">It goes back on the list, to be counted by someone other than ${escapeHtml(c.counted_by||"the first counter")}.</p>` : ""}
+      <label>Note${action==="reject"? " (why)" : " (optional)"}</label><input class="field" id="cdNote" maxlength="200">
+      <label>Admin passcode, or your PIN</label><input class="field" id="cdCode" type="password" inputmode="numeric" autocomplete="off">
+      <div id="cdErr" style="color:#b42318;font-size:12.5px"></div>
+      <button class="btn btn-primary" id="cdOk">${escapeHtml(title)}</button>`);
+    const codeEl = wrap.querySelector("#cdCode");
+    codeEl.focus();
+    wrap.querySelector("#cdOk").onclick = async ()=>{
+      const code = codeEl.value;
+      if(typeof approverPinWarm==="function") await approverPinWarm(code, "approve_counts");   // the holder's own PIN, off the screen thread
+      const r = cycleDecide(id, action, code, wrap.querySelector("#cdNote").value);
+      if(!r.ok){ wrap.querySelector("#cdErr").textContent = r.message; return; }
+      await persist(); scSoon(); wrap.remove(); render();
+      if(r.applied && r.applied.length) alert("Stock updated: "+r.applied.map(a=>a.product+" "+(a.diff>0?"+":"")+a.diff+(a.adj? " ("+a.adj+")" : "")).join(", "));
+    };
+  }
+
+  // ---- Shrinkage (decision 52): Stocktake tab + Report Writer ----
+  function shrinkPeriod(){
+    const to = cycleShrinkTo || businessDateOf(), from = cycleShrinkFrom || businessDateOf(Date.now()-29*CYCLE_DAY);
+    return { from, to, fromTs:new Date(businessDayStartMs(from)).toISOString(), toTs:new Date(businessDayStartMs(to, 1)-1).toISOString() };
+  }
+  function shrinkageData(fromTs, toTs){
+    const costs = cycleShowCosts(), rows = cycleShrinkRows(fromTs, toTs);
+    return Object.assign(cycleShrinkage(rows, costs), { rows, costs, doneDue:cycleDoneVsDue(fromTs, toTs) });
+  }
+  function renderShrinkage(main){
+    const per = shrinkPeriod(), d = shrinkageData(per.fromTs, per.toTs);
+    const money = (v)=> v==null? "" : currency+Number(v).toFixed(2);
+    const tbl = (id, title, head, xs)=> `<h4 style="margin:12px 0 4px">${title}</h4>${xs.length? `<table class="simple" id="${id}"><tr><th>${head}</th><th>Units</th>${d.costs? "<th>Value at cost</th>" : ""}<th>Counts</th></tr>${xs.map(x=>`<tr><td>${escapeHtml(x.key)}</td><td>${x.units>0? "+" : ""}${x.units}</td>${d.costs? `<td>${money(x.value)}</td>` : ""}<td>${x.counts}</td></tr>`).join("")}</table>` : `<p class="muted">None.</p>`}`;
+    main.innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+        <label style="margin:0">From<input class="field" type="date" id="shFrom" value="${per.from}" style="margin:0"></label>
+        <label style="margin:0">To<input class="field" type="date" id="shTo" value="${per.to}" style="margin:0"></label>
+        <button class="btn btn-outline" id="shPrint">🖨️ Print/PDF</button>
+      </div>
+      <div class="box" id="shSummary" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+        <span>Lost / found: <b id="shUnits">${d.units>0? "+" : ""}${d.units}</b> units</span>
+        ${d.costs? `<span>Value at cost: <b id="shValue">${money(d.value)}</b></span>` : `<span class="muted" id="shNoCosts">Values need View costs: units only.</span>`}
+        <span>Counts done vs due: <b id="shDone">${d.doneDue.done} / ${d.doneDue.due}</b></span>
+      </div>
+      ${tbl("shTop", "Top 10 items lost", "Item", d.top10)}
+      ${tbl("shWeeks", "Trend by week", "Week from", d.weeks)}
+      ${tbl("shShelves", "By shelf", "Shelf", d.shelves)}
+      ${tbl("shStaff", "By staff on duty (who sold that day, and the counter)", "Staff", d.staff)}
+      <p class="muted" style="font-size:12px">From approved cycle counts at this branch and full stocktakes applied on this device. ${escapeHtml(currentBranch())}.</p>`;
+    main.querySelector("#shFrom").onchange = (e)=>{ cycleShrinkFrom = e.target.value; render(); };
+    main.querySelector("#shTo").onchange = (e)=>{ cycleShrinkTo = e.target.value; render(); };
+    main.querySelector("#shPrint").onclick = ()=>{
+      const r = shrinkageReport(per.fromTs, per.toTs);
+      printReport("Shrinkage", currentBranch()+" · "+per.from+" to "+per.to, r.headers, r.rows, r.footer);
+    };
+  }
+  // The detail, as Report Writer and the print show it
+  function shrinkageReport(fromTs, toTs){
+    const d = shrinkageData(fromTs, toTs);
+    const rows = d.rows.map(r=>[escapeHtml(new Date(r.counted_ts).toLocaleString()), skuNameCell(r.code, r.name), escapeHtml(r.shelf||"—"), (r.diff>0? "+" : "")+r.diff]
+      .concat(d.costs? [currency+(r.diff*(r.unit_cost||0)).toFixed(2)] : [], [escapeHtml(r.how), escapeHtml(r.counted_by||""), escapeHtml(r.staff||"")]));
+    return { headers:["Date","Item","Shelf","Units"].concat(d.costs? ["Value at cost"] : [], ["How","Counted by","Staff on duty"]), rows,
+      footer:`${d.units>0? "+" : ""}${d.units} units${d.costs? " · "+currency+Number(d.value).toFixed(2)+" at cost" : " (values need View costs)"} · counts done ${d.doneDue.done} of ${d.doneDue.due} due` };
+  }
+  if(typeof REPORT_CONFIGS!=="undefined"){
+    REPORT_CONFIGS.push({ id:"shrinkage", label:"Shrinkage (counts)", hasDate:true, fetch(b, fromTs, toTs){ return shrinkageReport(fromTs, toTs); } });
+    RW_KIND.shrinkage = "stock";   // units for everyone with Report Writer; values only with View costs (shrinkageData)
+  }
+
+  // ---- Settings → Count now (the shop's intervals and list size) ----
+  function cycleSettingsCardHtml(){
+    if(!(typeof can!=="function" || can("approve_counts"))) return "";
+    const s = cycleSettings();
+    const f = (id, label, v)=> `<label style="flex:1;min-width:110px;margin:0">${label}<input class="field" id="${id}" type="number" min="1" max="999" step="1" value="${v}" style="margin:0"></label>`;
+    return `<div class="card" id="cycleSettingsCard">
+      <h3 style="margin-top:0">Count now (cycle stocktake)</h3>
+      <p class="muted" style="font-size:12.5px;margin:0 0 6px">Class A is the top 80% of value sold at cost in 90 days, B the next 15%, C the rest. Red flags are always counted first.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${f("cyA","A every (days)",s.a)}${f("cyB","B every (days)",s.b)}${f("cyC","C every (days)",s.c)}${f("cySize","Items a day",s.size)}</div>
+      <button class="btn btn-outline btn-sm" id="cySave" style="margin-top:8px">Save</button> <span class="muted" id="cyMsg" style="font-size:12px"></span>
+    </div>`;
+  }
+  function cycleSettingsWire(scope){
+    const b = scope.querySelector("#cySave");
+    if(!b) return;
+    b.onclick = ()=>{
+      const vals = [["cyA","cycle_days_a"],["cyB","cycle_days_b"],["cyC","cycle_days_c"],["cySize","cycle_size"]].map(([id,k])=>[k, parseInt(scope.querySelector("#"+id).value, 10)]);
+      if(vals.some(([,v])=> !(v>=1 && v<=999))){ scope.querySelector("#cyMsg").textContent = "Whole numbers from 1 to 999."; return; }
+      vals.forEach(([k,v])=> setSetting(k, String(v)));
+      setSetting("cycle_list", "");   // today's list is chosen again with the new figures
+      persist(); scope.querySelector("#cyMsg").textContent = "Saved.";
+    };
+  }
+
+  // ================== Stock requests and recalls (v37, owner decisions 53 and 54) ==================
+  // docs/stock-control/v37-design.md §2-3. A branch asks main for stock (B3, as
+  // designed); main approves all, part or rejects with a reason; "Create dispatch"
+  // opens Dispatch pre-filled (the draft DN), linked to the request; the normal
+  // DN -> GRV flow follows. Main recalls stock from a branch; the branch sends it
+  // back with a normal DN (short lines with a reason); main's GRV receives it. A
+  // recall alone never moves stock. The customer notepad (requests.js) is separate.
+
+  let srqTab = "requests";
+  const srqFilter = { status:"", branch:"", from:"", to:"", q:"" };
+  const rclFilter = { status:"", q:"" };
+  const SRQ_STATUS = { pending:"Pending", approved:"Approved", part_approved:"Part-approved", rejected:"Rejected", dispatched:"Dispatched", received:"Received" };
+  const RCL_STATUS = { open:"Open", partly_sent:"Partly sent", sent:"Sent", received:"Received", cancelled:"Cancelled" };
+  const RCL_REASONS = [["expiring","Expiring"],["overstock","Overstock"],["move","Move to another branch"],["quality","Quality"],["other","Other"]];
+  const srqCan = (r)=> typeof can!=="function" || can(r);
+  function srqAvailable(){ return typeof scAvailable==="function" && scAvailable() && (srqCan("request_stock") || srqCan("review_requisitions") || srqCan("recall_stock") || srqCan("m.dispatch")); }
+  function srqToday(){ return businessDateOf(); }
+  function srqStatusChip(s, overdue){
+    const t = overdue? "Overdue" : SRQ_STATUS[s] || RCL_STATUS[s] || s;
+    const c = overdue || s==="rejected"? "#b42318" : s==="pending" || s==="open"? "#b54708" : s==="received"? "#067647" : "#344054";
+    return `<span class="srq-status" style="font-size:11.5px;font-weight:700;color:${c}">${escapeHtml(t)}</span>`;
+  }
+  function rclOverdue(q){ return q.status==="open" && !!q.due_date && q.due_date < srqToday(); }
+  function srqWaitingNote(id){
+    const w = scWaitingFor(id), r = scRefusedFor(id);
+    return (w.length? `<div class="muted srq-waiting" style="font-size:12px">⏳ Waiting to send to seiGEN${w[0].error? ": "+escapeHtml(w[0].error) : ""}</div>` : "")
+      + r.map(x=>`<div class="srq-refused" style="font-size:12px;color:#b42318">seiGEN didn't take it: ${escapeHtml(x.error||x.code)}</div>`).join("");
+  }
+
+  // ---- the screen (More → Stock requests) ----
+  function renderStockCtl(main){
+    const tabs = [{ id:"requests", label:"Stock requests" }, { id:"recalls", label:"Recalls" }];
+    main.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:10px">${tabs.map(t=>`<button class="btn btn-sm ${t.id===srqTab? "btn-primary" : "btn-outline"}" data-srq-tab="${t.id}">${t.label}</button>`).join("")}
+      <button class="btn btn-sm btn-ghost" id="srqRefresh" style="margin-left:auto">↻ Refresh</button></div><div id="srqBody"></div>`;
+    main.querySelectorAll("[data-srq-tab]").forEach(b=> b.onclick = ()=>{ srqTab = b.dataset.srqTab; render(); });
+    main.querySelector("#srqRefresh").onclick = async (e)=>{ e.target.disabled = true; await scTick(); render(); };
+    const body = main.querySelector("#srqBody");
+    if(srqTab==="recalls") renderRecalls(body); else renderRequestsList(body);
+  }
+
+  // ---- stock requests ----
+  function srqVisible(){
+    // the requesting branch sees its own; reviewers and main see every branch's (§R9)
+    const mine = scMyBranch();
+    return scRequests().filter(q=> q.from_branch_id===mine || srqCan("review_requisitions") || scIsMain());
+  }
+  function srqFiltered(){
+    const f = srqFilter;
+    return srqVisible().filter(q=>{
+      if(f.status && q.status!==f.status) return false;
+      if(f.branch && q.from_branch_id!==f.branch) return false;
+      const d = businessDateOf(q.created_ts||q.created_at);
+      if(f.from && d<f.from) return false;
+      if(f.to && d>f.to) return false;
+      return textMatches(f.q, { text:[q.req_no, q.from_branch, q.reason, q.requested_by, q.decided_by, q.dn_display, q.grv_display].concat((q.lines||[]).map(l=>l.name+" "+(l.code||""))), dates:[q.created_ts] });
+    });
+  }
+  function renderRequestsList(main){
+    const rows = srqFiltered(), branches = scBranches().filter(b=>!b.is_main);
+    const canNew = srqCan("request_stock") && !scIsMain();
+    main.innerHTML = `
+      ${canNew? `<button class="btn btn-primary" id="srqNew" style="margin-bottom:10px">+ Request stock from main</button>` : ""}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin-bottom:8px">
+        <select class="field" id="srqStatus" style="margin:0;max-width:170px"><option value="">Every status</option>${Object.entries(SRQ_STATUS).map(([k,v])=>`<option value="${k}" ${srqFilter.status===k? "selected" : ""}>${v}</option>`).join("")}</select>
+        ${branches.length>1 || scIsMain()? `<select class="field" id="srqBranch" style="margin:0;max-width:170px"><option value="">Every branch</option>${branches.map(b=>`<option value="${escapeHtml(b.id)}" ${srqFilter.branch===b.id? "selected" : ""}>${escapeHtml(b.name)}</option>`).join("")}</select>` : ""}
+        <input class="field" type="date" id="srqFrom" value="${escapeHtml(srqFilter.from)}" style="margin:0;max-width:150px" title="From">
+        <input class="field" type="date" id="srqTo" value="${escapeHtml(srqFilter.to)}" style="margin:0;max-width:150px" title="To">
+      </div>
+      <div class="search-wrap"><span class="ic">🔎</span><input class="field" id="srqSearch" placeholder="Search: number, branch, item, reason…" value="${escapeHtml(srqFilter.q)}"></div>
+      <div id="srqList">${srqListHtml(rows)}</div>`;
+    const set = (k, v)=>{ srqFilter[k] = v; main.querySelector("#srqList").innerHTML = srqListHtml(srqFiltered()); wireSrqRows(main); };
+    main.querySelector("#srqStatus").onchange = (e)=> set("status", e.target.value);
+    const br = main.querySelector("#srqBranch"); if(br) br.onchange = (e)=> set("branch", e.target.value);
+    main.querySelector("#srqFrom").onchange = (e)=> set("from", e.target.value);
+    main.querySelector("#srqTo").onchange = (e)=> set("to", e.target.value);
+    main.querySelector("#srqSearch").oninput = (e)=> set("q", e.target.value);
+    const nb = main.querySelector("#srqNew"); if(nb) nb.onclick = ()=> openRequestCreate();
+    wireSrqRows(main);
+  }
+  function srqListHtml(rows){
+    if(!rows.length) return `<p class="muted" id="srqNone">No stock requests${srqFilter.status||srqFilter.q||srqFilter.branch? " match" : " yet"}.</p>`;
+    return `<div class="card" style="overflow-x:auto;padding:4px"><table class="simple" id="srqTable">
+      <tr><th>Request</th><th>From</th><th>Date</th><th>Needed by</th><th>Items</th><th>Status</th></tr>
+      ${rows.map(q=>`<tr class="srq-row" data-srq="${escapeHtml(q.id)}" style="cursor:pointer" title="Tap or double-click for its history">
+        <td><b>${escapeHtml(q.req_no)}</b>${q._local? ` <span class="muted" style="font-size:11px">⏳</span>` : ""}</td><td>${escapeHtml(q.from_branch||scBranchName(q.from_branch_id))}</td>
+        <td>${escapeHtml(new Date(q.created_ts||q.created_at).toLocaleDateString())}</td><td>${escapeHtml(q.needed_by||"—")}</td>
+        <td>${(q.lines||[]).length}</td><td>${srqStatusChip(q.status)}</td></tr>`).join("")}</table></div>`;
+  }
+  function wireSrqRows(main){
+    main.querySelectorAll("[data-srq]").forEach(tr=>{ tr.ondblclick = ()=> openRequestHistory(tr.dataset.srq); tr.onclick = ()=> openRequestHistory(tr.dataset.srq); });
+  }
+  // main's stock of a product (seiGEN's branch figures; this till's own when it is at main)
+  function srqMainQty(p){
+    if(scIsMain()) return p.stock;
+    const mainB = typeof bsBranches==="function"? bsBranches().find(b=>b.is_main) : null;
+    const q = mainB && typeof bsBranchQty==="function"? bsBranchQty(mainB, p) : null;
+    return q? q.qty : null;
+  }
+  function openRequestCreate(){
+    const branch = currentBranch();
+    const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[branch]);
+    const lines = []; let q = "";
+    const wrap = openModal("Request stock from main", `<div id="rcBody"></div>`);
+    const body = wrap.querySelector("#rcBody");
+    const draw = (keepFocus)=>{
+      const matches = q.trim()? productSearch(products, q).slice(0,8) : [];
+      body.innerHTML = `
+        <label style="margin-top:0">Add items</label><input class="field" id="rcSearch" placeholder="Search by name or code" value="${escapeHtml(q)}" autocomplete="off">
+        ${matches.map(p=>{ const mq = srqMainQty(p); return `<button type="button" class="card" data-add="${p.id}" style="display:block;width:100%;text-align:left;padding:6px;margin:4px 0">${escapeHtml(p.name)} <span class="muted">${escapeHtml(p.sku||"")} · main has ${mq==null? "?" : mq}</span></button>`; }).join("")}
+        <div style="margin-top:8px">${lines.map((l,i)=>`<div class="card" style="padding:6px;margin-bottom:4px;display:flex;gap:6px;align-items:center">
+          <div style="flex:1"><b>${escapeHtml(l.p.name)}</b><div class="muted" style="font-size:11.5px">${escapeHtml(l.p.sku||"")} · here ${l.p.stock} · main has <span class="rc-main">${l.main==null? "?" : l.main}</span></div></div>
+          <input class="field" data-q="${i}" inputmode="numeric" value="${escapeHtml(l.qty)}" style="width:70px;margin:0"><button class="close-x" data-del="${i}">✕</button></div>`).join("")}</div>
+        <label>Reason</label><input class="field" id="rcReason" maxlength="200" value="${escapeHtml(wrap._reason||"")}" placeholder="e.g. Running out before the weekend">
+        <label>Needed by</label><input class="field" id="rcNeed" type="date" value="${escapeHtml(wrap._need||"")}">
+        <div id="rcErr" style="color:#b42318;font-size:12.5px"></div>
+        <button class="btn btn-primary" id="rcSave">Send request</button>`;
+      const s = body.querySelector("#rcSearch");
+      s.oninput = ()=>{ q = s.value; wrap._reason = body.querySelector("#rcReason").value; wrap._need = body.querySelector("#rcNeed").value; draw(true); };
+      if(keepFocus){ s.focus(); try{ s.setSelectionRange(s.value.length, s.value.length); }catch(e){} }
+      body.querySelectorAll("[data-add]").forEach(b=> b.onclick = ()=>{ const p = products.find(x=>x.id===+b.dataset.add); if(!lines.some(l=>l.p.id===p.id)) lines.push({ p, qty:"1", main:srqMainQty(p) }); q = ""; draw(); });
+      body.querySelectorAll("[data-q]").forEach(inp=> inp.oninput = ()=>{ lines[+inp.dataset.q].qty = inp.value; });
+      body.querySelectorAll("[data-del]").forEach(b=> b.onclick = ()=>{ lines.splice(+b.dataset.del, 1); draw(); });
+      body.querySelector("#rcSave").onclick = ()=>{
+        const reason = body.querySelector("#rcReason").value.trim(), need = body.querySelector("#rcNeed").value;
+        const r = srqCreate(lines.map(l=>({ product:l.p, qty:l.qty })), reason, need);
+        if(!r.ok){ body.querySelector("#rcErr").textContent = r.message; return; }
+        persist(); scSoon(); wrap.remove(); render();
+      };
+    };
+    draw();
+  }
+  // -> { ok, id, req_no } | { ok:false, message }
+  function srqCreate(lines, reason, neededBy){
+    if(!lines.length) return { ok:false, message:"Add at least one item." };
+    for(const l of lines){ if(!/^\d+$/.test(String(l.qty).trim()) || Number(l.qty)<1) return { ok:false, message:l.product.name+": a whole number of 1 or more." }; }
+    if(!String(reason||"").trim()) return { ok:false, message:"Give a reason." };
+    if(neededBy && !/^\d{4}-\d{2}-\d{2}$/.test(neededBy)) return { ok:false, message:"Needed by: a date." };
+    const id = scNewUid(), ts = new Date().toISOString();
+    let no;
+    db.run("BEGIN");
+    try{
+      no = reserveDocNumber("SRQ");
+      const ls = lines.map((l,i)=>({ line_no:i+1, product_key:scProductKey(l.product), code:l.product.sku||"", name:l.product.name, qty:Number(l.qty), approved_qty:null }));
+      const doc = { id, req_no:no.text, from_branch_id:scMyBranch(), from_branch:currentBranch(), to_branch_id:scMainBranch(), to_branch:scBranchName(scMainBranch()),
+        terminal_id:scMyTerminal(), requested_by:scWho(), reason:String(reason).trim(), needed_by:neededBy||null, status:"pending", created_ts:ts, lines:ls,
+        log:[{ at:ts, by:scWho(), action:"requested" }] };
+      scSaveDoc("sc_requests", doc, true);
+      scQueue("request_create", { id, req_no:no.text, reason:doc.reason, needed_by:doc.needed_by, staff_id:scStaffId(), lines:ls.map(l=>({ product_key:l.product_key, code:l.code, name:l.name, qty:l.qty })) }, id);
+      logAudit("Stock request", "", no.text+": "+ls.length+" item"+(ls.length===1? "" : "s")+" from main");
+      db.run("COMMIT");
+    }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
+    return { ok:true, id, req_no:no.text };
+  }
+  // action: approve | part | reject; lines: { line_no: approved qty } (part) -> { ok } | { ok:false, message }
+  function srqDecide(id, action, note, lines){
+    const q = scRequest(id);
+    if(!q || q.status!=="pending") return { ok:false, message:"That request isn't pending any more." };
+    if(!srqCan("review_requisitions")) return { ok:false, message:"Reviewing needs the Review stock requests right." };
+    if(action==="reject" && !String(note||"").trim()) return { ok:false, message:"Give the reason for rejecting." };
+    let ls = [];
+    if(action==="part"){
+      ls = (q.lines||[]).map(l=>({ line_no:l.line_no, approved_qty:Number(lines && lines[l.line_no]) }));
+      for(const l of ls){ const src = q.lines.find(x=>x.line_no===l.line_no); if(!Number.isInteger(l.approved_qty) || l.approved_qty<0 || l.approved_qty>src.qty) return { ok:false, message:src.name+": approve 0 to "+src.qty+"." }; }
+      if(!ls.some(l=>l.approved_qty>0)) return { ok:false, message:"Nothing approved: reject it with a reason instead." };
+    }
+    const status = action==="approve"? "approved" : action==="reject"? "rejected" : (ls.every(l=> l.approved_qty===q.lines.find(x=>x.line_no===l.line_no).qty)? "approved" : "part_approved");
+    q.lines.forEach(l=>{ l.approved_qty = action==="approve"? l.qty : action==="reject"? 0 : ls.find(x=>x.line_no===l.line_no).approved_qty; });
+    Object.assign(q, { status, decided_by:scWho(), decided_at:new Date().toISOString(), decision_note:String(note||"").trim()||null });
+    (q.log = q.log||[]).push({ at:q.decided_at, by:q.decided_by, action:status });
+    db.run("BEGIN");
+    try{
+      scSaveDoc("sc_requests", q, q._local);
+      scQueue("request_decide", { id, action, note:q.decision_note, lines:ls }, id);
+      logAudit("Stock request "+status, "", q.req_no+(q.decision_note? ": "+q.decision_note : ""));
+      db.run("COMMIT");
+    }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
+    return { ok:true, status };
+  }
+  // The "draft DN": Dispatch opened pre-filled with the approved quantities, linked to the request
+  function srqDispatchPrefill(q){
+    const missing = [];
+    const lines = (q.lines||[]).filter(l=>(l.approved_qty||0)>0).map(l=>{ const p = scProductByKey(l.product_key); if(!p){ missing.push(l.name); return null; } return { product:p, qty:l.approved_qty }; }).filter(Boolean);
+    return { toBranch:q.from_branch || scBranchName(q.from_branch_id), lines, link:{ type:"request", id:q.id }, title:"Dispatch for "+q.req_no, internalRef:q.req_no,
+      note:"Stock request "+q.req_no+" from "+(q.from_branch||"")+" ("+(SRQ_STATUS[q.status]||q.status)+"). Change quantities if you must; the request is linked to this Delivery Note."
+        +(missing.length? " Not on this till: "+missing.join(", ")+"." : ""), missing };
+  }
+  function openRequestHistory(id){
+    const q = scRequest(id);
+    if(!q) return;
+    const atMain = scIsMain();
+    const wrap = openModal("Stock request "+q.req_no, `
+      <div id="srqHist">
+        <p style="margin:0 0 4px">${srqStatusChip(q.status)} · from <b>${escapeHtml(q.from_branch||"")}</b> to ${escapeHtml(q.to_branch||"main")}</p>
+        <p class="muted" style="margin:0 0 4px;font-size:12.5px">Asked by ${escapeHtml(q.requested_by||"?")} on ${escapeHtml(new Date(q.created_ts||q.created_at).toLocaleString())}${q.needed_by? " · needed by "+escapeHtml(q.needed_by) : ""}</p>
+        <p style="margin:0 0 6px">Reason: ${escapeHtml(q.reason||"")}</p>
+        ${q.decision_note? `<p style="margin:0 0 6px" id="srqNote"><b>${escapeHtml(q.status==="rejected"? "Rejected" : "Reviewer's note")}:</b> ${escapeHtml(q.decision_note)}${q.decided_by? " ("+escapeHtml(q.decided_by)+")" : ""}</p>` : ""}
+        ${srqWaitingNote(q.id)}
+        <table class="simple"><tr><th>Item</th><th>Asked</th><th>Approved</th></tr>${(q.lines||[]).map(l=>`<tr><td>${skuNameCellScreen(l.code, l.name)}</td><td>${l.qty}</td>
+          <td>${q.status==="pending"? `<input class="field" data-part="${l.line_no}" inputmode="numeric" value="${l.qty}" style="width:70px;margin:0" ${srqCan("review_requisitions")? "" : "disabled"}>` : (l.approved_qty==null? "—" : l.approved_qty)}</td></tr>`).join("")}</table>
+        ${q.dn_display? `<p style="margin:6px 0 0">Delivery Note: <b>${escapeHtml(q.dn_display)}</b>${q.grv_display? " · GRV <b>"+escapeHtml(q.grv_display)+"</b>" : ""}</p>` : ""}
+        <h4 style="margin:10px 0 4px">History</h4>
+        <div style="font-size:12.5px">${(q.log||[]).map(g=>`<div>${escapeHtml(new Date(g.at).toLocaleString())} · ${escapeHtml(g.by||"")} · ${escapeHtml(g.action)}${g.detail && g.detail.dn? " "+escapeHtml(g.detail.dn) : ""}${g.detail && g.detail.grv? " "+escapeHtml(g.detail.grv) : ""}</div>`).join("")}</div>
+        ${q.status==="pending" && srqCan("review_requisitions")? `<label>Note / reason</label><input class="field" id="srqDecNote" maxlength="200">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-primary" data-dec="approve">Approve all</button><button class="btn btn-outline" data-dec="part">Approve as typed (part)</button><button class="btn btn-outline" data-dec="reject">Reject</button></div>` : ""}
+        ${(q.status==="approved" || q.status==="part_approved") && atMain && srqCan("m.dispatch") && !q.dispatch_id? `<button class="btn btn-primary" id="srqDispatch" style="margin-top:10px">Create dispatch</button>` : ""}
+        <div id="srqErr" style="color:#b42318;font-size:12.5px"></div>
+      </div>`);
+    wrap.querySelectorAll("[data-dec]").forEach(b=> b.onclick = ()=>{
+      const part = {}; wrap.querySelectorAll("[data-part]").forEach(i=>{ part[+i.dataset.part] = /^\d+$/.test(i.value.trim())? Number(i.value) : NaN; });
+      const r = srqDecide(q.id, b.dataset.dec, wrap.querySelector("#srqDecNote").value, part);
+      if(!r.ok){ wrap.querySelector("#srqErr").textContent = r.message; return; }
+      persist(); scSoon(); wrap.remove(); render();
+    });
+    const dbtn = wrap.querySelector("#srqDispatch");
+    if(dbtn) dbtn.onclick = ()=>{
+      const pre = srqDispatchPrefill(q);
+      if(!pre.lines.length){ wrap.querySelector("#srqErr").textContent = "None of the approved items is on this till."; return; }
+      wrap.remove(); openDispatchScreen(pre);
+    };
+  }
+
+  // ---- recalls ----
+  function rclVisible(){ const me = scMyBranch(); return scRecalls().filter(q=> scIsMain() || q.branch_id===me); }
+  function rclFiltered(){
+    return rclVisible().filter(q=>{
+      if(rclFilter.status==="overdue"? !rclOverdue(q) : rclFilter.status && q.status!==rclFilter.status) return false;
+      return textMatches(rclFilter.q, { text:[q.rcl_no, q.branch, q.reason, q.reason_kind, q.created_by, q.dn_display].concat((q.lines||[]).map(l=>l.name+" "+(l.code||""))), dates:[q.created_ts] });
+    });
+  }
+  function renderRecalls(main){
+    const canNew = srqCan("recall_stock") && scIsMain();
+    main.innerHTML = `
+      ${canNew? `<button class="btn btn-primary" id="rclNew" style="margin-bottom:10px">+ New recall</button>` : ""}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <select class="field" id="rclStatus" style="margin:0;max-width:170px"><option value="">Every status</option><option value="overdue" ${rclFilter.status==="overdue"? "selected" : ""}>Overdue</option>${Object.entries(RCL_STATUS).map(([k,v])=>`<option value="${k}" ${rclFilter.status===k? "selected" : ""}>${v}</option>`).join("")}</select>
+      </div>
+      <div class="search-wrap"><span class="ic">🔎</span><input class="field" id="rclSearch" placeholder="Search: number, branch, item, reason…" value="${escapeHtml(rclFilter.q)}"></div>
+      <div id="rclList">${rclListHtml(rclFiltered())}</div>`;
+    const set = (k, v)=>{ rclFilter[k] = v; main.querySelector("#rclList").innerHTML = rclListHtml(rclFiltered()); wireRclRows(main); };
+    main.querySelector("#rclStatus").onchange = (e)=> set("status", e.target.value);
+    main.querySelector("#rclSearch").oninput = (e)=> set("q", e.target.value);
+    const nb = main.querySelector("#rclNew"); if(nb) nb.onclick = ()=> openRecallCreate();
+    wireRclRows(main);
+  }
+  function rclListHtml(rows){
+    if(!rows.length) return `<p class="muted" id="rclNone">No recalls${rclFilter.status||rclFilter.q? " match" : ""}.</p>`;
+    return `<div class="card" style="overflow-x:auto;padding:4px"><table class="simple" id="rclTable"><tr><th>Recall</th><th>From branch</th><th>Reason</th><th>Due</th><th>Items</th><th>Status</th></tr>
+      ${rows.map(q=>`<tr class="rcl-row" data-rcl="${escapeHtml(q.id)}" style="cursor:pointer"><td><b>${escapeHtml(q.rcl_no)}</b>${q._local? ` <span class="muted" style="font-size:11px">⏳</span>` : ""}</td>
+        <td>${escapeHtml(q.branch||scBranchName(q.branch_id))}</td><td>${escapeHtml((RCL_REASONS.find(r=>r[0]===q.reason_kind)||[,""])[1])}</td><td>${escapeHtml(q.due_date||"")}</td>
+        <td>${(q.lines||[]).length}</td><td>${srqStatusChip(q.status, rclOverdue(q))}</td></tr>`).join("")}</table></div>`;
+  }
+  function wireRclRows(main){ main.querySelectorAll("[data-rcl]").forEach(tr=>{ tr.onclick = ()=> openRecallHistory(tr.dataset.rcl); tr.ondblclick = ()=> openRecallHistory(tr.dataset.rcl); }); }
+  function openRecallCreate(){
+    const products = all("SELECT * FROM products WHERE branch=? AND COALESCE(active,1)=1 ORDER BY name",[currentBranch()]);
+    const branches = scBranches().filter(b=>!b.is_main);
+    if(!branches.length){ alert("No other branches on seiGEN yet."); return; }
+    const lines = []; let q = "";
+    const due = businessDateOf(Date.now()+7*86400000);
+    const wrap = openModal("Recall stock from a branch", `<div id="rlBody"></div>`);
+    const st = { branch:branches[0].id, kind:"overstock", reason:"", due };
+    const body = wrap.querySelector("#rlBody");
+    const draw = (keepFocus)=>{
+      const matches = q.trim()? productSearch(products, q).slice(0,8) : [];
+      body.innerHTML = `
+        <label style="margin-top:0">From branch</label><select class="field" id="rlBranch">${branches.map(b=>`<option value="${escapeHtml(b.id)}" ${st.branch===b.id? "selected" : ""}>${escapeHtml(b.name)}</option>`).join("")}</select>
+        <label>Reason</label><select class="field" id="rlKind">${RCL_REASONS.map(([k,v])=>`<option value="${k}" ${st.kind===k? "selected" : ""}>${v}</option>`).join("")}</select>
+        <input class="field" id="rlReason" maxlength="200" placeholder="Details${st.kind==="other"? " (required)" : " (optional)"}" value="${escapeHtml(st.reason)}">
+        <label>Due date</label><input class="field" id="rlDue" type="date" value="${escapeHtml(st.due)}">
+        <label>Items</label><input class="field" id="rlSearch" placeholder="Search by name or code" value="${escapeHtml(q)}" autocomplete="off">
+        ${matches.map(p=>`<button type="button" class="card" data-add="${p.id}" style="display:block;width:100%;text-align:left;padding:6px;margin:4px 0">${escapeHtml(p.name)} <span class="muted">${escapeHtml(p.sku||"")}</span></button>`).join("")}
+        ${lines.map((l,i)=>`<div class="card" style="padding:6px;margin:4px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b style="flex:1">${escapeHtml(l.p.name)}</b>
+          <label style="margin:0;font-size:12px"><input type="checkbox" data-all="${i}" ${l.all? "checked" : ""}> All on hand</label>
+          <input class="field" data-q="${i}" inputmode="numeric" value="${escapeHtml(l.qty)}" style="width:70px;margin:0" ${l.all? "disabled" : ""}><button class="close-x" data-del="${i}">✕</button></div>`).join("")}
+        <div id="rlErr" style="color:#b42318;font-size:12.5px"></div>
+        <button class="btn btn-primary" id="rlSave">Send recall</button>`;
+      const keep = ()=>{ st.branch = body.querySelector("#rlBranch").value; st.kind = body.querySelector("#rlKind").value; st.reason = body.querySelector("#rlReason").value; st.due = body.querySelector("#rlDue").value; };
+      const s = body.querySelector("#rlSearch");
+      s.oninput = ()=>{ keep(); q = s.value; draw(true); };
+      if(keepFocus){ s.focus(); try{ s.setSelectionRange(s.value.length, s.value.length); }catch(e){} }
+      body.querySelector("#rlKind").onchange = ()=>{ keep(); draw(); };
+      body.querySelectorAll("[data-add]").forEach(b=> b.onclick = ()=>{ keep(); const p = products.find(x=>x.id===+b.dataset.add); if(!lines.some(l=>l.p.id===p.id)) lines.push({ p, qty:"1", all:false }); q = ""; draw(); });
+      body.querySelectorAll("[data-q]").forEach(inp=> inp.oninput = ()=>{ lines[+inp.dataset.q].qty = inp.value; });
+      body.querySelectorAll("[data-all]").forEach(c=> c.onchange = ()=>{ keep(); lines[+c.dataset.all].all = c.checked; draw(); });
+      body.querySelectorAll("[data-del]").forEach(b=> b.onclick = ()=>{ keep(); lines.splice(+b.dataset.del, 1); draw(); });
+      body.querySelector("#rlSave").onclick = ()=>{
+        keep();
+        const r = rclCreate(st.branch, st.kind, st.reason, st.due, lines.map(l=>({ product:l.p, qty:l.qty, all:l.all })));
+        if(!r.ok){ body.querySelector("#rlErr").textContent = r.message; return; }
+        persist(); scSoon(); wrap.remove(); render();
+      };
+    };
+    draw();
+  }
+  function rclCreate(branchId, kind, reason, due, lines){
+    if(!scBranches().some(b=>b.id===branchId && !b.is_main)) return { ok:false, message:"Choose a branch." };
+    if(!RCL_REASONS.some(r=>r[0]===kind)) return { ok:false, message:"Choose a reason." };
+    if(kind==="other" && !String(reason||"").trim()) return { ok:false, message:"Say what the reason is." };
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(due||""))) return { ok:false, message:"Give a due date." };
+    if(!lines.length) return { ok:false, message:"Add at least one item." };
+    for(const l of lines){ if(!l.all && (!/^\d+$/.test(String(l.qty).trim()) || Number(l.qty)<1)) return { ok:false, message:l.product.name+": a whole number of 1 or more, or All on hand." }; }
+    const id = scNewUid(), ts = new Date().toISOString();
+    let no;
+    db.run("BEGIN");
+    try{
+      no = reserveDocNumber("RCL");
+      const ls = lines.map((l,i)=>({ line_no:i+1, product_key:scProductKey(l.product), code:l.product.sku||"", name:l.product.name, qty:l.all? 0 : Number(l.qty), all_on_hand:!!l.all }));
+      const doc = { id, rcl_no:no.text, branch_id:branchId, branch:scBranchName(branchId), to_branch_id:scMainBranch()||scMyBranch(), to_branch:currentBranch(), terminal_id:scMyTerminal(),
+        created_by:scWho(), reason_kind:kind, reason:String(reason||"").trim()||null, due_date:due, status:"open", created_ts:ts, lines:ls, log:[{ at:ts, by:scWho(), action:"recalled" }] };
+      scSaveDoc("sc_recalls", doc, true);
+      scQueue("recall_create", { id, rcl_no:no.text, branch_id:branchId, reason_kind:kind, reason:doc.reason, due_date:due, staff_id:scStaffId(), lines:ls.map(l=>({ product_key:l.product_key, code:l.code, name:l.name, qty:l.qty, all_on_hand:l.all_on_hand })) }, id);
+      logAudit("Recall", "", no.text+": "+ls.length+" item"+(ls.length===1? "" : "s")+" from "+doc.branch+", due "+due);
+      db.run("COMMIT");
+    }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
+    return { ok:true, id, rcl_no:no.text };
+  }
+  // Send back: per line, what goes and what is short (with a reason) -> the pre-filled DN to main
+  // sent: { line_no: { sent, reason } } -> { ok, pre } | { ok:false, message }
+  function rclSendBackPlan(q, sent){
+    const lines = [], link = [];
+    for(const l of q.lines||[]){
+      const p = scProductByKey(l.product_key), have = p? p.stock : 0;
+      const asked = l.all_on_hand? Math.max(0, have) : l.qty;
+      const s = sent[l.line_no] || {}, n = s.sent==null? Math.min(asked, Math.max(0, have)) : Number(s.sent);
+      if(!Number.isInteger(n) || n<0) return { ok:false, message:l.name+": a whole number to send." };
+      if(n>have) return { ok:false, message:l.name+": only "+have+" here." };
+      const short = l.all_on_hand? 0 : Math.max(0, asked - n);
+      if(short>0 && !String(s.reason||"").trim()) return { ok:false, message:l.name+": "+short+" short. Say why." };
+      if(n>0) lines.push({ product:p, qty:n });
+      link.push({ line_no:l.line_no, sent_qty:n, short_qty:short, short_reason:short>0? String(s.reason).trim() : null });
+    }
+    if(!lines.length) return { ok:false, message:"Nothing to send: every line is short." };
+    return { ok:true, pre:{ toBranch:q.to_branch || scBranchName(q.to_branch_id), lines, link:{ type:"recall", id:q.id, lines:link }, title:"Send back "+q.rcl_no, internalRef:q.rcl_no,
+      note:"Recall "+q.rcl_no+": sending back to "+(q.to_branch||"main")+". Transport is paid by the receiver (main)." } };
+  }
+  function rclCancel(id, note){
+    const q = scRecall(id);
+    if(!q || q.status!=="open") return { ok:false, message:"Only an open recall can be cancelled." };
+    Object.assign(q, { status:"cancelled", cancelled_by:scWho(), cancel_note:String(note||"").trim()||null });
+    db.run("BEGIN");
+    try{ scSaveDoc("sc_recalls", q, q._local); scQueue("recall_cancel", { id, note:q.cancel_note }, id); db.run("COMMIT"); }
+    catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
+    return { ok:true };
+  }
+  function openRecallHistory(id){
+    const q = scRecall(id);
+    if(!q) return;
+    const atBranch = q.branch_id===scMyBranch(), sendable = atBranch && q.status==="open" && srqCan("m.dispatch") && !q._local;
+    const wrap = openModal("Recall "+q.rcl_no, `
+      <p style="margin:0 0 4px">${srqStatusChip(q.status, rclOverdue(q))} · from <b>${escapeHtml(q.branch||"")}</b> back to ${escapeHtml(q.to_branch||"main")} · due ${escapeHtml(q.due_date||"")}</p>
+      <p class="muted" style="margin:0 0 4px;font-size:12.5px">By ${escapeHtml(q.created_by||"?")} on ${escapeHtml(new Date(q.created_ts||q.created_at).toLocaleString())} · ${escapeHtml((RCL_REASONS.find(r=>r[0]===q.reason_kind)||[,""])[1])}${q.reason? ": "+escapeHtml(q.reason) : ""}</p>
+      <p class="muted" style="margin:0 0 6px;font-size:12px">A recall alone never moves stock: stock leaves the branch only when its Delivery Note is sent. Transport is paid by main (the receiver).</p>
+      ${srqWaitingNote(q.id)}
+      <table class="simple" id="rclLines"><tr><th>Item</th><th>Recalled</th>${atBranch? "<th>Here</th>" : ""}<th>Sent</th><th>Short</th></tr>${(q.lines||[]).map(l=>{ const p = atBranch? scProductByKey(l.product_key) : null;
+        return `<tr><td>${skuNameCellScreen(l.code, l.name)}</td><td>${l.all_on_hand? "All on hand" : l.qty}</td>${atBranch? `<td>${p? p.stock : "—"}</td>` : ""}
+          <td>${sendable? `<input class="field" data-sent="${l.line_no}" inputmode="numeric" value="${Math.max(0, Math.min(l.all_on_hand? (p? p.stock : 0) : l.qty, p? p.stock : 0))}" style="width:64px;margin:0">` : (l.sent_qty==null? "—" : l.sent_qty)}</td>
+          <td>${sendable? `<input class="field" data-why="${l.line_no}" maxlength="200" placeholder="Why short" style="margin:0">` : (l.short_qty? l.short_qty+(l.short_reason? " ("+escapeHtml(l.short_reason)+")" : "") : "—")}</td></tr>`; }).join("")}</table>
+      ${q.dn_display? `<p style="margin:6px 0 0">Delivery Note: <b>${escapeHtml(q.dn_display)}</b>${q.grv_display? " · GRV <b>"+escapeHtml(q.grv_display)+"</b>" : ""}</p>` : ""}
+      <h4 style="margin:10px 0 4px">History</h4>
+      <div style="font-size:12.5px">${(q.log||[]).map(g=>`<div>${escapeHtml(new Date(g.at).toLocaleString())} · ${escapeHtml(g.by||"")} · ${escapeHtml(g.action)}</div>`).join("")}</div>
+      ${sendable? `<button class="btn btn-primary" id="rclSend" style="margin-top:10px">Send back (Delivery Note to main)</button>` : ""}
+      ${atBranch && q.status==="open" && q._local? `<p class="muted">Waiting for seiGEN before it can be sent back.</p>` : ""}
+      ${scIsMain() && q.status==="open" && srqCan("recall_stock")? `<button class="btn btn-outline" id="rclCancel" style="margin-top:10px">Cancel the recall</button>` : ""}
+      <div id="rclErr" style="color:#b42318;font-size:12.5px"></div>`);
+    const send = wrap.querySelector("#rclSend");
+    if(send) send.onclick = ()=>{
+      const sent = {};
+      wrap.querySelectorAll("[data-sent]").forEach(i=>{ const n = i.dataset.sent; sent[n] = { sent:/^\d+$/.test(i.value.trim())? Number(i.value) : NaN, reason:(wrap.querySelector(`[data-why="${n}"]`)||{}).value }; });
+      const r = rclSendBackPlan(q, sent);
+      if(!r.ok){ wrap.querySelector("#rclErr").textContent = r.message; return; }
+      wrap.remove(); openDispatchScreen(r.pre);
+    };
+    const cb = wrap.querySelector("#rclCancel");
+    if(cb) cb.onclick = ()=>{ const note = prompt("Why cancel this recall?"); if(note==null) return; const r = rclCancel(q.id, note); if(!r.ok){ wrap.querySelector("#rclErr").textContent = r.message; return; } persist(); scSoon(); wrap.remove(); render(); };
+  }
+
+  // ---- reports (Report Writer) ----
+  function srqReport(fromTs, toTs){
+    const rows = srqVisible().filter(q=>{ const t = q.created_ts||q.created_at; return (!fromTs || t>=fromTs) && (!toTs || t<=toTs); });
+    const byBranch = new Map();
+    rows.forEach(q=>{
+      const k = q.from_branch||scBranchName(q.from_branch_id)||"?";
+      const x = byBranch.get(k) || { open:0, approved:0, part:0, rejected:0, hours:[], n:0 };
+      x.n++;
+      if(q.status==="pending") x.open++; else if(q.status==="rejected") x.rejected++; else if(q.status==="part_approved") x.part++; else x.approved++;
+      if(q.decided_at) x.hours.push((Date.parse(q.decided_at) - Date.parse(q.created_ts||q.created_at))/3600000);
+      byBranch.set(k, x);
+    });
+    const avg = (h)=> h.length? (h.reduce((s,x)=>s+x,0)/h.length).toFixed(1) : "—";
+    const out = [...byBranch.entries()].map(([k,x])=>[escapeHtml(k), x.n, x.open, x.approved, x.part, x.rejected, avg(x.hours)]);
+    const all_ = rows.filter(q=>q.decided_at).map(q=>(Date.parse(q.decided_at) - Date.parse(q.created_ts||q.created_at))/3600000);
+    return { headers:["Branch","Requests","Open","Approved","Part-approved","Rejected","Average hours to decide"], rows:out,
+      footer:`${rows.length} request${rows.length===1? "" : "s"} · average ${avg(all_)} hours to decide` };
+  }
+  function rclReport(fromTs, toTs){
+    const rows = rclVisible().filter(q=>{ const t = q.created_ts||q.created_at; return (!fromTs || t>=fromTs) && (!toTs || t<=toTs); });
+    const out = rows.map(q=>{ const short = (q.lines||[]).filter(l=>(l.short_qty||0)>0);
+      return [escapeHtml(q.rcl_no), escapeHtml(q.branch||""), escapeHtml(q.due_date||""), rclOverdue(q)? "Overdue" : (RCL_STATUS[q.status]||q.status),
+        escapeHtml(q.dn_display||""), short.length? short.map(l=>escapeHtml(l.name)+" "+l.short_qty+(l.short_reason? " ("+escapeHtml(l.short_reason)+")" : "")).join("; ") : "—"]; });
+    const open = rows.filter(q=>q.status==="open").length, overdue = rows.filter(rclOverdue).length, shorts = rows.filter(q=>(q.lines||[]).some(l=>(l.short_qty||0)>0)).length;
+    return { headers:["Recall","Branch","Due","Status","DN","Shortages"], rows:out, footer:`${open} open · ${overdue} overdue · ${shorts} with shortages` };
+  }
+  if(typeof REPORT_CONFIGS!=="undefined"){
+    REPORT_CONFIGS.push({ id:"branchrequests", label:"Stock requests (branches)", hasDate:true, needs:()=> srqAvailable(), fetch(b, fromTs, toTs){ return srqReport(fromTs, toTs); } });
+    REPORT_CONFIGS.push({ id:"recalls", label:"Recalls", hasDate:true, needs:()=> srqAvailable(), fetch(b, fromTs, toTs){ return rclReport(fromTs, toTs); } });
+    RW_KIND.branchrequests = "stock"; RW_KIND.recalls = "stock";
+  }
+
+  // ================== Notification bell (v37, owner decisions 8, 12, 55) ==================
+  // docs/stock-control/v37-design.md §4. A bell in the header on every device,
+  // with an unread count per person.
+  //   * notices: one row per event (a unique key), so a repeated sync never makes a
+  //     second one; read_by lists the people (staff id, or "device" in single
+  //     operator mode) who read it. Who may see each category is checked again
+  //     when it is shown (the role decides, decision 48).
+  //   * titles only: never amounts, prices or customers' names (decision 8).
+  //   * every 60 s while the app is open, visible and online: one check at a time
+  //     (scTick: send, then pull with cursors, so nothing is lost offline);
+  //     paused when hidden, run at once on return.
+  //   * a short two-tone chime for a notice new in this check, never twice for one
+  //     key; Settings → Notifications: sound and categories on/off per person.
+  //   * phone/PC notifications while the app runs (Level 1): asked once, after the
+  //     first notice, never again after a "no". Push when closed is Level 2.
+
+  const BELL_EVERY_MS = 60000;
+  const BELL_KEEP_DAYS = 60;
+  const BELL_CATEGORIES = [
+    { id:"market", label:"Market feed (seiGEN)", right:null },
+    { id:"itred", label:"iTred sales orders", right:"m.sell" },
+    { id:"requests", label:"Stock requests", right:null },          // new: reviewers; status: the requesting branch (bellRight)
+    { id:"recalls", label:"Recalls", right:null },
+    { id:"counts", label:"Count differences to approve", right:"approve_counts" },
+    { id:"movements", label:"Incoming and received stock (DN / GRV)", right:null },
+  ];
+
+  function migrateBell(t){
+    try{ t.run(`CREATE TABLE IF NOT EXISTS notices(
+      key TEXT PRIMARY KEY, category TEXT NOT NULL, title TEXT NOT NULL, route TEXT DEFAULT '', ts TEXT NOT NULL,
+      right TEXT DEFAULT '', read_by TEXT DEFAULT '[]', chimed INTEGER DEFAULT 0, hidden INTEGER DEFAULT 0, body TEXT DEFAULT '')`); }catch(e){}
+    try{ t.run("CREATE INDEX IF NOT EXISTS ix_notices_ts ON notices(ts)"); }catch(e){}
+  }
+
+  // ---- who is looking ----
+  function bellPerson(){
+    const s = typeof staffSession==="function"? staffSession() : null;
+    return s && s.id? "staff:"+s.id : "device";
+  }
+  function bellSoundOn(){ return getSetting("bell_sound_"+bellPerson(), "1")!=="0"; }
+  function bellCatsOff(){ return scJson(getSetting("bell_cats_off_"+bellPerson(), "[]"), []); }
+  // A Guest's seat sees the Market feed only (decision 49)
+  function bellCanSee(n){
+    if(scGuest() && n.category!=="market") return false;
+    if(n.right && n.right.split("|").every(r=> typeof can==="function" && !can(r))) return false;
+    return !bellCatsOff().includes(n.category);
+  }
+  function bellVisible(){
+    return all("SELECT * FROM notices WHERE hidden=0 ORDER BY ts DESC LIMIT 200").filter(bellCanSee);
+  }
+  function bellIsRead(n, person){ return scJson(n.read_by, []).includes(person || bellPerson()); }
+  function bellUnread(){ const me = bellPerson(); return bellVisible().filter(n=>!bellIsRead(n, me)).length; }
+
+  // ---- adding (INSERT OR IGNORE by key: never twice) ----
+  // seed: the first look at a source marks what is already there as old (no flood, no chime)
+  function bellAdd(key, category, title, o){
+    o = o || {};
+    const before = one("SELECT key FROM notices WHERE key=?",[key]);
+    if(before) return false;
+    run("INSERT INTO notices(key,category,title,route,ts,right,read_by,chimed,hidden,body) VALUES(?,?,?,?,?,?,?,?,?,?)",
+      [key, category, String(title).slice(0,140), o.route||"", o.ts||new Date().toISOString(), o.right||"", o.seed? JSON.stringify(["*"]) : "[]", o.seed? 1 : 0, o.seed? 1 : 0, String(o.body||"").slice(0,2000)]);
+    return !o.seed;
+  }
+  // The notices a pull brings (stock-ctl.js scPull's changes). -> how many are new
+  function bellFromChanges(ch){
+    if(!ch) return 0;
+    const seed = !!ch.first;
+    let n = 0;
+    const me = scMyBranch();
+    (ch.market||[]).forEach(m=>{ if(bellAdd("market:"+m.id, "market", m.title, { route:"bell", ts:m.starts_at, body:m.body, seed:seed && getSetting("bell_market_seen","")==="1" })) n++; });
+    setSetting("bell_market_seen","1");
+    // drop broadcasts seiGEN switched off
+    if(Array.isArray(ch.market)){ const ids = new Set(ch.market.map(m=>"market:"+m.id)); all("SELECT key FROM notices WHERE category='market'").forEach(r=>{ if(!ids.has(r.key)) run("DELETE FROM notices WHERE key=?",[r.key]); }); }
+    if(ch.guest) return n;
+    (ch.requests||[]).forEach(({ q, was })=>{
+      if(!was && q.status==="pending" && q.from_branch_id!==me){
+        if(bellAdd("srq:new:"+q.id, "requests", "New stock request "+q.req_no+" from "+(q.from_branch||"a branch"), { route:"srq:"+q.id, right:"review_requisitions", seed })) n++;
+      }
+      if(q.from_branch_id===me && was!==q.status && q.status!=="pending"){
+        if(bellAdd("srq:"+q.id+":"+q.status, "requests", "Stock request "+q.req_no+": "+(SRQ_STATUS[q.status]||q.status), { route:"srq:"+q.id, right:"request_stock|review_requisitions", seed: seed || was===null && q.status==="received" })) n++;
+      }
+    });
+    (ch.recalls||[]).forEach(({ q, was })=>{
+      if(q.branch_id===me && !was && q.status==="open"){
+        if(bellAdd("rcl:new:"+q.id, "recalls", "Recall "+q.rcl_no+": send stock back to "+(q.to_branch||"main")+" by "+q.due_date, { route:"rcl:"+q.id, right:"m.dispatch", seed })) n++;
+      }
+      if(q.overdue && q.terminal_id===scMyTerminal()){
+        if(bellAdd("rcl:overdue:"+q.id, "recalls", "Recall "+q.rcl_no+" is overdue ("+(q.branch||"")+")", { route:"rcl:"+q.id, right:"recall_stock" })) n++;
+      }
+      if(was && q.terminal_id===scMyTerminal() && was.status!==q.status && ["partly_sent","sent","received"].includes(q.status)){
+        if(bellAdd("rcl:"+q.id+":"+q.status, "recalls", "Recall "+q.rcl_no+": "+(RCL_STATUS[q.status]||q.status), { route:"rcl:"+q.id, right:"recall_stock" })) n++;
+      }
+    });
+    (ch.counts||[]).forEach(({ c })=>{
+      if(c.status==="waiting"){ if(bellAdd("cc:wait:"+c.id, "counts", "Count difference to approve: "+c.name, { route:"counts", right:"approve_counts", seed })) n++; }
+      else run("UPDATE notices SET hidden=1 WHERE key=?",["cc:wait:"+c.id]);   // decided: nothing left to do
+    });
+    (ch.dispatches||[]).forEach(d=>{
+      const s = seed && getSetting("bell_moves_seen","")!=="1";
+      if(d.to_branch_id===me && d.status==="sent"){ if(bellAdd("dn:in:"+d.id, "movements", "Incoming "+d.dn_display+" from "+d.from_branch, { route:"incoming", right:"m.receive", ts:d.sent_at, seed:s })) n++; }
+      if(d.from_branch_id===me && (d.status==="received" || d.status==="received_diff")){
+        if(bellAdd("dn:rcv:"+d.id, "movements", d.dn_display+" received at "+d.to_branch+(d.grv_display? " ("+d.grv_display+")" : ""), { route:"dispatches", right:"m.dispatch", ts:d.received_at, seed:s })) n++;
+      }
+    });
+    setSetting("bell_moves_seen","1");
+    if(Array.isArray(ch.itred)) ch.itred.forEach(o=>{
+      const t = new Date(o.created_at);
+      if(bellAdd("itred:"+o.id, "itred", "New iTred order ("+t.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })+")", { route:"itred", right:"m.sell", ts:o.created_at, seed: seed && getSetting("bell_itred_seen","")!=="1" })) n++;
+    });
+    if(ch.itred) setSetting("bell_itred_seen","1");
+    return n;
+  }
+  // Notices made on this device (a count waiting here, before seiGEN has it)
+  function bellLocal(){
+    let n = 0;
+    try{ all("SELECT * FROM sc_counts WHERE status='waiting' AND mine=1").forEach(c=>{ if(bellAdd("cc:wait:"+c.id, "counts", "Count difference to approve: "+c.name, { route:"counts", right:"approve_counts" })) n++; }); }catch(e){}
+    return n;
+  }
+  function bellPrune(){ run("DELETE FROM notices WHERE ts<?",[new Date(Date.now()-BELL_KEEP_DAYS*86400000).toISOString()]); }
+
+  // ---- reading ----
+  function bellMarkRead(key){
+    const n = one("SELECT * FROM notices WHERE key=?",[key]); if(!n) return;
+    const r = scJson(n.read_by, []), me = bellPerson();
+    if(!r.includes(me)){ r.push(me); run("UPDATE notices SET read_by=? WHERE key=?",[JSON.stringify(r), key]); }
+  }
+  function bellMarkAllRead(){ bellVisible().forEach(n=> bellMarkRead(n.key)); }
+
+  // ---- the chime (WebAudio: two short tones; browsers allow it only after a tap since opening) ----
+  let _bellAudio = null;
+  function bellChime(){
+    try{
+      const AC = typeof window!=="undefined" && (window.AudioContext || window.webkitAudioContext);
+      if(!AC) return false;
+      _bellAudio = _bellAudio || new AC();
+      if(_bellAudio.state==="suspended") _bellAudio.resume().catch(()=>{});
+      const t = _bellAudio.currentTime;
+      [[880, 0], [1320, 0.16]].forEach(([f, at])=>{
+        const o = _bellAudio.createOscillator(), g = _bellAudio.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t+at); g.gain.exponentialRampToValueAtTime(0.25, t+at+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+at+0.15);
+        o.connect(g); g.connect(_bellAudio.destination); o.start(t+at); o.stop(t+at+0.16);
+      });
+      return true;
+    }catch(e){ return false; }
+  }
+  // The new notices this person may see: chime once (if on), a phone/PC notification while running.
+  function bellAnnounce(){
+    const fresh = all("SELECT * FROM notices WHERE chimed=0 AND hidden=0 ORDER BY ts").filter(bellCanSee);
+    if(!fresh.length) return { chimed:false, shown:0 };
+    fresh.forEach(n=> run("UPDATE notices SET chimed=1 WHERE key=?",[n.key]));   // never again for the same key
+    const chimed = bellSoundOn()? bellChime() : false;
+    let shown = 0;
+    if(typeof Notification!=="undefined" && Notification.permission==="granted"){
+      fresh.slice(0,3).forEach(n=>{ try{ new Notification(n.title, { tag:n.key, icon:"icon-192.png" }); shown++; }catch(e){} });
+    }
+    if(getSetting("bell_notif_ask","")==="") setSetting("bell_notif_ask","due");   // the card in the bell asks, once
+    return { chimed, shown, count:fresh.length };
+  }
+
+  // ---- the 60 s check ----
+  let _bellTimer = null, _bellBusy = false, _bellStarted = false;
+  function bellHidden(){ return typeof document!=="undefined" && document.visibilityState==="hidden"; }
+  async function bellTick(){
+    if(_bellBusy) return { skipped:"busy" };
+    if(bellHidden()) return { skipped:"hidden" };
+    if(!isOnline()) return { skipped:"offline" };
+    if(!scRegistered()) return { skipped:"not registered" };
+    _bellBusy = true;
+    try{
+      const r = await scTick();
+      let fresh = bellLocal();
+      if(r.pull && r.pull.ok) fresh += bellFromChanges(r.pull.changes);
+      bellPrune();
+      const a = bellAnnounce();
+      if(fresh || a.count) await persist();
+      bellRefreshBadge();
+      return { fresh, announced:a };
+    }catch(e){ return { error:String(e && e.message || e) }; }
+    finally{ _bellBusy = false; }
+  }
+  function bellSchedule(){
+    if(_bellTimer) clearTimeout(_bellTimer);
+    _bellTimer = setTimeout(async ()=>{ _bellTimer = null; await bellTick(); if(!bellHidden()) bellSchedule(); }, BELL_EVERY_MS);
+  }
+  function startBell(){
+    if(_bellStarted) return;
+    _bellStarted = true;
+    setTimeout(async ()=>{ await bellTick(); bellSchedule(); }, 3000);
+    if(typeof document!=="undefined" && document.addEventListener) document.addEventListener("visibilitychange", ()=>{
+      if(bellHidden()){ if(_bellTimer){ clearTimeout(_bellTimer); _bellTimer = null; } return; }   // paused while hidden
+      bellTick().then(bellSchedule);                                                              // at once on return
+    });
+    if(typeof window!=="undefined" && window.addEventListener){
+      window.addEventListener("online", ()=>{ bellTick().then(bellSchedule); });
+      // a tap unlocks the sound for the session (browsers' rule)
+      const unlock = ()=>{ try{ const AC = window.AudioContext || window.webkitAudioContext; if(AC){ _bellAudio = _bellAudio || new AC(); if(_bellAudio.state==="suspended") _bellAudio.resume(); } }catch(e){} };
+      window.addEventListener("pointerdown", unlock, { once:true });
+    }
+  }
+
+  // ---- the header button and the list ----
+  const ICON_BELL = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+  function bellButtonHtml(){
+    if(!scRegistered()) return "";
+    const n = bellUnread();
+    return `<button class="bell-btn" id="bellBtn" aria-label="Notifications${n? ", "+n+" unread" : ""}" title="Notifications">${ICON_BELL}<span class="bell-badge" id="bellBadge" ${n? "" : "hidden"}>${n>99? "99+" : n}</span></button>`;
+  }
+  function bellWire(){
+    const b = typeof document!=="undefined" && document.getElementById? document.getElementById("bellBtn") : null;
+    if(b) b.onclick = ()=> openBell();
+  }
+  function bellRefreshBadge(){
+    const el = typeof document!=="undefined" && document.getElementById? document.getElementById("bellBadge") : null;
+    if(!el) return;
+    const n = bellUnread();
+    el.textContent = n>99? "99+" : String(n); el.hidden = !n;
+    const b = document.getElementById("bellBtn"); if(b) b.setAttribute("aria-label", "Notifications"+(n? ", "+n+" unread" : ""));
+  }
+  const BELL_CAT_LABEL = Object.fromEntries(BELL_CATEGORIES.map(c=>[c.id, c.label]));
+  function openBell(){
+    const wrap = openModal("Notifications", `<div id="bellBody"></div>`);
+    const body = wrap.querySelector("#bellBody");
+    let view = "list";
+    const draw = ()=>{
+      if(view==="settings"){
+        body.innerHTML = bellSettingsHtml()+`<button class="btn btn-outline" id="bellBack" style="margin-top:8px">Back</button>`;
+        bellSettingsWire(body);
+        body.querySelector("#bellBack").onclick = ()=>{ view = "list"; draw(); };
+        return;
+      }
+      const list = bellVisible(), me = bellPerson();
+      const ask = getSetting("bell_notif_ask","")==="due" && typeof Notification!=="undefined" && Notification.permission==="default";
+      body.innerHTML = `
+        ${ask? `<div class="box" id="bellAsk" style="margin-bottom:8px;font-size:13px">Show notifications on this ${/Mobi|Android/i.test(navigator.userAgent||"")? "phone" : "computer"} too, while the app is open?
+          <div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-sm btn-primary" id="bellAskYes">Yes</button><button class="btn btn-sm btn-outline" id="bellAskNo">No</button></div></div>` : ""}
+        <div style="display:flex;gap:6px;margin-bottom:6px"><button class="btn btn-sm btn-outline" id="bellAllRead" ${list.some(n=>!bellIsRead(n, me))? "" : "disabled"}>Mark all read</button>
+          <button class="btn btn-sm btn-ghost" id="bellSettings" style="margin-left:auto">Settings</button></div>
+        ${list.length? `<div id="bellList">${list.map(n=>`<button type="button" class="bell-item${bellIsRead(n, me)? "" : " unread"}" data-key="${escapeHtml(n.key)}"
+            style="display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--border);background:${bellIsRead(n, me)? "none" : "var(--surface,#f6f7f9)"};padding:8px 6px;cursor:pointer">
+            <div style="font-weight:${bellIsRead(n, me)? 400 : 700};font-size:13.5px">${escapeHtml(n.title)}</div>
+            <div class="muted" style="font-size:11.5px">${escapeHtml(BELL_CAT_LABEL[n.category]||n.category)} · ${escapeHtml(new Date(n.ts).toLocaleString())}</div></button>`).join("")}</div>`
+          : `<p class="muted" id="bellEmpty">Nothing new.</p>`}`;
+      body.querySelectorAll("[data-key]").forEach(b=> b.onclick = ()=>{ const n = one("SELECT * FROM notices WHERE key=?",[b.dataset.key]); bellMarkRead(n.key); persist(); wrap.remove(); bellGo(n); });
+      body.querySelector("#bellAllRead").onclick = ()=>{ bellMarkAllRead(); persist(); bellRefreshBadge(); draw(); };
+      body.querySelector("#bellSettings").onclick = ()=>{ view = "settings"; draw(); };   // per person: no Settings right needed
+      const yes = body.querySelector("#bellAskYes"), no = body.querySelector("#bellAskNo");
+      if(yes) yes.onclick = async ()=>{ let p = "denied"; try{ p = await Notification.requestPermission(); }catch(e){} setSetting("bell_notif_ask", p==="granted"? "yes" : "no"); persist(); draw(); };
+      if(no) no.onclick = ()=>{ setSetting("bell_notif_ask","no"); persist(); draw(); };
+    };
+    draw();
+    bellRefreshBadge();
+  }
+  // Tap: read, then the screen it is about
+  function bellGo(n){
+    const r = n.route||"";
+    if(n.category==="market"){ openModal(n.title, `<p style="white-space:pre-wrap">${escapeHtml(n.body||"")}</p><p class="muted" style="font-size:12px">From seiGEN · ${escapeHtml(new Date(n.ts).toLocaleString())}</p>`); bellRefreshBadge(); return; }
+    route = "more";
+    if(r.startsWith("srq:")){ moreTab = "stockctl"; srqTab = "requests"; render(); openRequestHistory(r.slice(4)); return; }
+    if(r.startsWith("rcl:")){ moreTab = "stockctl"; srqTab = "recalls"; render(); openRecallHistory(r.slice(4)); return; }
+    if(r==="counts"){ moreTab = "stocktake"; cycleTab = "approve"; render(); return; }
+    if(r==="itred"){ moreTab = "itredorders"; render(); return; }
+    if(r==="incoming" || r==="dispatches"){ route = "products"; render(); return; }
+    render();
+  }
+
+  // ---- Settings → Notifications (per person: in the bell, and on the Settings page) ----
+  function bellSettingsHtml(){
+    if(!scRegistered()) return "";
+    const off = bellCatsOff(), cats = BELL_CATEGORIES.filter(c=> !scGuest() || c.id==="market");
+    const perm = typeof Notification==="undefined"? "unsupported" : Notification.permission;
+    return `<div class="card" id="bellSettingsCard">
+      <h3 style="margin-top:0">Notifications</h3>
+      <p class="muted" style="font-size:12.5px;margin:0 0 6px">For ${escapeHtml(bellPerson()==="device"? "this device (single operator)" : scWho())}. The bell shows titles only, never amounts or names.</p>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="bellSound" ${bellSoundOn()? "checked" : ""}> A short chime for each new notification</label>
+      <p class="muted" style="font-size:12px;margin:2px 0 8px">Browsers allow sound only after you've tapped the app once since opening it. The bell's number shows either way.</p>
+      ${cats.map(c=>`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-bell-cat="${c.id}" ${off.includes(c.id)? "" : "checked"}> ${escapeHtml(c.label)}</label>`).join("")}
+      <p class="muted" style="font-size:12px;margin:8px 0 0" id="bellPerm">${perm==="granted"? "Phone/PC notifications: on (while the app is open)." : perm==="denied"? "Phone/PC notifications are blocked for this app. To turn them on: the lock or ⓘ next to the address → Notifications → Allow (on a phone: Settings → Apps → your browser → Notifications)." : perm==="unsupported"? "This browser can't show phone/PC notifications." : "Phone/PC notifications: the bell asks once, after the first notification."}</p>
+    </div>`;
+  }
+  function bellSettingsWire(scope){
+    const s = scope.querySelector("#bellSound");
+    if(!s) return;
+    s.onchange = ()=>{ setSetting("bell_sound_"+bellPerson(), s.checked? "1" : "0"); if(s.checked) bellChime(); persist(); };
+    scope.querySelectorAll("[data-bell-cat]").forEach(c=> c.onchange = ()=>{
+      const off = new Set(bellCatsOff()); if(c.checked) off.delete(c.dataset.bellCat); else off.add(c.dataset.bellCat);
+      setSetting("bell_cats_off_"+bellPerson(), JSON.stringify([...off])); persist(); bellRefreshBadge();
+    });
+  }
+
   // ================== iTred orders (Orders Fulfillment, Marketplace Feedback) ==================
   // docs/itred/itred-upgrade-design.md Part D; server side:
   // supabase/migrations/20261105120000_itred_order_fulfilment.sql.
@@ -21793,9 +23298,11 @@ ${readOnly? "" : `
     ["m.purchasing","Purchasing / Supplier GRV"], ["m.reportwriter","Report Writer"], ["m.directory","Directory"],
     ["m.eod","End of Day"], ["m.settings","Settings"], ["m.staff","Staff (people and roles)"], ["m.terminals","Business & Terminals"]];
   const ROLE_ACTION_RIGHTS = [
-    ["costs","View costs"], ["edit_prices","Edit prices"], ["create_customers","Create customers"], ["review_requisitions","Review stock requisitions"],
+    ["costs","View costs"], ["edit_prices","Edit prices"], ["create_customers","Create customers"], ["review_requisitions","Review stock requests"],
     ["other_branches","View other branches' reports"], ["approve_writeoffs","Approve write-offs"], ["void_return","Void/return"],
-    ["credit_over_limit","Credit sales over limit"], ["sales_reports","Sales and money reports"]];
+    ["credit_over_limit","Credit sales over limit"], ["sales_reports","Sales and money reports"],
+    // v37 Stock control (owner decisions 52-54); seiGEN checks each (decision 48)
+    ["request_stock","Request stock"], ["recall_stock","Recall stock"], ["count_stock","Count stock (cycle)"], ["approve_counts","Approve count differences"]];
   const ROLE_ALL_RIGHTS = ROLE_MENU_RIGHTS.concat(ROLE_ACTION_RIGHTS).map(r=>r[0]);
   // The built-in roles' rights, as seiGEN makes them (cl_shop_default_rights): used for an
   // old local staff sign-in before this till has the roles from seiGEN.
@@ -21803,8 +23310,9 @@ ${readOnly? "" : `
     owner: ROLE_ALL_RIGHTS.concat("owner"),
     admin: ROLE_ALL_RIGHTS.slice(),
     manager: ROLE_ALL_RIGHTS.filter(r=> !["m.settings","m.staff","m.terminals"].includes(r)),
-    stores: ["m.products","m.dispatch","m.receive","m.adjust","m.incoming","m.productlist","m.stocktake","m.purchasing","m.reports","m.reportwriter"],
-    cashier: ["m.sell","m.credit","m.productlist","m.directory","m.requests","m.reports","m.eod","sales_reports"],
+    stores: ["m.products","m.dispatch","m.receive","m.adjust","m.incoming","m.productlist","m.stocktake","m.purchasing","m.reports","m.reportwriter",
+      "request_stock","count_stock"],                 // v37
+    cashier: ["m.sell","m.credit","m.productlist","m.directory","m.requests","m.reports","m.eod","sales_reports","request_stock"],   // v37
     guest: ["m.productlist","branch_prices"]   // v36 A12 (decision 49): view only, on an Office seat
   };
   const ROLE_ORDER = { owner:1, admin:2, manager:3, stores:4, cashier:5, guest:6 };
@@ -22040,13 +23548,15 @@ ${readOnly? "" : `
     cl_catalogue_push:"m.products", cl_branch_price_push:"edit_prices", cl_device_customer_save:"create_customers",
     cl_terminal_set_active:"m.terminals", cl_terminal_admin_set:"m.terminals", cl_branch_issue_join_code:"m.terminals",
     cl_branch_set_price_mode:"m.settings", cl_branch_set_business_day:"m.settings", cl_device_pack_submit:"m.marketing",
-    cl_device_transfer_send:"m.dispatch", cl_device_transfer_receive:"m.receive", cl_device_transfer_cancel:"m.dispatch", cl_device_transfer_resolve:"m.dispatch" };
+    cl_device_transfer_send:"m.dispatch", cl_device_transfer_receive:"m.receive", cl_device_transfer_cancel:"m.dispatch", cl_device_transfer_resolve:"m.dispatch",
+    cl_device_stock_ctl_push:"m.stocktake" };   // v37: each event's own right is checked by seiGEN (stock-ctl.js); the token is sent first
   const TILL_RIGHT_TEXT = { cl_device_grv_post:"Receiving (GRV)", cl_device_dispatch_send:"Sending a Delivery Note", cl_device_dispatch_cancel:"Cancelling a Delivery Note",
     cl_device_dispatch_resolve:"A Delivery Note's shortage", cl_device_supplier_grv_post:"A supplier GRV", cl_device_supplier_save:"A supplier",
     cl_catalogue_push:"Product changes", cl_branch_price_push:"Branch prices", cl_device_customer_save:"A customer", cl_terminal_set_active:"Switching a till on or off",
     cl_terminal_admin_set:"A till's settings", cl_branch_issue_join_code:"A join code", cl_branch_set_price_mode:"The branch's price setting",
     cl_branch_set_business_day:"The business day", cl_device_pack_submit:"A Marketing pack", cl_device_transfer_send:"An internal transfer",
-    cl_device_transfer_receive:"Receiving an internal transfer", cl_device_transfer_cancel:"Cancelling an internal transfer", cl_device_transfer_resolve:"An internal transfer's shortage" };
+    cl_device_transfer_receive:"Receiving an internal transfer", cl_device_transfer_cancel:"Cancelling an internal transfer", cl_device_transfer_resolve:"An internal transfer's shortage",
+    cl_device_stock_ctl_push:"Stock control (counts, requests, recalls)" };
   // Work seiGEN refused for the signed-in person's rights stays where it was (it is sent again later,
   // never dropped) and is listed for managers in Settings → Staff & Roles until it goes through.
   function rightsWaiting(){ return staffJson(getSetting("rights_waiting",""), []); }
@@ -22789,6 +24299,8 @@ ${readOnly? "" : `
         <button class="btn btn-primary" id="saveFreqSettings" style="margin-top:12px">Save</button>
       </div>`}
       ${adminPasscodeSettingShown()? adminPasscodeCardHtml() : ""}
+      ${typeof bellSettingsHtml==="function"? bellSettingsHtml() : ""}
+      ${typeof cycleSettingsCardHtml==="function"? cycleSettingsCardHtml() : ""}
       ${settingsStaffCardHtml()}
       ${isRemote() || !(typeof can!=="function" || can("m.terminals"))? "" : branchRegisterCardHtml()}
       ${backupMergeSectionHtml()}
@@ -22875,6 +24387,8 @@ ${readOnly? "" : `
     wireRpnSection();
     wireCurrenciesSection();
     wireAdminPasscodeCard(main);
+    if(typeof bellSettingsWire==="function") bellSettingsWire(main);   // v37
+    if(typeof cycleSettingsWire==="function") cycleSettingsWire(main);
     wireSettingsStaffCard(main);
     if(!isRemote() && (typeof can!=="function" || can("m.terminals"))) wireBranchRegisterCard();
     wireBackupMergeSection();
@@ -23250,6 +24764,7 @@ ${readOnly? "" : `
     startCatalogueSync(); // Phase 3a: main's catalogue to every registered till, in the background — see catalogue-sync.js. Never blocks boot or a sale.
     startDeviceCheckin(); // Digital Commerce device check-in: silent, best-effort phone-home — see devicecheckin.js. Never blocks boot.
     if(typeof staffEnsureRoles==="function") staffEnsureRoles(); // v33: a registered till with no roles fetches them now (roles.js). Never blocks boot.
+    if(typeof startBell==="function") startBell(); // v37: the notification bell's 60 s check (stock control, market feed, DN/GRV, iTred), see bell.js. Never blocks boot.
     if(typeof startB4Worker==="function") startB4Worker(); // v35 B4: this till's sales and money events to seiGEN in the background, see b4-sync.js. Never blocks boot or a sale.
     if(typeof startBranchStock==="function") startBranchStock(); // Branches B1: this till's stock figures to seiGEN every 5 minutes when they changed, see branch-stock.js. Never blocks boot.
     businessDateToday(); // Shift/EOD control: establish the anti-rollback high-water-mark as early as possible each session — see eod.js.
