@@ -12126,7 +12126,8 @@ ${readOnly? "" : `
 
           <h3 class="section">EOD Variances</h3>
           <table><tr><th>Date</th><th>Expected</th><th>Counted</th><th>Variance</th></tr>
-          ${eods.map(e=>`<tr><td>${e.date}</td><td>${currency}${e.expected_cash.toFixed(2)}</td><td>${currency}${e.counted_cash.toFixed(2)}</td><td>${currency}${e.variance.toFixed(2)}</td></tr>`).join("")}
+          ${eods.map(e=>{ const m = (v)=> v==null? "—" : currency+v.toFixed(2);   // a shift still open has no figures yet
+            return `<tr><td>${e.date}${e.status==="open"? " (shift open)" : ""}</td><td>${m(e.expected_cash)}</td><td>${m(e.counted_cash)}</td><td>${m(e.variance)}</td></tr>`; }).join("")}
           </table>
 
           <h3 class="section">Customers (by name)</h3>
