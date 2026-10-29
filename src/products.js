@@ -258,6 +258,7 @@
         <button class="btn btn-sm btn-outline dots-btn" id="openExcelMenu" title="Excel: import, template, export">⋮</button>
         ${can("m.dispatch")? `<button class="btn btn-sm btn-outline" id="openDispatch" title="Dispatch Stock">${ICON_DISPATCH}</button>
         <button class="btn btn-sm btn-outline" id="openDispatchHistory" title="Dispatch history">📋</button>` : ""}
+        ${typeof srqCanSendDrafts==="function" && srqCanSendDrafts() && srqOpenDrafts().length? `<button class="btn btn-sm btn-primary" id="openSrqDrafts" title="Approved stock requests waiting to be sent">📝 Drafts from stock requests (${srqOpenDrafts().length})</button>` : ""}
         ${remote && !registered? `<button class="btn btn-sm btn-outline" id="openGetCatalogue" title="Get catalogue from main">📥 Get catalogue</button>` : ""}
         ${registered? `<button class="btn btn-sm btn-outline" id="productsSyncNow" title="Sync products with your main branch">🔄 Sync now</button>` : ""}
         ${registered && !remote? `<button class="btn btn-sm btn-outline" id="productsShowInactive">${productsShowInactive? "Hide deactivated" : "Show deactivated"}</button>` : ""}
@@ -294,6 +295,7 @@
     const on = (id, fn)=>{ const el = document.getElementById(id); if(el) el.onclick = fn; };   // roles (v28): a button may be hidden
     on("openDispatch", ()=>openDispatchScreen());
     on("openDispatchHistory", ()=>openDispatchHistory());
+    on("openSrqDrafts", ()=>openDraftsList());   // v37.1 (decision 63)
     const getCat = document.getElementById("openGetCatalogue");
     if(getCat) getCat.onclick=()=>openCatalogueImportScreen();
     const syncBtn = document.getElementById("productsSyncNow");

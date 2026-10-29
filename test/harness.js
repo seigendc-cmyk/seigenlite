@@ -180,6 +180,11 @@ function makeApp(settings, opts){
         srqCreate, srqDecide, srqDispatchPrefill, rclCreate, rclSendBackPlan, rclCancel, rclCanCancel, rclOverdue, srqReport, rclReport, renderStockCtl, srqAvailable, openRequestHistory, openRecallHistory,
         bellAdd, bellFromChanges, bellLocal, bellVisible, bellUnread, bellMarkRead, bellMarkAllRead, bellAnnounce, bellTick, bellPerson, bellCanSee, bellButtonHtml, bellSettingsHtml,
         bellSettingsWire, openBell, startBell, BELL_CATEGORIES, openDispatchScreen, catApplyProduct, setSrqTab:(t)=>{ srqTab=t; } });`
+    // v37.1: drafts (decision 63), the dispatch reminder (decision 64), bell routes (Fix 4), branch figures (Fix 3)
+    + `;Object.assign(this.api, { srqDraftOpen, srqOpenDrafts, srqCanSendDrafts, srqCanCloseDraft, srqDraftLines, srqDraftProblems, srqDraftClaim, srqDraftRelease, srqCloseDraft,
+        openDraftsList, srqOpenDraft, srqReminderSettings, srqReminderCount, srqApproverKey, srqReminderCardHtml, srqReminderCardWire, srqReminderSave, srqReminderMayEdit,
+        bellReminders, bellRouteProblem, bellGo, bsPush, bsPull, bsUpdatedText, itredAvailable,
+        getRoute:()=>route, getMoreTab:()=>moreTab });`
     + ((opts && opts.extra && opts.extra.includes("help.js"))? `;Object.assign(this.api, { renderAbout, aboutContactHtml, refreshAboutInfo, aboutAfterCheckin, aboutInfoCached });` : "");
   // getSupabaseConfig() is hardwired to Digital Commerce's live project.
   // Tests must never reach it, so every app instance instead reads the old

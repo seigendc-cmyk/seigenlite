@@ -4883,6 +4883,7 @@ const APP_OWN_VENDOR = false;
         <button class="btn btn-sm btn-outline dots-btn" id="openExcelMenu" title="Excel: import, template, export">⋮</button>
         ${can("m.dispatch")? `<button class="btn btn-sm btn-outline" id="openDispatch" title="Dispatch Stock">${ICON_DISPATCH}</button>
         <button class="btn btn-sm btn-outline" id="openDispatchHistory" title="Dispatch history">📋</button>` : ""}
+        ${typeof srqCanSendDrafts==="function" && srqCanSendDrafts() && srqOpenDrafts().length? `<button class="btn btn-sm btn-primary" id="openSrqDrafts" title="Approved stock requests waiting to be sent">📝 Drafts from stock requests (${srqOpenDrafts().length})</button>` : ""}
         ${remote && !registered? `<button class="btn btn-sm btn-outline" id="openGetCatalogue" title="Get catalogue from main">📥 Get catalogue</button>` : ""}
         ${registered? `<button class="btn btn-sm btn-outline" id="productsSyncNow" title="Sync products with your main branch">🔄 Sync now</button>` : ""}
         ${registered && !remote? `<button class="btn btn-sm btn-outline" id="productsShowInactive">${productsShowInactive? "Hide deactivated" : "Show deactivated"}</button>` : ""}
@@ -4919,6 +4920,7 @@ const APP_OWN_VENDOR = false;
     const on = (id, fn)=>{ const el = document.getElementById(id); if(el) el.onclick = fn; };   // roles (v28): a button may be hidden
     on("openDispatch", ()=>openDispatchScreen());
     on("openDispatchHistory", ()=>openDispatchHistory());
+    on("openSrqDrafts", ()=>openDraftsList());   // v37.1 (decision 63)
     const getCat = document.getElementById("openGetCatalogue");
     if(getCat) getCat.onclick=()=>openCatalogueImportScreen();
     const syncBtn = document.getElementById("productsSyncNow");
@@ -6238,6 +6240,7 @@ const APP_OWN_VENDOR = false;
       else if(!dnDestinationAllowed(toName)) errs.push("Choose a branch from the list.");
       if(lines.length===0) errs.push("Add at least one product.");
       if(deliveryProblem()) errs.push(deliveryProblem());
+      if(pre && pre.draft && typeof srqDraftProblems==="function") srqDraftProblems(pre, lines).forEach(x=> errs.push(x));   // v37.1 (decision 63)
       if(pre && pre.link && toName.trim() && !srvFor()) errs.push("This Delivery Note must go through seiGEN (it is linked to "+(pre.link.type==="recall"? "the recall" : "the stock request")+"). "+(fileOnly(true)||""));
       lines.forEach((l,i)=>{
         const codeErr = dnProductCodeProblem(l.product);
@@ -6255,8 +6258,9 @@ const APP_OWN_VENDOR = false;
       const matches = query.trim()? searchProducts(query, branch).slice(0,6) : [];
       body.innerHTML = `
         ${pre && pre.note? `<div class="box" id="doPreNote" style="margin:0 0 8px;font-size:12.5px">${escapeHtml(pre.note)}</div>` : ""}
+        ${!pre && typeof srqCanSendDrafts==="function" && srqCanSendDrafts() && srqOpenDrafts().length? `<div class="box" id="doDraftsBox" style="margin:0 0 8px;font-size:12.5px"><b>Drafts from stock requests:</b> ${srqOpenDrafts().length} waiting. <button type="button" class="btn btn-sm btn-outline" id="doOpenDrafts" style="width:auto">Open the list</button></div>` : ""}
         <label style="margin-top:0">Destination branch</label>
-        <select class="field" id="doDest">
+        <select class="field" id="doDest" ${pre && pre.draft? "disabled" : ""}>
           <option value="">Choose a branch…</option>
           ${destinationOptionsHtml(dests, toName)}
         </select>
@@ -6270,8 +6274,8 @@ const APP_OWN_VENDOR = false;
         ${fileOnly()? `<div class="box" id="doFileOnly" style="margin-top:8px;font-size:12.5px;border-color:#b54708;background:#fffaeb"><b>File only: not through seiGEN.</b> ${escapeHtml(fileOnly())}</div>` : ""}
         ${dests.length? "" : `<p class="muted" style="font-size:12px">No destination branches are set up yet. Main adds them under Settings → Destination branches, and a remote receives the list with its catalogue.</p>`}
         <div class="hr"></div>
-        <label style="margin-top:0">Add product — search, or scan a barcode/SKU and press Enter</label>
-        <input class="field" id="doSearch" placeholder="Search by name or SKU" value="${escapeHtml(query)}" autocomplete="off">
+        ${pre && pre.draft? `<p class="muted" id="doDraftOnly" style="margin:0;font-size:12.5px">A draft from a stock request: lower a quantity or remove a line; nothing can be added.</p>` : `<label style="margin-top:0">Add product — search, or scan a barcode/SKU and press Enter</label>
+        <input class="field" id="doSearch" placeholder="Search by name or SKU" value="${escapeHtml(query)}" autocomplete="off">`}
         ${matches.length? `<div class="card" style="padding:4px;margin-top:4px;max-height:170px;overflow-y:auto">${matches.map(m=>`
           <button type="button" data-pick="${m.id}" style="display:flex;gap:8px;align-items:center;width:100%;text-align:left;background:none;border:none;padding:6px;font-size:13px;border-bottom:1px solid var(--border)">
             ${thumbImg(m)}<span>${escapeHtml(m.sku?m.sku+" — ":"")}${escapeHtml(m.name)} <span class="muted">(${m.stock} in stock)</span></span></button>`).join("")}</div>`
@@ -6281,17 +6285,18 @@ const APP_OWN_VENDOR = false;
             <div class="card" style="padding:8px;margin-bottom:6px;display:flex;gap:8px;align-items:center">
               ${thumbImg(l.product)}
               <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${escapeHtml(l.product.name)}</div>
-                <div class="muted" style="font-size:11.5px">${escapeHtml(l.product.sku||"no SKU")} · ${l.product.stock} in stock</div></div>
+                <div class="muted" style="font-size:11.5px">${escapeHtml(l.product.sku||"no SKU")} · ${l.product.stock} in stock${pre && pre.draft && pre.draft.max[l.product.id]? " · <b>approved "+pre.draft.max[l.product.id].approved+"</b>" : ""}</div></div>
               <input class="field" data-qty="${i}" inputmode="numeric" value="${escapeHtml(String(l.qty))}" style="width:70px;margin:0">
               <button type="button" class="close-x" data-del="${i}" title="Remove">✕</button>
             </div>`).join("")}
         </div>
         <div id="doErr" style="color:#b42318;font-size:12.5px;margin-top:6px"></div>
         <button class="btn btn-primary" id="doReview" style="margin-top:8px">Review</button>`;
-      const dest = body.querySelector("#doDest"), search = body.querySelector("#doSearch");
+      const dest = body.querySelector("#doDest"), search = body.querySelector("#doSearch") || { oninput:null, onkeydown:null, value:"", focus(){}, setSelectionRange(){} };   // v37.1: no search on a draft
       // which seiGEN branch, not just whether: Norton -> Harare must redraw "Goes through seiGEN to ..."
       const destKey = ()=> (srvFor()? srvFor().id : "")+"|"+fileOnly();
       dest.onchange = ()=>{ const was = destKey(); toName = dest.value; if(destKey()!==was) renderEdit(); };
+      const od = body.querySelector("#doOpenDrafts"); if(od) od.onclick = ()=>{ wrap.remove(); openDraftsList(); };
       const refEl = body.querySelector("#doRef");
       refEl.oninput = ()=>{ internalRef = refEl.value; };
       [["doDelCost","cost"],["doDelCur","currency"],["doDelCarrier","carrier"],["doDelRef","ref"]].forEach(([id,k])=>{
@@ -6350,21 +6355,29 @@ const APP_OWN_VENDOR = false;
       if(errs.length){ renderEdit(); body.querySelector("#doErr").innerHTML = errs.map(escapeHtml).join("<br>"); return; }
       stage = "working";
       const now = new Date(), branchId = getBranchId(), toBranch = toName.trim();
-      let dn, pre = null;
+      let dn, ssPre = null, claim = null;   // ssPre: the shared-stock step (was "pre", which hid the screen's own pre and lost the link: v37.1 fix)
+      // v37.1 (decision 63): a draft goes to its first sender only: seiGEN gives it to this till before the DN is made
+      if(pre && pre.draft && typeof srqDraftClaim==="function"){
+        working("Checking the draft with seiGEN…");
+        claim = await srqDraftClaim(pre, lines);
+        if(!claim.ok){ alert("This Delivery Note wasn't made and no stock was changed: "+claim.message); if(claim.code==="DRAFT_SENT" || claim.code==="DRAFT_CLOSED"){ wrap.remove(); render(); return; } stage = "review"; renderReview(); return; }
+      }
       // Multi-terminal Phase 3b: at a shared-stock branch the stock leaves the
       // branch on the server first; the Delivery Note is written after.
       if(typeof sharedStockTill==="function" && sharedStockTill()){
-        pre = await sharedStockPreApply(lines.map(l=>({ product:l.product, delta:-Number(l.qty), kind:"dispatch" })));
-        if(!pre.ok){ alert("Dispatch was not completed and no stock was changed: "+pre.message); stage = "review"; renderReview(); return; }
+        ssPre = await sharedStockPreApply(lines.map(l=>({ product:l.product, delta:-Number(l.qty), kind:"dispatch" })));
+        if(!ssPre.ok){ if(claim) await srqDraftRelease(pre, claim.id); alert("Dispatch was not completed and no stock was changed: "+ssPre.message); stage = "review"; renderReview(); return; }
       }
       try{
         const sb = srvFor();
         if(sb && Number(delivery.cost)>0) setSetting("ds_currency", String(delivery.currency).trim().toUpperCase());
-        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })), link:(pre && pre.link) || undefined,
+        const link = pre && pre.link? (pre.draft && typeof srqDraftLines==="function"? Object.assign({}, pre.link, { lines:srqDraftLines(pre, lines) }) : pre.link) : undefined;
+        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })), link,
           srv: sb? { toBranchId:sb.id, delivery:{ cost:Number(delivery.cost)||0, currency:String(delivery.currency).trim().toUpperCase(), carrier:delivery.carrier, ref:delivery.ref } } : undefined });
-        if(pre) sharedStockDone(pre);
+        if(ssPre) sharedStockDone(ssPre);
       }catch(e){
-        if(pre) await sharedStockUndo(pre.moves);
+        if(ssPre) await sharedStockUndo(ssPre.moves);
+        if(claim) await srqDraftRelease(pre, claim.id);
         alert("Dispatch was not completed and no stock was changed: "+(e.message||e));
         stage = "review"; renderReview();
         return;
@@ -18592,7 +18605,7 @@ ${readOnly? "" : `
     return all("SELECT json FROM br_stock ORDER BY is_main DESC, name").map(r=>{ try{ return JSON.parse(r.json); }catch(e){ return null; } }).filter(Boolean);
   }
   function bsOtherBranches(){ const me = bsMyBranchUuid(); return bsBranches().filter(b=>b.id!==me); }
-  let _bsPulling = null;
+  let _bsPulling = null, _bsForce = false;
   function bsPull(){
     if(_bsPulling) return _bsPulling;
     _bsPulling = (async ()=>{
@@ -18612,6 +18625,8 @@ ${readOnly? "" : `
       }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
       setSetting("bs_pulled_ts", ts);
       setSetting("bs_server_enabled", d.enabled? "1" : "0");
+      // v37.1 (Fix 3): seiGEN takes figures now (a branch or till joined) while this till still holds back: send them all at once, not in 6 hours
+      if(d.enabled && getSetting("bs_enabled","")!=="1" && bsCanPush()) _bsForce = true;
       // the branch list from the same answer (joining fix: every joined branch, at once)
       if(Array.isArray(d.branches) && d.branches.length){
         setSetting("ds_branches", JSON.stringify(d.branches.map(b=>({ id:b.id, name:b.name, is_main:!!b.is_main }))));
@@ -18619,7 +18634,7 @@ ${readOnly? "" : `
       }
       await persist();
       return { ok:true, enabled:!!d.enabled, branches:(d.branches||[]).length };
-    })().finally(()=>{ _bsPulling = null; });
+    })().finally(()=>{ _bsPulling = null; if(_bsForce){ _bsForce = false; bsPush({ force:true, full:true }).catch(()=>{}); } });
     return _bsPulling;
   }
   // The business's dispatches, without costs (Other branches → Dispatches).
@@ -18704,8 +18719,13 @@ ${readOnly? "" : `
     return { value:Math.round(value*100)/100, matched, unmatched };
   }
   // "updated 14:05" / "updated 12 Oct 14:05"; old: more than a day ago.
-  function bsUpdatedText(ts){
-    if(!ts) return { text:"no figures yet", old:true };
+  // v37.1 (Fix 3): nothing from a branch yet says who hasn't sent ("not sent yet by Harare"), and why when seiGEN shows it.
+  function bsUpdatedText(ts, who){
+    if(!ts){
+      const name = who && typeof who==="object"? who.name : who;
+      const why = who && typeof who==="object" && who.active_tills===0? " (no active till)" : "";
+      return { text: name? "not sent yet by "+name+why : "not sent yet", old:true };
+    }
     const d = new Date(ts), now = new Date();
     const hm = d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
     const sameDay = d.toDateString()===now.toDateString();
@@ -18799,7 +18819,7 @@ ${readOnly? "" : `
         price:local? local.price : null, stock:parts.length? parts.reduce((s,x)=> s+x.qty, 0) : null, parts, files:fl, probe };
     }).filter(Boolean).sort((a,b)=> String(a.name).localeCompare(String(b.name)));
     return { mode:branchSel? "branch" : "all", files:files.map(f=>({ name:f.name, date:f.date })),
-      branches:shown.map(b=>({ name:b.name, mine:b.id===me, updated:b.id===me? null : bsUpdatedText(b.updated_at) })),
+      branches:shown.map(b=>({ name:b.name, mine:b.id===me, updated:b.id===me? null : bsUpdatedText(b.updated_at, b) })),
       rows:productSearch(rows, query) };
   }
   // Names in this device's tables (a file merge) that aren't a branch on seiGEN, other than this one.
@@ -18875,7 +18895,7 @@ ${readOnly? "" : `
     const brs = bsBranches();
     let total = null;
     const rows = brs.map(b=>{
-      const q = bsBranchQty(b, p), u = bsUpdatedText(b.updated_at), mine = b.id===me;
+      const q = bsBranchQty(b, p), u = bsUpdatedText(b.updated_at, b), mine = b.id===me;
       if(q) total = (total||0) + q.qty;
       const tills = q && q.t? Object.keys(q.t).sort().map(k=>`<div class="pmeta bs-till">${escapeHtml(k)}${mine && k===code? " (this till, now)" : " (own count)"}: ${escapeHtml(String(q.t[k]))}</div>`).join("") : "";
       const when = mine && q && q.live? (q.t? "this till now; the other tills "+u.text : "this till, now") : u.text;
@@ -18912,10 +18932,10 @@ ${readOnly? "" : `
       gridItems = items.map(([,v])=> v);   // a name opens its item ledger (v27)
       // this branch: this till's live count + the other tills (bsBranchQty)
       const qtyOf = (b, v)=>{ const pr = { cat_uid:v.cat_uid, sku:v.code, name:v.name }, r = bsRowFor(b, pr), q = bsBranchQty(b, pr); return q? { qty:q.qty, t:q.t, low:r? r.low : 0 } : null; };
-      const heads = shown.map(b=>{ const u = bsUpdatedText(b.updated_at); return `<th class="bs-col">${escapeHtml(b.name)}${b.id===mineId? " (this)" : ""}<div class="pmeta" style="font-weight:400;${u.old? "color:#b54708" : ""}">${escapeHtml(u.text)}</div></th>`; }).join("");
+      const heads = shown.map(b=>{ const u = bsUpdatedText(b.updated_at, b); return `<th class="bs-col">${escapeHtml(b.name)}${b.id===mineId? " (this)" : ""}<div class="pmeta" style="font-weight:400;${u.old? "color:#b54708" : ""}">${escapeHtml(u.text)}</div></th>`; }).join("");
       const warn = isMain? shown.map(b=>bsCopies(b).map(c=>`<div class="box bs-copies" style="margin-bottom:8px;border-color:#b54708;background:#fffaeb;color:#b54708;font-size:12.5px"><b>${escapeHtml(b.name)}: ${escapeHtml(c.a)} and ${escapeHtml(c.b)} look like copies of the same stock list</b> (${c.same} of ${c.of} products show the same figure). The branch total may count those products twice. Count the stock (Stocktake) on one of them.</div>`).join("")).join("") : "";
       const value = isMain && bsCostsVisible()? `<div class="muted bs-value" style="margin-top:8px;font-size:12.5px">${shown.map(b=>{ const v = bsValueAtCost(b); return escapeHtml(b.name)+": value at cost "+escapeHtml(currency+v.value.toFixed(2))+(v.unmatched? " ("+v.unmatched+" product"+(v.unmatched===1?"":"s")+" without a cost here)" : ""); }).join("<br>")}</div>` : "";
-      const tillsLine = (b)=> b.tills && b.tills.length>1? `<div class="muted bs-tilltimes" style="font-size:12.5px">${escapeHtml(b.name)}: ${b.tills.filter(t=>t.active).map(t=>escapeHtml(typeof seatTillLabel==="function"? seatTillLabel(t.till_code) : t.till_code)+" "+escapeHtml(bsUpdatedText(t.pushed_at).text)).join(" · ")}</div>` : "";
+      const tillsLine = (b)=> b.tills && b.tills.length>1? `<div class="muted bs-tilltimes" style="font-size:12.5px">${escapeHtml(b.name)}: ${b.tills.filter(t=>t.active).map(t=>escapeHtml(typeof seatTillLabel==="function"? seatTillLabel(t.till_code) : t.till_code)+" "+escapeHtml(bsUpdatedText(t.pushed_at, t.till_code).text)).join(" · ")}</div>` : "";
       return `${warn}
         <div style="overflow-x:auto"><table class="simple bs-grid"><tr><th>Item</th>${heads}</tr>
         ${items.length? items.map(([,v], i)=>`<tr><td class="bv-name" data-bvledger="${i}">${v.code? `<div class="psku">${escapeHtml(v.code)}</div>` : ""}${escapeHtml(v.name)}</td>${shown.map(b=>{
@@ -18979,7 +18999,7 @@ ${readOnly? "" : `
     }
     async function refresh(){
       msg = "Loading…"; draw();
-      const r = tab==="stock"? await (async ()=>{ await bsPush().catch(()=>{}); return bsPull(); })() : await bsPullDispatches();
+      const r = tab==="stock"? await (async ()=>{ await bsPush({ force:true }).catch(()=>{}); return bsPull(); })() : await bsPullDispatches();   // v37.1: Refresh sends this till's figures first, whatever the 6-hour check said
       msg = r.ok? "" : (r.offline? "You're offline: showing the last copy." : "Couldn't load: "+(r.message||""));
       draw();
     }
@@ -19193,7 +19213,7 @@ ${readOnly? "" : `
     const figure = (b)=>{ const q = typeof bsBranchQty==="function"? bsBranchQty(b, local || probe) : null; return q? String(q.qty) : "—"; };
     function sectionFor(b){
       const rows = srv && srv.ok? srv.rows.filter(m=> m.branch_id===b.id && !(b.id===me && m.mine)) : [];
-      const u = bsUpdatedText(b.updated_at);
+      const u = bsUpdatedText(b.updated_at, b);
       const head = `<h4 style="margin:12px 0 4px">${escapeHtml(b.name)}${b.id===me? " (this branch): the other tills" : ""}</h4>
         ${b.id===me? "" : `<div class="pmeta bv-now">Now: <b>${escapeHtml(figure(b))}</b> <span style="${u.old? "color:#b54708" : ""}">(${escapeHtml(u.text)})</span></div>`}`;
       const srvPart = !srv? `<p class="muted" style="font-size:12.5px">Loading from seiGEN…</p>` : !srv.ok? `<p class="muted" style="font-size:12.5px">${escapeHtml(srv.message)}</p>`
@@ -19255,7 +19275,7 @@ ${readOnly? "" : `
       const cells = brs.map(b=>{ const q = bsBranchQty(b, r.probe); return q? String(q.qty) : "—"; });
       return [skuNameCell(r.sku, r.name)].concat(cells, [r.stock==null? "—" : String(r.stock)]);
     });
-    const times = brs.map(b=> b.name+": "+(b.id===bsMyBranchUuid()? "this till now, the other tills "+bsUpdatedText(b.updated_at).text : bsUpdatedText(b.updated_at).text)).join(" · ");
+    const times = brs.map(b=> b.name+": "+(b.id===bsMyBranchUuid()? "this till now, the other tills "+bsUpdatedText(b.updated_at).text : bsUpdatedText(b.updated_at, b).text)).join(" · ");
     return { headers:["Item"].concat(brs.map(b=>b.name), ["All branches"]), rows, footer:"Quantities only. "+times };
   }
 
@@ -19850,7 +19870,8 @@ ${readOnly? "" : `
   const SC_PUSH_TIMEOUT_MS = 20000;
   const SC_BASE_DELAY_MS = 5000, SC_MAX_DELAY_MS = 15*60*1000;
   // refusals that never get better by trying again (a missing DN, a sign-in or a right can come later)
-  const SC_FINAL_CODES = ["BAD_EVENT","ALREADY_DECIDED","WRONG_STATUS","IS_MAIN","NOT_MAIN","WRONG_BRANCH","WRONG_DEVICE","SAME_COUNTER","INVALID","NO_MAIN","GUEST_SEAT","NOT_MAKER","DN_SENT"];   // NOT_MAKER, DN_SENT: a recall cancel (decision 56)
+  const SC_FINAL_CODES = ["BAD_EVENT","ALREADY_DECIDED","WRONG_STATUS","IS_MAIN","NOT_MAIN","WRONG_BRANCH","WRONG_DEVICE","SAME_COUNTER","INVALID","NO_MAIN","GUEST_SEAT","NOT_MAKER","DN_SENT",
+    "DRAFT_SENT","DRAFT_CLOSED","OVER_APPROVED","NO_DRAFT"];   // NOT_MAKER, DN_SENT: a recall cancel (decision 56); DRAFT_*: v37.1 drafts (decision 63)
 
   function migrateStockCtl(t){
     try{ t.run(`CREATE TABLE IF NOT EXISTS sc_outbox(
@@ -20006,6 +20027,10 @@ ${readOnly? "" : `
         if(!d.guest){
           setSetting("sc_main_branch_id", d.main_branch_id||"");
           setSetting("sc_sees_diff", d.sees_diff? "1" : "0");
+          if(d.srq_settings) setSetting("srq_settings", JSON.stringify({ delay_hours:d.srq_settings.delay_hours, repeat_hours:d.srq_settings.repeat_hours==null? null : d.srq_settings.repeat_hours,
+            updated_at:d.srq_settings.updated_at||null, updated_by:d.srq_settings.updated_by||null }));   // v37.1 (decision 64): the business's reminder timers
+          // v37.1 (Fix 4): the bell's iTred orders and Orders Fulfillment follow one answer from seiGEN (the same rule as the iTred pull)
+          if(d.itred!==undefined) setSetting("itred_on", d.itred===null? "0" : "1");
           if(Array.isArray(d.branches)) setSetting("sc_branches", JSON.stringify(d.branches.map(b=>({ id:b.id, name:b.name, is_main:!!b.is_main }))));
           scApplyShelves(d.shelves||[]);
           (d.counts||[]).forEach(c=>{ const was = one("SELECT status FROM sc_counts WHERE id=?",[c.id]); scStoreCount(c); changes.counts.push({ c, was:was? was.status : null }); });
@@ -20018,6 +20043,8 @@ ${readOnly? "" : `
         db.run("COMMIT");
       }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
       const applied = scApplyApproved();
+      // v37.1 (Fix 3): seiGEN takes branch figures now (a branch or till joined) but this till still holds back: send them at once
+      if(!d.guest && d.bs_enabled===true && getSetting("bs_enabled","")!=="1" && typeof bsPush==="function") changes.bsPush = bsPush({ force:true, full:true }).catch(()=>({ ok:false }));
       const something = changes.requests.length || changes.recalls.length || changes.counts.length || applied.length;
       return { ok:true, changes, applied, something:!!something };
     })().finally(()=>{ _scPulling = null; });
@@ -20057,7 +20084,7 @@ ${readOnly? "" : `
   function scStoreDoc(table, q, branchId){
     const cur = one(`SELECT * FROM ${table} WHERE id=?`,[q.id]);
     // a decision made here and not sent yet keeps the local status until seiGEN has it
-    if(cur && one("SELECT 1 AS x FROM sc_outbox WHERE status='queued' AND doc_id=? AND type IN ('request_decide','request_link','recall_link','recall_cancel')",[q.id])) return;
+    if(cur && one("SELECT 1 AS x FROM sc_outbox WHERE status='queued' AND doc_id=? AND type IN ('request_decide','request_link','recall_link','recall_cancel','draft_close')",[q.id])) return;
     run(`INSERT OR REPLACE INTO ${table}(id,json,status,${table==="sc_requests"? "from_branch_id" : "branch_id"},created_ts,seq,local) VALUES(?,?,?,?,?,?,0)`,
       [q.id, JSON.stringify(q), q.status, branchId||"", q.created_ts||q.created_at||"", q.change_seq||0]);
   }
@@ -20120,9 +20147,15 @@ ${readOnly? "" : `
   function scQueueLink(link, dispatchId){
     if(!link || !dispatchId) return;
     if(link.type==="request"){
-      scQueue("request_link", { id:link.id, dispatch_id:dispatchId }, link.id);
+      // v37.1: the quantities sent with it (seiGEN checks them against the approved ones, decision 63)
+      scQueue("request_link", Object.assign({ id:link.id, dispatch_id:dispatchId }, link.lines? { lines:link.lines } : {}), link.id);
       const q = scRequest(link.id);
-      if(q){ q.status = "dispatched"; q.dispatch_id = dispatchId; scSaveDoc("sc_requests", q, q._local); }
+      if(q){
+        q.status = "dispatched"; q.dispatch_id = dispatchId;
+        if(q.draft) Object.assign(q.draft, { status:"sent", sent_by:scWho(), sent_at:new Date().toISOString() });
+        (link.lines||[]).forEach(x=>{ const l = (q.lines||[]).find(y=>y.line_no===x.line_no); if(l) l.sent_qty = x.sent_qty; });
+        scSaveDoc("sc_requests", q, q._local);
+      }
     } else if(link.type==="recall"){
       scQueue("recall_link", { id:link.id, dispatch_id:dispatchId, lines:link.lines||[] }, link.id);
       const q = scRecall(link.id);
@@ -20598,16 +20631,20 @@ ${readOnly? "" : `
 
   // ================== Stock requests and recalls (v37, owner decisions 53 and 54) ==================
   // docs/stock-control/v37-design.md §2-3. A branch asks main for stock (B3, as
-  // designed); main approves all, part or rejects with a reason; "Create dispatch"
-  // opens Dispatch pre-filled (the draft DN), linked to the request; the normal
-  // DN -> GRV flow follows. Main recalls stock from a branch; the branch sends it
+  // designed); main approves all, part or rejects with a reason; seiGEN then holds
+  // a draft DN for the approved quantities (v37.1, decision 63): "Open draft DN"
+  // at main opens Dispatch pre-filled, never above what was approved, and only the
+  // first sender's DN counts; a draft is sent or closed with a reason, never deleted.
+  // The bell reminds main while a draft waits (decision 64). The normal DN -> GRV
+  // flow follows. Main recalls stock from a branch; the branch sends it
   // back with a normal DN (short lines with a reason); main's GRV receives it. A
   // recall alone never moves stock. The customer notepad (requests.js) is separate.
 
   let srqTab = "requests";
   const srqFilter = { status:"", branch:"", from:"", to:"", q:"" };
   const rclFilter = { status:"", q:"" };
-  const SRQ_STATUS = { pending:"Pending", approved:"Approved", part_approved:"Part-approved", rejected:"Rejected", dispatched:"Dispatched", received:"Received" };
+  const SRQ_STATUS = { pending:"Pending", approved:"Approved", part_approved:"Part-approved", rejected:"Rejected", dispatched:"Dispatched", received:"Received",
+    not_dispatched:"Approved, not dispatched" };   // v37.1: its draft was closed with a reason (decision 63)
   const RCL_STATUS = { open:"Open", partly_sent:"Partly sent", sent:"Sent", received:"Received", cancelled:"Cancelled" };
   const RCL_REASONS = [["expiring","Expiring"],["overstock","Overstock"],["move","Move to another branch"],["quality","Quality"],["other","Other"]];
   const srqCan = (r)=> typeof can!=="function" || can(r);
@@ -20615,7 +20652,7 @@ ${readOnly? "" : `
   function srqToday(){ return businessDateOf(); }
   function srqStatusChip(s, overdue){
     const t = overdue? "Overdue" : SRQ_STATUS[s] || RCL_STATUS[s] || s;
-    const c = overdue || s==="rejected"? "#b42318" : s==="pending" || s==="open"? "#b54708" : s==="received"? "#067647" : "#344054";
+    const c = overdue || s==="rejected" || s==="not_dispatched"? "#b42318" : s==="pending" || s==="open"? "#b54708" : s==="received"? "#067647" : "#344054";
     return `<span class="srq-status" style="font-size:11.5px;font-weight:700;color:${c}">${escapeHtml(t)}</span>`;
   }
   function rclOverdue(q){ return q.status==="open" && !!q.due_date && q.due_date < srqToday(); }
@@ -20774,13 +20811,182 @@ ${readOnly? "" : `
     }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
     return { ok:true, status };
   }
-  // The "draft DN": Dispatch opened pre-filled with the approved quantities, linked to the request
+  // ---- the draft DN on seiGEN (v37.1, decision 63) ----
+  // A request's draft is waiting while seiGEN holds it open and the request is still approved.
+  function srqDraftOpen(q){ return !!(q && q.draft && q.draft.status==="open" && (q.status==="approved" || q.status==="part_approved")); }
+  function srqOpenDrafts(){ return scRequests().filter(srqDraftOpen).sort((a,b)=> String(a.draft.approved_at||"").localeCompare(String(b.draft.approved_at||""))); }
+  // Main's Dispatch: someone with the Dispatch right on a main till (or seat)
+  function srqCanSendDrafts(){ return srqAvailable() && scIsMain() && srqCan("m.dispatch"); }
+  function srqCanCloseDraft(){ return srqCan("review_requisitions") || (typeof staffOwnerOrAdmin==="function" && staffOwnerOrAdmin()); }
+  // The draft opened in Dispatch: pre-filled with the approved quantities, linked to the request.
+  // pre.draft: the most each product may go out with (approved), by product id; lines can only go down or be removed.
   function srqDispatchPrefill(q){
-    const missing = [];
-    const lines = (q.lines||[]).filter(l=>(l.approved_qty||0)>0).map(l=>{ const p = scProductByKey(l.product_key); if(!p){ missing.push(l.name); return null; } return { product:p, qty:l.approved_qty }; }).filter(Boolean);
-    return { toBranch:q.from_branch || scBranchName(q.from_branch_id), lines, link:{ type:"request", id:q.id }, title:"Dispatch for "+q.req_no, internalRef:q.req_no,
-      note:"Stock request "+q.req_no+" from "+(q.from_branch||"")+" ("+(SRQ_STATUS[q.status]||q.status)+"). Change quantities if you must; the request is linked to this Delivery Note."
+    const missing = [], max = {};
+    const lines = (q.lines||[]).filter(l=>(l.approved_qty||0)>0).map(l=>{
+      const p = scProductByKey(l.product_key);
+      if(!p){ missing.push(l.name); return null; }
+      max[p.id] = { line_no:l.line_no, approved:l.approved_qty, name:l.name };
+      return { product:p, qty:l.approved_qty };
+    }).filter(Boolean);
+    return { toBranch:q.from_branch || scBranchName(q.from_branch_id), lines, link:{ type:"request", id:q.id }, title:"Draft DN for "+q.req_no, internalRef:q.req_no,
+      draft:{ requestId:q.id, reqNo:q.req_no, max, lineNos:(q.lines||[]).map(l=>l.line_no) },
+      note:"Draft Delivery Note for stock request "+q.req_no+" from "+(q.from_branch||"")+" ("+(SRQ_STATUS[q.status]||q.status)+"). You can lower a quantity or remove a line, never send more than was approved. Stock leaves this branch only when you send it."
         +(missing.length? " Not on this till: "+missing.join(", ")+"." : ""), missing };
+  }
+  // The quantities a draft goes out with, per request line (a line left out: 0). -> [{ line_no, sent_qty }]
+  function srqDraftLines(pre, lines){
+    const sent = {};
+    lines.forEach(l=>{ const m = pre.draft.max[l.product.id]; if(m) sent[m.line_no] = (sent[m.line_no]||0) + Number(l.qty); });
+    return pre.draft.lineNos.map(n=>({ line_no:n, sent_qty:sent[n]||0 }));
+  }
+  // Problems with what is about to be sent from a draft (Dispatch's own checks come first).
+  function srqDraftProblems(pre, lines){
+    const errs = [];
+    const seen = {};
+    lines.forEach(l=>{
+      const m = pre.draft.max[l.product.id];
+      if(!m){ errs.push(l.product.name+" isn't on the approved request: a draft can't add products."); return; }
+      seen[m.line_no] = (seen[m.line_no]||0) + (Number(l.qty)||0);
+      if(seen[m.line_no] > m.approved) errs.push(l.product.name+": "+m.approved+" approved, so no more than "+m.approved+" can go.");
+    });
+    return errs;
+  }
+  // Before the DN is made (online): seiGEN gives the draft to the first sender only. -> { ok, id } | { ok:false, message, code }
+  async function srqDraftClaim(pre, lines){
+    if(!isOnline()) return { ok:false, code:"offline", message:"Sending a draft needs the internet, so that only one Delivery Note is made from it. Connect and try again." };
+    const id = scNewUid();
+    const r = await terminalRpc("cl_device_srq_draft_claim", Object.assign(terminalAuth(), { p_request_id:pre.draft.requestId, p_dispatch_id:id, p_by:scWho(), p_lines:srqDraftLines(pre, lines) }), { timeoutMs:20000 });
+    if(r.ok) return { ok:true, id };
+    const msg = (r.data && r.data.message) || r.message || r.code || r.reason || "seiGEN didn't answer";
+    if(r.code==="DRAFT_SENT" || r.code==="DRAFT_CLOSED"){ await scTick().catch(()=>{}); }   // its new state, for the request's screen
+    return { ok:false, code:r.code||r.reason, message:String(msg) };
+  }
+  // The DN couldn't be made after all (its stock check): the draft is open again on seiGEN.
+  function srqDraftRelease(pre, id){
+    if(!pre || !pre.draft || !id || !isOnline()) return Promise.resolve();
+    return terminalRpc("cl_device_srq_draft_release", Object.assign(terminalAuth(), { p_request_id:pre.draft.requestId, p_dispatch_id:id }), { timeoutMs:20000 }).catch(()=>{});
+  }
+  // Close a draft without sending it: Review stock requests or an Owner/Admin, with a reason (seiGEN checks the same).
+  function srqCloseDraft(id, note){
+    const q = scRequest(id);
+    if(!srqDraftOpen(q)) return { ok:false, message:"That draft isn't waiting any more." };
+    if(!srqCanCloseDraft()) return { ok:false, message:"Closing a draft needs the Review stock requests right, or an Owner or Admin." };
+    if(!String(note||"").trim()) return { ok:false, message:"Give the reason for closing the draft." };
+    const ts = new Date().toISOString(), reason = String(note).trim().slice(0, 200);
+    Object.assign(q.draft, { status:"closed", closed_by:scWho(), close_reason:reason, closed_at:ts });
+    q.status = "not_dispatched";
+    (q.log = q.log||[]).push({ at:ts, by:scWho(), action:"not_dispatched", detail:{ note:reason } });
+    db.run("BEGIN");
+    try{
+      scSaveDoc("sc_requests", q, q._local);
+      scQueue("draft_close", { id, note:reason }, id);
+      logAudit("Stock request draft closed", "", q.req_no+": "+reason);
+      db.run("COMMIT");
+    }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
+    return { ok:true };
+  }
+  function srqWhen(ts){ try{ return new Date(ts).toLocaleString([], { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); }catch(e){ return String(ts||""); } }
+  // Dispatch at main → "Drafts from stock requests"
+  function openDraftsList(){
+    const wrap = openModal("Drafts from stock requests", `<div id="srqDrafts"></div>`);
+    const body = wrap.querySelector("#srqDrafts");
+    const draw = ()=>{
+      const rows = srqOpenDrafts();
+      body.innerHTML = rows.length? `<p class="muted" style="margin:0 0 6px;font-size:12.5px">Approved stock requests waiting to be sent. A draft moves no stock: stock leaves only when you send its Delivery Note.</p>
+        ${rows.map(q=>`<div class="card srq-draft" data-draft="${escapeHtml(q.id)}" style="padding:8px;margin-bottom:6px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:160px"><b>${escapeHtml(q.req_no)}</b> for ${escapeHtml(q.from_branch||scBranchName(q.from_branch_id))}
+            <div class="muted" style="font-size:12px">${srqStatusChip(q.status)} · approved ${escapeHtml(srqWhen(q.draft.approved_at||q.decided_at))}${q.draft.approved_by? " by "+escapeHtml(q.draft.approved_by) : ""} · ${(q.lines||[]).filter(l=>(l.approved_qty||0)>0).length} item(s)</div></div>
+            <button class="btn btn-sm btn-primary" data-open-draft="${escapeHtml(q.id)}">Open draft DN</button></div></div>`).join("")}`
+        : `<p class="muted" id="srqNoDrafts">No drafts waiting.</p>`;
+      body.querySelectorAll("[data-open-draft]").forEach(b=> b.onclick = ()=>{
+        const r = srqOpenDraft(b.dataset.openDraft);
+        if(!r.ok) return alert(r.message);
+        wrap.remove();
+      });
+    };
+    draw();
+  }
+  // -> { ok } | { ok:false, message }
+  function srqOpenDraft(id){
+    const q = scRequest(id);
+    if(!srqDraftOpen(q)) return { ok:false, message:"That draft isn't waiting any more: it has been sent or closed." };
+    if(!srqCanSendDrafts()) return { ok:false, message:"Sending a draft needs the Dispatch right on a main-branch till." };
+    const pre = srqDispatchPrefill(q);
+    if(!pre.lines.length) return { ok:false, message:"None of the approved items is on this till." };
+    openDispatchScreen(pre);
+    return { ok:true };
+  }
+
+  // ---- the dispatch reminder (v37.1, decision 64) ----
+  const SRQ_REMIND_DEFAULT = { delay_hours:8, repeat_hours:24 };
+  function srqReminderSettings(){ const s = scJson(getSetting("srq_settings",""), null); return s && s.delay_hours? s : Object.assign({}, SRQ_REMIND_DEFAULT); }
+  // The reminders due now for one open draft: 0 before the delay, then 1, 2, ... one per repeat (or just 1 with "Don't repeat").
+  // Measured from the approval, with the timers in force now (a change applies to drafts already waiting).
+  function srqReminderCount(q, nowMs, s){
+    if(!srqDraftOpen(q)) return 0;
+    const at = Date.parse(q.draft.approved_at || q.decided_at || ""); if(!at) return 0;
+    const due = at + s.delay_hours*3600000;
+    if(nowMs < due) return 0;
+    return s.repeat_hours? Math.floor((nowMs - due) / (s.repeat_hours*3600000)) + 1 : 1;
+  }
+  // Who approved, as the bell knows people (bellPerson): "staff:<id>", or "device" for this till in single operator mode
+  function srqApproverKey(q){
+    const d = q.draft||{}, staff = d.approved_staff_id || q.decided_staff_id;
+    if(staff) return "staff:"+staff;
+    return (d.approved_terminal_id || q.decided_terminal_id) && (d.approved_terminal_id || q.decided_terminal_id)===scMyTerminal()? "device" : "";
+  }
+  function srqReminderCardHtml(){
+    if(!(typeof scAvailable==="function" && scAvailable())) return "";
+    const s = srqReminderSettings(), mayEdit = srqReminderMayEdit();
+    const delays = Array.from({ length:72 }, (_,i)=> i+1), repeats = Array.from({ length:69 }, (_,i)=> i+4);
+    return `<div class="card" id="srqRemindCard">
+      <h3 style="margin-top:0">Stock requests: dispatch reminder</h3>
+      <p class="muted" style="font-size:12.5px;margin:0 0 6px">When an approved request's draft Delivery Note hasn't been sent, the bell reminds everyone at main with the Dispatch right, and the person who approved it. For the whole business, set on seiGEN${s.updated_by? " (last changed by "+escapeHtml(s.updated_by)+")" : ""}.</p>
+      <label style="margin-top:0">Remind after</label>
+      <select class="field" id="srqRemDelay" ${mayEdit? "" : "disabled"}>${delays.map(h=>`<option value="${h}" ${h===Number(s.delay_hours)? "selected" : ""}>${h} hour${h===1? "" : "s"}</option>`).join("")}</select>
+      <label>Repeat every</label>
+      <select class="field" id="srqRemRepeat" ${mayEdit? "" : "disabled"}><option value="" ${s.repeat_hours==null? "selected" : ""}>Don't repeat</option>${repeats.map(h=>`<option value="${h}" ${h===Number(s.repeat_hours)? "selected" : ""}>${h} hours</option>`).join("")}</select>
+      ${mayEdit? `<button class="btn btn-outline" id="srqRemSave" style="margin-top:10px">Save reminder</button>` : `<p class="muted" style="font-size:12px;margin:6px 0 0">Only an Owner or Admin can change it.</p>`}
+      <p id="srqRemMsg" style="font-size:12.5px;margin:6px 0 0"></p>
+    </div>`;
+  }
+  // An Owner or Admin signed in, or (nobody signed in) a till in single operator mode, which asks for the Admin passcode
+  function srqReminderMayEdit(){
+    if(typeof staffOwnerOrAdmin==="function" && staffOwnerOrAdmin()) return true;
+    const signedIn = typeof staffSession==="function" && staffSession();
+    return !signedIn && typeof currentRights==="function" && currentRights()===null && !(typeof isSeat==="function" && isSeat());
+  }
+  // -> { ok, settings } | { ok:false, message }
+  async function srqReminderSave(delayHours, repeatHours){
+    const d = Number(delayHours), r = repeatHours===null || repeatHours===""? null : Number(repeatHours);
+    if(!Number.isInteger(d) || d<1 || d>72) return { ok:false, message:"Remind after 1 to 72 hours." };
+    if(r!==null && (!Number.isInteger(r) || r<4 || r>72)) return { ok:false, message:"Repeat every 4 to 72 hours, or don't repeat." };
+    if(!isOnline()) return { ok:false, message:"You need the internet: the reminder is set on seiGEN for every till." };
+    const res = await terminalRpc("cl_device_srq_settings_set", Object.assign(terminalAuth(), { p_delay_hours:d, p_repeat_hours:r, p_by:scWho() }), { timeoutMs:20000 });
+    if(!res.ok) return { ok:false, message:String((res.data && res.data.message) || res.message || res.code || res.reason) };
+    const s = res.data.settings || { delay_hours:d, repeat_hours:r };
+    setSetting("srq_settings", JSON.stringify({ delay_hours:s.delay_hours, repeat_hours:s.repeat_hours==null? null : s.repeat_hours, updated_at:s.updated_at||null, updated_by:s.updated_by||null }));
+    logAudit("Dispatch reminder", "", "after "+d+" h, "+(r? "every "+r+" h" : "no repeat"));
+    await persist();
+    return { ok:true, settings:s };
+  }
+  function srqReminderCardWire(scope){
+    const b = scope.querySelector("#srqRemSave");
+    if(!b) return;
+    b.onclick = async ()=>{
+      const msg = scope.querySelector("#srqRemMsg");
+      const signedIn = typeof staffSession==="function" && staffSession();
+      if(!signedIn){   // single operator mode: the Admin passcode, as for every setting here
+        const pc = prompt("Admin passcode to change the dispatch reminder:");
+        if(pc===null) return;
+        if(!(await findAdminAsync(pc))){ msg.style.color = "#b42318"; msg.textContent = "Incorrect Admin passcode. Nothing was changed."; return; }
+      }
+      b.disabled = true; b.textContent = "Saving…";
+      const r = await srqReminderSave(scope.querySelector("#srqRemDelay").value, scope.querySelector("#srqRemRepeat").value);
+      b.disabled = false; b.textContent = "Save reminder";
+      msg.style.color = r.ok? "" : "#b42318";
+      msg.textContent = r.ok? "Saved for the whole business." : r.message;
+    };
   }
   function openRequestHistory(id){
     const q = scRequest(id);
@@ -20793,14 +20999,20 @@ ${readOnly? "" : `
         <p style="margin:0 0 6px">Reason: ${escapeHtml(q.reason||"")}</p>
         ${q.decision_note? `<p style="margin:0 0 6px" id="srqNote"><b>${escapeHtml(q.status==="rejected"? "Rejected" : "Reviewer's note")}:</b> ${escapeHtml(q.decision_note)}${q.decided_by? " ("+escapeHtml(q.decided_by)+")" : ""}</p>` : ""}
         ${srqWaitingNote(q.id)}
-        <table class="simple"><tr><th>Item</th><th>Asked</th><th>Approved</th></tr>${(q.lines||[]).map(l=>`<tr><td>${skuNameCellScreen(l.code, l.name)}</td><td>${l.qty}</td>
-          <td>${q.status==="pending"? `<input class="field" data-part="${l.line_no}" inputmode="numeric" value="${l.qty}" style="width:70px;margin:0" ${srqCan("review_requisitions")? "" : "disabled"}>` : (l.approved_qty==null? "—" : l.approved_qty)}</td></tr>`).join("")}</table>
+        ${srqDraftOpen(q)? `<p class="srq-draft-wait" id="srqDraftWait" style="margin:0 0 6px;font-size:12.5px;color:#b54708"><b>Approved, waiting for dispatch since ${escapeHtml(srqWhen(q.draft.approved_at||q.decided_at))}</b></p>` : ""}
+        ${q.status==="not_dispatched" && q.draft? `<p id="srqDraftClosed" style="margin:0 0 6px;font-size:12.5px;color:#b42318"><b>Approved, not dispatched:</b> ${escapeHtml(q.draft.close_reason||"")}${q.draft.closed_by? " ("+escapeHtml(q.draft.closed_by)+(q.draft.closed_at? ", "+escapeHtml(srqWhen(q.draft.closed_at)) : "")+")" : ""}</p>` : ""}
+        ${(()=>{ const sentCol = (q.lines||[]).some(l=>l.sent_qty!=null);
+          return `<table class="simple"><tr><th>Item</th><th>Asked</th><th>Approved</th>${sentCol? "<th>Sent</th>" : ""}</tr>${(q.lines||[]).map(l=>`<tr><td>${skuNameCellScreen(l.code, l.name)}</td><td>${l.qty}</td>
+          <td>${q.status==="pending"? `<input class="field" data-part="${l.line_no}" inputmode="numeric" value="${l.qty}" style="width:70px;margin:0" ${srqCan("review_requisitions")? "" : "disabled"}>` : (l.approved_qty==null? "—" : l.approved_qty)}</td>
+          ${sentCol? `<td${l.sent_qty!=null && l.sent_qty!==l.approved_qty? ' style="color:#b54708;font-weight:700"' : ""}>${l.sent_qty==null? "—" : l.sent_qty}</td>` : ""}</tr>`).join("")}</table>`; })()}
         ${q.dn_display? `<p style="margin:6px 0 0">Delivery Note: <b>${escapeHtml(q.dn_display)}</b>${q.grv_display? " · GRV <b>"+escapeHtml(q.grv_display)+"</b>" : ""}</p>` : ""}
         <h4 style="margin:10px 0 4px">History</h4>
         <div style="font-size:12.5px">${(q.log||[]).map(g=>`<div>${escapeHtml(new Date(g.at).toLocaleString())} · ${escapeHtml(g.by||"")} · ${escapeHtml(g.action)}${g.detail && g.detail.dn? " "+escapeHtml(g.detail.dn) : ""}${g.detail && g.detail.grv? " "+escapeHtml(g.detail.grv) : ""}</div>`).join("")}</div>
         ${q.status==="pending" && srqCan("review_requisitions")? `<label>Note / reason</label><input class="field" id="srqDecNote" maxlength="200">
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-primary" data-dec="approve">Approve all</button><button class="btn btn-outline" data-dec="part">Approve as typed (part)</button><button class="btn btn-outline" data-dec="reject">Reject</button></div>` : ""}
-        ${(q.status==="approved" || q.status==="part_approved") && atMain && srqCan("m.dispatch") && !q.dispatch_id? `<button class="btn btn-primary" id="srqDispatch" style="margin-top:10px">Create dispatch</button>` : ""}
+        ${srqDraftOpen(q) && atMain && srqCan("m.dispatch") && !q.dispatch_id? `<button class="btn btn-primary" id="srqDispatch" style="margin-top:10px">Open draft DN</button>` : ""}
+        ${srqDraftOpen(q) && srqCanCloseDraft() && !q.dispatch_id? `<button class="btn btn-outline" id="srqCloseDraft" style="margin-top:10px">Close the draft (not dispatched)</button>` : ""}
+        ${(q.status==="approved" || q.status==="part_approved") && !q.draft && !q.dispatch_id && atMain? `<p class="muted" style="font-size:12px;margin:8px 0 0">The draft Delivery Note comes from seiGEN with the next check (Refresh).</p>` : ""}
         <div id="srqErr" style="color:#b42318;font-size:12.5px"></div>
       </div>`);
     wrap.querySelectorAll("[data-dec]").forEach(b=> b.onclick = ()=>{
@@ -20811,9 +21023,17 @@ ${readOnly? "" : `
     });
     const dbtn = wrap.querySelector("#srqDispatch");
     if(dbtn) dbtn.onclick = ()=>{
-      const pre = srqDispatchPrefill(q);
-      if(!pre.lines.length){ wrap.querySelector("#srqErr").textContent = "None of the approved items is on this till."; return; }
-      wrap.remove(); openDispatchScreen(pre);
+      const r = srqOpenDraft(q.id);
+      if(!r.ok){ wrap.querySelector("#srqErr").textContent = r.message; return; }
+      wrap.remove();
+    };
+    const cbtn = wrap.querySelector("#srqCloseDraft");
+    if(cbtn) cbtn.onclick = ()=>{
+      const note = prompt("Why close this draft without dispatching? The requesting branch sees the reason.");
+      if(note==null) return;
+      const r = srqCloseDraft(q.id, note);
+      if(!r.ok){ wrap.querySelector("#srqErr").textContent = r.message; return; }
+      persist(); scSoon(); wrap.remove(); render();
     };
   }
 
@@ -21046,6 +21266,7 @@ ${readOnly? "" : `
       right TEXT DEFAULT '', read_by TEXT DEFAULT '[]', chimed INTEGER DEFAULT 0, hidden INTEGER DEFAULT 0, body TEXT DEFAULT '')`); }catch(e){}
     try{ t.run("CREATE INDEX IF NOT EXISTS ix_notices_ts ON notices(ts)"); }catch(e){}
     try{ t.run("ALTER TABLE notices ADD COLUMN person TEXT DEFAULT ''"); }catch(e){}   // a notice for one person only (bellPerson key), e.g. a cancelled recall's DN
+    try{ t.run("ALTER TABLE notices ADD COLUMN or_person TEXT DEFAULT ''"); }catch(e){}   // v37.1: also this person, without the right (the approver of a draft, decision 64)
   }
 
   // ---- who is looking ----
@@ -21059,7 +21280,9 @@ ${readOnly? "" : `
   function bellCanSee(n){
     if(scGuest() && n.category!=="market") return false;
     if(n.person && n.person!==bellPerson()) return false;
-    if(n.right && n.right.split("|").every(r=> typeof can==="function" && !can(r))) return false;
+    if(n.right && n.right.split("|").every(r=> typeof can==="function" && !can(r)) && !(n.or_person && n.or_person===bellPerson())) return false;
+    // v37.1 (Fix 4): an iTred order shows only where Orders Fulfillment can open it (one rule for both)
+    if(n.category==="itred" && typeof itredAvailable==="function" && !itredAvailable()) return false;
     return !bellCatsOff().includes(n.category);
   }
   function bellVisible(){
@@ -21074,8 +21297,8 @@ ${readOnly? "" : `
     o = o || {};
     const before = one("SELECT key FROM notices WHERE key=?",[key]);
     if(before) return false;
-    run("INSERT INTO notices(key,category,title,route,ts,right,read_by,chimed,hidden,body,person) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-      [key, category, String(title).slice(0,140), o.route||"", o.ts||new Date().toISOString(), o.right||"", o.seed? JSON.stringify(["*"]) : "[]", o.seed? 1 : 0, o.seed? 1 : 0, String(o.body||"").slice(0,2000), o.person||""]);
+    run("INSERT INTO notices(key,category,title,route,ts,right,read_by,chimed,hidden,body,person,or_person) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+      [key, category, String(title).slice(0,140), o.route||"", o.ts||new Date().toISOString(), o.right||"", o.seed? JSON.stringify(["*"]) : "[]", o.seed? 1 : 0, o.seed? 1 : 0, String(o.body||"").slice(0,2000), o.person||"", o.orPerson||""]);
     return !o.seed;
   }
   // The notices a pull brings (stock-ctl.js scPull's changes). -> how many are new
@@ -21125,6 +21348,30 @@ ${readOnly? "" : `
       if(bellAdd("itred:"+o.id, "itred", "New iTred order ("+t.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })+")", { route:"itred", right:"m.sell", ts:o.created_at, seed: seed && getSetting("bell_itred_seen","")!=="1" })) n++;
     });
     if(ch.itred) setSetting("bell_itred_seen","1");
+    return n;
+  }
+  // v37.1 (decision 64): an approved request whose draft DN hasn't been sent: everyone at main with the Dispatch right,
+  // plus the person who approved it. One notice per reminder (a new key, so a new chime), the older ones put away;
+  // all put away as soon as the draft is sent or closed. Worked out here from seiGEN's timers (srqReminderSettings).
+  function bellReminders(nowMs){
+    let n = 0;
+    try{
+      if(typeof srqReminderCount!=="function") return 0;
+      const s = srqReminderSettings(), now = nowMs==null? Date.now() : nowMs, main = scIsMain();
+      scRequests().forEach(q=>{
+        const k = srqReminderCount(q, now, s), like = "srq:remind:"+q.id+":%";
+        if(!k){ run("UPDATE notices SET hidden=1 WHERE key LIKE ? AND hidden=0",[like]); return; }
+        const approver = srqApproverKey(q);
+        if(!main && !approver) return;
+        const key = "srq:remind:"+q.id+":"+k;
+        run("UPDATE notices SET hidden=1 WHERE key LIKE ? AND key<>? AND hidden=0",[like, key]);
+        const at = new Date(q.draft.approved_at||q.decided_at);
+        const title = q.req_no+" for "+(q.from_branch||scBranchName(q.from_branch_id)||"a branch")+" approved "+at.toLocaleString([], { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })+", not dispatched yet";
+        run("UPDATE notices SET hidden=0 WHERE key=? AND hidden=1",[key]);   // the reminder due now (a timer change can bring an earlier one back)
+        if(bellAdd(key, "requests", title, main? { route:"srq:"+q.id, right:"m.dispatch", orPerson:approver, ts:new Date(now).toISOString() }
+          : { route:"srq:"+q.id, person:approver, ts:new Date(now).toISOString() })) n++;
+      });
+    }catch(e){}
     return n;
   }
   // Notices made on this device (a count waiting here, before seiGEN has it)
@@ -21220,6 +21467,7 @@ ${readOnly? "" : `
       const r = await scTick();
       let fresh = bellLocal();
       if(r.pull && r.pull.ok) fresh += bellFromChanges(r.pull.changes);
+      fresh += bellReminders();   // v37.1 (decision 64)
       fresh += await bellRecallDnCheck(r.pull && r.pull.ok? r.pull.changes : null);
       bellPrune();
       const a = bellAnnounce();
@@ -21301,10 +21549,38 @@ ${readOnly? "" : `
     draw();
     bellRefreshBadge();
   }
+  // v37.1 (Fix 4): why a notice's screen can't open here, or "" when it can. Never a fall back to Help.
+  function bellRouteProblem(r){
+    // the same tests as the More tabs themselves (router.js MORE_TABS: needs + the role's right)
+    const allowed = (id)=> typeof moreTabAllowed!=="function" || moreTabAllowed(id);
+    if(r.startsWith("srq:") || r.startsWith("rcl:")) return typeof srqAvailable==="function" && srqAvailable()? "" : "Stock requests and recalls aren't on this device: it isn't on seiGEN, it's switched off, it's a Guest's seat, or your role has no stock request right.";
+    if(r==="counts") return allowed("stocktake")? "" : "Needs the Stocktake right.";
+    if(r==="itred"){
+      if(!allowed("itredorders")) return "Needs the Sell right.";
+      if(typeof itredRegistered==="function" && !itredRegistered()) return "This till isn't on seiGEN, so it can't show iTred orders.";
+      return typeof itredAvailable==="function" && itredAvailable()? "" : "This till isn't on iTred yet: tap Refresh.";
+    }
+    if(r==="incoming" || r==="dispatches") return typeof navAllowed!=="function" || navAllowed("products")? "" : "Needs the Products right.";
+    return "";
+  }
+  function bellCantOpen(n, why){
+    const w = openModal(n.title, `<p id="bellWhy" style="margin:0 0 8px">${escapeHtml(why)}</p>${n.route==="itred" && /Refresh/.test(why)? `<button class="btn btn-primary" id="bellItredRefresh">Refresh</button>` : ""}`);
+    const b = w.querySelector("#bellItredRefresh");
+    if(b) b.onclick = async ()=>{
+      b.disabled = true; b.textContent = "Checking…";
+      if(typeof itredAfterCheckin==="function") await itredAfterCheckin();
+      w.remove();
+      const again = bellRouteProblem(n.route||"");
+      if(again) bellCantOpen(n, again); else bellGo(n);
+    };
+    bellRefreshBadge();
+  }
   // Tap: read, then the screen it is about
   function bellGo(n){
     const r = n.route||"";
     if(n.category==="market"){ openModal(n.title, `<p style="white-space:pre-wrap">${escapeHtml(n.body||"")}</p><p class="muted" style="font-size:12px">From seiGEN · ${escapeHtml(new Date(n.ts).toLocaleString())}</p>`); bellRefreshBadge(); return; }
+    const why = bellRouteProblem(r);
+    if(why){ bellCantOpen(n, why); return; }
     route = "more";
     if(r.startsWith("srq:")){ moreTab = "stockctl"; srqTab = "requests"; render(); openRequestHistory(r.slice(4)); return; }
     if(r.startsWith("rcl:")){ moreTab = "stockctl"; srqTab = "recalls"; render(); openRecallHistory(r.slice(4)); return; }
@@ -23594,6 +23870,7 @@ ${readOnly? "" : `
     cl_terminal_set_active:"m.terminals", cl_terminal_admin_set:"m.terminals", cl_branch_issue_join_code:"m.terminals",
     cl_branch_set_price_mode:"m.settings", cl_branch_set_business_day:"m.settings", cl_device_pack_submit:"m.marketing",
     cl_device_transfer_send:"m.dispatch", cl_device_transfer_receive:"m.receive", cl_device_transfer_cancel:"m.dispatch", cl_device_transfer_resolve:"m.dispatch",
+    cl_device_srq_draft_claim:"m.dispatch", cl_device_srq_draft_release:"m.dispatch", cl_device_srq_settings_set:"m.settings",   // v37.1: seiGEN checks Dispatch / Owner-Admin
     cl_device_stock_ctl_push:"m.stocktake" };   // v37: each event's own right is checked by seiGEN (stock-ctl.js); the token is sent first
   const TILL_RIGHT_TEXT = { cl_device_grv_post:"Receiving (GRV)", cl_device_dispatch_send:"Sending a Delivery Note", cl_device_dispatch_cancel:"Cancelling a Delivery Note",
     cl_device_dispatch_resolve:"A Delivery Note's shortage", cl_device_supplier_grv_post:"A supplier GRV", cl_device_supplier_save:"A supplier",
@@ -24346,6 +24623,7 @@ ${readOnly? "" : `
       ${adminPasscodeSettingShown()? adminPasscodeCardHtml() : ""}
       ${typeof bellSettingsHtml==="function"? bellSettingsHtml() : ""}
       ${typeof cycleSettingsCardHtml==="function"? cycleSettingsCardHtml() : ""}
+      ${typeof srqReminderCardHtml==="function"? srqReminderCardHtml() : ""}
       ${settingsStaffCardHtml()}
       ${isRemote() || !(typeof can!=="function" || can("m.terminals"))? "" : branchRegisterCardHtml()}
       ${backupMergeSectionHtml()}
@@ -24434,6 +24712,7 @@ ${readOnly? "" : `
     wireAdminPasscodeCard(main);
     if(typeof bellSettingsWire==="function") bellSettingsWire(main);   // v37
     if(typeof cycleSettingsWire==="function") cycleSettingsWire(main);
+    if(typeof srqReminderCardWire==="function") srqReminderCardWire(main);   // v37.1 (decision 64)
     wireSettingsStaffCard(main);
     if(!isRemote() && (typeof can!=="function" || can("m.terminals"))) wireBranchRegisterCard();
     wireBackupMergeSection();

@@ -1,15 +1,19 @@
   // ================== Stock requests and recalls (v37, owner decisions 53 and 54) ==================
   // docs/stock-control/v37-design.md §2-3. A branch asks main for stock (B3, as
-  // designed); main approves all, part or rejects with a reason; "Create dispatch"
-  // opens Dispatch pre-filled (the draft DN), linked to the request; the normal
-  // DN -> GRV flow follows. Main recalls stock from a branch; the branch sends it
+  // designed); main approves all, part or rejects with a reason; seiGEN then holds
+  // a draft DN for the approved quantities (v37.1, decision 63): "Open draft DN"
+  // at main opens Dispatch pre-filled, never above what was approved, and only the
+  // first sender's DN counts; a draft is sent or closed with a reason, never deleted.
+  // The bell reminds main while a draft waits (decision 64). The normal DN -> GRV
+  // flow follows. Main recalls stock from a branch; the branch sends it
   // back with a normal DN (short lines with a reason); main's GRV receives it. A
   // recall alone never moves stock. The customer notepad (requests.js) is separate.
 
   let srqTab = "requests";
   const srqFilter = { status:"", branch:"", from:"", to:"", q:"" };
   const rclFilter = { status:"", q:"" };
-  const SRQ_STATUS = { pending:"Pending", approved:"Approved", part_approved:"Part-approved", rejected:"Rejected", dispatched:"Dispatched", received:"Received" };
+  const SRQ_STATUS = { pending:"Pending", approved:"Approved", part_approved:"Part-approved", rejected:"Rejected", dispatched:"Dispatched", received:"Received",
+    not_dispatched:"Approved, not dispatched" };   // v37.1: its draft was closed with a reason (decision 63)
   const RCL_STATUS = { open:"Open", partly_sent:"Partly sent", sent:"Sent", received:"Received", cancelled:"Cancelled" };
   const RCL_REASONS = [["expiring","Expiring"],["overstock","Overstock"],["move","Move to another branch"],["quality","Quality"],["other","Other"]];
   const srqCan = (r)=> typeof can!=="function" || can(r);
@@ -17,7 +21,7 @@
   function srqToday(){ return businessDateOf(); }
   function srqStatusChip(s, overdue){
     const t = overdue? "Overdue" : SRQ_STATUS[s] || RCL_STATUS[s] || s;
-    const c = overdue || s==="rejected"? "#b42318" : s==="pending" || s==="open"? "#b54708" : s==="received"? "#067647" : "#344054";
+    const c = overdue || s==="rejected" || s==="not_dispatched"? "#b42318" : s==="pending" || s==="open"? "#b54708" : s==="received"? "#067647" : "#344054";
     return `<span class="srq-status" style="font-size:11.5px;font-weight:700;color:${c}">${escapeHtml(t)}</span>`;
   }
   function rclOverdue(q){ return q.status==="open" && !!q.due_date && q.due_date < srqToday(); }
@@ -176,13 +180,182 @@
     }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
     return { ok:true, status };
   }
-  // The "draft DN": Dispatch opened pre-filled with the approved quantities, linked to the request
+  // ---- the draft DN on seiGEN (v37.1, decision 63) ----
+  // A request's draft is waiting while seiGEN holds it open and the request is still approved.
+  function srqDraftOpen(q){ return !!(q && q.draft && q.draft.status==="open" && (q.status==="approved" || q.status==="part_approved")); }
+  function srqOpenDrafts(){ return scRequests().filter(srqDraftOpen).sort((a,b)=> String(a.draft.approved_at||"").localeCompare(String(b.draft.approved_at||""))); }
+  // Main's Dispatch: someone with the Dispatch right on a main till (or seat)
+  function srqCanSendDrafts(){ return srqAvailable() && scIsMain() && srqCan("m.dispatch"); }
+  function srqCanCloseDraft(){ return srqCan("review_requisitions") || (typeof staffOwnerOrAdmin==="function" && staffOwnerOrAdmin()); }
+  // The draft opened in Dispatch: pre-filled with the approved quantities, linked to the request.
+  // pre.draft: the most each product may go out with (approved), by product id; lines can only go down or be removed.
   function srqDispatchPrefill(q){
-    const missing = [];
-    const lines = (q.lines||[]).filter(l=>(l.approved_qty||0)>0).map(l=>{ const p = scProductByKey(l.product_key); if(!p){ missing.push(l.name); return null; } return { product:p, qty:l.approved_qty }; }).filter(Boolean);
-    return { toBranch:q.from_branch || scBranchName(q.from_branch_id), lines, link:{ type:"request", id:q.id }, title:"Dispatch for "+q.req_no, internalRef:q.req_no,
-      note:"Stock request "+q.req_no+" from "+(q.from_branch||"")+" ("+(SRQ_STATUS[q.status]||q.status)+"). Change quantities if you must; the request is linked to this Delivery Note."
+    const missing = [], max = {};
+    const lines = (q.lines||[]).filter(l=>(l.approved_qty||0)>0).map(l=>{
+      const p = scProductByKey(l.product_key);
+      if(!p){ missing.push(l.name); return null; }
+      max[p.id] = { line_no:l.line_no, approved:l.approved_qty, name:l.name };
+      return { product:p, qty:l.approved_qty };
+    }).filter(Boolean);
+    return { toBranch:q.from_branch || scBranchName(q.from_branch_id), lines, link:{ type:"request", id:q.id }, title:"Draft DN for "+q.req_no, internalRef:q.req_no,
+      draft:{ requestId:q.id, reqNo:q.req_no, max, lineNos:(q.lines||[]).map(l=>l.line_no) },
+      note:"Draft Delivery Note for stock request "+q.req_no+" from "+(q.from_branch||"")+" ("+(SRQ_STATUS[q.status]||q.status)+"). You can lower a quantity or remove a line, never send more than was approved. Stock leaves this branch only when you send it."
         +(missing.length? " Not on this till: "+missing.join(", ")+"." : ""), missing };
+  }
+  // The quantities a draft goes out with, per request line (a line left out: 0). -> [{ line_no, sent_qty }]
+  function srqDraftLines(pre, lines){
+    const sent = {};
+    lines.forEach(l=>{ const m = pre.draft.max[l.product.id]; if(m) sent[m.line_no] = (sent[m.line_no]||0) + Number(l.qty); });
+    return pre.draft.lineNos.map(n=>({ line_no:n, sent_qty:sent[n]||0 }));
+  }
+  // Problems with what is about to be sent from a draft (Dispatch's own checks come first).
+  function srqDraftProblems(pre, lines){
+    const errs = [];
+    const seen = {};
+    lines.forEach(l=>{
+      const m = pre.draft.max[l.product.id];
+      if(!m){ errs.push(l.product.name+" isn't on the approved request: a draft can't add products."); return; }
+      seen[m.line_no] = (seen[m.line_no]||0) + (Number(l.qty)||0);
+      if(seen[m.line_no] > m.approved) errs.push(l.product.name+": "+m.approved+" approved, so no more than "+m.approved+" can go.");
+    });
+    return errs;
+  }
+  // Before the DN is made (online): seiGEN gives the draft to the first sender only. -> { ok, id } | { ok:false, message, code }
+  async function srqDraftClaim(pre, lines){
+    if(!isOnline()) return { ok:false, code:"offline", message:"Sending a draft needs the internet, so that only one Delivery Note is made from it. Connect and try again." };
+    const id = scNewUid();
+    const r = await terminalRpc("cl_device_srq_draft_claim", Object.assign(terminalAuth(), { p_request_id:pre.draft.requestId, p_dispatch_id:id, p_by:scWho(), p_lines:srqDraftLines(pre, lines) }), { timeoutMs:20000 });
+    if(r.ok) return { ok:true, id };
+    const msg = (r.data && r.data.message) || r.message || r.code || r.reason || "seiGEN didn't answer";
+    if(r.code==="DRAFT_SENT" || r.code==="DRAFT_CLOSED"){ await scTick().catch(()=>{}); }   // its new state, for the request's screen
+    return { ok:false, code:r.code||r.reason, message:String(msg) };
+  }
+  // The DN couldn't be made after all (its stock check): the draft is open again on seiGEN.
+  function srqDraftRelease(pre, id){
+    if(!pre || !pre.draft || !id || !isOnline()) return Promise.resolve();
+    return terminalRpc("cl_device_srq_draft_release", Object.assign(terminalAuth(), { p_request_id:pre.draft.requestId, p_dispatch_id:id }), { timeoutMs:20000 }).catch(()=>{});
+  }
+  // Close a draft without sending it: Review stock requests or an Owner/Admin, with a reason (seiGEN checks the same).
+  function srqCloseDraft(id, note){
+    const q = scRequest(id);
+    if(!srqDraftOpen(q)) return { ok:false, message:"That draft isn't waiting any more." };
+    if(!srqCanCloseDraft()) return { ok:false, message:"Closing a draft needs the Review stock requests right, or an Owner or Admin." };
+    if(!String(note||"").trim()) return { ok:false, message:"Give the reason for closing the draft." };
+    const ts = new Date().toISOString(), reason = String(note).trim().slice(0, 200);
+    Object.assign(q.draft, { status:"closed", closed_by:scWho(), close_reason:reason, closed_at:ts });
+    q.status = "not_dispatched";
+    (q.log = q.log||[]).push({ at:ts, by:scWho(), action:"not_dispatched", detail:{ note:reason } });
+    db.run("BEGIN");
+    try{
+      scSaveDoc("sc_requests", q, q._local);
+      scQueue("draft_close", { id, note:reason }, id);
+      logAudit("Stock request draft closed", "", q.req_no+": "+reason);
+      db.run("COMMIT");
+    }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} return { ok:false, message:String(e.message||e) }; }
+    return { ok:true };
+  }
+  function srqWhen(ts){ try{ return new Date(ts).toLocaleString([], { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); }catch(e){ return String(ts||""); } }
+  // Dispatch at main → "Drafts from stock requests"
+  function openDraftsList(){
+    const wrap = openModal("Drafts from stock requests", `<div id="srqDrafts"></div>`);
+    const body = wrap.querySelector("#srqDrafts");
+    const draw = ()=>{
+      const rows = srqOpenDrafts();
+      body.innerHTML = rows.length? `<p class="muted" style="margin:0 0 6px;font-size:12.5px">Approved stock requests waiting to be sent. A draft moves no stock: stock leaves only when you send its Delivery Note.</p>
+        ${rows.map(q=>`<div class="card srq-draft" data-draft="${escapeHtml(q.id)}" style="padding:8px;margin-bottom:6px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:160px"><b>${escapeHtml(q.req_no)}</b> for ${escapeHtml(q.from_branch||scBranchName(q.from_branch_id))}
+            <div class="muted" style="font-size:12px">${srqStatusChip(q.status)} · approved ${escapeHtml(srqWhen(q.draft.approved_at||q.decided_at))}${q.draft.approved_by? " by "+escapeHtml(q.draft.approved_by) : ""} · ${(q.lines||[]).filter(l=>(l.approved_qty||0)>0).length} item(s)</div></div>
+            <button class="btn btn-sm btn-primary" data-open-draft="${escapeHtml(q.id)}">Open draft DN</button></div></div>`).join("")}`
+        : `<p class="muted" id="srqNoDrafts">No drafts waiting.</p>`;
+      body.querySelectorAll("[data-open-draft]").forEach(b=> b.onclick = ()=>{
+        const r = srqOpenDraft(b.dataset.openDraft);
+        if(!r.ok) return alert(r.message);
+        wrap.remove();
+      });
+    };
+    draw();
+  }
+  // -> { ok } | { ok:false, message }
+  function srqOpenDraft(id){
+    const q = scRequest(id);
+    if(!srqDraftOpen(q)) return { ok:false, message:"That draft isn't waiting any more: it has been sent or closed." };
+    if(!srqCanSendDrafts()) return { ok:false, message:"Sending a draft needs the Dispatch right on a main-branch till." };
+    const pre = srqDispatchPrefill(q);
+    if(!pre.lines.length) return { ok:false, message:"None of the approved items is on this till." };
+    openDispatchScreen(pre);
+    return { ok:true };
+  }
+
+  // ---- the dispatch reminder (v37.1, decision 64) ----
+  const SRQ_REMIND_DEFAULT = { delay_hours:8, repeat_hours:24 };
+  function srqReminderSettings(){ const s = scJson(getSetting("srq_settings",""), null); return s && s.delay_hours? s : Object.assign({}, SRQ_REMIND_DEFAULT); }
+  // The reminders due now for one open draft: 0 before the delay, then 1, 2, ... one per repeat (or just 1 with "Don't repeat").
+  // Measured from the approval, with the timers in force now (a change applies to drafts already waiting).
+  function srqReminderCount(q, nowMs, s){
+    if(!srqDraftOpen(q)) return 0;
+    const at = Date.parse(q.draft.approved_at || q.decided_at || ""); if(!at) return 0;
+    const due = at + s.delay_hours*3600000;
+    if(nowMs < due) return 0;
+    return s.repeat_hours? Math.floor((nowMs - due) / (s.repeat_hours*3600000)) + 1 : 1;
+  }
+  // Who approved, as the bell knows people (bellPerson): "staff:<id>", or "device" for this till in single operator mode
+  function srqApproverKey(q){
+    const d = q.draft||{}, staff = d.approved_staff_id || q.decided_staff_id;
+    if(staff) return "staff:"+staff;
+    return (d.approved_terminal_id || q.decided_terminal_id) && (d.approved_terminal_id || q.decided_terminal_id)===scMyTerminal()? "device" : "";
+  }
+  function srqReminderCardHtml(){
+    if(!(typeof scAvailable==="function" && scAvailable())) return "";
+    const s = srqReminderSettings(), mayEdit = srqReminderMayEdit();
+    const delays = Array.from({ length:72 }, (_,i)=> i+1), repeats = Array.from({ length:69 }, (_,i)=> i+4);
+    return `<div class="card" id="srqRemindCard">
+      <h3 style="margin-top:0">Stock requests: dispatch reminder</h3>
+      <p class="muted" style="font-size:12.5px;margin:0 0 6px">When an approved request's draft Delivery Note hasn't been sent, the bell reminds everyone at main with the Dispatch right, and the person who approved it. For the whole business, set on seiGEN${s.updated_by? " (last changed by "+escapeHtml(s.updated_by)+")" : ""}.</p>
+      <label style="margin-top:0">Remind after</label>
+      <select class="field" id="srqRemDelay" ${mayEdit? "" : "disabled"}>${delays.map(h=>`<option value="${h}" ${h===Number(s.delay_hours)? "selected" : ""}>${h} hour${h===1? "" : "s"}</option>`).join("")}</select>
+      <label>Repeat every</label>
+      <select class="field" id="srqRemRepeat" ${mayEdit? "" : "disabled"}><option value="" ${s.repeat_hours==null? "selected" : ""}>Don't repeat</option>${repeats.map(h=>`<option value="${h}" ${h===Number(s.repeat_hours)? "selected" : ""}>${h} hours</option>`).join("")}</select>
+      ${mayEdit? `<button class="btn btn-outline" id="srqRemSave" style="margin-top:10px">Save reminder</button>` : `<p class="muted" style="font-size:12px;margin:6px 0 0">Only an Owner or Admin can change it.</p>`}
+      <p id="srqRemMsg" style="font-size:12.5px;margin:6px 0 0"></p>
+    </div>`;
+  }
+  // An Owner or Admin signed in, or (nobody signed in) a till in single operator mode, which asks for the Admin passcode
+  function srqReminderMayEdit(){
+    if(typeof staffOwnerOrAdmin==="function" && staffOwnerOrAdmin()) return true;
+    const signedIn = typeof staffSession==="function" && staffSession();
+    return !signedIn && typeof currentRights==="function" && currentRights()===null && !(typeof isSeat==="function" && isSeat());
+  }
+  // -> { ok, settings } | { ok:false, message }
+  async function srqReminderSave(delayHours, repeatHours){
+    const d = Number(delayHours), r = repeatHours===null || repeatHours===""? null : Number(repeatHours);
+    if(!Number.isInteger(d) || d<1 || d>72) return { ok:false, message:"Remind after 1 to 72 hours." };
+    if(r!==null && (!Number.isInteger(r) || r<4 || r>72)) return { ok:false, message:"Repeat every 4 to 72 hours, or don't repeat." };
+    if(!isOnline()) return { ok:false, message:"You need the internet: the reminder is set on seiGEN for every till." };
+    const res = await terminalRpc("cl_device_srq_settings_set", Object.assign(terminalAuth(), { p_delay_hours:d, p_repeat_hours:r, p_by:scWho() }), { timeoutMs:20000 });
+    if(!res.ok) return { ok:false, message:String((res.data && res.data.message) || res.message || res.code || res.reason) };
+    const s = res.data.settings || { delay_hours:d, repeat_hours:r };
+    setSetting("srq_settings", JSON.stringify({ delay_hours:s.delay_hours, repeat_hours:s.repeat_hours==null? null : s.repeat_hours, updated_at:s.updated_at||null, updated_by:s.updated_by||null }));
+    logAudit("Dispatch reminder", "", "after "+d+" h, "+(r? "every "+r+" h" : "no repeat"));
+    await persist();
+    return { ok:true, settings:s };
+  }
+  function srqReminderCardWire(scope){
+    const b = scope.querySelector("#srqRemSave");
+    if(!b) return;
+    b.onclick = async ()=>{
+      const msg = scope.querySelector("#srqRemMsg");
+      const signedIn = typeof staffSession==="function" && staffSession();
+      if(!signedIn){   // single operator mode: the Admin passcode, as for every setting here
+        const pc = prompt("Admin passcode to change the dispatch reminder:");
+        if(pc===null) return;
+        if(!(await findAdminAsync(pc))){ msg.style.color = "#b42318"; msg.textContent = "Incorrect Admin passcode. Nothing was changed."; return; }
+      }
+      b.disabled = true; b.textContent = "Saving…";
+      const r = await srqReminderSave(scope.querySelector("#srqRemDelay").value, scope.querySelector("#srqRemRepeat").value);
+      b.disabled = false; b.textContent = "Save reminder";
+      msg.style.color = r.ok? "" : "#b42318";
+      msg.textContent = r.ok? "Saved for the whole business." : r.message;
+    };
   }
   function openRequestHistory(id){
     const q = scRequest(id);
@@ -195,14 +368,20 @@
         <p style="margin:0 0 6px">Reason: ${escapeHtml(q.reason||"")}</p>
         ${q.decision_note? `<p style="margin:0 0 6px" id="srqNote"><b>${escapeHtml(q.status==="rejected"? "Rejected" : "Reviewer's note")}:</b> ${escapeHtml(q.decision_note)}${q.decided_by? " ("+escapeHtml(q.decided_by)+")" : ""}</p>` : ""}
         ${srqWaitingNote(q.id)}
-        <table class="simple"><tr><th>Item</th><th>Asked</th><th>Approved</th></tr>${(q.lines||[]).map(l=>`<tr><td>${skuNameCellScreen(l.code, l.name)}</td><td>${l.qty}</td>
-          <td>${q.status==="pending"? `<input class="field" data-part="${l.line_no}" inputmode="numeric" value="${l.qty}" style="width:70px;margin:0" ${srqCan("review_requisitions")? "" : "disabled"}>` : (l.approved_qty==null? "—" : l.approved_qty)}</td></tr>`).join("")}</table>
+        ${srqDraftOpen(q)? `<p class="srq-draft-wait" id="srqDraftWait" style="margin:0 0 6px;font-size:12.5px;color:#b54708"><b>Approved, waiting for dispatch since ${escapeHtml(srqWhen(q.draft.approved_at||q.decided_at))}</b></p>` : ""}
+        ${q.status==="not_dispatched" && q.draft? `<p id="srqDraftClosed" style="margin:0 0 6px;font-size:12.5px;color:#b42318"><b>Approved, not dispatched:</b> ${escapeHtml(q.draft.close_reason||"")}${q.draft.closed_by? " ("+escapeHtml(q.draft.closed_by)+(q.draft.closed_at? ", "+escapeHtml(srqWhen(q.draft.closed_at)) : "")+")" : ""}</p>` : ""}
+        ${(()=>{ const sentCol = (q.lines||[]).some(l=>l.sent_qty!=null);
+          return `<table class="simple"><tr><th>Item</th><th>Asked</th><th>Approved</th>${sentCol? "<th>Sent</th>" : ""}</tr>${(q.lines||[]).map(l=>`<tr><td>${skuNameCellScreen(l.code, l.name)}</td><td>${l.qty}</td>
+          <td>${q.status==="pending"? `<input class="field" data-part="${l.line_no}" inputmode="numeric" value="${l.qty}" style="width:70px;margin:0" ${srqCan("review_requisitions")? "" : "disabled"}>` : (l.approved_qty==null? "—" : l.approved_qty)}</td>
+          ${sentCol? `<td${l.sent_qty!=null && l.sent_qty!==l.approved_qty? ' style="color:#b54708;font-weight:700"' : ""}>${l.sent_qty==null? "—" : l.sent_qty}</td>` : ""}</tr>`).join("")}</table>`; })()}
         ${q.dn_display? `<p style="margin:6px 0 0">Delivery Note: <b>${escapeHtml(q.dn_display)}</b>${q.grv_display? " · GRV <b>"+escapeHtml(q.grv_display)+"</b>" : ""}</p>` : ""}
         <h4 style="margin:10px 0 4px">History</h4>
         <div style="font-size:12.5px">${(q.log||[]).map(g=>`<div>${escapeHtml(new Date(g.at).toLocaleString())} · ${escapeHtml(g.by||"")} · ${escapeHtml(g.action)}${g.detail && g.detail.dn? " "+escapeHtml(g.detail.dn) : ""}${g.detail && g.detail.grv? " "+escapeHtml(g.detail.grv) : ""}</div>`).join("")}</div>
         ${q.status==="pending" && srqCan("review_requisitions")? `<label>Note / reason</label><input class="field" id="srqDecNote" maxlength="200">
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-primary" data-dec="approve">Approve all</button><button class="btn btn-outline" data-dec="part">Approve as typed (part)</button><button class="btn btn-outline" data-dec="reject">Reject</button></div>` : ""}
-        ${(q.status==="approved" || q.status==="part_approved") && atMain && srqCan("m.dispatch") && !q.dispatch_id? `<button class="btn btn-primary" id="srqDispatch" style="margin-top:10px">Create dispatch</button>` : ""}
+        ${srqDraftOpen(q) && atMain && srqCan("m.dispatch") && !q.dispatch_id? `<button class="btn btn-primary" id="srqDispatch" style="margin-top:10px">Open draft DN</button>` : ""}
+        ${srqDraftOpen(q) && srqCanCloseDraft() && !q.dispatch_id? `<button class="btn btn-outline" id="srqCloseDraft" style="margin-top:10px">Close the draft (not dispatched)</button>` : ""}
+        ${(q.status==="approved" || q.status==="part_approved") && !q.draft && !q.dispatch_id && atMain? `<p class="muted" style="font-size:12px;margin:8px 0 0">The draft Delivery Note comes from seiGEN with the next check (Refresh).</p>` : ""}
         <div id="srqErr" style="color:#b42318;font-size:12.5px"></div>
       </div>`);
     wrap.querySelectorAll("[data-dec]").forEach(b=> b.onclick = ()=>{
@@ -213,9 +392,17 @@
     });
     const dbtn = wrap.querySelector("#srqDispatch");
     if(dbtn) dbtn.onclick = ()=>{
-      const pre = srqDispatchPrefill(q);
-      if(!pre.lines.length){ wrap.querySelector("#srqErr").textContent = "None of the approved items is on this till."; return; }
-      wrap.remove(); openDispatchScreen(pre);
+      const r = srqOpenDraft(q.id);
+      if(!r.ok){ wrap.querySelector("#srqErr").textContent = r.message; return; }
+      wrap.remove();
+    };
+    const cbtn = wrap.querySelector("#srqCloseDraft");
+    if(cbtn) cbtn.onclick = ()=>{
+      const note = prompt("Why close this draft without dispatching? The requesting branch sees the reason.");
+      if(note==null) return;
+      const r = srqCloseDraft(q.id, note);
+      if(!r.ok){ wrap.querySelector("#srqErr").textContent = r.message; return; }
+      persist(); scSoon(); wrap.remove(); render();
     };
   }
 

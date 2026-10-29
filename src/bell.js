@@ -31,6 +31,7 @@
       right TEXT DEFAULT '', read_by TEXT DEFAULT '[]', chimed INTEGER DEFAULT 0, hidden INTEGER DEFAULT 0, body TEXT DEFAULT '')`); }catch(e){}
     try{ t.run("CREATE INDEX IF NOT EXISTS ix_notices_ts ON notices(ts)"); }catch(e){}
     try{ t.run("ALTER TABLE notices ADD COLUMN person TEXT DEFAULT ''"); }catch(e){}   // a notice for one person only (bellPerson key), e.g. a cancelled recall's DN
+    try{ t.run("ALTER TABLE notices ADD COLUMN or_person TEXT DEFAULT ''"); }catch(e){}   // v37.1: also this person, without the right (the approver of a draft, decision 64)
   }
 
   // ---- who is looking ----
@@ -44,7 +45,9 @@
   function bellCanSee(n){
     if(scGuest() && n.category!=="market") return false;
     if(n.person && n.person!==bellPerson()) return false;
-    if(n.right && n.right.split("|").every(r=> typeof can==="function" && !can(r))) return false;
+    if(n.right && n.right.split("|").every(r=> typeof can==="function" && !can(r)) && !(n.or_person && n.or_person===bellPerson())) return false;
+    // v37.1 (Fix 4): an iTred order shows only where Orders Fulfillment can open it (one rule for both)
+    if(n.category==="itred" && typeof itredAvailable==="function" && !itredAvailable()) return false;
     return !bellCatsOff().includes(n.category);
   }
   function bellVisible(){
@@ -59,8 +62,8 @@
     o = o || {};
     const before = one("SELECT key FROM notices WHERE key=?",[key]);
     if(before) return false;
-    run("INSERT INTO notices(key,category,title,route,ts,right,read_by,chimed,hidden,body,person) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-      [key, category, String(title).slice(0,140), o.route||"", o.ts||new Date().toISOString(), o.right||"", o.seed? JSON.stringify(["*"]) : "[]", o.seed? 1 : 0, o.seed? 1 : 0, String(o.body||"").slice(0,2000), o.person||""]);
+    run("INSERT INTO notices(key,category,title,route,ts,right,read_by,chimed,hidden,body,person,or_person) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+      [key, category, String(title).slice(0,140), o.route||"", o.ts||new Date().toISOString(), o.right||"", o.seed? JSON.stringify(["*"]) : "[]", o.seed? 1 : 0, o.seed? 1 : 0, String(o.body||"").slice(0,2000), o.person||"", o.orPerson||""]);
     return !o.seed;
   }
   // The notices a pull brings (stock-ctl.js scPull's changes). -> how many are new
@@ -110,6 +113,30 @@
       if(bellAdd("itred:"+o.id, "itred", "New iTred order ("+t.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })+")", { route:"itred", right:"m.sell", ts:o.created_at, seed: seed && getSetting("bell_itred_seen","")!=="1" })) n++;
     });
     if(ch.itred) setSetting("bell_itred_seen","1");
+    return n;
+  }
+  // v37.1 (decision 64): an approved request whose draft DN hasn't been sent: everyone at main with the Dispatch right,
+  // plus the person who approved it. One notice per reminder (a new key, so a new chime), the older ones put away;
+  // all put away as soon as the draft is sent or closed. Worked out here from seiGEN's timers (srqReminderSettings).
+  function bellReminders(nowMs){
+    let n = 0;
+    try{
+      if(typeof srqReminderCount!=="function") return 0;
+      const s = srqReminderSettings(), now = nowMs==null? Date.now() : nowMs, main = scIsMain();
+      scRequests().forEach(q=>{
+        const k = srqReminderCount(q, now, s), like = "srq:remind:"+q.id+":%";
+        if(!k){ run("UPDATE notices SET hidden=1 WHERE key LIKE ? AND hidden=0",[like]); return; }
+        const approver = srqApproverKey(q);
+        if(!main && !approver) return;
+        const key = "srq:remind:"+q.id+":"+k;
+        run("UPDATE notices SET hidden=1 WHERE key LIKE ? AND key<>? AND hidden=0",[like, key]);
+        const at = new Date(q.draft.approved_at||q.decided_at);
+        const title = q.req_no+" for "+(q.from_branch||scBranchName(q.from_branch_id)||"a branch")+" approved "+at.toLocaleString([], { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })+", not dispatched yet";
+        run("UPDATE notices SET hidden=0 WHERE key=? AND hidden=1",[key]);   // the reminder due now (a timer change can bring an earlier one back)
+        if(bellAdd(key, "requests", title, main? { route:"srq:"+q.id, right:"m.dispatch", orPerson:approver, ts:new Date(now).toISOString() }
+          : { route:"srq:"+q.id, person:approver, ts:new Date(now).toISOString() })) n++;
+      });
+    }catch(e){}
     return n;
   }
   // Notices made on this device (a count waiting here, before seiGEN has it)
@@ -205,6 +232,7 @@
       const r = await scTick();
       let fresh = bellLocal();
       if(r.pull && r.pull.ok) fresh += bellFromChanges(r.pull.changes);
+      fresh += bellReminders();   // v37.1 (decision 64)
       fresh += await bellRecallDnCheck(r.pull && r.pull.ok? r.pull.changes : null);
       bellPrune();
       const a = bellAnnounce();
@@ -286,10 +314,38 @@
     draw();
     bellRefreshBadge();
   }
+  // v37.1 (Fix 4): why a notice's screen can't open here, or "" when it can. Never a fall back to Help.
+  function bellRouteProblem(r){
+    // the same tests as the More tabs themselves (router.js MORE_TABS: needs + the role's right)
+    const allowed = (id)=> typeof moreTabAllowed!=="function" || moreTabAllowed(id);
+    if(r.startsWith("srq:") || r.startsWith("rcl:")) return typeof srqAvailable==="function" && srqAvailable()? "" : "Stock requests and recalls aren't on this device: it isn't on seiGEN, it's switched off, it's a Guest's seat, or your role has no stock request right.";
+    if(r==="counts") return allowed("stocktake")? "" : "Needs the Stocktake right.";
+    if(r==="itred"){
+      if(!allowed("itredorders")) return "Needs the Sell right.";
+      if(typeof itredRegistered==="function" && !itredRegistered()) return "This till isn't on seiGEN, so it can't show iTred orders.";
+      return typeof itredAvailable==="function" && itredAvailable()? "" : "This till isn't on iTred yet: tap Refresh.";
+    }
+    if(r==="incoming" || r==="dispatches") return typeof navAllowed!=="function" || navAllowed("products")? "" : "Needs the Products right.";
+    return "";
+  }
+  function bellCantOpen(n, why){
+    const w = openModal(n.title, `<p id="bellWhy" style="margin:0 0 8px">${escapeHtml(why)}</p>${n.route==="itred" && /Refresh/.test(why)? `<button class="btn btn-primary" id="bellItredRefresh">Refresh</button>` : ""}`);
+    const b = w.querySelector("#bellItredRefresh");
+    if(b) b.onclick = async ()=>{
+      b.disabled = true; b.textContent = "Checking…";
+      if(typeof itredAfterCheckin==="function") await itredAfterCheckin();
+      w.remove();
+      const again = bellRouteProblem(n.route||"");
+      if(again) bellCantOpen(n, again); else bellGo(n);
+    };
+    bellRefreshBadge();
+  }
   // Tap: read, then the screen it is about
   function bellGo(n){
     const r = n.route||"";
     if(n.category==="market"){ openModal(n.title, `<p style="white-space:pre-wrap">${escapeHtml(n.body||"")}</p><p class="muted" style="font-size:12px">From seiGEN · ${escapeHtml(new Date(n.ts).toLocaleString())}</p>`); bellRefreshBadge(); return; }
+    const why = bellRouteProblem(r);
+    if(why){ bellCantOpen(n, why); return; }
     route = "more";
     if(r.startsWith("srq:")){ moreTab = "stockctl"; srqTab = "requests"; render(); openRequestHistory(r.slice(4)); return; }
     if(r.startsWith("rcl:")){ moreTab = "stockctl"; srqTab = "recalls"; render(); openRecallHistory(r.slice(4)); return; }

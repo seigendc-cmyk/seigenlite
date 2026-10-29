@@ -106,7 +106,7 @@
     return all("SELECT json FROM br_stock ORDER BY is_main DESC, name").map(r=>{ try{ return JSON.parse(r.json); }catch(e){ return null; } }).filter(Boolean);
   }
   function bsOtherBranches(){ const me = bsMyBranchUuid(); return bsBranches().filter(b=>b.id!==me); }
-  let _bsPulling = null;
+  let _bsPulling = null, _bsForce = false;
   function bsPull(){
     if(_bsPulling) return _bsPulling;
     _bsPulling = (async ()=>{
@@ -126,6 +126,8 @@
       }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
       setSetting("bs_pulled_ts", ts);
       setSetting("bs_server_enabled", d.enabled? "1" : "0");
+      // v37.1 (Fix 3): seiGEN takes figures now (a branch or till joined) while this till still holds back: send them all at once, not in 6 hours
+      if(d.enabled && getSetting("bs_enabled","")!=="1" && bsCanPush()) _bsForce = true;
       // the branch list from the same answer (joining fix: every joined branch, at once)
       if(Array.isArray(d.branches) && d.branches.length){
         setSetting("ds_branches", JSON.stringify(d.branches.map(b=>({ id:b.id, name:b.name, is_main:!!b.is_main }))));
@@ -133,7 +135,7 @@
       }
       await persist();
       return { ok:true, enabled:!!d.enabled, branches:(d.branches||[]).length };
-    })().finally(()=>{ _bsPulling = null; });
+    })().finally(()=>{ _bsPulling = null; if(_bsForce){ _bsForce = false; bsPush({ force:true, full:true }).catch(()=>{}); } });
     return _bsPulling;
   }
   // The business's dispatches, without costs (Other branches → Dispatches).
@@ -218,8 +220,13 @@
     return { value:Math.round(value*100)/100, matched, unmatched };
   }
   // "updated 14:05" / "updated 12 Oct 14:05"; old: more than a day ago.
-  function bsUpdatedText(ts){
-    if(!ts) return { text:"no figures yet", old:true };
+  // v37.1 (Fix 3): nothing from a branch yet says who hasn't sent ("not sent yet by Harare"), and why when seiGEN shows it.
+  function bsUpdatedText(ts, who){
+    if(!ts){
+      const name = who && typeof who==="object"? who.name : who;
+      const why = who && typeof who==="object" && who.active_tills===0? " (no active till)" : "";
+      return { text: name? "not sent yet by "+name+why : "not sent yet", old:true };
+    }
     const d = new Date(ts), now = new Date();
     const hm = d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
     const sameDay = d.toDateString()===now.toDateString();
@@ -313,7 +320,7 @@
         price:local? local.price : null, stock:parts.length? parts.reduce((s,x)=> s+x.qty, 0) : null, parts, files:fl, probe };
     }).filter(Boolean).sort((a,b)=> String(a.name).localeCompare(String(b.name)));
     return { mode:branchSel? "branch" : "all", files:files.map(f=>({ name:f.name, date:f.date })),
-      branches:shown.map(b=>({ name:b.name, mine:b.id===me, updated:b.id===me? null : bsUpdatedText(b.updated_at) })),
+      branches:shown.map(b=>({ name:b.name, mine:b.id===me, updated:b.id===me? null : bsUpdatedText(b.updated_at, b) })),
       rows:productSearch(rows, query) };
   }
   // Names in this device's tables (a file merge) that aren't a branch on seiGEN, other than this one.
@@ -389,7 +396,7 @@
     const brs = bsBranches();
     let total = null;
     const rows = brs.map(b=>{
-      const q = bsBranchQty(b, p), u = bsUpdatedText(b.updated_at), mine = b.id===me;
+      const q = bsBranchQty(b, p), u = bsUpdatedText(b.updated_at, b), mine = b.id===me;
       if(q) total = (total||0) + q.qty;
       const tills = q && q.t? Object.keys(q.t).sort().map(k=>`<div class="pmeta bs-till">${escapeHtml(k)}${mine && k===code? " (this till, now)" : " (own count)"}: ${escapeHtml(String(q.t[k]))}</div>`).join("") : "";
       const when = mine && q && q.live? (q.t? "this till now; the other tills "+u.text : "this till, now") : u.text;
@@ -426,10 +433,10 @@
       gridItems = items.map(([,v])=> v);   // a name opens its item ledger (v27)
       // this branch: this till's live count + the other tills (bsBranchQty)
       const qtyOf = (b, v)=>{ const pr = { cat_uid:v.cat_uid, sku:v.code, name:v.name }, r = bsRowFor(b, pr), q = bsBranchQty(b, pr); return q? { qty:q.qty, t:q.t, low:r? r.low : 0 } : null; };
-      const heads = shown.map(b=>{ const u = bsUpdatedText(b.updated_at); return `<th class="bs-col">${escapeHtml(b.name)}${b.id===mineId? " (this)" : ""}<div class="pmeta" style="font-weight:400;${u.old? "color:#b54708" : ""}">${escapeHtml(u.text)}</div></th>`; }).join("");
+      const heads = shown.map(b=>{ const u = bsUpdatedText(b.updated_at, b); return `<th class="bs-col">${escapeHtml(b.name)}${b.id===mineId? " (this)" : ""}<div class="pmeta" style="font-weight:400;${u.old? "color:#b54708" : ""}">${escapeHtml(u.text)}</div></th>`; }).join("");
       const warn = isMain? shown.map(b=>bsCopies(b).map(c=>`<div class="box bs-copies" style="margin-bottom:8px;border-color:#b54708;background:#fffaeb;color:#b54708;font-size:12.5px"><b>${escapeHtml(b.name)}: ${escapeHtml(c.a)} and ${escapeHtml(c.b)} look like copies of the same stock list</b> (${c.same} of ${c.of} products show the same figure). The branch total may count those products twice. Count the stock (Stocktake) on one of them.</div>`).join("")).join("") : "";
       const value = isMain && bsCostsVisible()? `<div class="muted bs-value" style="margin-top:8px;font-size:12.5px">${shown.map(b=>{ const v = bsValueAtCost(b); return escapeHtml(b.name)+": value at cost "+escapeHtml(currency+v.value.toFixed(2))+(v.unmatched? " ("+v.unmatched+" product"+(v.unmatched===1?"":"s")+" without a cost here)" : ""); }).join("<br>")}</div>` : "";
-      const tillsLine = (b)=> b.tills && b.tills.length>1? `<div class="muted bs-tilltimes" style="font-size:12.5px">${escapeHtml(b.name)}: ${b.tills.filter(t=>t.active).map(t=>escapeHtml(typeof seatTillLabel==="function"? seatTillLabel(t.till_code) : t.till_code)+" "+escapeHtml(bsUpdatedText(t.pushed_at).text)).join(" · ")}</div>` : "";
+      const tillsLine = (b)=> b.tills && b.tills.length>1? `<div class="muted bs-tilltimes" style="font-size:12.5px">${escapeHtml(b.name)}: ${b.tills.filter(t=>t.active).map(t=>escapeHtml(typeof seatTillLabel==="function"? seatTillLabel(t.till_code) : t.till_code)+" "+escapeHtml(bsUpdatedText(t.pushed_at, t.till_code).text)).join(" · ")}</div>` : "";
       return `${warn}
         <div style="overflow-x:auto"><table class="simple bs-grid"><tr><th>Item</th>${heads}</tr>
         ${items.length? items.map(([,v], i)=>`<tr><td class="bv-name" data-bvledger="${i}">${v.code? `<div class="psku">${escapeHtml(v.code)}</div>` : ""}${escapeHtml(v.name)}</td>${shown.map(b=>{
@@ -493,7 +500,7 @@
     }
     async function refresh(){
       msg = "Loading…"; draw();
-      const r = tab==="stock"? await (async ()=>{ await bsPush().catch(()=>{}); return bsPull(); })() : await bsPullDispatches();
+      const r = tab==="stock"? await (async ()=>{ await bsPush({ force:true }).catch(()=>{}); return bsPull(); })() : await bsPullDispatches();   // v37.1: Refresh sends this till's figures first, whatever the 6-hour check said
       msg = r.ok? "" : (r.offline? "You're offline: showing the last copy." : "Couldn't load: "+(r.message||""));
       draw();
     }

@@ -17,7 +17,8 @@
   const SC_PUSH_TIMEOUT_MS = 20000;
   const SC_BASE_DELAY_MS = 5000, SC_MAX_DELAY_MS = 15*60*1000;
   // refusals that never get better by trying again (a missing DN, a sign-in or a right can come later)
-  const SC_FINAL_CODES = ["BAD_EVENT","ALREADY_DECIDED","WRONG_STATUS","IS_MAIN","NOT_MAIN","WRONG_BRANCH","WRONG_DEVICE","SAME_COUNTER","INVALID","NO_MAIN","GUEST_SEAT","NOT_MAKER","DN_SENT"];   // NOT_MAKER, DN_SENT: a recall cancel (decision 56)
+  const SC_FINAL_CODES = ["BAD_EVENT","ALREADY_DECIDED","WRONG_STATUS","IS_MAIN","NOT_MAIN","WRONG_BRANCH","WRONG_DEVICE","SAME_COUNTER","INVALID","NO_MAIN","GUEST_SEAT","NOT_MAKER","DN_SENT",
+    "DRAFT_SENT","DRAFT_CLOSED","OVER_APPROVED","NO_DRAFT"];   // NOT_MAKER, DN_SENT: a recall cancel (decision 56); DRAFT_*: v37.1 drafts (decision 63)
 
   function migrateStockCtl(t){
     try{ t.run(`CREATE TABLE IF NOT EXISTS sc_outbox(
@@ -173,6 +174,10 @@
         if(!d.guest){
           setSetting("sc_main_branch_id", d.main_branch_id||"");
           setSetting("sc_sees_diff", d.sees_diff? "1" : "0");
+          if(d.srq_settings) setSetting("srq_settings", JSON.stringify({ delay_hours:d.srq_settings.delay_hours, repeat_hours:d.srq_settings.repeat_hours==null? null : d.srq_settings.repeat_hours,
+            updated_at:d.srq_settings.updated_at||null, updated_by:d.srq_settings.updated_by||null }));   // v37.1 (decision 64): the business's reminder timers
+          // v37.1 (Fix 4): the bell's iTred orders and Orders Fulfillment follow one answer from seiGEN (the same rule as the iTred pull)
+          if(d.itred!==undefined) setSetting("itred_on", d.itred===null? "0" : "1");
           if(Array.isArray(d.branches)) setSetting("sc_branches", JSON.stringify(d.branches.map(b=>({ id:b.id, name:b.name, is_main:!!b.is_main }))));
           scApplyShelves(d.shelves||[]);
           (d.counts||[]).forEach(c=>{ const was = one("SELECT status FROM sc_counts WHERE id=?",[c.id]); scStoreCount(c); changes.counts.push({ c, was:was? was.status : null }); });
@@ -185,6 +190,8 @@
         db.run("COMMIT");
       }catch(e){ try{ db.run("ROLLBACK"); }catch(_){} throw e; }
       const applied = scApplyApproved();
+      // v37.1 (Fix 3): seiGEN takes branch figures now (a branch or till joined) but this till still holds back: send them at once
+      if(!d.guest && d.bs_enabled===true && getSetting("bs_enabled","")!=="1" && typeof bsPush==="function") changes.bsPush = bsPush({ force:true, full:true }).catch(()=>({ ok:false }));
       const something = changes.requests.length || changes.recalls.length || changes.counts.length || applied.length;
       return { ok:true, changes, applied, something:!!something };
     })().finally(()=>{ _scPulling = null; });
@@ -224,7 +231,7 @@
   function scStoreDoc(table, q, branchId){
     const cur = one(`SELECT * FROM ${table} WHERE id=?`,[q.id]);
     // a decision made here and not sent yet keeps the local status until seiGEN has it
-    if(cur && one("SELECT 1 AS x FROM sc_outbox WHERE status='queued' AND doc_id=? AND type IN ('request_decide','request_link','recall_link','recall_cancel')",[q.id])) return;
+    if(cur && one("SELECT 1 AS x FROM sc_outbox WHERE status='queued' AND doc_id=? AND type IN ('request_decide','request_link','recall_link','recall_cancel','draft_close')",[q.id])) return;
     run(`INSERT OR REPLACE INTO ${table}(id,json,status,${table==="sc_requests"? "from_branch_id" : "branch_id"},created_ts,seq,local) VALUES(?,?,?,?,?,?,0)`,
       [q.id, JSON.stringify(q), q.status, branchId||"", q.created_ts||q.created_at||"", q.change_seq||0]);
   }
@@ -287,9 +294,15 @@
   function scQueueLink(link, dispatchId){
     if(!link || !dispatchId) return;
     if(link.type==="request"){
-      scQueue("request_link", { id:link.id, dispatch_id:dispatchId }, link.id);
+      // v37.1: the quantities sent with it (seiGEN checks them against the approved ones, decision 63)
+      scQueue("request_link", Object.assign({ id:link.id, dispatch_id:dispatchId }, link.lines? { lines:link.lines } : {}), link.id);
       const q = scRequest(link.id);
-      if(q){ q.status = "dispatched"; q.dispatch_id = dispatchId; scSaveDoc("sc_requests", q, q._local); }
+      if(q){
+        q.status = "dispatched"; q.dispatch_id = dispatchId;
+        if(q.draft) Object.assign(q.draft, { status:"sent", sent_by:scWho(), sent_at:new Date().toISOString() });
+        (link.lines||[]).forEach(x=>{ const l = (q.lines||[]).find(y=>y.line_no===x.line_no); if(l) l.sent_qty = x.sent_qty; });
+        scSaveDoc("sc_requests", q, q._local);
+      }
     } else if(link.type==="recall"){
       scQueue("recall_link", { id:link.id, dispatch_id:dispatchId, lines:link.lines||[] }, link.id);
       const q = scRecall(link.id);

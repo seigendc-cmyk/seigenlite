@@ -204,7 +204,7 @@
     const figure = (b)=>{ const q = typeof bsBranchQty==="function"? bsBranchQty(b, local || probe) : null; return q? String(q.qty) : "—"; };
     function sectionFor(b){
       const rows = srv && srv.ok? srv.rows.filter(m=> m.branch_id===b.id && !(b.id===me && m.mine)) : [];
-      const u = bsUpdatedText(b.updated_at);
+      const u = bsUpdatedText(b.updated_at, b);
       const head = `<h4 style="margin:12px 0 4px">${escapeHtml(b.name)}${b.id===me? " (this branch): the other tills" : ""}</h4>
         ${b.id===me? "" : `<div class="pmeta bv-now">Now: <b>${escapeHtml(figure(b))}</b> <span style="${u.old? "color:#b54708" : ""}">(${escapeHtml(u.text)})</span></div>`}`;
       const srvPart = !srv? `<p class="muted" style="font-size:12.5px">Loading from seiGEN…</p>` : !srv.ok? `<p class="muted" style="font-size:12.5px">${escapeHtml(srv.message)}</p>`
@@ -266,6 +266,6 @@
       const cells = brs.map(b=>{ const q = bsBranchQty(b, r.probe); return q? String(q.qty) : "—"; });
       return [skuNameCell(r.sku, r.name)].concat(cells, [r.stock==null? "—" : String(r.stock)]);
     });
-    const times = brs.map(b=> b.name+": "+(b.id===bsMyBranchUuid()? "this till now, the other tills "+bsUpdatedText(b.updated_at).text : bsUpdatedText(b.updated_at).text)).join(" · ");
+    const times = brs.map(b=> b.name+": "+(b.id===bsMyBranchUuid()? "this till now, the other tills "+bsUpdatedText(b.updated_at).text : bsUpdatedText(b.updated_at, b).text)).join(" · ");
     return { headers:["Item"].concat(brs.map(b=>b.name), ["All branches"]), rows, footer:"Quantities only. "+times };
   }

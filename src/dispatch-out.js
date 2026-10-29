@@ -319,6 +319,7 @@
       else if(!dnDestinationAllowed(toName)) errs.push("Choose a branch from the list.");
       if(lines.length===0) errs.push("Add at least one product.");
       if(deliveryProblem()) errs.push(deliveryProblem());
+      if(pre && pre.draft && typeof srqDraftProblems==="function") srqDraftProblems(pre, lines).forEach(x=> errs.push(x));   // v37.1 (decision 63)
       if(pre && pre.link && toName.trim() && !srvFor()) errs.push("This Delivery Note must go through seiGEN (it is linked to "+(pre.link.type==="recall"? "the recall" : "the stock request")+"). "+(fileOnly(true)||""));
       lines.forEach((l,i)=>{
         const codeErr = dnProductCodeProblem(l.product);
@@ -336,8 +337,9 @@
       const matches = query.trim()? searchProducts(query, branch).slice(0,6) : [];
       body.innerHTML = `
         ${pre && pre.note? `<div class="box" id="doPreNote" style="margin:0 0 8px;font-size:12.5px">${escapeHtml(pre.note)}</div>` : ""}
+        ${!pre && typeof srqCanSendDrafts==="function" && srqCanSendDrafts() && srqOpenDrafts().length? `<div class="box" id="doDraftsBox" style="margin:0 0 8px;font-size:12.5px"><b>Drafts from stock requests:</b> ${srqOpenDrafts().length} waiting. <button type="button" class="btn btn-sm btn-outline" id="doOpenDrafts" style="width:auto">Open the list</button></div>` : ""}
         <label style="margin-top:0">Destination branch</label>
-        <select class="field" id="doDest">
+        <select class="field" id="doDest" ${pre && pre.draft? "disabled" : ""}>
           <option value="">Choose a branch…</option>
           ${destinationOptionsHtml(dests, toName)}
         </select>
@@ -351,8 +353,8 @@
         ${fileOnly()? `<div class="box" id="doFileOnly" style="margin-top:8px;font-size:12.5px;border-color:#b54708;background:#fffaeb"><b>File only: not through seiGEN.</b> ${escapeHtml(fileOnly())}</div>` : ""}
         ${dests.length? "" : `<p class="muted" style="font-size:12px">No destination branches are set up yet. Main adds them under Settings → Destination branches, and a remote receives the list with its catalogue.</p>`}
         <div class="hr"></div>
-        <label style="margin-top:0">Add product — search, or scan a barcode/SKU and press Enter</label>
-        <input class="field" id="doSearch" placeholder="Search by name or SKU" value="${escapeHtml(query)}" autocomplete="off">
+        ${pre && pre.draft? `<p class="muted" id="doDraftOnly" style="margin:0;font-size:12.5px">A draft from a stock request: lower a quantity or remove a line; nothing can be added.</p>` : `<label style="margin-top:0">Add product — search, or scan a barcode/SKU and press Enter</label>
+        <input class="field" id="doSearch" placeholder="Search by name or SKU" value="${escapeHtml(query)}" autocomplete="off">`}
         ${matches.length? `<div class="card" style="padding:4px;margin-top:4px;max-height:170px;overflow-y:auto">${matches.map(m=>`
           <button type="button" data-pick="${m.id}" style="display:flex;gap:8px;align-items:center;width:100%;text-align:left;background:none;border:none;padding:6px;font-size:13px;border-bottom:1px solid var(--border)">
             ${thumbImg(m)}<span>${escapeHtml(m.sku?m.sku+" — ":"")}${escapeHtml(m.name)} <span class="muted">(${m.stock} in stock)</span></span></button>`).join("")}</div>`
@@ -362,17 +364,18 @@
             <div class="card" style="padding:8px;margin-bottom:6px;display:flex;gap:8px;align-items:center">
               ${thumbImg(l.product)}
               <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${escapeHtml(l.product.name)}</div>
-                <div class="muted" style="font-size:11.5px">${escapeHtml(l.product.sku||"no SKU")} · ${l.product.stock} in stock</div></div>
+                <div class="muted" style="font-size:11.5px">${escapeHtml(l.product.sku||"no SKU")} · ${l.product.stock} in stock${pre && pre.draft && pre.draft.max[l.product.id]? " · <b>approved "+pre.draft.max[l.product.id].approved+"</b>" : ""}</div></div>
               <input class="field" data-qty="${i}" inputmode="numeric" value="${escapeHtml(String(l.qty))}" style="width:70px;margin:0">
               <button type="button" class="close-x" data-del="${i}" title="Remove">✕</button>
             </div>`).join("")}
         </div>
         <div id="doErr" style="color:#b42318;font-size:12.5px;margin-top:6px"></div>
         <button class="btn btn-primary" id="doReview" style="margin-top:8px">Review</button>`;
-      const dest = body.querySelector("#doDest"), search = body.querySelector("#doSearch");
+      const dest = body.querySelector("#doDest"), search = body.querySelector("#doSearch") || { oninput:null, onkeydown:null, value:"", focus(){}, setSelectionRange(){} };   // v37.1: no search on a draft
       // which seiGEN branch, not just whether: Norton -> Harare must redraw "Goes through seiGEN to ..."
       const destKey = ()=> (srvFor()? srvFor().id : "")+"|"+fileOnly();
       dest.onchange = ()=>{ const was = destKey(); toName = dest.value; if(destKey()!==was) renderEdit(); };
+      const od = body.querySelector("#doOpenDrafts"); if(od) od.onclick = ()=>{ wrap.remove(); openDraftsList(); };
       const refEl = body.querySelector("#doRef");
       refEl.oninput = ()=>{ internalRef = refEl.value; };
       [["doDelCost","cost"],["doDelCur","currency"],["doDelCarrier","carrier"],["doDelRef","ref"]].forEach(([id,k])=>{
@@ -431,21 +434,29 @@
       if(errs.length){ renderEdit(); body.querySelector("#doErr").innerHTML = errs.map(escapeHtml).join("<br>"); return; }
       stage = "working";
       const now = new Date(), branchId = getBranchId(), toBranch = toName.trim();
-      let dn, pre = null;
+      let dn, ssPre = null, claim = null;   // ssPre: the shared-stock step (was "pre", which hid the screen's own pre and lost the link: v37.1 fix)
+      // v37.1 (decision 63): a draft goes to its first sender only: seiGEN gives it to this till before the DN is made
+      if(pre && pre.draft && typeof srqDraftClaim==="function"){
+        working("Checking the draft with seiGEN…");
+        claim = await srqDraftClaim(pre, lines);
+        if(!claim.ok){ alert("This Delivery Note wasn't made and no stock was changed: "+claim.message); if(claim.code==="DRAFT_SENT" || claim.code==="DRAFT_CLOSED"){ wrap.remove(); render(); return; } stage = "review"; renderReview(); return; }
+      }
       // Multi-terminal Phase 3b: at a shared-stock branch the stock leaves the
       // branch on the server first; the Delivery Note is written after.
       if(typeof sharedStockTill==="function" && sharedStockTill()){
-        pre = await sharedStockPreApply(lines.map(l=>({ product:l.product, delta:-Number(l.qty), kind:"dispatch" })));
-        if(!pre.ok){ alert("Dispatch was not completed and no stock was changed: "+pre.message); stage = "review"; renderReview(); return; }
+        ssPre = await sharedStockPreApply(lines.map(l=>({ product:l.product, delta:-Number(l.qty), kind:"dispatch" })));
+        if(!ssPre.ok){ if(claim) await srqDraftRelease(pre, claim.id); alert("Dispatch was not completed and no stock was changed: "+ssPre.message); stage = "review"; renderReview(); return; }
       }
       try{
         const sb = srvFor();
         if(sb && Number(delivery.cost)>0) setSetting("ds_currency", String(delivery.currency).trim().toUpperCase());
-        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })), link:(pre && pre.link) || undefined,
+        const link = pre && pre.link? (pre.draft && typeof srqDraftLines==="function"? Object.assign({}, pre.link, { lines:srqDraftLines(pre, lines) }) : pre.link) : undefined;
+        dn = dnCommitDispatch({ branch, toBranch, now, internalRef, lines: lines.map(l=>({ product:l.product, qty:Number(l.qty) })), link,
           srv: sb? { toBranchId:sb.id, delivery:{ cost:Number(delivery.cost)||0, currency:String(delivery.currency).trim().toUpperCase(), carrier:delivery.carrier, ref:delivery.ref } } : undefined });
-        if(pre) sharedStockDone(pre);
+        if(ssPre) sharedStockDone(ssPre);
       }catch(e){
-        if(pre) await sharedStockUndo(pre.moves);
+        if(ssPre) await sharedStockUndo(ssPre.moves);
+        if(claim) await srqDraftRelease(pre, claim.id);
         alert("Dispatch was not completed and no stock was changed: "+(e.message||e));
         stage = "review"; renderReview();
         return;

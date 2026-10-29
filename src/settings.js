@@ -123,6 +123,7 @@
       ${adminPasscodeSettingShown()? adminPasscodeCardHtml() : ""}
       ${typeof bellSettingsHtml==="function"? bellSettingsHtml() : ""}
       ${typeof cycleSettingsCardHtml==="function"? cycleSettingsCardHtml() : ""}
+      ${typeof srqReminderCardHtml==="function"? srqReminderCardHtml() : ""}
       ${settingsStaffCardHtml()}
       ${isRemote() || !(typeof can!=="function" || can("m.terminals"))? "" : branchRegisterCardHtml()}
       ${backupMergeSectionHtml()}
@@ -211,6 +212,7 @@
     wireAdminPasscodeCard(main);
     if(typeof bellSettingsWire==="function") bellSettingsWire(main);   // v37
     if(typeof cycleSettingsWire==="function") cycleSettingsWire(main);
+    if(typeof srqReminderCardWire==="function") srqReminderCardWire(main);   // v37.1 (decision 64)
     wireSettingsStaffCard(main);
     if(!isRemote() && (typeof can!=="function" || can("m.terminals"))) wireBranchRegisterCard();
     wireBackupMergeSection();

@@ -275,6 +275,7 @@
     cl_terminal_set_active:"m.terminals", cl_terminal_admin_set:"m.terminals", cl_branch_issue_join_code:"m.terminals",
     cl_branch_set_price_mode:"m.settings", cl_branch_set_business_day:"m.settings", cl_device_pack_submit:"m.marketing",
     cl_device_transfer_send:"m.dispatch", cl_device_transfer_receive:"m.receive", cl_device_transfer_cancel:"m.dispatch", cl_device_transfer_resolve:"m.dispatch",
+    cl_device_srq_draft_claim:"m.dispatch", cl_device_srq_draft_release:"m.dispatch", cl_device_srq_settings_set:"m.settings",   // v37.1: seiGEN checks Dispatch / Owner-Admin
     cl_device_stock_ctl_push:"m.stocktake" };   // v37: each event's own right is checked by seiGEN (stock-ctl.js); the token is sent first
   const TILL_RIGHT_TEXT = { cl_device_grv_post:"Receiving (GRV)", cl_device_dispatch_send:"Sending a Delivery Note", cl_device_dispatch_cancel:"Cancelling a Delivery Note",
     cl_device_dispatch_resolve:"A Delivery Note's shortage", cl_device_supplier_grv_post:"A supplier GRV", cl_device_supplier_save:"A supplier",
