@@ -266,12 +266,12 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
       <table class="t">
         <thead><tr><th>#</th><th>Full name</th><th>Role</th><th>Branch</th><th>Mobile</th><th>Guest end date</th></tr></thead>
         <tbody>
-          <tr><td class="num">1</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
-          <tr><td class="num">2</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
-          <tr><td class="num">3</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
-          <tr><td class="num">4</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
-          <tr><td class="num">5</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
-          <tr><td class="num">6</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">1</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">2</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">3</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">4</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">5</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">6</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
         </tbody>
       </table>
       <div class="note" style="margin-top:6px">Staff PINs are chosen by each person and are <b>not</b> written on this form. A Guest can sign in only on an Office seat and sees stock and selling prices only.</div>
@@ -281,8 +281,8 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
   <div class="sec c-gold">
     <h2><span class="n">F</span> Plan, licence and billing</h2>
     <div class="body grid">
-      <div><label class="f">Start type <span class="req">*</span></label>
-        <div class="opts"><label><input type="radio" name="start"> Free trial</label><label><input type="radio" name="start"> Paid licence</label></div></div>
+      <div><label class="f">Started on <span class="req">*</span></label>
+        <div class="opts"><label><input type="radio" name="start"> Free trial (starts when setup finishes)</label><label><input type="radio" name="start"> Licence activated</label></div></div>
       <div><label class="f">Plan (as named on the bill)</label><input type="text" placeholder="e.g. Business / Lite"></div>
       <div><label class="f">Number of tills</label><input type="number" min="0"></div>
       <div><label class="f">Number of Office seats ($3 per 30 days each)</label><input type="number" min="0"></div>
@@ -299,10 +299,10 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
   <div class="sec c-navy">
     <h2><span class="n">G</span> Revenue Partner (RPN) details</h2>
     <div class="body grid g3">
-      <div><label class="f">RPN number <span class="req">*</span></label><input type="text" placeholder="RPN-…"></div>
+      <div><label class="f">RPN field force no. <span class="req">*</span></label><input type="text" placeholder="RPN-…"></div>
       <div><label class="f">RPN full name <span class="req">*</span></label><input type="text"></div>
       <div><label class="f">RPN mobile</label><input type="tel"></div>
-      <div class="span3 warn">The RPN link entered at setup is <b>locked</b> after onboarding. To change it later the vendor must contact Digital Commerce. Check the RPN number <b>before</b> finishing setup.</div>
+      <div class="span3 warn">The RPN link entered at setup is <b>locked</b> after onboarding. To change it later the vendor must contact Digital Commerce. Check the field force number <b>before</b> finishing setup. The RPN types their own 6-digit RPN PIN into the app; it is <b>never</b> written on this form.</div>
     </div>
   </div>
 
@@ -320,43 +320,42 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
   <div class="steps">
     <div class="step s1"><div class="num"></div><div>
       <h3>Prepare before the visit <span class="tag must">MUST</span></h3>
-      <ul><li>Your RPN number and PIN; a charged phone with data.</li>
+      <ul><li>Your field force number (RPN-…) and your 6-digit RPN PIN; a charged phone with data.</li>
       <li>Ask the owner to have: their own phone, the device(s) for the till, and a product list (an Excel sheet helps).</li>
-      <li>Make sure the shop device has a stable internet connection: setup and activation need to be online.</li></ul>
+      <li>The shop device must be online for setup.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
 
     <div class="step s2"><div class="num"></div><div>
       <h3>Install the app on the main till</h3>
       <ul><li>Open the seiGEN Commerce Lite link supplied by seiGEN on the shop device.</li>
-      <li>Install it: on a phone choose <b>Add to Home screen / Install</b>; on a PC use the install option or the desktop app.</li>
-      <li>Open it from the new icon, not from the browser tab.</li></ul>
+      <li>Install it (phone: <b>Add to Home screen / Install</b>; PC: install option or desktop app), then open it from the new icon.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
 
     <div class="step s3"><div class="num"></div><div>
-      <h3>Setup and activation <span class="tag must">MUST</span></h3>
-      <ul><li>Enter the business details and the owner's <b>own</b> phone number exactly as on page 1.</li>
-      <li>Enter <b>your RPN number</b>. It is required for a trial and is locked afterwards.</li>
-      <li>Choose the free trial or enter the licence. One trial per phone number: never help a shop get around this.</li></ul>
+      <h3>Setup: Welcome → Contact &amp; branding → RPN → Confirm <span class="tag must">MUST</span></h3>
+      <ul><li><b>Welcome:</b> the owner types their own <b>secret phrase</b> (free text, their choice). Copy it exactly onto page 5 and read it back to the owner.</li>
+      <li><b>Contact &amp; branding:</b> business details and the owner's <b>own</b> phone number exactly as on page 1.</li>
+      <li><b>RPN:</b> type your <b>field force number</b> and your <b>6-digit RPN PIN</b>. The link is locked afterwards.</li>
+      <li><b>Confirm:</b> finishing setup starts the <b>free trial</b> (with the RPN fields filled). One trial per phone number: never help a shop get around this. A paid licence is activated later.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
 
     <div class="step s6"><div class="num"></div><div>
-      <h3>Admin passcode and secret phrase <span class="tag must">MUST</span></h3>
-      <ul><li>The owner chooses the <b>Admin passcode (this till)</b>. Record it only on the Vendor Private Recovery Sheet (page 5).</li>
-      <li>Where the app shows a <b>secret phrase</b>, copy it word for word onto page 5 and check it twice with the owner.</li>
+      <h3>Admin passcode (in Settings, after setup) <span class="tag must">MUST</span></h3>
+      <ul><li>In <b>Settings</b>, the owner chooses the <b>Admin passcode (this till)</b>. Record it only on the Vendor Private Recovery Sheet (page 5).</li>
       <li>Never photograph these, never send them by WhatsApp or SMS, never keep a copy.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
 
     <div class="step s4"><div class="num"></div><div>
       <h3>Create the first Owner</h3>
-      <ul><li>Create the Owner on the <b>main till</b>. The owner sets their own PIN.</li>
+      <ul><li>In <b>Settings</b>, after setup, create the Owner on the <b>main till</b>. The owner sets their own PIN (never written down).</li>
       <li>Explain <b>single operator mode</b> (one person, no PIN sign-in) versus <b>PIN sign-in</b> (each person signs in; the role decides what they see). Set the one the owner wants.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
 
     <div class="step s5"><div class="num"></div><div>
       <h3>Staff and roles</h3>
-      <ul><li>Sign in to manage staff, then add each person from section E with their role: Owner, Admin, Manager, Bookkeeper, Stores, Cashier or Guest.</li>
+      <ul><li>Sign in to manage staff, then add each person from section E with their role: Owner, Admin, Manager, Stores, Cashier or Guest.</li>
       <li>Each person types their own PIN. If roles don't show, tap <b>Refresh</b> while online.</li>
-      <li>Explain that the role decides everything, and seiGEN checks it too.</li></ul>
+      <li>The role decides everything, and seiGEN checks it too.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
 
     <div class="step s1"><div class="num"></div><div>
@@ -467,10 +466,10 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
   </div>
 
   <div class="sec c-red">
-    <h2><span class="n">2</span> Secret phrase: copy word for word, in order</h2>
+    <h2><span class="n">2</span> Secret phrase: exactly as the owner typed it at setup</h2>
     <div class="body">
-      <div class="words" id="words"></div>
-      <div class="tip" style="margin-top:6px">Leave unused boxes empty. Check every word against the screen twice. Spelling and order matter.</div>
+      <textarea class="secret" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="Secret phrase" style="font-size:12pt"></textarea>
+      <div class="tip" style="margin-top:6px">Copy every word, space and spelling exactly. Read it back to the owner twice.</div>
     </div>
   </div>
 
@@ -478,7 +477,6 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
     <h2><span class="n">3</span> Passcodes</h2>
     <div class="body grid">
       <div><label class="f">Admin passcode (this till)</label><input type="text" class="secret" autocomplete="off" spellcheck="false"></div>
-      <div><label class="f">Owner PIN (optional, owner's choice)</label><input type="text" class="secret" autocomplete="off" spellcheck="false"></div>
       <div><label class="f">Other till: label</label><input type="text"></div>
       <div><label class="f">Admin passcode (that till)</label><input type="text" class="secret" autocomplete="off" spellcheck="false"></div>
     </div>
@@ -508,9 +506,6 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
 <script>
 /* Nothing on this page is saved or sent anywhere. Closing or refreshing the page clears it. */
 (function(){
-  var w=document.getElementById('words'),h='';
-  for(var i=1;i<=24;i++){h+='<div><span>'+i+'</span><input type="text" class="secret" autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="Word '+i+'"></div>';}
-  w.innerHTML=h;
   var d=new Date(),p=function(n){return String(n).padStart(2,'0')};
   var today=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
   document.getElementById('onbDate').value=today;
@@ -523,7 +518,7 @@ function printAll(){document.body.classList.remove('no-private');window.print();
 function printNoPrivate(){document.body.classList.add('no-private');window.print();setTimeout(function(){document.body.classList.remove('no-private')},500);}
 function toggleHide(){var on=document.body.classList.toggle('hidden-sec');document.getElementById('hideBtn').textContent=on?'👁 Show secrets on screen':'👁 Hide secrets on screen';}
 function clearSecrets(){if(!confirm('Clear the secret phrase and all passcodes on this page?'))return;
-  document.querySelectorAll('#privateSheet input').forEach(function(i){if(i.type==='text')i.value='';});
+  document.querySelectorAll('#privateSheet input, #privateSheet textarea').forEach(function(i){if(i.type==='text'||i.tagName==='TEXTAREA')i.value='';});
   document.getElementById('refEcho').textContent=document.getElementById('refNo').value||'—';}
 function clearAll(){if(!confirm('Clear the whole form, including secrets?'))return;
   document.querySelectorAll('input,select,textarea').forEach(function(i){
