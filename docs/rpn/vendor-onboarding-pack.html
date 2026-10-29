@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>seiGEN Vendor Onboarding Pack</title>
+<style>
+:root{
+  --orange:#F26B1D; --orange-d:#C9520F; --orange-l:#FFF1E8;
+  --navy:#14213D; --navy-l:#E8ECF5;
+  --teal:#0E9F8E; --teal-l:#E3F6F3;
+  --purple:#6B4FBB; --purple-l:#EFEBFA;
+  --red:#C62828; --red-l:#FDECEC;
+  --gold:#D99A00; --gold-l:#FFF7DE;
+  --ink:#1E2430; --muted:#5B6474; --line:#CDD3DE; --paper:#FFFFFF; --bg:#E9ECF1;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:10pt;line-height:1.35;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+/* ---------- toolbar ---------- */
+.toolbar{position:sticky;top:0;z-index:10;background:var(--navy);color:#fff;padding:10px 16px;
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.toolbar .t{font-weight:700;letter-spacing:.3px}
+.toolbar .t span{color:var(--orange)}
+.toolbar .btns{display:flex;flex-wrap:wrap;gap:8px}
+.toolbar button{border:0;border-radius:6px;padding:8px 12px;font:inherit;font-weight:600;cursor:pointer}
+.b-print{background:var(--orange);color:#fff}
+.b-print2{background:#fff;color:var(--navy)}
+.b-clear{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)!important}
+.b-clear.red{border-color:#ff9b9b!important;color:#ffd2d2}
+.toolbar button:hover{filter:brightness(1.08)}
+
+/* ---------- pages ---------- */
+.page{width:210mm;min-height:297mm;margin:16px auto;background:var(--paper);
+  box-shadow:0 4px 18px rgba(20,33,61,.15);padding:13mm 14mm 16mm;position:relative;overflow:hidden}
+.page + .page{margin-top:20px}
+@media screen and (max-width:700px){
+  .page{width:auto;min-height:0;margin:12px 16px;padding:18px 16px 40px}
+  .grid{grid-template-columns:1fr!important}
+  .g3,.g4{grid-template-columns:1fr 1fr!important}
+}
+
+.band{position:absolute;left:0;top:0;right:0;height:7mm;
+  background:linear-gradient(90deg,var(--orange) 0 40%,var(--gold) 40% 55%,var(--teal) 55% 75%,var(--purple) 75% 90%,var(--navy) 90%)}
+.foot{position:absolute;left:14mm;right:14mm;bottom:5mm;display:flex;justify-content:space-between;
+  font-size:8pt;color:var(--muted);border-top:1px solid var(--line);padding-top:4px}
+@media screen and (max-width:700px){.foot{left:16px;right:16px;bottom:10px}}
+
+header.doc{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:4mm;margin-bottom:5mm}
+.logo{display:flex;align-items:center;gap:10px}
+.mark{width:44px;height:44px;border-radius:11px;background:var(--orange);display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px;
+  box-shadow:inset 0 -4px 0 var(--orange-d)}
+.brand b{display:block;font-size:17pt;color:var(--navy);letter-spacing:.2px;line-height:1.1}
+.brand b i{font-style:normal;color:var(--orange)}
+.brand small{color:var(--muted);font-size:9pt}
+.ref{text-align:right;font-size:9pt;color:var(--muted)}
+.ref .pill{display:inline-block;background:var(--navy);color:#fff;border-radius:999px;padding:3px 10px;font-weight:700;font-size:8.5pt;margin-bottom:4px}
+.ref input{width:42mm;text-align:right}
+
+h1{font-size:19pt;color:var(--navy);margin:0 0 2mm}
+h1 em{font-style:normal;color:var(--orange)}
+.lead{color:var(--muted);margin:0 0 5mm;max-width:165mm}
+
+/* ---------- sections ---------- */
+.sec{border:1px solid var(--line);border-radius:9px;margin-bottom:3.4mm;overflow:hidden;break-inside:avoid}
+.sec > h2{margin:0;padding:6px 11px;font-size:10.5pt;color:#fff;display:flex;align-items:center;gap:8px;letter-spacing:.3px}
+.sec > h2 .n{background:rgba(255,255,255,.25);border-radius:5px;padding:0 7px;font-size:9.5pt}
+.sec .body{padding:8px 11px 10px}
+.c-orange > h2{background:var(--orange)} .c-orange{background:linear-gradient(var(--orange-l),#fff 40%)}
+.c-navy > h2{background:var(--navy)}     .c-navy{background:linear-gradient(var(--navy-l),#fff 40%)}
+.c-teal > h2{background:var(--teal)}     .c-teal{background:linear-gradient(var(--teal-l),#fff 40%)}
+.c-purple > h2{background:var(--purple)} .c-purple{background:linear-gradient(var(--purple-l),#fff 40%)}
+.c-gold > h2{background:var(--gold)}     .c-gold{background:linear-gradient(var(--gold-l),#fff 40%)}
+.c-red > h2{background:var(--red)}       .c-red{background:linear-gradient(var(--red-l),#fff 40%)}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+.g3{grid-template-columns:1fr 1fr 1fr} .g4{grid-template-columns:1fr 1fr 1fr 1fr}
+.span2{grid-column:span 2} .span3{grid-column:1/-1}
+@media screen and (max-width:700px){.span2,.span3{grid-column:1/-1}}
+label.f{display:block;font-size:8pt;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+label.f .req{color:var(--red)}
+input[type=text],input[type=tel],input[type=email],input[type=date],input[type=number],select,textarea{
+  width:100%;border:0;border-bottom:1.3px solid #9AA3B2;background:transparent;font:inherit;font-size:10.5pt;
+  padding:3px 2px;color:var(--ink);outline:none;border-radius:0}
+textarea{resize:vertical;min-height:34px;border:1.3px solid #C2C8D3;border-radius:5px;padding:5px}
+input:focus,select,textarea:focus{border-color:var(--orange)}
+input:focus,textarea:focus{background:#FFFBF7}
+select{appearance:none;-webkit-appearance:none;background:transparent}
+.opts{display:flex;flex-wrap:wrap;gap:4px 14px;padding-top:3px}
+.opts label{display:flex;align-items:center;gap:5px;font-size:10pt;cursor:pointer}
+input[type=checkbox],input[type=radio]{width:14px;height:14px;accent-color:var(--orange);margin:0}
+
+table.t{width:100%;border-collapse:collapse;font-size:9.5pt}
+table.t th{background:var(--navy);color:#fff;text-align:left;padding:5px 6px;font-size:8.5pt;letter-spacing:.3px}
+table.t td{border-bottom:1px solid var(--line);padding:2px 5px}
+table.t tr:nth-child(even) td{background:#F7F8FB}
+table.t td input,table.t td select{border-bottom:0}
+table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
+
+.note{border-left:4px solid var(--teal);background:var(--teal-l);padding:6px 10px;border-radius:0 6px 6px 0;font-size:9.5pt;margin:4px 0}
+.warn{border-left:4px solid var(--red);background:var(--red-l);padding:6px 10px;border-radius:0 6px 6px 0;font-size:9.5pt;margin:4px 0}
+.tip{border-left:4px solid var(--gold);background:var(--gold-l);padding:6px 10px;border-radius:0 6px 6px 0;font-size:9.5pt;margin:4px 0}
+
+/* ---------- guide steps ---------- */
+.steps{counter-reset:s;display:grid;gap:2.4mm}
+.step{display:grid;grid-template-columns:11mm 1fr 15mm;gap:8px;align-items:start;border:1px solid var(--line);border-radius:9px;padding:5px 9px;break-inside:avoid;background:#fff}
+.step .num{counter-increment:s;width:9mm;height:9mm;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:11pt}
+.step .num::before{content:counter(s)}
+.step h3{margin:0 0 2px;font-size:10.8pt;color:var(--navy)}
+.step ul{margin:2px 0 0;padding-left:16px}
+.step li{margin:1px 0}
+.step .done{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:7.5pt;color:var(--muted);font-weight:700;text-transform:uppercase}
+.step .done input{width:18px;height:18px}
+.s1 .num{background:var(--orange)} .s2 .num{background:var(--gold)} .s3 .num{background:var(--teal)}
+.s4 .num{background:var(--purple)} .s5 .num{background:var(--navy)} .s6 .num{background:var(--red)}
+.s1{border-left:5px solid var(--orange)} .s2{border-left:5px solid var(--gold)} .s3{border-left:5px solid var(--teal)}
+.s4{border-left:5px solid var(--purple)} .s5{border-left:5px solid var(--navy)} .s6{border-left:5px solid var(--red)}
+.tag{display:inline-block;font-size:7.5pt;font-weight:800;padding:1px 6px;border-radius:999px;vertical-align:middle;margin-left:4px;letter-spacing:.3px}
+.tag.must{background:var(--red);color:#fff} .tag.opt{background:var(--navy-l);color:var(--navy)} .tag.vendor{background:var(--purple);color:#fff}
+
+/* ---------- checklist ---------- */
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px}
+@media screen and (max-width:700px){.checks{grid-template-columns:1fr}}
+.checks label{display:flex;gap:7px;align-items:flex-start;padding:1.5px 0;border-bottom:1px dashed #E0E4EA;font-size:9.8pt;cursor:pointer}
+.checks input{margin-top:2px;flex:none}
+
+/* ---------- signatures ---------- */
+.sigs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media screen and (max-width:700px){.sigs{grid-template-columns:1fr}}
+.sig{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+.sig .line{height:11mm;border-bottom:1.3px solid var(--ink);margin:6px 0 3px}
+.sig .who{font-weight:800;color:var(--navy);font-size:9.5pt;text-transform:uppercase;letter-spacing:.4px}
+
+/* ---------- private sheet ---------- */
+.private{background:repeating-linear-gradient(45deg,#fff 0 18px,#FFF8F8 18px 36px)}
+.conf{display:flex;align-items:center;gap:10px;background:var(--red);color:#fff;border-radius:9px;padding:9px 12px;margin:4mm 0}
+.conf b{font-size:13pt;letter-spacing:1px}
+.words{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+@media screen and (max-width:700px){.words{grid-template-columns:repeat(2,1fr)}}
+.words div{display:flex;align-items:center;gap:5px;border:1px solid #E3B4B4;border-radius:6px;padding:3px 6px;background:#fff}
+.words span{font-size:8pt;font-weight:800;color:var(--red);width:5mm;text-align:right}
+.words input{border-bottom:0;font-family:Consolas,"Courier New",monospace;font-size:10.5pt}
+.secret{font-family:Consolas,"Courier New",monospace!important;letter-spacing:1px}
+.cut{border:0;border-top:2px dashed var(--red);margin:5mm 0 2mm;position:relative}
+.cut::after{content:"✂  vendor keeps this sheet — RPN keeps no copy or photo";position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  background:#fff;padding:0 8px;font-size:8pt;color:var(--red);font-weight:700}
+
+.contact{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media screen and (max-width:700px){.contact{grid-template-columns:1fr}}
+.contact div{background:var(--navy);color:#fff;border-radius:8px;padding:7px 10px}
+.contact small{display:block;color:#AFC0E4;font-size:8pt;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.contact b{font-size:11.5pt}
+
+.hidden-sec .secret{-webkit-text-security:disc}
+
+/* ---------- print ---------- */
+@page{size:A4;margin:0}
+@media print{
+  html,body{background:#fff}
+  .toolbar,.noprint{display:none!important}
+  .page{margin:0;box-shadow:none;width:210mm;height:297mm;min-height:0;page-break-after:always;break-after:page}
+  .page:last-of-type{page-break-after:auto;break-after:auto}
+  body.no-private .private{display:none!important}
+  .hidden-sec .secret{-webkit-text-security:none}
+  input,select,textarea{color:#000}
+  textarea{border-color:#C2C8D3}
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar noprint">
+  <div class="t">seiGEN <span>Commerce Lite</span> · Vendor Onboarding Pack</div>
+  <div class="btns">
+    <button class="b-print" onclick="printAll()">🖨 Print full pack (vendor copy)</button>
+    <button class="b-print2" onclick="printNoPrivate()">🖨 Print RPN / office copy (no secrets)</button>
+    <button class="b-clear" onclick="toggleHide()" id="hideBtn">👁 Hide secrets on screen</button>
+    <button class="b-clear red" onclick="clearSecrets()">Clear secrets</button>
+    <button class="b-clear" onclick="clearAll()">Clear whole form</button>
+  </div>
+</div>
+
+<!-- =============================================================== PAGE 1 -->
+<section class="page">
+  <div class="band"></div>
+  <header class="doc">
+    <div class="logo">
+      <div class="mark">s</div>
+      <div class="brand"><b>sei<i>GEN</i> Commerce Lite</b><small>Vendor Onboarding Form · Form VO-1</small></div>
+    </div>
+    <div class="ref">
+      <div class="pill">ONBOARDING REF</div><br>
+      <input type="text" id="refNo" aria-label="Onboarding reference"><br>
+      Date: <input type="date" id="onbDate" style="width:34mm;text-align:right" aria-label="Onboarding date">
+    </div>
+  </header>
+
+  <h1>Vendor <em>Onboarding</em> Form</h1>
+  <p class="lead">Completed by the Revenue Partner Network (RPN) agent together with the business owner during setup. Fields marked <b style="color:var(--red)">*</b> are required. The owner's secret phrase and passcodes are recorded <b>only</b> on the separate Vendor Private Recovery Sheet (page 5).</p>
+
+  <div class="sec c-orange">
+    <h2><span class="n">A</span> Business details</h2>
+    <div class="body grid">
+      <div class="span2"><label class="f">Registered / trading name <span class="req">*</span></label><input type="text"></div>
+      <div><label class="f">Type of business</label>
+        <select><option></option><option>Retail shop</option><option>Wholesale</option><option>Retail + wholesale</option><option>Hardware</option><option>Spares</option><option>Pharmacy</option><option>Grocery / tuck-shop</option><option>Clothing</option><option>Electronics</option><option>Other</option></select></div>
+      <div><label class="f">Business registration no. (if any)</label><input type="text"></div>
+      <div class="span2"><label class="f">Physical address (main shop) <span class="req">*</span></label><input type="text"></div>
+      <div><label class="f">Town / city <span class="req">*</span></label><input type="text"></div>
+      <div><label class="f">Province</label><input type="text"></div>
+      <div><label class="f">Business phone</label><input type="tel"></div>
+      <div><label class="f">Business email</label><input type="email"></div>
+      <div class="span2"><label class="f">Main products sold</label><input type="text"></div>
+      <div><label class="f">Approx. number of products</label>
+        <select><option></option><option>Under 100</option><option>100 – 500</option><option>500 – 2,000</option><option>Over 2,000</option></select></div>
+      <div><label class="f">Currencies used at the till</label>
+        <div class="opts"><label><input type="checkbox"> USD</label><label><input type="checkbox"> ZiG</label><label><input type="checkbox"> Other</label></div></div>
+    </div>
+  </div>
+
+  <div class="sec c-navy">
+    <h2><span class="n">B</span> Owner (first Owner on seiGEN)</h2>
+    <div class="body grid g3">
+      <div><label class="f">First name <span class="req">*</span></label><input type="text"></div>
+      <div><label class="f">Surname <span class="req">*</span></label><input type="text"></div>
+      <div><label class="f">Display name in the app</label><input type="text"></div>
+      <div><label class="f">Owner's own mobile <span class="req">*</span></label><input type="tel" placeholder="+263 …"></div>
+      <div><label class="f">WhatsApp (if different)</label><input type="tel"></div>
+      <div><label class="f">Email</label><input type="email"></div>
+      <div class="span3 note">Use the owner's <b>real, personal</b> phone number. It is how seiGEN reaches the business, and one free trial is allowed per phone number.</div>
+    </div>
+  </div>
+
+  <div class="sec c-teal">
+    <h2><span class="n">C</span> Notes and special requests</h2>
+    <div class="body"><textarea rows="4" aria-label="Notes"></textarea></div>
+  </div>
+
+  <div class="foot"><span>seiGEN Commerce Lite · Form VO-1 · Vendor Onboarding</span><span>Page 1 of 5</span></div>
+</section>
+
+<!-- =============================================================== PAGE 2 -->
+<section class="page">
+  <div class="band"></div>
+
+  <div class="sec c-teal" style="margin-top:6mm">
+    <h2><span class="n">D</span> Branches, tills and Office seats</h2>
+    <div class="body">
+      <table class="t">
+        <thead><tr><th>#</th><th>Branch name</th><th>Location</th><th>Type</th><th>Device</th><th>Device label / who uses it</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><input type="text" value=""></td><td><input type="text"></td><td><select><option>Main</option><option>Remote branch</option><option>Office seat</option></select></td><td><select><option></option><option>Phone</option><option>Tablet</option><option>PC / laptop</option></select></td><td><input type="text"></td></tr>
+          <tr><td class="num">2</td><td><input type="text"></td><td><input type="text"></td><td><select><option></option><option>Main</option><option>Remote branch</option><option>Office seat</option></select></td><td><select><option></option><option>Phone</option><option>Tablet</option><option>PC / laptop</option></select></td><td><input type="text"></td></tr>
+          <tr><td class="num">3</td><td><input type="text"></td><td><input type="text"></td><td><select><option></option><option>Main</option><option>Remote branch</option><option>Office seat</option></select></td><td><select><option></option><option>Phone</option><option>Tablet</option><option>PC / laptop</option></select></td><td><input type="text"></td></tr>
+          <tr><td class="num">4</td><td><input type="text"></td><td><input type="text"></td><td><select><option></option><option>Main</option><option>Remote branch</option><option>Office seat</option></select></td><td><select><option></option><option>Phone</option><option>Tablet</option><option>PC / laptop</option></select></td><td><input type="text"></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sec c-purple">
+    <h2><span class="n">E</span> Staff to set up</h2>
+    <div class="body">
+      <table class="t">
+        <thead><tr><th>#</th><th>Full name</th><th>Role</th><th>Branch</th><th>Mobile</th><th>Guest end date</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">2</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">3</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">4</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">5</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+          <tr><td class="num">6</td><td><input type="text"></td><td><select><option></option><option>Owner</option><option>Admin</option><option>Manager</option><option>Bookkeeper</option><option>Stores</option><option>Cashier</option><option>Guest</option><option>Custom role</option></select></td><td><input type="text"></td><td><input type="tel"></td><td><input type="date"></td></tr>
+        </tbody>
+      </table>
+      <div class="note" style="margin-top:6px">Staff PINs are chosen by each person and are <b>not</b> written on this form. A Guest can sign in only on an Office seat and sees stock and selling prices only.</div>
+    </div>
+  </div>
+
+  <div class="sec c-gold">
+    <h2><span class="n">F</span> Plan, licence and billing</h2>
+    <div class="body grid">
+      <div><label class="f">Start type <span class="req">*</span></label>
+        <div class="opts"><label><input type="radio" name="start"> Free trial</label><label><input type="radio" name="start"> Paid licence</label></div></div>
+      <div><label class="f">Plan (as named on the bill)</label><input type="text" placeholder="e.g. Business / Lite"></div>
+      <div><label class="f">Number of tills</label><input type="number" min="0"></div>
+      <div><label class="f">Number of Office seats ($3 per 30 days each)</label><input type="number" min="0"></div>
+      <div><label class="f">Activation / licence date</label><input type="date"></div>
+      <div><label class="f">Renewal due date</label><input type="date"></div>
+      <div><label class="f">Payment method agreed</label>
+        <select><option></option><option>EcoCash</option><option>InnBucks</option><option>Bank transfer</option><option>Cash at seiGEN office</option><option>Other</option></select></div>
+      <div><label class="f">Payment reference (if paid today)</label><input type="text"></div>
+      <div class="span2"><label class="f">Interested in the iTred Marketplace?</label>
+        <div class="opts"><label><input type="radio" name="itred"> Yes, set up today</label><label><input type="radio" name="itred"> Yes, later</label><label><input type="radio" name="itred"> Not now</label></div></div>
+    </div>
+  </div>
+
+  <div class="sec c-navy">
+    <h2><span class="n">G</span> Revenue Partner (RPN) details</h2>
+    <div class="body grid g3">
+      <div><label class="f">RPN number <span class="req">*</span></label><input type="text" placeholder="RPN-…"></div>
+      <div><label class="f">RPN full name <span class="req">*</span></label><input type="text"></div>
+      <div><label class="f">RPN mobile</label><input type="tel"></div>
+      <div class="span3 warn">The RPN link entered at setup is <b>locked</b> after onboarding. To change it later the vendor must contact Digital Commerce. Check the RPN number <b>before</b> finishing setup.</div>
+    </div>
+  </div>
+
+  <div class="foot"><span>seiGEN Commerce Lite · Form VO-1 · Vendor Onboarding</span><span>Page 2 of 5</span></div>
+</section>
+
+<!-- =============================================================== PAGE 3: RPN GUIDE -->
+<section class="page">
+  <div class="band"></div>
+  <header class="doc">
+    <div class="logo"><div class="mark">s</div><div class="brand"><b>RPN <i>Setup Guide</i></b><small>Step-by-step installation and configuration</small></div></div>
+    <div class="ref"><div class="pill">RPN USE</div><br>Tick each step as you finish it</div>
+  </header>
+
+  <div class="steps">
+    <div class="step s1"><div class="num"></div><div>
+      <h3>Prepare before the visit <span class="tag must">MUST</span></h3>
+      <ul><li>Your RPN number and PIN; a charged phone with data.</li>
+      <li>Ask the owner to have: their own phone, the device(s) for the till, and a product list (an Excel sheet helps).</li>
+      <li>Make sure the shop device has a stable internet connection: setup and activation need to be online.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s2"><div class="num"></div><div>
+      <h3>Install the app on the main till</h3>
+      <ul><li>Open the seiGEN Commerce Lite link supplied by seiGEN on the shop device.</li>
+      <li>Install it: on a phone choose <b>Add to Home screen / Install</b>; on a PC use the install option or the desktop app.</li>
+      <li>Open it from the new icon, not from the browser tab.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s3"><div class="num"></div><div>
+      <h3>Setup and activation <span class="tag must">MUST</span></h3>
+      <ul><li>Enter the business details and the owner's <b>own</b> phone number exactly as on page 1.</li>
+      <li>Enter <b>your RPN number</b>. It is required for a trial and is locked afterwards.</li>
+      <li>Choose the free trial or enter the licence. One trial per phone number: never help a shop get around this.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s6"><div class="num"></div><div>
+      <h3>Admin passcode and secret phrase <span class="tag must">MUST</span></h3>
+      <ul><li>The owner chooses the <b>Admin passcode (this till)</b>. Record it only on the Vendor Private Recovery Sheet (page 5).</li>
+      <li>Where the app shows a <b>secret phrase</b>, copy it word for word onto page 5 and check it twice with the owner.</li>
+      <li>Never photograph these, never send them by WhatsApp or SMS, never keep a copy.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s4"><div class="num"></div><div>
+      <h3>Create the first Owner</h3>
+      <ul><li>Create the Owner on the <b>main till</b>. The owner sets their own PIN.</li>
+      <li>Explain <b>single operator mode</b> (one person, no PIN sign-in) versus <b>PIN sign-in</b> (each person signs in; the role decides what they see). Set the one the owner wants.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s5"><div class="num"></div><div>
+      <h3>Staff and roles</h3>
+      <ul><li>Sign in to manage staff, then add each person from section E with their role: Owner, Admin, Manager, Bookkeeper, Stores, Cashier or Guest.</li>
+      <li>Each person types their own PIN. If roles don't show, tap <b>Refresh</b> while online.</li>
+      <li>Explain that the role decides everything, and seiGEN checks it too.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s1"><div class="num"></div><div>
+      <h3>Products and stock</h3>
+      <ul><li>Add products by hand or with the <b>Excel import</b>; set categories, prices (retail and wholesale) and cost.</li>
+      <li>Enter opening stock; set shelf codes (e.g. "A3") if the shop wants cycle counts.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s3"><div class="num"></div><div>
+      <h3>Branches, tills and Office seats <span class="tag opt">IF NEEDED</span></h3>
+      <ul><li>Remote branch tills: install the app there and join with the <b>join code</b> from the main till.</li>
+      <li>Office seats: send an <b>invite</b> (code + link), single use, valid 24 hours, for a named person; approve the device. $3 per 30 days.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+  </div>
+
+  <div class="foot"><span>seiGEN Commerce Lite · RPN Setup Guide</span><span>Page 3 of 5</span></div>
+</section>
+
+<!-- =============================================================== PAGE 4 -->
+<section class="page">
+  <div class="band"></div>
+  <div class="steps" style="margin-top:6mm;counter-reset:s 8">
+    <div class="step s2"><div class="num"></div><div>
+      <h3>Receipts and settings</h3>
+      <ul><li>Set the receipt message and logo, the customer defaults (Cash Sale and Wholesale are built in), and credit limits if the shop sells on credit.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s4"><div class="num"></div><div>
+      <h3>Test sale and End of Day <span class="tag must">MUST</span></h3>
+      <ul><li>Make one test sale with the owner, print or share the receipt, then do an <b>End of Day</b> so they see the cash-up.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s6"><div class="num"></div><div>
+      <h3>Backups and data safety <span class="tag must">MUST</span></h3>
+      <ul><li>Show the owner how to make a backup and where to keep it.</li>
+      <li><b>Never clear browsing data or site data</b> on a shop device: it deletes the shop's data on that device.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+
+    <div class="step s5"><div class="num"></div><div>
+      <h3>iTred Marketplace <span class="tag opt">OPTIONAL</span></h3>
+      <ul><li>Choose products → <b>Add to Marketing</b> → build the market pack (photos) → <b>Send to seiGEN</b>.</li>
+      <li>Listing tokens: 1 token = 1 day = USD 1 per pack. seiGEN staff review the pack before it goes live; orders arrive in <b>Orders Fulfillment</b>.</li>
+      <li>Encourage the owner to share their iTred link on WhatsApp status and groups.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
+  </div>
+
+  <div class="sec c-teal" style="margin-top:4mm">
+    <h2><span class="n">H</span> Handover checklist: owner has been shown</h2>
+    <div class="body checks">
+      <label><input type="checkbox"> How to sell, search and use the cart</label>
+      <label><input type="checkbox"> Credit sales, limits and payments</label>
+      <label><input type="checkbox"> Returns and voids</label>
+      <label><input type="checkbox"> End of Day / cash-up</label>
+      <label><input type="checkbox"> Adding products and Excel import</label>
+      <label><input type="checkbox"> Receiving stock (GRV)</label>
+      <label><input type="checkbox"> Stocktake and Count now</label>
+      <label><input type="checkbox"> Dispatch (DN) to branches, if any</label>
+      <label><input type="checkbox"> Staff, roles and PIN sign-in</label>
+      <label><input type="checkbox"> Reports and Report Writer</label>
+      <label><input type="checkbox"> The notification bell</label>
+      <label><input type="checkbox"> Making and keeping backups</label>
+      <label><input type="checkbox"> Never clear browsing data</label>
+      <label><input type="checkbox"> Renewal date and how to pay</label>
+      <label><input type="checkbox"> How to reach seiGEN support</label>
+      <label><input type="checkbox"> Recovery sheet given and stored safely</label>
+    </div>
+  </div>
+
+  <div class="sec c-orange">
+    <h2><span class="n">I</span> Declarations and signatures</h2>
+    <div class="body">
+      <p style="margin:0 0 6px;font-size:9.5pt">The <b>vendor</b> confirms the details on this form are correct, that setup and training were completed as ticked above, and that they received the Vendor Private Recovery Sheet. The <b>RPN</b> confirms they followed the RPN code of conduct, made no false promises, and keep no copy, photo or message of the secret phrase or passcodes.</p>
+      <div class="sigs">
+        <div class="sig"><div class="who">Vendor / Owner</div><div class="line"></div>
+          <div class="grid"><div><label class="f">Name</label><input type="text"></div><div><label class="f">Date</label><input type="date"></div></div></div>
+        <div class="sig"><div class="who">RPN agent</div><div class="line"></div>
+          <div class="grid"><div><label class="f">Name &amp; RPN no.</label><input type="text"></div><div><label class="f">Date</label><input type="date"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="contact">
+    <div><small>Queries Desk · Call / WhatsApp</small><b>+263 774 479 121</b></div>
+    <div><small>Sales and Support · Call / WhatsApp</small><b>+263 789 487 287</b></div>
+  </div>
+  <p style="font-size:8pt;color:var(--muted);margin:4px 0 0">Numbers current at time of printing; the app's About page always shows the latest contacts.</p>
+
+  <div class="foot"><span>seiGEN Commerce Lite · RPN Setup Guide &amp; Handover</span><span>Page 4 of 5</span></div>
+</section>
+
+<!-- =============================================================== PAGE 5: PRIVATE -->
+<section class="page private" id="privateSheet">
+  <div class="band" style="background:var(--red)"></div>
+  <header class="doc">
+    <div class="logo"><div class="mark" style="background:var(--red);box-shadow:inset 0 -4px 0 #8E1B1B">🔒</div>
+      <div class="brand"><b>Vendor <i style="color:var(--red)">Private</i> Recovery Sheet</b><small>Form VO-1 · Page 5 · Keep separate from the rest of the pack</small></div></div>
+    <div class="ref"><div class="pill" style="background:var(--red)">CONFIDENTIAL</div><br>Ref: <span id="refEcho">—</span></div>
+  </header>
+
+  <div class="conf"><b>STRICTLY CONFIDENTIAL</b><span>Anyone holding this sheet can take control of your shop on seiGEN.</span></div>
+
+  <div class="sec c-red">
+    <h2><span class="n">1</span> Business</h2>
+    <div class="body grid">
+      <div><label class="f">Business name</label><input type="text"></div>
+      <div><label class="f">Main till device / label</label><input type="text"></div>
+    </div>
+  </div>
+
+  <div class="sec c-red">
+    <h2><span class="n">2</span> Secret phrase: copy word for word, in order</h2>
+    <div class="body">
+      <div class="words" id="words"></div>
+      <div class="tip" style="margin-top:6px">Leave unused boxes empty. Check every word against the screen twice. Spelling and order matter.</div>
+    </div>
+  </div>
+
+  <div class="sec c-red">
+    <h2><span class="n">3</span> Passcodes</h2>
+    <div class="body grid">
+      <div><label class="f">Admin passcode (this till)</label><input type="text" class="secret" autocomplete="off" spellcheck="false"></div>
+      <div><label class="f">Owner PIN (optional, owner's choice)</label><input type="text" class="secret" autocomplete="off" spellcheck="false"></div>
+      <div><label class="f">Other till: label</label><input type="text"></div>
+      <div><label class="f">Admin passcode (that till)</label><input type="text" class="secret" autocomplete="off" spellcheck="false"></div>
+    </div>
+  </div>
+
+  <div class="sec c-gold">
+    <h2><span class="n">4</span> Keep it safe</h2>
+    <div class="body">
+      <ul style="margin:0;padding-left:18px;font-size:9.8pt">
+        <li>Store this sheet in a locked drawer or safe, <b>away from the shop counter and the till device</b>.</li>
+        <li>Do not photograph it, and do not send it by WhatsApp, SMS or email.</li>
+        <li>seiGEN staff and RPN agents will <b>never</b> ask you for these details after setup.</li>
+        <li>If you think someone has seen it, change the Admin passcode and contact seiGEN support at once.</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="cut">
+  <div class="sigs">
+    <div class="sig"><div class="who">Received by vendor / owner</div><div class="line" style="height:11mm"></div><input type="text" aria-label="Vendor name" placeholder="Name"></div>
+    <div class="sig"><div class="who">Handed over by RPN</div><div class="line" style="height:11mm"></div><input type="text" aria-label="RPN name" placeholder="Name & RPN no."></div>
+  </div>
+
+  <div class="foot"><span>CONFIDENTIAL · Vendor Private Recovery Sheet</span><span>Page 5 of 5</span></div>
+</section>
+
+<script>
+/* Nothing on this page is saved or sent anywhere. Closing or refreshing the page clears it. */
+(function(){
+  var w=document.getElementById('words'),h='';
+  for(var i=1;i<=24;i++){h+='<div><span>'+i+'</span><input type="text" class="secret" autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="Word '+i+'"></div>';}
+  w.innerHTML=h;
+  var d=new Date(),p=function(n){return String(n).padStart(2,'0')};
+  var today=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+  document.getElementById('onbDate').value=today;
+  var ref='VO-'+today.replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+  var r=document.getElementById('refNo');r.value=ref;
+  var echo=function(){document.getElementById('refEcho').textContent=r.value||'—'};
+  r.addEventListener('input',echo);echo();
+})();
+function printAll(){document.body.classList.remove('no-private');window.print();}
+function printNoPrivate(){document.body.classList.add('no-private');window.print();setTimeout(function(){document.body.classList.remove('no-private')},500);}
+function toggleHide(){var on=document.body.classList.toggle('hidden-sec');document.getElementById('hideBtn').textContent=on?'👁 Show secrets on screen':'👁 Hide secrets on screen';}
+function clearSecrets(){if(!confirm('Clear the secret phrase and all passcodes on this page?'))return;
+  document.querySelectorAll('#privateSheet input').forEach(function(i){if(i.type==='text')i.value='';});
+  document.getElementById('refEcho').textContent=document.getElementById('refNo').value||'—';}
+function clearAll(){if(!confirm('Clear the whole form, including secrets?'))return;
+  document.querySelectorAll('input,select,textarea').forEach(function(i){
+    if(i.id==='refNo'||i.id==='onbDate')return;
+    if(i.type==='checkbox'||i.type==='radio')i.checked=false;else i.value='';});}
+</script>
+</body>
+</html>
