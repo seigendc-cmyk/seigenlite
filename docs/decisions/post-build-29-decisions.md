@@ -154,6 +154,9 @@
 | 67 | Vendors Register tiles (owner, 29 Oct) | **Approved.** The dashboard tiles leave **archived** vendors out (as the register's own count). |
 | 68 | Who sees Overdue (owner, 29 Oct) | **Approved.** Staff with Vendors Register only see **overdue yes/no**, never amounts (amounts stay with Collections Ledger and Billing & Reminders). |
 | 69 | RPNs on the Vendors Register (owner, 29 Oct) | Owner's decision: RPNs see Registration and Licence, with the Overdue badge, for **their own vendors only**, never amounts. **HELD (29 Oct): conflicts with migration 20261015120000 §10, "RPNs read no vendor rows"** (the RPN's Vendors Register has been empty since then). Not built until the owner says whether RPNs may see their own vendor rows again (which columns). |
+| 70 | A closed draft DN (owner, 29 Oct; v37.1) | **Approved.** A draft closed with a reason (decision 63) puts the request in status **`not_dispatched`**, shown **"Approved, not dispatched: <reason>"** at main and at the requesting branch. |
+| 71 | Reminder timers in single operator mode (owner, 29 Oct; v37.1) | **Approved.** A till in single operator mode may change the reminder timers (decision 64) **after the Admin passcode**; seiGEN accepts it from that till as from an Owner/Admin, audited the same way. |
+| 72 | v37.1 drafts: sending, older requests, the link fix (owner, 29 Oct) | **Approved.** (1) **Sending a draft needs the internet** (seiGEN gives the draft to the first sender before the DN is made); ordinary DNs stay offline-capable as before. (2) **Requests approved before v37.1:** linked to their DN if one was sent under the request's ref, else given a draft; both counts reported at post-check. (3) **The v37 dispatch-link bug** (the Dispatch screen lost the request/recall link, `src/dispatch-out.js`) is fixed as a bug fix. |
 
 ### Books + Cash Flow rights (approved; journals and month-close added 22 Oct)
 | Right | Owner | Admin | Manager | Bookkeeper | Stores | Cashier |
