@@ -37,7 +37,7 @@ const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
   if (out !== -1 && !process.argv[out + 1]) throw new Error('--out needs a folder');
   const dir = out === -1 ? path.join(ROOT, 'docs', 'database', 'live-backup-' + stamp) : path.join(path.resolve(process.argv[out + 1]), stamp);
   const c = new Client({ connectionString: URL, ssl: { ca: fs.readFileSync(path.join(ROOT, 'supabase', 'prod-ca-2021.crt'), 'utf8'), rejectUnauthorized: true },
-    connectionTimeoutMillis: 20000, statement_timeout: 120000, query_timeout: 180000 });
+    connectionTimeoutMillis: 20000, statement_timeout: 120000, query_timeout: 600000 });   // read limit 600 s (owner, 29 Oct: slow connection on this PC)
   c.on('error', (e) => { console.error('ERROR: ' + redact(e.message)); process.exit(1); });
   await c.connect();
   await c.query('begin isolation level repeatable read read only');
