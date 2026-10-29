@@ -1,5 +1,5 @@
 {
- "taken_at": "2026-10-28T10-27-04-485Z",
+ "taken_at": "2026-10-29T02-30-23-348Z",
  "source": "live, read-only (tools/db/catalog.js)",
  "server": "17.6",
  "objects": {
@@ -3057,6 +3057,8 @@
   "grant fn cl_vendor_clear_device_key(p_vendor_id uuid, p_reason text)": "[\"authenticated:EXECUTE\",\"service_role:EXECUTE\"]",
   "fn cl_vendor_delete_guard()": "{\"result\":\"trigger\",\"kind\":\"f\",\"lang\":\"plpgsql\",\"secdef\":true,\"volatile\":\"v\",\"config\":[\"search_path=public\"],\"body_md5\":\"db09cecd03cbc98b38b977cd28ade6ee\",\"comment\":null}",
   "grant fn cl_vendor_delete_guard()": "[\"service_role:EXECUTE\"]",
+  "fn cl_vendor_register_status()": "{\"result\":\"json\",\"kind\":\"f\",\"lang\":\"plpgsql\",\"secdef\":true,\"volatile\":\"s\",\"config\":[\"search_path=public\"],\"body_md5\":\"a75f9bd0bc6f080a643aaf4555af0203\",\"comment\":null}",
+  "grant fn cl_vendor_register_status()": "[\"authenticated:EXECUTE\",\"service_role:EXECUTE\"]",
   "fn cl_vendor_removed_device()": "{\"result\":\"trigger\",\"kind\":\"f\",\"lang\":\"plpgsql\",\"secdef\":true,\"volatile\":\"v\",\"config\":[\"search_path=public\"],\"body_md5\":\"8298998ab3bd7a0341c6c9cf74ef7c6a\",\"comment\":null}",
   "grant fn cl_vendor_removed_device()": "[\"service_role:EXECUTE\"]",
   "fn cl_vendor_repeat_installs(p_days integer)": "{\"result\":\"json\",\"kind\":\"f\",\"lang\":\"plpgsql\",\"secdef\":true,\"volatile\":\"s\",\"config\":[\"search_path=public\"],\"body_md5\":\"54f21e5330ecfbec4ce5367ed6b04938\",\"comment\":null}",

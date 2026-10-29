@@ -36,7 +36,7 @@ const J = (x) => JSON.stringify(x);
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261115120000_stock_control.sql']) });   // the live shape on 27 Oct, before v37
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(['20261115120000_stock_control.sql', '20261116120000_vendor_register_status.sql']) });   // the live shape on 27 Oct, before v37
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
   const PHRASE = { AA: 'Alpha Phrase', BB: 'Beta Phrase', NN: 'New Phrase' };
