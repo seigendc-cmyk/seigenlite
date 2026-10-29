@@ -293,7 +293,7 @@ Report saved: reports\latest-report.md
 # PART 3: F-0, data gaps before Finance (v38)
 =====================================================================
 
-Start only after Part 2 is applied, deployed and pushed, **and after v37.1** (owner, 28 Oct 2026: queue v37 → **v37.1** (stock-request drafts, dispatch reminder, branch-figures and iTred bell fixes, lost-logic audit, whole-app module test; decisions 63–64) → v38 F-0). F-0 starts only once v37.1 is deployed and pushed.
+Start only after Part 2 is applied, deployed and pushed, **and after v37.1** (owner, 28 Oct 2026: queue v37 → **v37.1** (stock-request drafts, dispatch reminder, branch-figures and iTred bell fixes, lost-logic audit, whole-app module test; decisions 63–64) → v38 F-0). F-0 starts only once v37.1 is deployed and pushed, and after the RPN Vendors Register task (decision 73, owner 29 Oct: its own narrow read-only function, migration, tests and "apply"), which comes straight after v37.1.
 
 Read `CLAUDE.md` and `docs/decisions/post-build-29-decisions.md` (items 28, 39–44). Working mode: stop only for "apply", a missing decision, an unapproved logic change, or "go production". Commit by name; never chain an apply after a commit. Every report has a "Logic changes" section.
 

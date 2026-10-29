@@ -27,7 +27,7 @@ async function waitFor(cond, what){
 (async ()=>{
   const MIG = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261021120000_billing_b.sql"), "utf8");
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261021120000_billing_b.sql", "20261107120000_shop_roles.sql", "20261108120000_shop_managers_everywhere.sql", "20261109120000_office_seats.sql", "20261110120000_staff_first_owner.sql", "20261112120000_builtin_customers.sql", "20261113120000_sales_sync.sql", "20261113180000_removed_devices.sql", "20261114120000_roles_everywhere.sql", "20261115120000_stock_control.sql", "20261116120000_vendor_register_status.sql"]) });   // the live shape without Billing-B, as when the Chipo tills registered
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat(["20261021120000_billing_b.sql", "20261107120000_shop_roles.sql", "20261108120000_shop_managers_everywhere.sql", "20261109120000_office_seats.sql", "20261110120000_staff_first_owner.sql", "20261112120000_builtin_customers.sql", "20261113120000_sales_sync.sql", "20261113180000_removed_devices.sql", "20261114120000_roles_everywhere.sql", "20261115120000_stock_control.sql", "20261116120000_vendor_register_status.sql", "20261117120000_srq_drafts.sql"]) });   // the live shape without Billing-B, as when the Chipo tills registered
   const q = async (sql, p)=> (await pg.query(sql, p)).rows;
   async function rpc(fn, body){
     const names = Object.keys(body);

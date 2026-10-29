@@ -45,7 +45,7 @@ const NEW = ['request_stock', 'recall_stock', 'count_stock', 'approve_counts'];
 
 (async () => {
   const pg = await newPglite();
-  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE]) });
+  await buildFromRepo(pg, { skip: NOT_ON_LIVE_FILES.concat([FILE, '20261117120000_srq_drafts.sql']) });
   const q = async (sql, p) => (await pg.query(sql, p)).rows;
   const KEY = {}; const key = (i) => (KEY[i] = KEY[i] || hex());
   const anon = async (fn, args, claims) => {

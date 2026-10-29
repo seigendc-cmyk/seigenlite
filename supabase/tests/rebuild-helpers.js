@@ -15,7 +15,7 @@ const migrationFiles = () => fs.readdirSync(MIG).filter((f) => /^\d{14}_\w+\.sql
 
 // Files in the repo that are NOT applied on live (and so not recorded in
 // supabase_migrations.schema_migrations there).
-const NOT_ON_LIVE_FILES = ['20261117120000_srq_drafts.sql'];   // waiting for "apply" (v37.1); 20261116120000_vendor_register_status applied on live 28 Oct (owner)
+const NOT_ON_LIVE_FILES = [];   // 20261117120000_srq_drafts applied on live 29 Oct (owner); 20261116120000_vendor_register_status 28 Oct
 
 // Supabase's own objects that the schema depends on (never part of a migration).
 const SUPABASE_STUB = `
