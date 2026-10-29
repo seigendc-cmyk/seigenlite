@@ -123,14 +123,14 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
 /* ---------- checklist ---------- */
 .checks{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px}
 @media screen and (max-width:700px){.checks{grid-template-columns:1fr}}
-.checks label{display:flex;gap:7px;align-items:flex-start;padding:1.5px 0;border-bottom:1px dashed #E0E4EA;font-size:9.8pt;cursor:pointer}
+.checks label{display:flex;gap:7px;align-items:flex-start;padding:1px 0;border-bottom:1px dashed #E0E4EA;font-size:9.8pt;cursor:pointer}
 .checks input{margin-top:2px;flex:none}
 
 /* ---------- signatures ---------- */
 .sigs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media screen and (max-width:700px){.sigs{grid-template-columns:1fr}}
 .sig{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
-.sig .line{height:11mm;border-bottom:1.3px solid var(--ink);margin:6px 0 3px}
+.sig .line{height:8mm;border-bottom:1.3px solid var(--ink);margin:6px 0 3px}
 .sig .who{font-weight:800;color:var(--navy);font-size:9.5pt;text-transform:uppercase;letter-spacing:.4px}
 
 /* ---------- private sheet ---------- */
@@ -333,8 +333,8 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
 
     <div class="step s3"><div class="num"></div><div>
       <h3>Setup: Welcome → Contact &amp; branding → RPN → Confirm <span class="tag must">MUST</span></h3>
-      <ul><li><b>Welcome:</b> the owner types their own <b>secret phrase</b> (free text, their choice). Copy it exactly onto page 5 and read it back to the owner.</li>
-      <li><b>Contact &amp; branding:</b> business details and the owner's <b>own</b> phone number exactly as on page 1.</li>
+      <ul><li><b>Welcome:</b> shop name, branch name and <b>Main / Remote Branch</b>, plus the <b>Activation secret phrase</b> that you (the RPN) or Digital Commerce give the owner. Type it exactly, copy it onto page 5 and read it back to the owner.</li>
+      <li><b>Contact &amp; branding:</b> contact details and the owner's <b>own</b> phone number exactly as on page 1.</li>
       <li><b>RPN:</b> type your <b>field force number</b> and your <b>6-digit RPN PIN</b>. The link is locked afterwards.</li>
       <li><b>Confirm:</b> finishing setup starts the <b>free trial</b> (with the RPN fields filled). One trial per phone number: never help a shop get around this. A paid licence is activated later.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
@@ -360,15 +360,10 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
 
     <div class="step s1"><div class="num"></div><div>
       <h3>Products and stock</h3>
-      <ul><li>Add products by hand or with the <b>Excel import</b>; set categories, prices (retail and wholesale) and cost.</li>
-      <li>Enter opening stock; set shelf codes (e.g. "A3") if the shop wants cycle counts.</li></ul>
+      <ul><li>Add products by hand or with Products → ⋮ → <b>Import from Excel</b>; set categories, prices (retail and wholesale) and cost.</li>
+      <li>Enter opening stock; fill in <b>Shelf / Location</b> (e.g. "A3") if the shop wants cycle counts.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
 
-    <div class="step s3"><div class="num"></div><div>
-      <h3>Branches, tills and Office seats <span class="tag opt">IF NEEDED</span></h3>
-      <ul><li>Remote branch tills: install the app there and join with the <b>join code</b> from the main till.</li>
-      <li>Office seats: send an <b>invite</b> (code + link), single use, valid 24 hours, for a named person; approve the device. $3 per 30 days.</li></ul>
-    </div><label class="done"><input type="checkbox">Done</label></div>
   </div>
 
   <div class="foot"><span>seiGEN Commerce Lite · RPN Setup Guide</span><span>Page 3 of 5</span></div>
@@ -377,7 +372,12 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
 <!-- =============================================================== PAGE 4 -->
 <section class="page">
   <div class="band"></div>
-  <div class="steps" style="margin-top:6mm;counter-reset:s 8">
+  <div class="steps" style="margin-top:6mm;counter-reset:s 7">
+    <div class="step s3"><div class="num"></div><div>
+      <h3>Branches, tills and Office seats <span class="tag opt">IF NEEDED</span></h3>
+      <ul><li>Remote branch tills: install the app there and join with the <b>join code</b> from the main till.</li>
+      <li>Office seats: send an <b>invite</b> (code + link), single use, valid 24 hours, for a named person; approve the device. $3 per 30 days.</li></ul>
+    </div><label class="done"><input type="checkbox">Done</label></div>
     <div class="step s2"><div class="num"></div><div>
       <h3>Receipts and settings</h3>
       <ul><li>Set the receipt message and logo, the customer defaults (Cash Sale and Wholesale are built in), and credit limits if the shop sells on credit.</li></ul>
@@ -390,15 +390,13 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
 
     <div class="step s6"><div class="num"></div><div>
       <h3>Backups and data safety <span class="tag must">MUST</span></h3>
-      <ul><li>Show the owner how to make a backup and where to keep it.</li>
-      <li><b>Never clear browsing data or site data</b> on a shop device: it deletes the shop's data on that device.</li></ul>
+      <ul><li>Show how to make a backup and where to keep it. <b>Never clear browsing or site data</b> on a shop device: it deletes the shop's data.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
 
     <div class="step s5"><div class="num"></div><div>
       <h3>iTred Marketplace <span class="tag opt">OPTIONAL</span></h3>
       <ul><li>Choose products → <b>Add to Marketing</b> → build the market pack (photos) → <b>Send to seiGEN</b>.</li>
-      <li>Listing tokens: 1 token = 1 day = USD 1 per pack. seiGEN staff review the pack before it goes live; orders arrive in <b>Orders Fulfillment</b>.</li>
-      <li>Encourage the owner to share their iTred link on WhatsApp status and groups.</li></ul>
+      <li>1 token = 1 day = USD 1 per pack; seiGEN reviews it before it goes live; orders arrive in <b>Orders Fulfillment</b>. Share the iTred link on WhatsApp.</li></ul>
     </div><label class="done"><input type="checkbox">Done</label></div>
   </div>
 
@@ -409,7 +407,7 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
       <label><input type="checkbox"> Credit sales, limits and payments</label>
       <label><input type="checkbox"> Returns and voids</label>
       <label><input type="checkbox"> End of Day / cash-up</label>
-      <label><input type="checkbox"> Adding products and Excel import</label>
+      <label><input type="checkbox"> Adding products and Import from Excel</label>
       <label><input type="checkbox"> Receiving stock (GRV)</label>
       <label><input type="checkbox"> Stocktake and Count now</label>
       <label><input type="checkbox"> Dispatch (DN) to branches, if any</label>
@@ -427,7 +425,7 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
   <div class="sec c-orange">
     <h2><span class="n">I</span> Declarations and signatures</h2>
     <div class="body">
-      <p style="margin:0 0 6px;font-size:9.5pt">The <b>vendor</b> confirms the details on this form are correct, that setup and training were completed as ticked above, and that they received the Vendor Private Recovery Sheet. The <b>RPN</b> confirms they followed the RPN code of conduct, made no false promises, and keep no copy, photo or message of the secret phrase or passcodes.</p>
+      <p style="margin:0 0 6px;font-size:9.5pt">The <b>vendor</b> confirms these details, the training ticked above, and receipt of the Recovery Sheet. The <b>RPN</b> confirms they followed the code of conduct and keep no copy, photo or message of the secret phrase or passcodes.</p>
       <div class="sigs">
         <div class="sig"><div class="who">Vendor / Owner</div><div class="line"></div>
           <div class="grid"><div><label class="f">Name</label><input type="text"></div><div><label class="f">Date</label><input type="date"></div></div></div>
@@ -441,7 +439,6 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
     <div><small>Queries Desk · Call / WhatsApp</small><b>+263 774 479 121</b></div>
     <div><small>Sales and Support · Call / WhatsApp</small><b>+263 789 487 287</b></div>
   </div>
-  <p style="font-size:8pt;color:var(--muted);margin:4px 0 0">Numbers current at time of printing; the app's About page always shows the latest contacts.</p>
 
   <div class="foot"><span>seiGEN Commerce Lite · RPN Setup Guide &amp; Handover</span><span>Page 4 of 5</span></div>
 </section>
@@ -466,10 +463,10 @@ table.t td.num{width:7mm;color:var(--muted);text-align:center;font-weight:700}
   </div>
 
   <div class="sec c-red">
-    <h2><span class="n">2</span> Secret phrase: exactly as the owner typed it at setup</h2>
+    <h2><span class="n">2</span> Activation secret phrase: exactly as typed at setup</h2>
     <div class="body">
       <textarea class="secret" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="Secret phrase" style="font-size:12pt"></textarea>
-      <div class="tip" style="margin-top:6px">Copy every word, space and spelling exactly. Read it back to the owner twice.</div>
+      <div class="tip" style="margin-top:6px">Given by the RPN or Digital Commerce. Copy every word, space and spelling exactly. Read it back to the owner twice.</div>
     </div>
   </div>
 
