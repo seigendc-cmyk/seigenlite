@@ -16697,6 +16697,9 @@ ${readOnly? "" : `
   }
   function catSafeToRedraw(){
     if(typeof document==="undefined" || !document.querySelector) return false;
+    // Setup's own screens (a joined till's trial answer, before Continue) still have route "setup":
+    // a redraw would put the join form back over them.
+    if(typeof route!=="undefined" && route==="setup") return false;
     if(document.querySelector(".modalOverlay, .popmenu")) return false;
     const a = document.activeElement;
     return !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
